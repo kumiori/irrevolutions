@@ -34,10 +34,22 @@ to brush up if you feel unsure.
 
 ### Course Schedule
 
+
+- 0 Introduction, motivation, and a simple experiment, in theory.
+- 1 Numerics, from the basics to the solution of a linear variational problem 
+- 2 The notion of stability, stability of a brittle bar. The elasticity problem
+- 3 Energetics link fracture to damage. Project walkthrough 
+- 4 The damage problem: analytics and numerics
+- 5 Calibration (material, numerical) and tests
+- 6 Data analysis and presentation
+- Rest
+- 7 Defence
+
+
 ### Instructors/Authors
 
-V Lazarus, Sorbonnes Université.
-A Leon Baldelli, CR CNRS.
+- V Lazarus, Sorbonnes Université.
+- A Leon Baldelli, CR CNRS.
 
 ### Acknowledgements
 
@@ -46,15 +58,3 @@ Nan
 ### License
 
 MIT License, see `LICENSE` file.
-
-
-Overview.
-
-- 0 Introduction, mechanics, and a simple experiment.
-- 1 
-- 2 presentation, motivation, 1d bar stability / (numerics) intro + poisson
-- 3 energetics on 1d bar = link fracture % damage / project selection walkthtough / (numerics) elasticity pb
-- 4  / (numerics) damage problem: 1d bar in traction
-- 5 Calibration (material, numerical), refinement, small tests
-- 6 Data analysis and presentation
-- 7 Defence
