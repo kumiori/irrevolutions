@@ -21,7 +21,7 @@ To run a Docker container on a local machine.
        git clone https://github.com/kumiori/mec647.git
 
 3. Run `./launcher.sh`.
-4. 
+
 Although we recommend using Docker locally, you can also use the cloud-based Google Colab service to execute the notebooks:
 
 ### Prerequisites
