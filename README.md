@@ -53,7 +53,7 @@ to brush up if you feel unsure.
 
 ### Acknowledgements
 
-Nan
+Corrado Maurini, Sorbonne Université
 
 ### License
 
