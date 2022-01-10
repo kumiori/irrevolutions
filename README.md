@@ -32,6 +32,13 @@ finite element methods.
 Basic knowledge of Python will be assumed, see https://github.com/jakevdp/WhirlwindTourOfPython
 to brush up if you feel unsure.
 
+Basic knowledge of git as a versioning system with feature-branch workflow
+https://gist.github.com/brandon1024/14b5f9fcfd982658d01811ee3045ff1e
+
+Feature branch workflow
+https://docs.gitlab.com/ee/gitlab-basics/feature_branch_workflow.html
+
+
 ### Course Schedule
 
 
