@@ -38,6 +38,13 @@ https://gist.github.com/brandon1024/14b5f9fcfd982658d01811ee3045ff1e
 Feature branch workflow
 https://docs.gitlab.com/ee/gitlab-basics/feature_branch_workflow.html
 
+### Weekly updates (merge from main)
+```
+git checkout main
+git pull
+git checkout yourname-branch
+git merge main
+```
 
 ### Course Schedule
 
