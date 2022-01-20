@@ -46,6 +46,11 @@ git checkout yourname-branch
 git merge main
 ```
 
+Run the container, attach an interactive session, and share data
+```
+docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:latest
+```
+
 ### Course Schedule
 
 
