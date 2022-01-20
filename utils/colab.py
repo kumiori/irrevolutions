@@ -1,4 +1,4 @@
-%%capture
+# %%capture
 import sys
 
 try:
