@@ -14,7 +14,9 @@ else:
     except ImportError:
         # !wget "https://fem-on-colab.github.io/releases/fenicsx-install.sh" -O "/tmp/fenicsx-install.sh" && bash "/tmp/fenicsx-install.sh";
         ret = subprocess.run(["wget", "https://fem-on-colab.github.io/releases/fenicsx-install.sh", "-O /tmp/fenicsx-install.sh"])
+        print(ret)
         ret = subprocess.run(["bash", "/tmp/fenicsx-install.sh"])
+        print(ret)
         import ufl  # noqa: F401
         import dolfinx  # noqa: F401
 
