@@ -18,6 +18,7 @@ else:
         ret = subprocess.run(["bash", "/tmp/fenicsx-install.sh"])
         print(ret)
         import ufl  # noqa: F401
+        
         import dolfinx  # noqa: F401
 
 # !sudo apt install libgl1-mesa-glx xvfb;
