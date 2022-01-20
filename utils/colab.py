@@ -13,12 +13,18 @@ else:
         import dolfinx
     except ImportError:
         # !wget "https://fem-on-colab.github.io/releases/fenicsx-install.sh" -O "/tmp/fenicsx-install.sh" && bash "/tmp/fenicsx-install.sh";
-        ret = subprocess.run(["wget", "https://fem-on-colab.github.io/releases/fenicsx-install.sh", "-O /tmp/fenicsx-install.sh"])
-        print(ret)
-        ret = subprocess.run(["bash", "/tmp/fenicsx-install.sh"])
-        print(ret)
+        try:
+            subprocess.run(["wget", "https://fem-on-colab.github.io/releases/fenicsx-install.sh", "-O /tmp/fenicsx-install.sh"])
+        except subprocess.CalledProcessError as ret:
+            print("error code", ret.returncode, ret.output)
+
+        try:
+            subprocess.run(["bash", "/tmp/fenicsx-install.sh"])
+        except subprocess.CalledProcessError as ret:
+            print("error code", ret.returncode, ret.output)
+
         import ufl  # noqa: F401
-        
+
         import dolfinx  # noqa: F401
 
 # !sudo apt install libgl1-mesa-glx xvfb;
