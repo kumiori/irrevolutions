@@ -1,5 +1,6 @@
 # %%capture
 import sys
+import subprocess
 
 try:
     import google.colab  # noqa: F401
@@ -11,7 +12,9 @@ else:
         import ufl
         import dolfinx
     except ImportError:
-        !wget "https://fem-on-colab.github.io/releases/fenicsx-install.sh" -O "/tmp/fenicsx-install.sh" && bash "/tmp/fenicsx-install.sh";
+        # !wget "https://fem-on-colab.github.io/releases/fenicsx-install.sh" -O "/tmp/fenicsx-install.sh" && bash "/tmp/fenicsx-install.sh";
+        ret = subprocess.run(["wget", "https://fem-on-colab.github.io/releases/fenicsx-install.sh", "-O /tmp/fenicsx-install.sh"])
+        ret = subprocess.run(["bash", "/tmp/fenicsx-install.sh"])
         import ufl  # noqa: F401
         import dolfinx  # noqa: F401
 
