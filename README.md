@@ -45,8 +45,10 @@ git pull
 git checkout yourname-branch
 git merge main
 ```
+### To run the code (on Docker)
 
-Run the container, attach an interactive session, and share data
+First, run the container, attaching an interactive session and sharing data space 
+(the current dir) between the host and the container (the syntax is origin:target).
 ```
 docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:latest
 ```
