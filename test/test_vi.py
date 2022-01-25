@@ -37,6 +37,10 @@ with open("parameters.yml") as f:
 
 Lx = parameters.get("geometry").get("Lx")
 Ly = parameters.get("geometry").get("Ly")
+ell = parameters.get("model").get("ell")
+
+
+
 mesh = dolfinx.mesh.create_rectangle(MPI.COMM_WORLD, [[0.0, 0.0], [Lx, Ly]],
                                      [100, 10],
                                      cell_type=CellType.triangle)
@@ -76,7 +80,6 @@ right_dofs = dolfinx.fem.locate_dofs_topological(V, mesh.topology.dim - 1,
 bcs = [dirichletbc(zero, left_dofs), dirichletbc(one, right_dofs)]
 
 u = Function(V)
-ell = 0.3
 energy = (ell * ufl.inner(ufl.grad(u), ufl.grad(u)) + u / ell) * ufl.dx
 denergy = ufl.derivative(energy, u, ufl.TestFunction(V))
 ddenergy = ufl.derivative(denergy, u, ufl.TrialFunction(V))
@@ -108,7 +111,6 @@ solver_snes.solve(None, u.vector)
 # solver_snes.view()
 
 from pathlib import Path
-
 Path("output").mkdir(parents=True, exist_ok=True)
 
 with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "output/u.xdmf", "w") as f:
@@ -119,9 +121,8 @@ import pyvista
 from pyvista.utilities import xvfb
 
 import dolfinx.plot
-import pdb
 
-sys.path.append("../../test/unit")
+sys.path.append("../../test")
 from test_viz import plot_vector, plot_scalar, plot_profile
 
 xvfb.start_xvfb(wait=0.05)
@@ -163,4 +164,12 @@ ax.axvline(2 * ell, c="k", label='D=$2\ell$')
 _plt.legend()
 _plt.fill_between(data[0], data[1].reshape(len(data[1])))
 _plt.title("Variational Inequality")
-_plt.savefig(f"./output/test_vi_profile_MPI{MPI.COMM_WORLD.size}.png")
+_plt.savefig(f"./output/test_vi_profile_MPI{MPI.COMM_WORLD.size}-{ell:.3f}.png")
+
+
+import pdb
+
+pdb.set_trace()
+from dolfinx.fem.assemble import assemble_scalar
+
+min_en = assemble_scalar(dolfinx.fem.form(energy))
