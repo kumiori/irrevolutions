@@ -19,6 +19,13 @@ import pyvista
 from pyvista.utilities import xvfb
 
 import dolfinx.plot
+
+import matplotlib
+import matplotlib.collections
+import matplotlib.pyplot as plt
+import matplotlib.tri as tri
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 import matplotlib.pyplot as plt
 
 def plot_vector(u, plotter, subplot=None):
