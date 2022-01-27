@@ -35,8 +35,15 @@ to brush up if you feel unsure.
 Basic knowledge of git as a versioning system with feature-branch workflow
 https://gist.github.com/brandon1024/14b5f9fcfd982658d01811ee3045ff1e
 
-Feature branch workflow
+
+#### Feature branch workflow
+
+For each new feature, create a branch named ```{yourname}-{feature}```, 
+as in ```andres-complexmesh```.
+
 https://docs.gitlab.com/ee/gitlab-basics/feature_branch_workflow.html
+
+
 
 ### Weekly updates (merge from main)
 ```
