@@ -16,7 +16,7 @@ def main(filename="energyEll.txt"):
     plt.xlabel("Ell")
     plt.grid()
     plt.savefig("energyEll.png")
-    plt.show()
+    #plt.show()
 
 
 if __name__=="__main__":

@@ -27,13 +27,17 @@ import dolfinx.mesh
 from dolfinx.mesh import CellType
 import ufl
 
+import pyvista 
+from pyvista.utilities import xvfb 
+#from utils.viz import plot_vector 
+
 from mpi4py import MPI
 import petsc4py
 from petsc4py import PETSc
 import sys
 import yaml
 from dolfinx.fem.assemble import assemble_scalar
-
+import pyvista 
 sys.path.append("../")
 from solvers import SNESSolver
 
@@ -42,10 +46,13 @@ petsc4py.init(sys.argv)
 import logging
 
 logging.basicConfig(level=logging.INFO)
+from test_viz import plot_vector, plot_scalar, plot_profile
 
 with open("parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
+
+savePlots=True
 
 Lx = parameters.get("geometry").get("Lx")
 Ly = parameters.get("geometry").get("Ly")
@@ -128,6 +135,41 @@ for ell in ell_list:
 
     resArry[0, i]=ell
     resArry[1, i]=min_en
-    print(min_en)
+    #print(min_en)
+    if savePlots:
+        xvfb.start_xvfb(wait=0.05)
+        pyvista.OFF_SCREEN = True
+        plotter = pyvista.Plotter(
+            title="Test VI",
+            window_size=[800, 600],
+            shape=(1, 1),
+        )
+        if not pyvista.OFF_SCREEN:
+            plotter.show()
+
+        tol = 1e-3
+        xs = np.linspace(0 + tol, Lx - tol, 101)
+        points = np.zeros((3, 101))
+        points[0] = xs
+
+        _plt, data = plot_profile(
+            u,
+            points,
+            plotter,
+            subplot=(0, 0),
+            lineproperties={
+                "c": "k",
+                "label": f"$u_\ell$ with $\ell$ = {ell:.2f}"
+            },
+        )
+        ax = _plt.gca()
+        ax.axvline(0.0, c="k")
+        ax.axvline(1-2 * ell, c="k", label='D=$2\ell$')
+        _plt.legend()
+        _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+        _plt.title("Variational Inequality")
+        _plt.savefig(f"./output/test_vi_ell{np.round(ell, 2)}.png")    
     i+=1
+
+
 np.savetxt("energyEll.txt", resArry)
