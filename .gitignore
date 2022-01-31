@@ -1,0 +1,6 @@
+*/output/*
+*.xdmf
+*.h5
+*.png
+*ipynb
+*.pyc
