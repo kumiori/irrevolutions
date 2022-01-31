@@ -45,7 +45,7 @@ class ElasticityModel:
         if self.model_type == "plane-strain":
             return ufl.sym(
                 ufl.as_matrix([
-                    [u[0].dx(0), u[0].dx(1), 0],
+                    [u[0].dx(0), u[0.]dx(1), 0],
                     [u[1].dx(0), u[1].dx(1), 0],
                     [0, 0, 0],
                 ]))
@@ -60,7 +60,7 @@ class ElasticityModel:
         # Elastic energy density
         return 1 / 2 * (2 * mu * ufl.inner(eps, eps) + lmbda * ufl.tr(eps)**2)
 
-    def elastic_energy_density(self, state):
+    def elastic_energy_density(self, state:)
         """
         Returns the elastic energy density from the state.
         """

@@ -33,7 +33,7 @@ def plot_vector(u, plotter, subplot=None):
         plotter.subplot(subplot[0], subplot[1])
     V = u.function_space
     mesh = V.mesh
-    topology, cell_types = dolfinx.plot.create_vtk_topology(mesh, mesh.topology.dim)
+    topology, cell_types = dolfinx.plot.create_vtk_mesh(mesh, mesh.topology.dim)
     num_dofs_local = u.function_space.dofmap.index_map.size_local
     geometry = u.function_space.tabulate_dof_coordinates()[:num_dofs_local]
     values = np.zeros((V.dofmap.index_map.size_local, 3), dtype=np.float64)
@@ -60,7 +60,7 @@ def plot_scalar(alpha, plotter, subplot=None, lineproperties={}):
         plotter.subplot(subplot[0], subplot[1])
     V = alpha.function_space
     mesh = V.mesh
-    topology, cell_types = dolfinx.plot.create_vtk_topology(mesh, mesh.topology.dim)
+    topology, cell_types = dolfinx.plot.create_vtk_mesh(mesh, mesh.topology.dim)
     grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
 
     plotter.subplot(0, 0)
