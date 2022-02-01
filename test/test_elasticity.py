@@ -196,3 +196,16 @@ for i_t, t in enumerate(loads):
         a_file = open(f"{prefix}_data.json", "w")
         json.dump(history_data, a_file)
         a_file.close()
+
+from utils.viz import plot_mesh, plot_vector, plot_scalar
+import pyvista 
+
+plotter = pyvista.Plotter(
+    title="Displacement",
+    window_size=[1600, 600],
+    shape=(1, 2),
+)
+
+# _plt = plot_scalar(u_.sub(0), plotter, subplot=(0, 0))
+_plt = plot_vector(u, plotter, subplot=(0, 1))
+_plt.screenshot(f"output/elasticity_displacement_MPI{comm.size}.png")
