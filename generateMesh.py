@@ -27,7 +27,9 @@ gmsh_model, tdim = primitives.mesh_ep_gmshapi(geom_type,
 mesh, mts = meshes.gmsh_model_to_mesh(gmsh_model,
                                cell_data=False,
                                facet_data=True,
-                               gdim=2)
+                               gdim=2, 
+                               exportMesh=True, 
+                               fileName="epTestMesh.msh")
 
 plt.figure()
 ax = plot_mesh(mesh)
