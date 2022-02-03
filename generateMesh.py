@@ -21,7 +21,7 @@ gmsh_model, tdim = primitives.mesh_ep_gmshapi(geom_type,
                                     L0, 
                                     s,   
                                     seedDist, 
-                                    sep=0.1,
+                                    sep=0.01,
                                     tdim=2)
 
 mesh, mts = meshes.gmsh_model_to_mesh(gmsh_model,
