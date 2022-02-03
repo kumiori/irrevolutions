@@ -1,6 +1,7 @@
 #Numpy -> numerical library for Python. We'll use it for all array operations.
 #It's written in C and it's faster (than traditional Python)
 import numpy as np
+from pyparsing import identbodychars
 
 #Yaml (Yet another markup language) -> We'll use it to pass, read and structure
 #light text data in .yml files.
@@ -16,7 +17,7 @@ import json
 import sys
 import os
 from pathlib import Path
-
+import pdb
 #Mpi4py -> Interface that allows parallel interoperability. MPI stands for' Message
 #Passager Interface' and will be used to communicate computer nodes when lauching code
 #in a parallel way
@@ -61,6 +62,10 @@ import gmsh
 
 import matplotlib.pyplot as plt
 
+sys.path.append("../")
+
+#pdb.set_trace()
+
 # meshes
 import meshes
 from meshes import primitives
@@ -69,6 +74,9 @@ from meshes import primitives
 from utils import viz
 import matplotlib.pyplot as plt
 from utils.viz import plot_mesh, plot_vector, plot_scalar
+
+import pyvista 
+from pyvista.utilities import xvfb
 
 ###################################################################
 
@@ -198,6 +206,7 @@ show=False,
         gmsh.fltk.run()
     return gmsh.model
 
+
 a=0.00533
 h=0.0178
 L=0.0762
@@ -222,11 +231,11 @@ V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
 
 u = dolfinx.fem.Function(V_u, name="Displacement")
 
-g = dolfinx.fem.Function(V_u, name="Body pressure")
+g = dolfinx.fem.Function(V_u, name="Body_pressure")
 with g.vector.localForm() as loc:
-  loc.set(0.0)
+  loc.set(10.0)
 
-u_ = dolfinx.fem.Function(V_u, name="Boundary Displacement")
+u_ = dolfinx.fem.Function(V_u, name="Boundary_Displacement")
 
 zero = Function(V_u)
 # works in parallel!
@@ -275,6 +284,8 @@ right_dofs = dolfinx.fem.locate_dofs_topological(V_u, mesh.topology.dim - 1,
 bcs = [dirichletbc(zero, left_dofs), dirichletbc(zero, right_dofs)]
 
 
+#pdb.set_trace()
+
 # solving
 from solvers import SNESSolver
 D_energy_u = ufl.derivative(energy, u, ufl.TestFunction(V_u))
@@ -291,55 +302,25 @@ problem = SNESSolver(
 
 problem.solve()
 
-def plot_vector(u, plotter, subplot=None):
-    if subplot:
-        plotter.subplot(subplot[0], subplot[1])
-    V = u.function_space
-    mesh = V.mesh
-    topology, cell_types, _ = dolfinx.plot.create_vtk_mesh(mesh, mesh.topology.dim)
-    num_dofs_local = u.function_space.dofmap.index_map.size_local
-    geometry = u.function_space.tabulate_dof_coordinates()[:num_dofs_local]
-    values = np.zeros((V.dofmap.index_map.size_local, 3), dtype=np.float64)
-    values[:, : mesh.geometry.dim] = u.vector.array.real.reshape(
-        V.dofmap.index_map.size_local, V.dofmap.index_map_bs
-    )
-    grid = pyvista.UnstructuredGrid(topology, cell_types, geometry)
-    grid["vectors"] = values
-    grid.set_active_vectors("vectors")
-    # geom = pyvista.Arrow()
-    # glyphs = grid.glyph(orient="vectors", factor=1, geom=geom)
-    glyphs = grid.glyph(orient="vectors", factor=1.0)
-    plotter.add_mesh(glyphs)
-    plotter.add_mesh(
-        grid, show_edges=True, color="black", style="wireframe", opacity=0.3
-    )
-    plotter.view_xy()
-    return plotter
-
-
-def plot_scalar(alpha, plotter, subplot=None, lineproperties={}):
-    if subplot:
-        plotter.subplot(subplot[0], subplot[1])
-    V = alpha.function_space
-    mesh = V.mesh
-    topology, cell_types, _ = dolfinx.plot.create_vtk_mesh(mesh, mesh.topology.dim)
-    grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
-
-    plotter.subplot(0, 0)
-    grid.point_data["alpha"] = alpha.compute_point_values().real
-    grid.set_active_scalars("alpha")
-    plotter.add_mesh(grid, **lineproperties)
-    plotter.view_xy()
-    return plotter
-
-
+from utils.viz import plot_vector
 
 # plt.figure()
 # ax = plot_mesh(mesh)
 # fig = ax.get_figure()
 # fig.savefig(f"mesh.png")
 
+from dolfinx.fem.assemble import assemble_scalar
+
+min_en = assemble_scalar(dolfinx.fem.form(energy))
+
+print(min_en)
+
+pdb.set_trace()
+
 # postprocessing
+xvfb.start_xvfb(wait=0.05)
+pyvista.OFF_SCREEN = True
+
 plotter = pyvista.Plotter(
         title="Displacement",
         window_size=[1600, 600],
