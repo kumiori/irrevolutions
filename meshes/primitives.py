@@ -28,7 +28,7 @@ def mesh_bar_gmshapi(name,
         model = gmsh.model()
         model.add("Rectangle")
         model.setCurrent("Rectangle")
-        p0 = model.geo.addPoint(0.0, 0.0, 0, lc, tag=0)
+        p1 = model.geo.addPoint(0.0, 0.0, 0, lc, tag=0)
         p1 = model.geo.addPoint(Lx, 0.0, 0, lc, tag=1)
         p2 = model.geo.addPoint(Lx, Ly, 0.0, lc, tag=2)
         p3 = model.geo.addPoint(0, Ly, 0, lc, tag=3)
