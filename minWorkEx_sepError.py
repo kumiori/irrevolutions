@@ -69,7 +69,7 @@ def main():
                                         L0, 
                                         s,   
                                         seedDist, 
-                                        sep=0.0,
+                                        sep=1E-16,
                                         tdim=2)
 
 if __name__=="__main__":
