@@ -182,7 +182,7 @@ if __name__ == "__main__":
     # plotter.subplot(0, 0)
     actor_1 = plotter.add_mesh(grid, show_edges=True)
 
-    plotter.view_xy()
+    plotter.view_xy() 
     if not pyvista.OFF_SCREEN:
         plotter.show()
     figure = plotter.screenshot("output/bar.png")
