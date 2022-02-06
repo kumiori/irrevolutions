@@ -1,0 +1,154 @@
+* Tensile plate, clamped at the bottom 
+* with controlled displacement at the top
+*CPDP= 'DP';
+CPDP= 'CP';
+*Plane strains
+SI (EGA CPDP  'DP'); 
+OPTION DIME 2 ELEM qua4 MODE PLAN DEFO  ;
+FINSI;
+*Plane stresses *
+SI (EGA CPDP  'CP');
+OPTION DIME 2 ELEM qua4 MODE PLAN CONT  ;
+FINSI;
+*opti dime 2 mode plan cont;
+opti elem tri3;
+*opti elem tri6;
+*opti epsilon lineaire;
+************************************************************************
+*----------- INPUT DATAS-------------
+* Material constants
+YOU0=1.; 
+v0=0.4; 
+* Applied Displacement
+u0= 1.; 
+
+
+TAB1 = LIRE 'UNV' './meshes/twoCrack_ep2.unv';
+list TAB1;
+s0 = TAB1.'MAILLAGE';
+
+
+liptopL = TAB1.'Lliptop';
+lipbotL = TAB1.'Llipbot';
+
+
+top0 = TAB1.'top';
+bot0 = TAB1.'bottom';
+
+pF0 = Noeud 9; 
+*pF0 = TAB1.'nodeLeftMiddle'; 
+*Problematic
+*trac (s0 coul blanc);
+
+
+s0 = rege s0;
+s0 = (s0 ELEM TRI3);
+
+*trac s0;
+
+***********************************************************************
+*----------- CONSTITUTIVE LAW-------------
+* 
+*Plane strains
+SI (EGA CPDP  'DP'); 
+OPTION DIME 2 MODE PLAN DEFO  ;
+FINSI;
+*Plane stresses *
+SI (EGA CPDP  'CP');
+OPTION DIME 2 MODE PLAN CONT  ;
+FINSI;
+
+opti elem qua8;
+
+MOD0 = MODE S0 MECANIQUE ELASTIQUE ISOTROPE ;
+MAT0 = MATE MOD0 YOUNG YOU0 NU v0;
+*----------- BOUNDARY CONDITIONS-----------
+* Clamped at the bottom
+CL01 = BLOQ UX bot0 ;
+CL02 = BLOQ UY bot0 ;
+CL0=CL01 et CL02;
+*displacement in the y-direction at the top
+CL2 = BLOQ UY top0 ;
+CL3 = BLOQ UX top0;
+CHA0 = DEPI CL2 (u0);
+CL0 =  CL0 et CL2 et CL3;
+
+* STIFFNESS MATRIX
+rig0 = rigi mod0 mat0 ;
+
+* DETERMINATION OF THE DISPLACEMENT FIELD
+u0 = reso (rig0 et cl0) cha0 ;
+***********************************************************************
+*----------- POST-PROCESSING ----------------
+************* PLOT
+* Plot of the deformation
+*titre 'deformee' ;
+*def0 = defo s0 u0 0. bleu ;
+*def1 = defo s0 u0  roug ;
+*trac (def0 et def1);
+** plot of the stress state
+*sig1 = sigma mod0 mat0 u0 ;
+*trac sig1 mod0;
+
+************* DETERMINATION OF THE SIF
+*----By interpolation of the displacement field  ---------------------;
+*SIFTAB = TABL;
+*SIFTAB.'MODMIXTE' = VRAI;
+*SIFTAB.'LEVRE_1' = liptopL;
+*SIFTAB.'LEVRE_2' = lipbotL;
+*SIFTAB.'FRTFISS' = pF0;
+*SIF SIFTAB MAT0 U0;
+
+*K1INT = SIFTAB.K1;
+*K2INT = SIFTAB.K2;
+
+
+*----By G-theta methods ---------------------;
+GTAB = TABL;
+GTAB . 'OBJECTIF' = MOT 'DECOUPLAGE';
+GTAB . 'FRONT_FISSURE'  = pF0 ;
+GTAB . 'LEVRE_SUPERIEURE' = liptopL;
+GTAB . 'LEVRE_INFERIEURE' = lipbotL;
+GTAB . 'COUCHE' = 6;
+GTAB . 'SOLUTION_RESO'  = u0;
+GTAB . 'CARACTERISTIQUES' = mat0;
+GTAB . 'MODELE' = mod0;
+GTAB . 'CHARGEMENTS_MECANIQUES' = cha0 ;
+G_THETA GTAB;
+K1G = GTAB. 'RESULTATS'. 'I'  ;
+K2G = GTAB . 'RESULTATS'. 'II'  ;
+
+
+************* DETERMINATION OF G
+*----Using G-theta  ---------------------;
+GTAB = TABL;
+GTAB . 'OBJECTIF' = MOT 'J';
+GTAB . 'FRONT_FISSURE'  = pF0 ;
+GTAB . 'LEVRE_SUPERIEURE' = liptopL;
+GTAB . 'LEVRE_INFERIEURE' = lipbotL;
+GTAB . 'COUCHE' = 6;
+GTAB . 'SOLUTION_RESO'  = u0;
+GTAB . 'CARACTERISTIQUES' = mat0;
+GTAB . 'MODELE' = mod0;
+GTAB . 'CHARGEMENTS_MECANIQUES' = cha0 ;
+G_THETA GTAB;
+G_cal = GTAB . 'RESULTATS'  ;
+SI (EGA CPDP  'DP'); 
+A0= (1. - (v0*v0));
+FINSI;
+*Plane stresses *
+SI (EGA CPDP  'CP');
+A0= 1.; 
+FINSI;
+GIrw= (A0/YOU0)*((K1G * K1G)+(K2G * K2G));
+mess '--------------------------';
+mess 'K1  Gtheta :'  K1G;
+mess 'K2  Gtheta:'  K2G;
+mess '---G  Gtheta :'  G_cal;
+mess '---G  J-Irwin :' GIrw;
+*OPTI SAUV 'FORMAT' 'Ficher.sauv';
+*SAUV K1G;
+
+*opti donn 5;
+fin;
+
