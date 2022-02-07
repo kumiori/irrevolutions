@@ -59,7 +59,7 @@ from dolfinx.io import XDMFFile
 #!{sys.executable}: to use the current kernel to make the installation 
 import matplotlib.pyplot as plt
 
-sys.path.append(cd '../')
+sys.path.append('../')
 
 import pdb
 
@@ -72,6 +72,7 @@ from utils import viz
 import matplotlib.pyplot as plt
 from utils.viz import plot_mesh, plot_vector, plot_scalar
 
+import gmsh
 #----------------------------------------
 def mesh_V(
 a,
