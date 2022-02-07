@@ -69,23 +69,6 @@ def mesh_bar_gmshapi(name,
 
         model.mesh.generate(tdim)
 
-        # Define physical groups for interfaces (! target tag > 0)
-        # surface = 1
-        # gmsh.model.addPhysicalGroup(tdim - 1, [s[1] for s in surfaces], surface)
-        # gmsh.model.setPhysicalName(tdim - 1, surface, 'surface')
-        """surface_grip_left = 2
-        gmsh.model.addPhysicalGroup(tdim - 1, [s0], surface_grip_left)
-        gmsh.model.setPhysicalName(tdim - 1, surface_grip_left, 'surface_grip_left')
-        surface_grip_right = 3
-        gmsh.model.addPhysicalGroup(tdim - 1, [s1], surface_grip_right)
-        gmsh.model.setPhysicalName(tdim - 1, surface_grip_right, 'surface_grip_right')
-        surface_plane_left = 4
-        gmsh.model.addPhysicalGroup(tdim - 1, [s2], surface_plane_left)
-        gmsh.model.setPhysicalName(tdim - 1, surface_plane_left, 'surface_plane_left')
-        surface_plane_right = 5
-        gmsh.model.addPhysicalGroup(tdim - 1, [s3], surface_plane_right)
-        gmsh.model.setPhysicalName(tdim - 1, surface_plane_right, 'surface_plane_right')"""
-
         # Optional: Write msh file
         if msh_file is not None:
             gmsh.write(msh_file)
