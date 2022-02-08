@@ -21,6 +21,9 @@ from dolfinx.cpp.graph import AdjacencyList_int32
 from dolfinx.mesh import create_meshtags, create_mesh
 
 
+def mesh_bounding_box(mesh, i): return (
+    min(mesh.geometry.x[:, i]), max(mesh.geometry.x[:, i]))
+
 def read_from_msh(filename: str, cell_data=False, facet_data=False, gdim=None):
     """
     Reads a mesh from a msh-file and returns the dolfin-x mesh.
