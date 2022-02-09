@@ -16,6 +16,9 @@ import dolfinx
 import dolfinx.plot
 from dolfinx import log
 import ufl
+from ufl import (CellDiameter, FacetNormal, SpatialCoordinate, TestFunction,
+                 TrialFunction, avg, div, ds, dS, dx, grad, inner, jump)
+import pdb
 sys.path.append("../")
 
 from dolfinx.io import XDMFFile
@@ -39,6 +42,8 @@ from dolfinx.fem import (
     Function,
     FunctionSpace,
     assemble_scalar,
+    assemble_matrix, apply_lifting,
+    assemble_vector,
     dirichletbc,
     form,
     locate_dofs_geometrical,
@@ -97,20 +102,80 @@ with XDMFFile(comm, f"{prefix}.xdmf", "w",
 # Function spaces
 r=3
 degree = r
-SREG = ufl.FiniteElement('HHJ', "triangle", r)
-CG = ufl.FiniteElement('CG', "triangle", r + 1)
-V = dolfinx.fem.FunctionSpace(mesh, SREG * CG)
-# *** ValueError: Unknown element family: Hellan-Herrmann-Johnson with cell type triangle
+# SREG = ufl.FiniteElement('Regge', "triangle", r)
+# CG = ufl.FiniteElement('CG', "triangle", r + 1)
+# V = dolfinx.fem.FunctionSpace(mesh, SREG * CG)
 
 # x_extents = mesh_bounding_box(mesh, 0)
 # y_extents = mesh_bounding_box(mesh, 1)
 
+# Measures
+dx = ufl.Measure("dx", domain=mesh)
+ds = ufl.Measure("ds", domain=mesh)
 
+element = ufl.MixedElement([ufl.FiniteElement("Regge", ufl.triangle, 1),
+                            ufl.FiniteElement("Lagrange", ufl.triangle, 2)])
 
-# SREG = ufl.FiniteElement('HHJ', mesh.ufl_cell(), r)
-# CG = ufl.FiniteElement('CG', mesh.ufl_cell(), r + 1)
+V = FunctionSpace(mesh, element)
+V_1 = V.sub(1).collapse()
+
+sigma, u = ufl.TrialFunctions(V)
+tau, v = ufl.TestFunctions(V)
+def S(tau):
+    return tau - ufl.Identity(2) * ufl.tr(tau)
+
+# Discrete duality inner product 
+# cf. eq. 4.5 Lizao Li's PhD thesis
+
+def b(tau_S, v):
+    n = FacetNormal(mesh)
+    return inner(tau_S, grad(grad(v))) * dx \
+        - ufl.dot(ufl.dot(tau_S('+'), n('+')), n('+')) * jump(grad(v), n) * dS \
+        - ufl.dot(ufl.dot(tau_S, n), n) * ufl.dot(grad(v), n) * ds
+
+sigma_S = S(sigma)
+tau_S = S(tau)
+f_exact = Constant(mesh, np.array(-1., dtype=PETSc.ScalarType))
+
+# Non-symmetric formulation
+a = form(ufl.inner(sigma_S, tau_S) * dx - b(tau_S, u) + b(sigma_S, v))
+L = form(ufl.inner(f_exact, v) * dx)
+
+zero_u = Function(V_1)
+zero_u.x.array[:] = 0.0
+
+boundary_facets = dolfinx.mesh.locate_entities_boundary(
+    mesh, mesh.topology.dim - 1, lambda x: np.full(x.shape[1], True, dtype=bool))
+boundary_dofs = dolfinx.fem.locate_dofs_topological(
+    (V.sub(1), V_1), mesh.topology.dim - 1, boundary_facets)
+
+bcs = [dirichletbc(zero_u, boundary_dofs, V.sub(1))]
+
+A = assemble_matrix(a, bcs=bcs)
+A.assemble()
+b = assemble_vector(L)
+apply_lifting(b, [a], bcs=[bcs])
+b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+set_bc(b, bcs)
+
+# Solve
+solver = PETSc.KSP().create(MPI.COMM_WORLD)
+PETSc.Options()["ksp_type"] = "preonly"
+PETSc.Options()["pc_type"] = "lu"
+PETSc.Options()["pc_factor_mat_solver_type"] = "mumps"
+solver.setFromOptions()
+solver.setOperators(A)
+
+x_h = Function(V)
+solver.solve(b, x_h.vector)
+x_h.x.scatter_forward()
+sigma_h = S(ufl.as_tensor([[x_h[0], x_h[1]], [x_h[2], x_h[3]]]))
+
 import pdb
+
 pdb.set_trace()
+
+
 element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
 V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
 
@@ -122,9 +187,6 @@ zero_u = dolfinx.fem.Function(V_u, name="   Boundary Displacement")
 
 state = {"u": u}
 
-# Measures
-dx = ufl.Measure("dx", domain=mesh)
-ds = ufl.Measure("ds", domain=mesh)
 
 dofs_u_left = dolfinx.fem.locate_dofs_geometrical(
     V_u, lambda x: np.isclose(x[0], 0.0))
