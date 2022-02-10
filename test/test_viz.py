@@ -1,13 +1,17 @@
-import numpy as np
+import ufl
+from pathlib import Path
 import sys
+sys.path.append("../")
+import dolfinx.plot
+import meshes
+from meshes.primitives import mesh_bar_gmshapi
+import numpy as np
 from datetime import date
 
 today = date.today()
 
-sys.path.append("../../")
 
 import dolfinx
-import ufl
 
 from petsc4py import PETSc
 import petsc4py
@@ -28,22 +32,25 @@ comm = MPI.COMM_WORLD
 import pyvista
 from pyvista.utilities import xvfb
 
-import dolfinx.plot
 
 
 def test_viz():
     Lx = 1.0
     Ly = 0.1
     _nel = 30
-    mesh = dolfinx.generation.RectangleMesh(
-        MPI.COMM_WORLD, [[0.0, 0.0, 0.0], [Lx, Ly, 0.0]], [_nel, int(_nel * Ly / Lx)]
-    )
+    _outdir = './output/test_viz'
+    Path(_outdir).mkdir(parents=True, exist_ok=True)
 
+    gmsh_model, tdim = mesh_bar_gmshapi("bar", Lx, Ly, Lx/_nel, 2)
+    mesh, mts = meshes.gmsh_model_to_mesh(gmsh_model,
+                                cell_data=False,
+                                facet_data=True,
+                                gdim=2)
     element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
-    V_u = dolfinx.FunctionSpace(mesh, element_u)
+    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
 
     element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-    V_alpha = dolfinx.FunctionSpace(mesh, element_alpha)
+    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
 
     def scal_2D(x):
         return np.sin(np.pi * x[0] * 3.0)
@@ -55,10 +62,10 @@ def test_viz():
         return vals
 
     # Define the state
-    u = dolfinx.Function(V_u, name="Displacement")
+    u = dolfinx.fem.Function(V_u, name="Displacement")
     u.interpolate(vect_2D)
 
-    alpha = dolfinx.Function(V_alpha, name="Damage")
+    alpha = dolfinx.fem.Function(V_alpha, name="Damage")
     alpha.interpolate(scal_2D)
 
     xvfb.start_xvfb(wait=0.05)
