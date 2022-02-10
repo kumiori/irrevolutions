@@ -1,6 +1,17 @@
 import logging
 import dolfinx
 from solvers import SNESSolver
+from dolfinx.fem import (
+    Constant,
+    Function,
+    FunctionSpace,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
+from petsc4py import PETSc
 
 class AlternateMinimisation:
     def __init__(
