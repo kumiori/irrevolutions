@@ -12,6 +12,13 @@ from dolfinx.fem import (
     set_bc,
 )
 from petsc4py import PETSc
+import ufl
+import numpy as np
+
+from mpi4py import MPI
+comm = MPI.COMM_WORLD
+
+from utils import norm_H1, norm_L2
 
 class AlternateMinimisation:
     def __init__(
@@ -38,9 +45,9 @@ class AlternateMinimisation:
         self.alpha_lb = bounds[0]
         self.alpha_ub = bounds[1]
         self.total_energy = total_energy
-        self.solver_parameters = default_parameters["solvers"]
-        if solver_parameters:
-            self.solver_parameters.update(solver_parameters)
+        # self.solver_parameters = default_parameters["solvers"]
+        # if solver_parameters:
+        self.solver_parameters = solver_parameters
 
         self.monitor = monitor
 
