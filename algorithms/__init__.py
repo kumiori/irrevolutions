@@ -15,4 +15,4 @@ from dolfinx.io import XDMFFile
 
 petsc4py.init(sys.argv)
 
-from algorithms.am import AlternateMinimisation
+from am import AlternateMinimisation
