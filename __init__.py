@@ -26,3 +26,17 @@ from dolfinx.io import XDMFFile
 import logging
 
 logging.basicConfig(level=logging.INFO)
+
+from petsc4py import PETSc
+comm = MPI.COMM_WORLD
+
+from dolfinx.fem import (
+    Constant,
+    Function,
+    FunctionSpace,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
