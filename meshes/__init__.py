@@ -54,9 +54,9 @@ def read_from_msh(filename: str, cell_data=False, facet_data=False, gdim=None):
     return output
 
 
-def gmsh_model_to_mesh(model, cell_data=False, facet_data=False, gdim=None):
+def gmsh_model_to_mesh(model, cell_data=False, facet_data=False, gdim=None, exportMesh=False, fileName="mesh.msh"):
     """
-    Given a GMSH model, create a DOLFIN-X mesh and MeshTags.
+    Given a GMSH model, create a DOLFIN-X mesh and MeshTags. Can theoretically export to msh file
         model: The GMSH model
         cell_data: Boolean, True of a mesh tag for cell data should be returned
                    (Default: False)
@@ -159,6 +159,9 @@ def gmsh_model_to_mesh(model, cell_data=False, facet_data=False, gdim=None):
         ft = create_meshtags(mesh, mesh.topology.dim - 1, adj,
                              numpy.int32(local_values))
         ft.name = "facets"
+
+    if exportMesh:
+        gmsh.write(fileName)
 
     if cell_data and facet_data:
         return mesh, ct, ft
