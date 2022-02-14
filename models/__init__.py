@@ -17,15 +17,15 @@ class ElasticityModel:
     # Basic class for elasticity
 
     def __init__(self, eps_0=None, model_parameters={}):
-        self.model_parameters = default_parameters["model"]
-        if model_parameters:
-            self.model_parameters.update(model_parameters)
         """
         Initializes the sound material parameters.
         * Sound material parameters:
             - model_parameters["E"]: sound Young modulus
             - model_parameters["nu"]: sound Poisson ratio
         """
+        self.model_parameters = default_parameters["model"]
+        if model_parameters:
+            self.model_parameters.update(model_parameters)
         # Sound material paramaters
         self.E = self.model_parameters["E"]
         self.nu = self.model_parameters["nu"]
@@ -81,6 +81,7 @@ class DamageElasticityModel(ElasticityModel):
     """
     Base class for elasticity coupled with damage.
     """
+
     def __init__(self, model_parameters={}):
         """
         Initializes the sound material parameters.
