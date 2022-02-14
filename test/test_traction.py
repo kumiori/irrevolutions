@@ -186,6 +186,7 @@ solver = AlternateMinimisation(
 history_data = {
     "load": [],
     "elastic_energy": [],
+    "total_energy": [],
     "dissipated_energy": [],
     "solver_data": [],
 }
@@ -217,6 +218,7 @@ for i_t, t in enumerate(loads):
     history_data["load"].append(t)
     history_data["dissipated_energy"].append(dissipated_energy)
     history_data["elastic_energy"].append(elastic_energy)
+    history_data["total_energy"].append(elastic_energy+dissipated_energy)
     history_data["solver_data"].append(solver.data)
 
     with XDMFFile(comm, f"{prefix}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
