@@ -1,12 +1,15 @@
-# library include
-
-
-import numpy as np
-import yaml
-import json
 import sys
-import os
-from pathlib import Path
+sys.path.append('../')
+import numpy as np
+
+import meshes
+from meshes import primitives
+
+# visualisation
+from utils import viz
+import matplotlib.pyplot as plt
+from utils.viz import plot_mesh
+import yaml
 
 from mpi4py import MPI
 
@@ -42,107 +45,23 @@ import matplotlib.pyplot as plt
 import pyvista 
 from pyvista.utilities import xvfb
 
-sys.path.append('./')
-
-# meshes
-import meshes
-from meshes import primitives
-
-# visualisation
-from utils import viz
-import matplotlib.pyplot as plt
-from utils.viz import plot_mesh, plot_vector, plot_scalar
-
-
-def plot_vector(u, plotter, subplot=None):
-    if subplot:
-        plotter.subplot(subplot[0], subplot[1])
-    V = u.function_space
-    mesh = V.mesh
-    topology, cell_types = dolfinx.plot.create_vtk_topology(mesh, mesh.topology.dim)
-    num_dofs_local = u.function_space.dofmap.index_map.size_local
-    geometry = u.function_space.tabulate_dof_coordinates()[:num_dofs_local]
-    values = np.zeros((V.dofmap.index_map.size_local, 3), dtype=np.float64)
-    values[:, : mesh.geometry.dim] = u.vector.array.real.reshape(
-        V.dofmap.index_map.size_local, V.dofmap.index_map_bs
-    )
-    grid = pyvista.UnstructuredGrid(topology, cell_types, geometry)
-    grid["vectors"] = values
-    grid.set_active_vectors("vectors")
-    # geom = pyvista.Arrow()
-    # glyphs = grid.glyph(orient="vectors", factor=1, geom=geom)
-    glyphs = grid.glyph(orient="vectors", factor=1.0)
-    plotter.add_mesh(glyphs)
-    plotter.add_mesh(
-        grid, show_edges=True, color="black", style="wireframe", opacity=0.3
-    )
-    plotter.view_xy()
-    return plotter
-
-
-def plot_scalar(alpha, plotter, subplot=None, lineproperties={}):
-    if subplot:
-        plotter.subplot(subplot[0], subplot[1])
-    V = alpha.function_space
-    mesh = V.mesh
-    topology, cell_types, _ = dolfinx.plot.create_vtk_mesh(mesh, mesh.topology.dim)
-    grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
-
-    plotter.subplot(0, 0)
-    grid.point_data["alpha"] = alpha.compute_point_values().real
-    grid.set_active_scalars("alpha")
-    plotter.add_mesh(grid, **lineproperties)
-    plotter.view_xy()
-    return plotter
-
-# Parameters
-
-parameters = {
-    'loading': {
-        'min': 0,
-        'max': 1
-    },
-    'geometry': {
-        'geom_type': 'bar',
-        'Lx': 5.,
-        'Ly': 15
-    },
-    'model': {
-        'mu': 1.,
-        'lmbda': 0.
-    },
-    'solvers': {
-        'snes': {
-            'snes_type': 'newtontr',
-            'snes_stol': 1e-8,
-            'snes_atol': 1e-8,
-            'snes_rtol': 1e-8,
-            'snes_max_it': 100,
-            'snes_monitor': "",
-            'ksp_type': 'preonly',
-            'pc_type': 'lu',
-            'pc_factor_mat_solver_type': 'mumps'
-        }
-    }
-}
-
-# parameters.get('loading')
-with open("./solveModel/parametersSolve.yml") as f:
-    parameters = yaml.load(f, Loader=yaml.FullLoader)
-
 # Mesh
-Lx = parameters["geometry"]["Lx"]
-Ly = parameters["geometry"]["Ly"]
-geom_type = parameters["geometry"]["geom_type"]
+Lx = 100
+Ly = 400
+s=2
+L0=30
+seedDist=10
 
+geom_type = "bar"
 
 
 gmsh_model, tdim = primitives.mesh_ep_gmshapi(geom_type,
                                     Lx, 
-                                    Ly, 
-                                    1, 
-                                    0.5,
-                                    0.3, 
+                                    Ly,
+                                    L0, 
+                                    s,   
+                                    seedDist, 
+                                    sep=0.1,
                                     tdim=2)
 
 mesh, mts = meshes.gmsh_model_to_mesh(gmsh_model,
@@ -150,16 +69,19 @@ mesh, mts = meshes.gmsh_model_to_mesh(gmsh_model,
                                facet_data=True,
                                gdim=2, 
                                exportMesh=True, 
-                               fileName="epTestMesh.msh")
-
-# TODO: Plot mesh
-
+                               fileName="twoCrack_ep2.unv")
 
 plt.figure()
 ax = plot_mesh(mesh)
 fig = ax.get_figure()
 fig.savefig(f"mesh.png")
 
+
+with open("./test/parameters.yml") as f:
+    parameters = yaml.load(f, Loader=yaml.FullLoader)
+
+
+# Part to get boundaries 
 boundaries = [(1, lambda x: np.isclose(x[0], 0)),
               (2, lambda x: np.isclose(x[0], Lx)),
               (3, lambda x: np.isclose(x[1], 0)),
@@ -206,17 +128,11 @@ with one.vector.localForm() as loc:
 
 g = Function(V_u)
 # works in parallel!
-"""
 with g.vector.localForm() as loc:
-    loc.set(1.0/100.)
-"""
-
-#x = ufl.SpatialCoordinate(mesh)
-#g = dolfinx.Expression ('4 *x[1]')
+    loc.set(1.0)
 
 # boundary conditions
-g.interpolate(lambda x: (np.zeros_like(x[0]), np.ones_like(x[1]))) 
-g.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD) 
+
 def left(x):
   return np.isclose(x[0], 0.)
 
@@ -259,7 +175,7 @@ def _e(u):
   return ufl.sym(ufl.grad(u))
 
 en_density = 1/2 * (2*mu* ufl.inner(_e(u),_e(u))) + lmbda*ufl.tr(_e(u))**2
-energy = en_density * dx - ufl.inner(u, g)*dS(4)
+energy = en_density * dx + ufl.inner(u, g)*dS(4)
 
 #bcs = [dirichletbc(zero, bottom_dofs), dirichletbc(one, top_dofs)]
 bcs = [dirichletbc(zero, bottom_dofs)]
@@ -279,24 +195,3 @@ problem = SNESSolver(
 
 
 uh = problem.solve()
-print(u)
-
-# plt.figure()
-# ax = plot_mesh(mesh)
-# fig = ax.get_figure()
-# fig.savefig(f"mesh.png")
-
-# postprocessing
-
-xvfb.start_xvfb(wait=0.05)
-pyvista.OFF_SCREEN = True
-
-plotter = pyvista.Plotter(
-        title="Displacement",
-        window_size=[1600, 600],
-        shape=(1, 2),
-    )
-
-# _plt = plot_scalar(u_.sub(0), plotter, subplot=(0, 0))
-_plt = plot_vector(u, plotter, subplot=(0, 1))
-_plt.screenshot(f"displacement_MPI.png")
