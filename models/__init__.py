@@ -17,15 +17,15 @@ class ElasticityModel:
     # Basic class for elasticity
 
     def __init__(self, eps_0=None, model_parameters={}):
-        self.model_parameters = default_parameters["model"]
-        if model_parameters:
-            self.model_parameters.update(model_parameters)
         """
         Initializes the sound material parameters.
         * Sound material parameters:
             - model_parameters["E"]: sound Young modulus
             - model_parameters["nu"]: sound Poisson ratio
         """
+        self.model_parameters = default_parameters["model"]
+        if model_parameters:
+            self.model_parameters.update(model_parameters)
         # Sound material paramaters
         self.E = self.model_parameters["E"]
         self.nu = self.model_parameters["nu"]
@@ -45,7 +45,7 @@ class ElasticityModel:
         if self.model_type == "plane-strain":
             return ufl.sym(
                 ufl.as_matrix([
-                    [u[0].dx(0), u[0].dx(1), 0],
+                    [u[0].dx(0), u[0.].dx(1), 0],
                     [u[1].dx(0), u[1].dx(1), 0],
                     [0, 0, 0],
                 ]))
@@ -77,103 +77,104 @@ class ElasticityModel:
         return self.elastic_energy_density(state)
 
 
-# class DamageElasticityModel(ElasticityModel):
-#     """
-#     Base class for elasticity coupled with damage.
-#     """
-#     def __init__(self, model_parameters={}):
-#         """
-#         Initializes the sound material parameters.
-#         * Sound material parameters:
-#             - E_0: sound Young modulus
-#             - nu_0: sound plasticity ratio
-#             - sig_d_0: sound damage yield stress
-#             - ell: internal length
-#             - k_res: fully damaged stiffness modulation
-#         """
-#         # Initialize the elastic parameters
-#         super().__init__(model_parameters)
+class DamageElasticityModel(ElasticityModel):
+    """
+    Base class for elasticity coupled with damage.
+    """
 
-#         # Initialize the damage parameters
-#         self.w1 = self.model_parameters["w1"]
-#         self.ell = self.model_parameters["ell"]
-#         self.k_res = self.model_parameters["k_res"]
+    def __init__(self, model_parameters={}):
+        """
+        Initializes the sound material parameters.
+        * Sound material parameters:
+            - E_0: sound Young modulus
+            - nu_0: sound plasticity ratio
+            - sig_d_0: sound damage yield stress
+            - ell: internal length
+            - k_res: fully damaged stiffness modulation
+        """
+        # Initialize the elastic parameters
+        super().__init__(model_parameters)
 
-#     def a(self, alpha):
-#         k_res = self.k_res
-#         return (1 - alpha)**2 + k_res
+        # Initialize the damage parameters
+        self.w1 = self.model_parameters["w1"]
+        self.ell = self.model_parameters["ell"]
+        self.k_res = self.model_parameters["k_res"]
 
-#     def w(self, alpha):
-#         """
-#         Return the dissipated energy function as a function of the state
-#         (only depends on damage).
-#         """
-#         # Return w(alpha) function
-#         return alpha
+    def a(self, alpha):
+        k_res = self.k_res
+        return (1 - alpha)**2 + k_res
 
-#     def elastic_energy_density_strain(self, eps, alpha):
-#         """
-#         Returns the elastic energy density from the strain and the damage.
-#         """
-#         # Parameters
-#         lmbda = self.lmbda
-#         mu = self.mu
-#         energy_density = (
-#             self.a(alpha) * 1.0 / 2.0 *
-#             (2 * mu * ufl.inner(eps, eps) + lmbda * ufl.tr(eps)**2))
-#         return energy_density
+    def w(self, alpha):
+        """
+        Return the dissipated energy function as a function of the state
+        (only depends on damage).
+        """
+        # Return w(alpha) function
+        return alpha
 
-#     def elastic_energy_density(self, state):
-#         """
-#         Returns the elastic energy density from the state.
-#         """
-#         # Parameters
-#         alpha = state["alpha"]
-#         u = state["u"]
-#         eps = self.eps(u)
-#         return self.elastic_energy_density_strain(eps, alpha)
+    def elastic_energy_density_strain(self, eps, alpha):
+        """
+        Returns the elastic energy density from the strain and the damage.
+        """
+        # Parameters
+        lmbda = self.lmbda
+        mu = self.mu
+        energy_density = (
+            self.a(alpha) * 1.0 / 2.0 *
+            (2 * mu * ufl.inner(eps, eps) + lmbda * ufl.tr(eps)**2))
+        return energy_density
 
-#     def stress(self, strain, alpha):
-#         # Differentiate the elastic energy w.r.t. the strain tensor
-#         eps_ = ufl.variable(strain)
-#         # Derivative of energy w.r.t. the strain tensor to obtain the stress
-#         # tensor
-#         sigma = ufl.diff(self.elastic_energy_density_strain(eps_, alpha), eps_)
-#         return sigma
+    def elastic_energy_density(self, state):
+        """
+        Returns the elastic energy density from the state.
+        """
+        # Parameters
+        alpha = state["alpha"]
+        u = state["u"]
+        eps = self.eps(u)
+        return self.elastic_energy_density_strain(eps, alpha)
 
-#     def stress0(self, u):
-#         strain = self.eps(u)
-#         lmbda = self.lmbda
-#         mu = self.mu
-#         sigma = 2 * mu * strain + lmbda * ufl.tr(strain) * ufl.Identity(
-#             self.model_dimension)
-#         return sigma
+    def stress(self, strain, alpha):
+        # Differentiate the elastic energy w.r.t. the strain tensor
+        eps_ = ufl.variable(strain)
+        # Derivative of energy w.r.t. the strain tensor to obtain the stress
+        # tensor
+        sigma = ufl.diff(self.elastic_energy_density_strain(eps_, alpha), eps_)
+        return sigma
 
-#     def damage_dissipation_density(self, state):
-#         """
-#         Return the damage dissipation density from the state.
-#         """
-#         # Get the material parameters
-#         self.E
-#         w1 = self.w1
-#         ell = self.ell
-#         # Get the damage
-#         alpha = state["alpha"]
-#         # Compute the damage gradient
-#         grad_alpha = ufl.grad(alpha)
-#         # Compute the damage dissipation density
-#         D_d = w1 * self.w(alpha) + w1 * ell**2 * ufl.dot(
-#             grad_alpha, grad_alpha)
-#         return D_d
+    def stress0(self, u):
+        strain = self.eps(u)
+        lmbda = self.lmbda
+        mu = self.mu
+        sigma = 2 * mu * strain + lmbda * ufl.tr(strain) * ufl.Identity(
+            self.model_dimension)
+        return sigma
 
-#     def total_energy_density(self, state):
-#         """
-#         Return the damage dissipation density from the state.
-#         """
-#         # Get the material parameters
-#         energy = self.elastic_energy_density(
-#             state) + self.damage_dissipation_density(state)
-#         return energy
+    def damage_dissipation_density(self, state):
+        """
+        Return the damage dissipation density from the state.
+        """
+        # Get the material parameters
+        self.E
+        w1 = self.w1
+        ell = self.ell
+        # Get the damage
+        alpha = state["alpha"]
+        # Compute the damage gradient
+        grad_alpha = ufl.grad(alpha)
+        # Compute the damage dissipation density
+        D_d = w1 * self.w(alpha) + w1 * ell**2 * ufl.dot(
+            grad_alpha, grad_alpha)
+        return D_d
+
+    def total_energy_density(self, state):
+        """
+        Return the damage dissipation density from the state.
+        """
+        # Get the material parameters
+        energy = self.elastic_energy_density(
+            state) + self.damage_dissipation_density(state)
+        return energy
 
 
 # class ThinFilmModel(DamageElasticityModel):
