@@ -19,11 +19,12 @@ import dolfinx
 import dolfinx.plot
 from dolfinx import log
 import ufl
-
-
 from dolfinx.io import XDMFFile
 
 import logging
+logging.critical(
+    f"DOLFINx version: {dolfinx.__version__} based on GIT commit: {dolfinx.git_commit_hash} of https://github.com/FEniCS/dolfinx/")
+
 
 logging.basicConfig(level=logging.INFO)
 
