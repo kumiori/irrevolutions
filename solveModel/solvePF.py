@@ -66,8 +66,10 @@ parameters = {
     },
     'geometry': {
         'geom_type': 'bar',
-        'Lx': 10.,
-        'Ly': 100.
+        'Lx': 1.,
+        'Ly': 2., 
+        'L0':0.5,
+        's':0.3,
     },
     'model': {
         'E': 1.,
@@ -114,15 +116,18 @@ parameters = {
 
 Lx = parameters["geometry"]["Lx"]
 Ly = parameters["geometry"]["Ly"]
+L0 = parameters["geometry"]["L0"]
+s = parameters["geometry"]["s"]
 geom_type = parameters["geometry"]["geom_type"]
 
 
 gmsh_model, tdim = primitives.mesh_ep_gmshapi(geom_type,
                                     Lx, 
                                     Ly, 
-                                    1, 
-                                    0.5,
-                                    0.3, 
+                                    L0, 
+                                    s,
+                                    parameters.get("model").get("ell")/3, 
+                                    sep=0.02, 
                                     tdim=2)
 
 """gmsh_model, tdim = primitives.mesh_bar_gmshapi(geom_type,
@@ -189,7 +194,7 @@ dofs_u_bottom = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[1], 0))
 
 # Boundary data
 
-u_.interpolate(lambda x: (np.ones_like(x[0]), np.zeros_like(x[1])))
+u_.interpolate(lambda x: (np.zeros_like(x[0]), np.ones_like(x[1])))
 
 # Bounds (nontrivial)
 
@@ -240,7 +245,7 @@ data = {
 for (i_t, t) in enumerate(loads):
   # update boundary conditions
 
-  u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
+  u_.interpolate(lambda x: (t * np.zeros_like(x[0]), np.ones_like(x[1])))
   u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                         mode=PETSc.ScatterMode.FORWARD)
 
@@ -297,7 +302,7 @@ _plt = plot_vector(u, plotter, subplot=(0, 1))
 _plt.screenshot(f"displacement_MPI.png")
 
 
-"""xvfb.start_xvfb(wait=0.05)
+xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
 
 plotter = pyvista.Plotter(
@@ -306,5 +311,5 @@ plotter = pyvista.Plotter(
         shape=(1, 2),
     )
 
-_plt = plot_scalar(alpha.sub(0), plotter, subplot=(0, 0))
-_plt.screenshot(f"alpha.png")"""
+_plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+_plt.screenshot(f"alpha.png")
