@@ -62,14 +62,14 @@ parameters = {
     'loading': {
         'min': 0,
         'max': 1.5,
-        'steps': 10
+        'steps': 25
     },
     'geometry': {
         'geom_type': 'bar',
         'Lx': 1.,
         'Ly': 2., 
-        'L0':0.5,
-        's':0.3,
+        'L0':0.1,
+        's':0.5,
     },
     'model': {
         'E': 1.,
@@ -85,7 +85,7 @@ parameters = {
                 'snes_stol': 1e-8,
                 'snes_atol': 1e-8,
                 'snes_rtol': 1e-8,
-                'snes_max_it': 100,
+                'snes_max_it': 250,
                 'snes_monitor': "",
                 'ksp_type': 'preonly',
                 'pc_type': 'lu',
@@ -106,7 +106,7 @@ parameters = {
             },
         },
           'damage_elasticity': {
-            "max_it": 100,
+            "max_it": 250,
             "alpha_rtol": 1.0e-5,
             "criterion": "alpha_H1"
           }
@@ -119,7 +119,7 @@ Ly = parameters["geometry"]["Ly"]
 L0 = parameters["geometry"]["L0"]
 s = parameters["geometry"]["s"]
 geom_type = parameters["geometry"]["geom_type"]
-
+prefac=1.1
 
 gmsh_model, tdim = primitives.mesh_ep_gmshapi(geom_type,
                                     Lx, 
@@ -194,7 +194,7 @@ dofs_u_bottom = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[1], 0))
 
 # Boundary data
 
-u_.interpolate(lambda x: (np.zeros_like(x[0]), np.ones_like(x[1])))
+u_.interpolate(lambda x: (np.zeros_like(x[0]), prefac*np.ones_like(x[1])))
 
 # Bounds (nontrivial)
 
@@ -245,7 +245,7 @@ data = {
 for (i_t, t) in enumerate(loads):
   # update boundary conditions
 
-  u_.interpolate(lambda x: (t * np.zeros_like(x[0]), np.ones_like(x[1])))
+  u_.interpolate(lambda x: ( np.zeros_like(x[0]), t*prefac*np.ones_like(x[1])))
   u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                         mode=PETSc.ScatterMode.FORWARD)
 
@@ -280,7 +280,7 @@ for (i_t, t) in enumerate(loads):
 plt.figure()
 plt.plot(data.get('load'), data.get('surface'), label='surface')
 plt.plot(data.get('load'), data.get('elastic'), label='elastic')
-plt.plot(data.get('load'), [1./2. * t**2*Ly for t in data.get('load')], label='anal elast', ls=':', c='k')
+plt.plot(data.get('load'), [1./2. * t**2*Lx for t in data.get('load')], label='anal elast', ls=':', c='k')
 
 plt.title('Traction bar energetics')
 plt.legend()
