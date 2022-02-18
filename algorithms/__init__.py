@@ -6,6 +6,7 @@ import ufl
 import dolfinx
 import sys
 
+from petsc4py import PETSc
 import petsc4py
 import numpy as np
 import logging
@@ -14,4 +15,4 @@ from dolfinx.io import XDMFFile
 
 petsc4py.init(sys.argv)
 
-from algorithms.am import AlternateMinimisation
+from .am import AlternateMinimisation

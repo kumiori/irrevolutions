@@ -198,8 +198,10 @@ dofs_u_left = dolfinx.fem.locate_dofs_geometrical(
 dofs_u_right = dolfinx.fem.locate_dofs_geometrical(
     (V.sub(1), V_1), lambda x: np.isclose(x[0], Lx))
 
-pdb.set_trace()
+sys.exit()
 
+
+pdb.set_trace()
 bcs = {"bcs_u": bcs_u}
 
 # Define the model

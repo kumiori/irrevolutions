@@ -3,12 +3,10 @@ from pyvista.utilities import xvfb
 import pyvista
 import sys
 sys.path.append("../")
-
+from utils.viz import plot_mesh, plot_vector, plot_scalar
 # 
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation
-
-from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
 from solvers import SNESSolver
 from dolfinx.mesh import CellType
 import dolfinx.mesh
@@ -187,6 +185,7 @@ solver = AlternateMinimisation(
 history_data = {
     "load": [],
     "elastic_energy": [],
+    "total_energy": [],
     "dissipated_energy": [],
     "solver_data": [],
 }
@@ -218,6 +217,7 @@ for i_t, t in enumerate(loads):
     history_data["load"].append(t)
     history_data["dissipated_energy"].append(dissipated_energy)
     history_data["elastic_energy"].append(elastic_energy)
+    history_data["total_energy"].append(elastic_energy+dissipated_energy)
     history_data["solver_data"].append(solver.data)
 
     with XDMFFile(comm, f"{prefix}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
@@ -229,7 +229,7 @@ for i_t, t in enumerate(loads):
         json.dump(history_data, a_file)
         a_file.close()
 
-    # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
 import pandas as pd
 df = pd.DataFrame(history_data)
