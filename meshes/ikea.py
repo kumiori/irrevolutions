@@ -55,9 +55,11 @@ def mesh_ikea_real(name,
         
         boundary_points = []
 
+
+        fineMeshSize = 2.*np.pi*rad/_localrefine
         points = []
-        points.append(_addPoint(0,  H, 0, meshSize=lc, tag=len(points)+1))
-        points.append(_addPoint(0, 0, 0,  meshSize=lc, tag=len(points)+1))
+        points.append(_addPoint(0,  H, 0, meshSize=fineMeshSize, tag=len(points)+1))
+        points.append(_addPoint(0, 0, 0,  meshSize=fineMeshSize, tag=len(points)+1))
         points.append(_addPoint(L, 0, 0,  meshSize=lc, tag=len(points)+1))
         points.append(_addPoint(L, H, 0,  meshSize=lc, tag=len(points)+1))
 
@@ -65,6 +67,9 @@ def mesh_ikea_real(name,
         
         px = [rad+cx, cx, -rad+cx, cx]
         py = [0,     rad,       0, -rad]
+
+
+
 
         plt.figure(figsize=(10, 30))
         ax = plt.gca()
@@ -76,27 +81,27 @@ def mesh_ikea_real(name,
             # centre
             points.append(_addPoint(
                 cx, cy+k*cell_width + cell_width/2., 0,
-                meshSize=2.*np.pi*rad/_localrefine,
+                meshSize=fineMeshSize,
                 tag=_offset+k))
             # -
             points.append(_addPoint(
                 px[0], py[0]+k*cell_width + cell_width/2., 0,
-                meshSize=2.*np.pi*rad/_localrefine,
+                meshSize=fineMeshSize,
                 tag=_offset+k+1))
 
             points.append(_addPoint(
                 px[1], py[1]+k*cell_width + cell_width/2., 0,
-                meshSize=2.*np.pi*rad/_localrefine,
+                meshSize=fineMeshSize,
                 tag=_offset+k+2))
 
             points.append(_addPoint(
                 px[2], py[2]+k*cell_width + cell_width/2., 0,
-                meshSize=2.*np.pi*rad/_localrefine,
+                meshSize=fineMeshSize,
                 tag=_offset+k+3))
 
             points.append(_addPoint(
                 px[3], py[3]+k*cell_width + cell_width/2., 0,
-                meshSize=2.*np.pi*rad/_localrefine,
+                meshSize=fineMeshSize,
                 tag=_offset+k+4))
 
             _arc_points = points[-5::]
@@ -149,7 +154,6 @@ def mesh_ikea_real(name,
         # _addPlaneSurface(circles, tag=2)
         model.geo.synchronize()
         surface_entities = [model[1] for model in model.getEntities(tdim)]
-        pdb.set_trace()
 
         s0 = model.addPhysicalGroup(tdim, [surface_entities[0]], tag=surface_entities[0])
         model.setPhysicalName(tdim, surface_entities[0], "OmegaEps")
@@ -157,7 +161,7 @@ def mesh_ikea_real(name,
         # model.setPhysicalName(tdim, 100, "OmegaEps")
 
         gmsh.model.mesh.setOrder(order)
-        gmsh.model.addPhysicalGroup(tdim - 1, [circles], tag=1)
+        gmsh.model.addPhysicalGroup(tdim - 1, circles, tag=1)
         gmsh.model.setPhysicalName(tdim - 1, 1, "nails")
 
         facet_tag_names = {
@@ -177,7 +181,9 @@ def mesh_ikea_real(name,
         if msh_file is not None:
             gmsh.write(msh_file)
 
-    return gmsh.model if comm.rank == 0 else None, tdim, tag_names
+
+    return gmsh.model, tdim, tag_names
+    #  if comm.rank == 0 else None, tag_names
 
 
 def mesh_ikea_nails(name,
@@ -280,7 +286,6 @@ def mesh_ikea_nails(name,
         # holes = _addCurveLoop(circles)
         _addPlaneSurface(circles, tag = 10)
         model.geo.synchronize()
-
         surface_entities = [model[1] for model in model.getEntities(tdim)]
         _addPhysicalGroup(tdim, surface_entities, tag=1)
         model.setPhysicalName(tdim, 10, "Nails")
@@ -341,7 +346,16 @@ def plot_info(gmsh, model, cy, cell_width, cx, points, circles, px, py, ax, k, c
 
 
 if __name__ == "__main__":
+    import sys
 
+    sys.path.append("../../damage")
+    from dolfinx.io import XDMFFile
+    from meshes import gmsh_model_to_mesh
+
+    # , merge_meshtags, locate_dofs_topological
+    from mpi4py import MPI
+    from pathlib import Path
+    import dolfinx.plot
     parameters = {
         'H': 1.,
         'L': 1.,
@@ -358,13 +372,35 @@ if __name__ == "__main__":
     #                order=0,
     #                msh_file='ikea_nails.msh'
     #                )
-
-    mesh_ikea_real('ikea_real',
-                   geom_parameters=parameters,
+    model, tdim, tag_names = mesh_ikea_real('ikea_real',
+                    geom_parameters=parameters,
                     lc=.1,
                     tdim=2,
                     order=0,
                     msh_file='ikea_real.msh'
                     )
-    import sys
+    mesh, mts = gmsh_model_to_mesh(
+        model, cell_data=True, facet_data=False, gdim=tdim)
+
+    # Path("output").mkdir(parents=True, exist_ok=True)
+    # with XDMFFile(MPI.COMM_WORLD, "output/ikea.xdmf", "w") as ofile:
+    #     ofile.write_meshtags(mesh, mts)
+
+    import pyvista
+    from pyvista.utilities import xvfb
+
+    xvfb.start_xvfb(wait=0.05)
+    pyvista.OFF_SCREEN = True
+    plotter = pyvista.Plotter(title="IKEA mesh")
+    topology, cell_types = dolfinx.plot.create_vtk_topology(
+        mesh, mesh.topology.dim)
+    grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
+    # plotter.subplot(0, 0)
+    actor_1 = plotter.add_mesh(grid, show_edges=True)
+
+    plotter.view_xy()
+    if not pyvista.OFF_SCREEN:
+        plotter.show()
+    figure = plotter.screenshot("output/ikea.png")
+
     sys.exit()
