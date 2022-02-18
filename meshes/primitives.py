@@ -119,7 +119,6 @@ def mesh_ep_gmshapi(name,
 
     return gmsh.model if comm.rank == 0 else None, tdim
 
-
 def mesh_rightCrack_gmshapi(name,
                     Lx,
                     Ly,
@@ -300,7 +299,6 @@ def mesh_bar_gmshapi(name,
             # gmsh.write(name + ".step")
 
     return gmsh.model if comm.rank == 0 else None, tdim
-
 
 def mesh_circle_gmshapi(name,
                         R,
