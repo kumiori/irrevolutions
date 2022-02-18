@@ -8,8 +8,6 @@ import sys
 
 sys.path.append('../')
 
-
-
 from meshes import (
     _addPoint,
     _addLine,
@@ -18,7 +16,6 @@ from meshes import (
     _addPhysicalGroup,
     _addCircleArc
 )
-
 
 def mesh_ikea_real(name,
                     geom_parameters,
@@ -226,8 +223,8 @@ def mesh_ikea_nails(name,
         px = [rad+cx, cx, -rad+cx, cx]
         py = [0,     rad,       0, -rad]
 
-        plt.figure(figsize=(10, 30))
-        ax = plt.gca()
+        # plt.figure(figsize=(10, 30))
+        # ax = plt.gca()
 
         for k in range(n):
             circle_arcs = []
@@ -277,11 +274,11 @@ def mesh_ikea_nails(name,
             # print('k', k, 'circle_arcs', circle_arcs)
             circles.append(_addCurveLoop(circle_arcs, tag = k+1))
             # print_info(gmsh, model, cy, cell_width, cx, points, circles, px, py, ax, k, circle_arcs, _offset)
-            plot_info(gmsh, model, cy, cell_width, cx, points,
-                      circles, px, py, ax, k, circle_arcs, _offset)
+            # plot_info(gmsh, model, cy, cell_width, cx, points,
+                    #   circles, px, py, ax, k, circle_arcs, _offset)
         
-        plt.xlim(0, cell_width)
-        plt.savefig('mesh.pdf')
+        # plt.xlim(0, cell_width)
+        # plt.savefig('mesh.pdf')
 
         # holes = _addCurveLoop(circles)
         _addPlaneSurface(circles, tag = 10)
