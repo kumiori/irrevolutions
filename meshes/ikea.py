@@ -178,6 +178,7 @@ def mesh_ikea_real(name,
         if msh_file is not None:
             gmsh.write(msh_file)
 
+    gmsh.finalize()
 
     return gmsh.model, tdim, tag_names
     #  if comm.rank == 0 else None, tag_names
