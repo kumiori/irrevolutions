@@ -35,11 +35,13 @@ to brush up if you feel unsure.
 Basic knowledge of git as a versioning system with feature-branch workflow
 https://gist.github.com/brandon1024/14b5f9fcfd982658d01811ee3045ff1e
 
+Remember to set your name and email before pushing to the repository,
+either locally or globally, see https://www.phpspiderblog.com/how-to-configure-username-and-email-in-git/
 
 #### Feature branch workflow
 
-For each new feature, create a branch named ```{yourname}-{feature}```, 
-as in ```andres-complexmesh```.
+For each new feature you wish to implement, create a branch named ```{yourname}-{feature}```, 
+as in ```andres-meshes```.
 
 https://docs.gitlab.com/ee/gitlab-basics/feature_branch_workflow.html
 
@@ -56,8 +58,15 @@ git merge main
 
 First, run the container, attaching an interactive session and sharing data space 
 (the current dir) between the host and the container (the syntax is origin:target).
+
+On a Mac:
 ```
 docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:latest
+```
+
+On a Windox:
+```
+docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix:latest
 ```
 
 ### Course Schedule

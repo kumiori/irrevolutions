@@ -1,7 +1,7 @@
 # === Loading === #
 loading:
     min: 0
-    max: 1.
+    max: 1.001
     steps: 10
 
 #  === Geometry === #
@@ -10,19 +10,10 @@ geometry:
     geom_type: "bar"
     Lx: 1.
     Ly: .1
-
+    lc: 0.02
 #  === Model === #
 model:
-    E: 1.
-    nu: 0.0
-    mu: 1.
-    lmbda: 0.
-    w1: 1.
-    ell: 
-    ellMin: 0.1
-    ellMax: 10
-    ellIter: 50
-    k_res: 1.e-8
+    ell: 0.1
     model_dimension: 2
     model_type: "2D"
     # could be "2D"/ "3D" / "plane_stress" / "plane_strain"
