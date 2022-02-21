@@ -9,8 +9,17 @@ petsc4py.init(sys.argv)
 
 from dolfinx.cpp.log import LogLevel, log
 from dolfinx.fem import form
-
 # from damage.utils import ColorPrint
+
+try:
+    from dolfinx.fem import (
+        assemble_matrix, apply_lifting, create_vector, create_matrix, set_bc)
+except ImportError:
+    from dolfinx.fem.petsc import (
+        assemble_matrix, apply_lifting, create_vector, create_matrix, set_bc)
+
+# import pdb;
+# pdb.set_trace()
 
 comm = MPI.COMM_WORLD
 
@@ -58,8 +67,8 @@ class SNESSolver:
 
         self.petsc_options = petsc_options
 
-        self.b = dolfinx.fem.create_vector(self.F_form)
-        self.a = dolfinx.fem.create_matrix(self.J_form)
+        self.b = create_vector(self.F_form)
+        self.a = create_matrix(self.J_form)
 
         self.monitor = monitor
         self.solver = self.solver_setup()
@@ -122,10 +131,10 @@ class SNESSolver:
         dolfinx.fem.assemble_vector(b, self.F_form)
 
         # Apply boundary conditions
-        dolfinx.fem.apply_lifting(b, [self.J_form], [self.bcs], [x], -1.0)
+        apply_lifting(b, [self.J_form], [self.bcs], [x], -1.0)
         b.ghostUpdate(addv=PETSc.InsertMode.ADD,
                       mode=PETSc.ScatterMode.REVERSE)
-        dolfinx.fem.set_bc(b, self.bcs, x, -1.0)
+        set_bc(b, self.bcs, x, -1.0)
 
     def J(self, snes, x: PETSc.Vec, A: PETSc.Mat, P: PETSc.Mat):
         """Assemble the Jacobian matrix.
@@ -136,7 +145,7 @@ class SNESSolver:
         A: Matrix to assemble the Jacobian into.
         """
         A.zeroEntries()
-        dolfinx.fem.assemble_matrix(A, self.J_form, self.bcs)
+        assemble_matrix(A, self.J_form, self.bcs)
         A.assemble()
 
     def solve(self):
