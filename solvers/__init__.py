@@ -127,7 +127,7 @@ class SNESSolver:
                                   mode=PETSc.ScatterMode.FORWARD)
 
         # Zero the residual vector
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         with b.localForm() as b_local:
             b_local.set(0.0)
         assemble_vector(b, self.F_form)
