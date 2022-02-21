@@ -5,11 +5,10 @@ from dolfinx.fem import (
     Constant,
     Function,
     FunctionSpace,
-    assemble_scalar,
     dirichletbc,
     form,
+    assemble_scalar,
     locate_dofs_geometrical,
-    set_bc,
 )
 from petsc4py import PETSc
 import ufl
@@ -17,6 +16,25 @@ import numpy as np
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
+try:
+    from dolfinx.fem import (
+        assemble_matrix,
+        apply_lifting,
+        create_vector,
+        create_matrix,
+        set_bc,
+        assemble_vector
+    )
+
+except ImportError:
+    from dolfinx.fem.petsc import (
+        assemble_matrix,
+        apply_lifting,
+        create_vector,
+        create_matrix,
+        set_bc,
+        assemble_vector
+        )
 
 from utils import norm_H1, norm_L2
 
@@ -130,24 +148,27 @@ class AlternateMinimisation:
             error_alpha_H1 = norm_H1(alpha_diff)
             error_alpha_L2 = norm_L2(alpha_diff)
 
-            Fv = [dolfinx.fem.assemble_vector(form(F)) for F in self.F]
+            Fv = [assemble_vector(form(F)) for F in self.F]
 
             Fnorm = np.sqrt(
                 np.array(
-                    [comm.allreduce(np.linalg.norm(Fvi) ** 2, op=MPI.SUM)
+                    [comm.allreduce(Fvi.norm(), op=MPI.SUM)
                      for Fvi in Fv]
                 ).sum()
             )
 
             error_alpha_max = alpha_diff.vector.max()[1]
             total_energy_int = comm.allreduce(
-                dolfinx.fem.assemble_scalar(form(self.total_energy)), op=MPI.SUM
+                assemble_scalar(form(self.total_energy)), op=MPI.SUM
             )
-            residual_u = dolfinx.fem.assemble_vector(self.elasticity.F_form)
+            residual_u = assemble_vector(self.elasticity.F_form)
+            import pdb
+            pdb.set_trace()
+
             residual_u.ghostUpdate(
                 addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
             )
-            dolfinx.fem.set_bc(residual_u, self.elasticity.bcs, self.u.vector)
+            set_bc(residual_u, self.elasticity.bcs, self.u.vector)
             error_residual_u = ufl.sqrt(residual_u.dot(residual_u))
 
             self.alpha.vector.copy(self.alpha_old.vector)
