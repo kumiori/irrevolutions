@@ -22,11 +22,9 @@ import ufl
 from dolfinx.io import XDMFFile
 
 import logging
+logging.basicConfig(level=logging.INFO)
 logging.critical(
     f"DOLFINx version: {dolfinx.__version__} based on GIT commit: {dolfinx.git_commit_hash} of https://github.com/FEniCS/dolfinx/")
-
-
-logging.basicConfig(level=logging.INFO)
 
 from petsc4py import PETSc
 comm = MPI.COMM_WORLD
