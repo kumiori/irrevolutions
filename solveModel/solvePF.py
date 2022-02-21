@@ -62,20 +62,20 @@ parameters = {
     'loading': {
         'min': 0,
         'max': 1.5,
-        'steps': 25
+        'steps': 40
     },
     'geometry': {
         'geom_type': 'bar',
-        'Lx': 1.,
-        'Ly': 2., 
-        'L0':0.1,
-        's':0.5,
+        'Lx': 0.1,
+        'Ly': 0.2, 
+        'L0':.01,
+        's':20.E-3,
     },
     'model': {
-        'E': 1.,
-        'nu': 0.,
+        'E': 1.E5,
+        'nu': .4,
         'w1': 1.,
-        'ell': 0.05,
+        'ell': .1/35,
         'k_res': 1.e-8
     },
     'solvers': {
@@ -106,8 +106,8 @@ parameters = {
             },
         },
           'damage_elasticity': {
-            "max_it": 250,
-            "alpha_rtol": 1.0e-5,
+            "max_it": 2000,
+            "alpha_rtol": 1.0e-4,
             "criterion": "alpha_H1"
           }
     }
@@ -119,15 +119,16 @@ Ly = parameters["geometry"]["Ly"]
 L0 = parameters["geometry"]["L0"]
 s = parameters["geometry"]["s"]
 geom_type = parameters["geometry"]["geom_type"]
-prefac=1.1
+prefac=3
 
 gmsh_model, tdim = primitives.mesh_ep_gmshapi(geom_type,
                                     Lx, 
                                     Ly, 
                                     L0, 
                                     s,
-                                    parameters.get("model").get("ell")/3, 
-                                    sep=0.02, 
+                                    parameters["model"]["ell"], 
+                                    parameters["model"]["ell"]/3, 
+                                    sep=3E-3, 
                                     tdim=2)
 
 """gmsh_model, tdim = primitives.mesh_bar_gmshapi(geom_type,
@@ -148,17 +149,36 @@ plt.figure()
 ax = plot_mesh(mesh)
 fig = ax.get_figure()
 fig.savefig(f"mesh.png")
+"""
+mesh.topology.create_entities(tdim - 1)
 
+def left_corner(x):
+    return np.logical_and(x[0] < Lx/4, x[1] < Ly/2)
+
+def middle_area(x):
+    return np.logical_and(x[1] < Ly/2+3/4*s, x[1] > Ly/2-3/4*s)
+edges = dolfinx.mesh.locate_entities(mesh, tdim-1, middle_area)
+mesh_refined_local2 = dolfinx.mesh.refine(mesh, edges, redistribute=True)
+
+edges = dolfinx.mesh.locate_entities(mesh_refined_local2, tdim-1, middle_area)
+mesh_refined_local3 = dolfinx.mesh.refine(mesh_refined_local2, edges, redistribute=True)
+
+plt.figure()
+ax = plot_mesh(mesh_refined_local3)
+fig = ax.get_figure()
+fig.savefig(f"mesh_refined_local_bulk.png")
+"""
+usedMesh=mesh
 # Functional Setting
 
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(),
+element_u = ufl.VectorElement("Lagrange", usedMesh.ufl_cell(),
                               degree=1, dim=2)
 
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
+element_alpha = ufl.FiniteElement("Lagrange", usedMesh.ufl_cell(),
                               degree=1)
 
-V_u = dolfinx.fem.FunctionSpace(mesh, element_u) 
-V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha) 
+V_u = dolfinx.fem.FunctionSpace(usedMesh, element_u) 
+V_alpha = dolfinx.fem.FunctionSpace(usedMesh, element_alpha) 
 
 u = dolfinx.fem.Function(V_u, name="Displacement")
 u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
@@ -175,8 +195,8 @@ alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
 
 
 
-dx = ufl.Measure("dx", domain = mesh)
-ds = ufl.Measure("ds", domain = mesh)
+dx = ufl.Measure("dx", domain = usedMesh)
+ds = ufl.Measure("ds", domain = usedMesh)
 
 
 # Boundary sets
@@ -275,6 +295,8 @@ for (i_t, t) in enumerate(loads):
   print(f"Solved timestep {i_t}, load: {t}")
   print(f"Elastic Energy {elastic_energy:.3g}, Surface energy: {surface_energy:.3g}")
   print("\n\n")
+  if(i_t>10 and  elastic_energy<1E-2):
+      break
 
   # savings?
 plt.figure()
@@ -312,4 +334,4 @@ plotter = pyvista.Plotter(
     )
 
 _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-_plt.screenshot(f"alpha.png")
+_plt.screenshot(f"alpha2.png")
