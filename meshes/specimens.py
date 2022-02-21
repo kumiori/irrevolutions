@@ -2,7 +2,8 @@ from mpi4py import MPI
 
 import numpy as np
 
-
+import sys
+sys.path.append('../')
 from meshes import (
     _addPoint,
     _addLine,
@@ -47,17 +48,19 @@ def mesh_kink(name,
         p4 = _addPoint(0, Ly, 0, lc, tag=4)
 
         p5 = _addPoint(Lx/2 + l0/2 * np.cos(theta),
-                                Ly/2 + l0/2 * np.sin(theta),
-                                0.0, lc, tag=5)
+                        Ly/2 + l0/2 * np.sin(theta),
+                        0.0, lc, tag=5)
         p6 = _addPoint(Lx/2,
-                                Ly/2 + eta,
-                                0, lc, tag=6)
-        p7 = _addPoint(- (Lx/2 + l0/2 * np.cos(theta)),
-                                - (Ly/2 + l0/2 * np.sin(theta)),
-                                lc, tag=7)
+                        Ly/2 + eta,
+                        0, lc, tag=6)
+        p7 = _addPoint(Lx/2 - l0/2 * np.cos(theta),
+                        Ly/2 + l0/2 * np.sin(theta),
+                        0.,
+                        lc, tag=7)
+
         p8 = _addPoint(Lx/2,
-                                Ly/2 - eta,
-                                0, lc, tag=8)
+                        Ly/2 - eta,
+                        0, lc, tag=8)
 
         #Les lignes = [L1, L2, L3, L4, L5, L6, L7, L8]
         L1 = _addLine(p1, p2, tag=1)
