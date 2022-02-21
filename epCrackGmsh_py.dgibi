@@ -146,9 +146,15 @@ mess 'K1  Gtheta :'  K1G;
 mess 'K2  Gtheta:'  K2G;
 mess '---G  Gtheta :'  G_cal;
 mess '---G  J-Irwin :' GIrw;
-*OPTI SAUV 'FORMAT' 'Ficher.sauv';
-*SAUV K1G;
 
+rel= K1G/K2G;
+mess rel;
+rs=(REL**2+8)**.5;
+inner = (rel- ((SIGN K2G)*rs))/4.;
+THETA1=(ATG INNER)*2;
+
+mess THETA1;
 *opti donn 5;
-fin;
+*fin;
+
 
