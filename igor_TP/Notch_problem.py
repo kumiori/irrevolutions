@@ -1,5 +1,6 @@
 #Numpy -> numerical library for Python. We'll use it for all array operations.
 #It's written in C and it's faster (than traditional Python)
+from pyvista.utilities import xvfb
 import numpy as np
 
 #Yaml (Yet another markup language) -> We'll use it to pass, read and structure
@@ -62,15 +63,14 @@ from dolfinx.io import XDMFFile
 
 #Install 'gmsh' library -> we'll be used for the mesh.
 #!{sys.executable}: to use the current kernel to make the installation 
-try:
-    import gmsh
-except ImportError:
-    !{sys.executable} -m pip install gmsh
-    import gmsh
+import gmsh
+
 
 import matplotlib.pyplot as plt
 
 # meshes
+import sys
+sys.path.append('../')
 import meshes
 from meshes import primitives
 
@@ -285,7 +285,8 @@ order = 1,
         gmsh.write(filename)
     return gmsh.model
 
-    a=0.15
+
+a=0.15
 h=0.5
 L=1
 gamma = 90
@@ -511,7 +512,9 @@ def plot_scalar(alpha, plotter, subplot=None, lineproperties={}):
     plotter.view_xy()
     return plotter
 
+
 # postprocessing
+
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
 plotter = pyvista.Plotter(
