@@ -12,11 +12,12 @@ from dolfinx.fem import form
 # from damage.utils import ColorPrint
 
 try:
-    from dolfinx.fem import (
-        assemble_matrix, apply_lifting, create_vector, create_matrix, set_bc)
+    from dolfinx.fem import (assemble_matrix, apply_lifting,
+                             create_vector, create_matrix, set_bc, assemble_vector)
 except ImportError:
     from dolfinx.fem.petsc import (
-        assemble_matrix, apply_lifting, create_vector, create_matrix, set_bc)
+        assemble_matrix, apply_lifting, create_vector, create_matrix, set_bc, assemble_vector)
+
 
 # import pdb;
 # pdb.set_trace()
@@ -128,7 +129,7 @@ class SNESSolver:
         # Zero the residual vector
         with b.localForm() as b_local:
             b_local.set(0.0)
-        dolfinx.fem.assemble_vector(b, self.F_form)
+        assemble_vector(b, self.F_form)
 
         # Apply boundary conditions
         apply_lifting(b, [self.J_form], [self.bcs], [x], -1.0)
