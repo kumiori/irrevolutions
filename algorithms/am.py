@@ -162,9 +162,6 @@ class AlternateMinimisation:
                 assemble_scalar(form(self.total_energy)), op=MPI.SUM
             )
             residual_u = assemble_vector(self.elasticity.F_form)
-            import pdb
-            pdb.set_trace()
-
             residual_u.ghostUpdate(
                 addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
             )
