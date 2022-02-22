@@ -60,22 +60,22 @@ from utils.viz import plot_mesh, plot_vector, plot_scalar
 
 parameters = {
     'loading': {
-        'min': 0,
-        'max': 1.5,
-        'steps': 40
+        'min': 0.3,
+        'max': 1,
+        'steps': 5000
     },
     'geometry': {
         'geom_type': 'bar',
-        'Lx': 0.1,
-        'Ly': 0.2, 
-        'L0':.01,
-        's':20.E-3,
+        'Lx': 100,
+        'Ly': 200, 
+        'L0':20,
+        's':10,
     },
     'model': {
-        'E': 1.E5,
+        'E': 1E-1,
         'nu': .4,
         'w1': 1.,
-        'ell': .1/35,
+        'ell': 100/35,
         'k_res': 1.e-8
     },
     'solvers': {
@@ -119,7 +119,7 @@ Ly = parameters["geometry"]["Ly"]
 L0 = parameters["geometry"]["L0"]
 s = parameters["geometry"]["s"]
 geom_type = parameters["geometry"]["geom_type"]
-prefac=3
+prefac=100
 
 gmsh_model, tdim = primitives.mesh_ep_gmshapi(geom_type,
                                     Lx, 
@@ -127,8 +127,8 @@ gmsh_model, tdim = primitives.mesh_ep_gmshapi(geom_type,
                                     L0, 
                                     s,
                                     parameters["model"]["ell"], 
-                                    parameters["model"]["ell"]/3, 
-                                    sep=3E-3, 
+                                    parameters["model"]["ell"]/2, 
+                                    sep=3E-1, 
                                     tdim=2)
 
 """gmsh_model, tdim = primitives.mesh_bar_gmshapi(geom_type,
@@ -295,7 +295,7 @@ for (i_t, t) in enumerate(loads):
   print(f"Solved timestep {i_t}, load: {t}")
   print(f"Elastic Energy {elastic_energy:.3g}, Surface energy: {surface_energy:.3g}")
   print("\n\n")
-  if(i_t>10 and  elastic_energy<1E-2):
+  if(i_t>20 and  elastic_energy<1E-3 and elastic_energy<surface_energy):
       break
 
   # savings?
@@ -309,6 +309,17 @@ plt.legend()
 plt.yticks([0, 1/20], [0, '$1/2.\sigma_c^2/E_0$'])
 plt.xticks([0, 1], [0, 1])
 plt.savefig("energetics.png")
+
+# savings?
+plt.figure()
+plt.plot(data.get('load')[:-40], data.get('surface')[:-40], label='surface')
+plt.plot(data.get('load')[:-40], data.get('elastic')[:-40], label='elastic')
+
+plt.title('Last steps')
+plt.legend()
+plt.yticks([0, 1/20], [0, '$1/2.\sigma_c^2/E_0$'])
+plt.xticks([0, 1], [0, 1])
+plt.savefig("lastSteps.png")
 
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
