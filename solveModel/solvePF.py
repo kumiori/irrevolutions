@@ -61,14 +61,14 @@ from utils.viz import plot_mesh, plot_vector, plot_scalar
 parameters = {
     'loading': {
         'min': 0.3,
-        'max': 1,
-        'steps': 5000
+        'max': 1.5,
+        'steps': 10000
     },
     'geometry': {
         'geom_type': 'bar',
         'Lx': 100,
         'Ly': 200, 
-        'L0':20,
+        'L0':15,
         's':10,
     },
     'model': {
@@ -119,7 +119,7 @@ Ly = parameters["geometry"]["Ly"]
 L0 = parameters["geometry"]["L0"]
 s = parameters["geometry"]["s"]
 geom_type = parameters["geometry"]["geom_type"]
-prefac=100
+prefac=130
 
 gmsh_model, tdim = primitives.mesh_ep_gmshapi(geom_type,
                                     Lx, 
