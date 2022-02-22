@@ -16,6 +16,7 @@ matplotlib.rcParams.update({
 
 table=np.genfromtxt("resultantAngles.dat", skip_header=1)
 svals=(np.unique(table[:, 0]))
+
 for s in svals:
     plt.figure()
     subtable=table[table[:, 0]==s]
@@ -27,4 +28,10 @@ for s in svals:
     plt.ylabel("Resultant Angle, [Degrees]")
     plt.savefig("./angleFigs/anglefigs"+str(subtable[0, 0])+".png")
     plt.savefig("./angleFigs/anglefigs"+str(subtable[0, 0])+".pgf")
-    #plt.show()
+
+z=table[:, 4].reshape(len(svals), len(np.unique(table[:, 1])))
+plt.figure()
+plt.imshow(z, cmap='RdBu', interpolation = 'bilinear', extent=[np.unique(table[:, 1])[0], np.unique(table[:, 1])[-1], np.unique(table[:, 0])[-1], np.unique(table[:, 0])[0]])
+plt.colorbar()
+plt.savefig("./angleFigs/contourplot.png")
+plt.savefig("./angleFigs/contourplot.pgf")
