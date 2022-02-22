@@ -8,13 +8,12 @@ from utils.viz import plot_mesh#, plot_vector, plot_scalar
 
 # Mesh
 Lx = 100
-Ly = 400
-s=2
-L0=30
+Ly = 200
+s=10
+L0=20
 seedDist=1
 
 geom_type = "bar"
-
 gmsh_model, tdim = primitives.mesh_ep_gmshapi(geom_type,
                                     Lx, 
                                     Ly,
@@ -31,15 +30,16 @@ gmsh_model, tdim = primitives.mesh_rightCrack_gmshapi(geom_type,
                                     L0, 
                                     s,   
                                     seedDist, 
-                                    sep=0.1,
+                                    sep=1,
                                     tdim=2)
 """
+
 mesh, mts = meshes.gmsh_model_to_mesh(gmsh_model,
                                cell_data=False,
                                facet_data=True,
                                gdim=2, 
                                exportMesh=True, 
-                               fileName="twoCrack_ep2.unv")
+                               fileName="./meshes/"+str(s)+"_"+str(L0)+".unv")
 
 plt.figure()
 ax = plot_mesh(mesh)

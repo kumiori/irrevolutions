@@ -1,0 +1,216 @@
+mesh='10_20';
+
+
+*
+* gnufich subtab;
+*
+* 
+* fich1 : name of the output file
+* entete1 : firsr line written in the output file
+* 
+DEBPROC GNUFICH SUPTAB*TABLE;
+
+NL=SUPTAB.'NL';
+LN1=SUPTAB.'LN1';
+
+NB=DIME LN1;
+I=0;
+ii=vale impr;
+OPTI IMPR 20 IMPR SUBTAB.'FICHIER';
+
+*OPTI IMPR SUPTAB.IMPR;
+
+MESSAGE '#' SUBTAB.'LIGN1';
+REPETER BOU1 NB;
+  I=I+1;
+  J=1;
+  X=CHAINE ' ';
+  REPETER BOU2 NL;    
+    NLS=CHAINE 'LN'J;
+    LN=SUPTAB.NLS;
+    XEL=EXTR LN I;
+    X=CHAINE X ' ' XEL;
+    J=J+1;
+  FIN BOU2;
+  MESSAGE X;
+FIN BOU1;
+OPTI IMPR 6;
+FINPROC;
+
+
+
+* Material constants
+YOU0=1.E-1; 
+v0=0.4; 
+* Applied Displacement
+* Tensile plate, clamped at the bottom 
+* with controlled displacement at the top
+*CPDP= 'DP';
+CPDP= 'CP';
+*Plane strains
+SI (EGA CPDP  'DP'); 
+OPTION DIME 2 ELEM qua4 MODE PLAN DEFO  ;
+FINSI;
+*Plane stresses *
+SI (EGA CPDP  'CP');
+OPTION DIME 2 ELEM qua4 MODE PLAN CONT  ;
+FINSI;
+*opti dime 2 mode plan cont;
+opti elem tri3;
+*opti elem tri6;
+*opti epsilon lineaire;
+************************************************************************
+
+*----------- INPUT DATAS-------------
+
+meshComp= CHAINE './meshes/'mesh'.unv';
+TAB1 = LIRE 'UNV' meshComp;
+list TAB1;
+s0 = TAB1.'MAILLAGE';
+
+
+liptopL = TAB1.'Lliptop';
+lipbotL = TAB1.'Llipbot';
+
+
+top0 = TAB1.'top';
+bot0 = TAB1.'bottom';
+
+pF0 = Noeud 9; 
+*for val it is 7, else 9 
+*pF0 = TAB1.'nodeLeftMiddle'; 
+*Problematic
+*trac (s0 coul blanc);
+
+
+s0 = rege s0;
+s0 = (s0 ELEM TRI3);
+u0 = 1.; 
+
+*trac s0;
+
+***********************************************************************
+*----------- CONSTITUTIVE LAW-------------
+* 
+*Plane strains
+SI (EGA CPDP  'DP'); 
+OPTION DIME 2 MODE PLAN DEFO  ;
+FINSI;
+*Plane stresses *
+SI (EGA CPDP  'CP');
+OPTION DIME 2 MODE PLAN CONT  ;
+FINSI;
+
+*opti elem qua8;
+
+MOD0 = MODE S0 MECANIQUE ELASTIQUE ISOTROPE ;
+MAT0 = MATE MOD0 YOUNG YOU0 NU v0;
+*----------- BOUNDARY CONDITIONS-----------
+* Clamped at the bottom
+CL01 = BLOQ UX bot0 ;
+CL02 = BLOQ UY bot0 ;
+CL0=CL01 et CL02;
+*displacement in the y-direction at the top
+CL2 = BLOQ UY top0 ;
+CL3 = BLOQ UX top0;
+CHA0 = DEPI CL2 (u0);
+CL0 =  CL0 et CL2 et CL3;
+
+* STIFFNESS MATRIX
+rig0 = rigi mod0 mat0 ;
+
+* DETERMINATION OF THE DISPLACEMENT FIELD
+u0 = reso (rig0 et cl0) cha0 ;
+
+
+
+*----By G-theta methods ---------------------;
+GTAB = TABL;
+GTAB . 'OBJECTIF' = MOT 'DECOUPLAGE';
+GTAB . 'FRONT_FISSURE'  = pF0 ;
+GTAB . 'LEVRE_SUPERIEURE' = liptopL;
+GTAB . 'LEVRE_INFERIEURE' = lipbotL;
+GTAB . 'COUCHE' = 6;
+GTAB . 'SOLUTION_RESO'  = u0;
+GTAB . 'CARACTERISTIQUES' = mat0;
+GTAB . 'MODELE' = mod0;
+GTAB . 'CHARGEMENTS_MECANIQUES' = cha0 ;
+G_THETA GTAB;
+K1G = GTAB. 'RESULTATS'. 'I'  ;
+K2G = GTAB . 'RESULTATS'. 'II'  ;
+
+*OUBL GTAB;
+*OUBL LIPTOPL;
+*OUBL LIPBOTL;
+*oubl MAT0;
+*oubl MOD0;
+*OUBL CHA0;
+*OUBL PF0;
+*OUBL u0;
+*OUBL CL01;
+*OUBL CL02;
+*OUBL CL0;
+*OUBL CL2;
+*OUBL CL3;
+*OUBL TAB1;
+*OUBL TOP0;
+*OUBL bot0;
+*OUBL S0;
+
+*mena GTAB;
+************** DETERMINATION OF G
+**----Using G-theta  ---------------------;
+*GTAB = TABL;
+*GTAB . 'OBJECTIF' = MOT 'J';
+*GTAB . 'FRONT_FISSURE'  = pF0 ;
+*GTAB . 'LEVRE_SUPERIEURE' = liptopL;
+*GTAB . 'LEVRE_INFERIEURE' = lipbotL;
+*GTAB . 'COUCHE' = 6;
+*GTAB . 'SOLUTION_RESO'  = u0;
+*GTAB . 'CARACTERISTIQUES' = mat0;
+*GTAB . 'MODELE' = mod0;
+*GTAB . 'CHARGEMENTS_MECANIQUES' = cha0 ;
+*G_THETA GTAB;
+*G_cal = GTAB . 'RESULTATS'  ;
+*SI (EGA CPDP  'DP'); 
+*A0= (1. - (v0*v0));
+*FINSI;
+**Plane stresses *
+*SI (EGA CPDP  'CP');
+*A0= 1.; 
+*FINSI;
+*GIrw= (A0/YOU0)*((K1G * K1G)+(K2G * K2G));
+mess '--------------------------';
+mess 'K1  Gtheta :'  K1G;
+mess 'K2  Gtheta:'  K2G;
+*mess '---G  Gtheta :'  G_cal;
+*mess '---G  J-Irwin :' GIrw;
+
+rel= K1G/K2G;
+mess rel;
+rs=(REL**2+8)**.5;
+inner = (rel- ((SIGN K2G)*rs))/4.;
+THETA1=(ATG INNER)*2;
+
+mess THETA1;
+*opti donn 5;
+
+
+
+
+fich0=CHAINE 'angles.dat';
+
+SUBTAB=TABLE;
+subtab.NL=4;
+SUBTAB.LN1=MOTS MESH;
+SUBTAB.LN2=PROG K1G;
+SUBTAB.LN3=PROG K2G;
+SUBTAB.LN4=PROG THETA1;
+SUBTAB.LIGN1= CHAINE 'name\t K1\t K2\t theta';
+SUBTAB.FICHIER=CHAINE fich0;
+
+GNUFICH SUBTAB;
+
+fin;
+
+
