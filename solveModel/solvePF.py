@@ -1,6 +1,14 @@
-# library include
+"""
+Author: Philipp M. Eisenhardt
+Course: Complex Fracture
+Phase field solver for the en passent crack problem
 
+Based on code by A. Baldelli
 
+Reads in geometry data from YAML file, generates mesh, solves Phase Field equations with alternative minimization approach using DolfinX
+
+To alternate the data, change the geometry files according to presentation
+"""
 import numpy as np
 import yaml
 import json
@@ -55,13 +63,13 @@ from meshes import primitives
 from utils import viz
 import matplotlib.pyplot as plt
 from utils.viz import plot_mesh, plot_vector, plot_scalar
+generateStepwiseOutput=True
 
 # Parameters
-
 parameters = {
     'loading': {
         'min': 0.4,
-        'max': 0.5,
+        'max': 1.,
         'steps': 10000
     },
     'geometry': {
@@ -69,7 +77,7 @@ parameters = {
         'Lx': 100,
         'Ly': 200, 
         'L0':15,
-        's':10,
+        's':30,
     },
     'model': {
         'E': 1E-1,
@@ -119,7 +127,7 @@ Ly = parameters["geometry"]["Ly"]
 L0 = parameters["geometry"]["L0"]
 s = parameters["geometry"]["s"]
 geom_type = parameters["geometry"]["geom_type"]
-prefac=130
+prefac=100
 
 gmsh_model, tdim = primitives.mesh_ep_gmshapi(geom_type,
                                     Lx, 
@@ -168,7 +176,7 @@ ax = plot_mesh(mesh_refined_local3)
 fig = ax.get_figure()
 fig.savefig(f"mesh_refined_local_bulk.png")
 """
-usedMesh=mesh
+usedMesh=mesh # Enables opportunity to improve mesh at specific places, might lead to deformed elements
 # Functional Setting
 
 element_u = ufl.VectorElement("Lagrange", usedMesh.ufl_cell(),
@@ -200,7 +208,6 @@ ds = ufl.Measure("ds", domain = usedMesh)
 
 
 # Boundary sets
-
 dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.))
 dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 dofs_alpha_bottom = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[1], 0.))
@@ -213,16 +220,13 @@ dofs_u_top = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[1], Ly))
 dofs_u_bottom = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[1], 0))
 
 # Boundary data
-
 u_.interpolate(lambda x: (np.zeros_like(x[0]), prefac*np.ones_like(x[1])))
 
 # Bounds (nontrivial)
-
 alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
 alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
 # Boundary conditions
-
 bcs_u = [
          dirichletbc(np.array([0., 0.], dtype=PETSc.ScalarType),
                       dofs_u_bottom,
@@ -240,7 +244,6 @@ bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
 model = Brittle(parameters["model"])
 
-
 total_energy = model.total_energy_density(state) * dx
 solver = am.AlternateMinimisation(total_energy,
                          state,
@@ -250,8 +253,6 @@ solver = am.AlternateMinimisation(total_energy,
                          )
 
 # Loop for evolution
-
-
 loads = np.linspace(parameters.get("loading").get("min"),
                     parameters.get("loading").get("max"),
                     parameters.get("loading").get("steps"))
@@ -303,13 +304,15 @@ for (i_t, t) in enumerate(loads):
   print(f"Solved timestep {i_t}, load: {t}")
   print(f"Elastic Energy {elastic_energy:.3g}, Surface energy: {surface_energy:.3g}")
   print("\n\n")
-  if(surface_energy>1 and i_t%25==0):
-  #if(i_t>1050 and i_t<1100):
-    _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-    _plt.screenshot(f"./plots/alphaFine"+str(i_t)+".png")
-  #if i_t>1100:
-  #    break
+  if generateStepwiseOutput:
+    if(surface_energy>1 and i_t%25==0):
+    #if(i_t>1050 and i_t<1100):
+        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+        _plt.screenshot(f"./plots/s30/alpha"+str(i_t)+".png")
+    #if i_t>1100:
+    #    break
   if(i_t>20 and  elastic_energy<1E-3 and elastic_energy<surface_energy):
+      #Brute force approach to determine, whether we have already reached a crack propagation state
       break
 
   # savings?
