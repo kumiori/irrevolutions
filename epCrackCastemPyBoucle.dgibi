@@ -1,6 +1,6 @@
-
-*mesh='10_20';
-
+* Autor: Philipp Eisenhardt, Complex Fracture
+* Based on code by V. Lazarus
+* Base file for all calculations, will be used by Python to adapt to current mesh
 
 *
 * gnufich subtab;
@@ -78,11 +78,7 @@ top0 = TAB1.'top';
 bot0 = TAB1.'bottom';
 
 pF0 = Noeud 9; 
-*for val it is 7, else 9 
-*pF0 = TAB1.'nodeLeftMiddle'; 
-*Problematic
-*trac (s0 coul blanc);
-
+*for validation with only one side it is 7, else 9 
 
 s0 = rege s0;
 s0 = (s0 ELEM TRI3);
@@ -140,64 +136,16 @@ G_THETA GTAB;
 K1G = GTAB. 'RESULTATS'. 'I'  ;
 K2G = GTAB . 'RESULTATS'. 'II'  ;
 
-*OUBL GTAB;
-*OUBL LIPTOPL;
-*OUBL LIPBOTL;
-*oubl MAT0;
-*oubl MOD0;
-*OUBL CHA0;
-*OUBL PF0;
-*OUBL u0;
-*OUBL CL01;
-*OUBL CL02;
-*OUBL CL0;
-*OUBL CL2;
-*OUBL CL3;
-*OUBL TAB1;
-*OUBL TOP0;
-*OUBL bot0;
-*OUBL S0;
-
-*mena GTAB;
-************** DETERMINATION OF G
-**----Using G-theta  ---------------------;
-*GTAB = TABL;
-*GTAB . 'OBJECTIF' = MOT 'J';
-*GTAB . 'FRONT_FISSURE'  = pF0 ;
-*GTAB . 'LEVRE_SUPERIEURE' = liptopL;
-*GTAB . 'LEVRE_INFERIEURE' = lipbotL;
-*GTAB . 'COUCHE' = 6;
-*GTAB . 'SOLUTION_RESO'  = u0;
-*GTAB . 'CARACTERISTIQUES' = mat0;
-*GTAB . 'MODELE' = mod0;
-*GTAB . 'CHARGEMENTS_MECANIQUES' = cha0 ;
-*G_THETA GTAB;
-*G_cal = GTAB . 'RESULTATS'  ;
-*SI (EGA CPDP  'DP'); 
-*A0= (1. - (v0*v0));
-*FINSI;
-**Plane stresses *
-*SI (EGA CPDP  'CP');
-*A0= 1.; 
-*FINSI;
-*GIrw= (A0/YOU0)*((K1G * K1G)+(K2G * K2G));
-mess '--------------------------';
-mess 'K1  Gtheta :'  K1G;
-mess 'K2  Gtheta:'  K2G;
-*mess '---G  Gtheta :'  G_cal;
-*mess '---G  J-Irwin :' GIrw;
+*mess '--------------------------';
+*mess 'K1  Gtheta :'  K1G;
+*mess 'K2  Gtheta:'  K2G;
 
 rel= K1G/K2G;
-mess rel;
 rs=(REL**2+8)**.5;
 inner = (rel- ((SIGN K2G)*rs))/4.;
 THETA1=(ATG INNER)*2;
 
-mess THETA1;
-*opti donn 5;
-
-
-
+*mess THETA1;
 
 fich0=CHAINE 'angles.dat';
 
