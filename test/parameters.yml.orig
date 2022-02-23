@@ -1,7 +1,7 @@
 # === Loading === #
 loading:
     min: 0
-    max: 1.
+    max: 1.001
     steps: 10
 
 #  === Geometry === #
@@ -16,6 +16,8 @@ model:
 <<<<<<< HEAD
     E: 1.
     nu: 0.0
+    mu: 1.
+    lmbda: 0.
     w1: 1.
     ell: 
     ellMin: 0.1
@@ -24,7 +26,7 @@ model:
     k_res: 1.e-8
 =======
     ell: 0.1
->>>>>>> 37e8077ee674a6a0dbbffa82e03a1b34a7871970
+>>>>>>> 72f056789907321661c40d8b8212a8d0032c3625
     model_dimension: 2
     model_type: "2D"
     # could be "2D"/ "3D" / "plane_stress" / "plane_strain"

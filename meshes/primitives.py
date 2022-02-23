@@ -153,7 +153,7 @@ def mesh_rightCrack_gmshapi(name,
         pRb= model.geo.addPoint(Lx, Ly/2+s/2+sep, 0, lc, tag=7)
         pLa= model.geo.addPoint(0, Ly/2-s/2-sep, 0, lc, tag=8)
         pLb= model.geo.addPoint(0, Ly/2-s/2+sep, 0, lc, tag=5)
-        plM= model.geo.addPoint(L0, Ly/2-s/2, 0, lc, tag=9)
+        plM= model.geo.addPoint(L0, Ly/2, 0, lc, tag=9)
         prM= model.geo.addPoint(Lx-L0, Ly/2+s/2, 0, lc, tag=10)
         # points = [p0, p1, p2, p3]
         bottom = model.geo.addLine(p0, p1, tag=0)
