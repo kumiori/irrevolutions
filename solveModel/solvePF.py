@@ -60,8 +60,8 @@ from utils.viz import plot_mesh, plot_vector, plot_scalar
 
 parameters = {
     'loading': {
-        'min': 0.3,
-        'max': 1.5,
+        'min': 0.4,
+        'max': 0.5,
         'steps': 10000
     },
     'geometry': {
@@ -262,6 +262,14 @@ data = {
     'total': [],
     'load': []
 }
+xvfb.start_xvfb(wait=0.05)
+pyvista.OFF_SCREEN = True
+plotter = pyvista.Plotter(
+        title="Displacement",
+        window_size=[1600, 600],
+        shape=(1, 2),
+    )
+
 for (i_t, t) in enumerate(loads):
   # update boundary conditions
 
@@ -295,6 +303,12 @@ for (i_t, t) in enumerate(loads):
   print(f"Solved timestep {i_t}, load: {t}")
   print(f"Elastic Energy {elastic_energy:.3g}, Surface energy: {surface_energy:.3g}")
   print("\n\n")
+  if(surface_energy>1 and i_t%25==0):
+  #if(i_t>1050 and i_t<1100):
+    _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+    _plt.screenshot(f"./plots/alphaFine"+str(i_t)+".png")
+  #if i_t>1100:
+  #    break
   if(i_t>20 and  elastic_energy<1E-3 and elastic_energy<surface_energy):
       break
 
@@ -321,8 +335,7 @@ plt.yticks([0, 1/20], [0, '$1/2.\sigma_c^2/E_0$'])
 plt.xticks([0, 1], [0, 1])
 plt.savefig("lastSteps.png")
 
-xvfb.start_xvfb(wait=0.05)
-pyvista.OFF_SCREEN = True
+
 
 plotter = pyvista.Plotter(
         title="Displacement",
