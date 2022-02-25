@@ -5,7 +5,7 @@ sys.path.append('../')
 
 from meshes import (
     _addPoint,
-_addLine,
+    _addLine,
     _addCurveLoop,
     _addPlaneSurface,
     _addPhysicalGroup,
