@@ -220,7 +220,7 @@ def plot_info(gmsh, model, cy, cell_width, cx, points, circles, px, py, ax, k, c
 if __name__ == "__main__":
     import sys
 
-    sys.path.append("../../damage")
+    sys.path.append("../damage")
     from dolfinx.io import XDMFFile
     from meshes import gmsh_model_to_mesh
 
