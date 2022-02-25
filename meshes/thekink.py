@@ -1,4 +1,5 @@
 from mpi4py import MPI
+import numpy as np
 
 
 def mesh_kink(name,
@@ -23,7 +24,6 @@ def mesh_kink(name,
     if comm.rank == 0:
 
         import gmsh
-        import numpy as np
 
         # Initialise gmsh and set options
         gmsh.initialize()
