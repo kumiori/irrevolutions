@@ -26,6 +26,10 @@ from gmsh import model
 
 def mesh_bounding_box(mesh, i): return (
     min(mesh.geometry.x[:, i]), max(mesh.geometry.x[:, i]))
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
 
 def read_from_msh(filename: str, cell_data=False, facet_data=False, gdim=None):
     """
@@ -177,9 +181,17 @@ def gmsh_model_to_mesh(model, cell_data=False, facet_data=False, gdim=None, expo
     else:
         return mesh
 
+<<<<<<< HEAD
 def get_tag(kwargs):
     return '' if (kwargs.get('tag') == None or kwargs.get('tag') == -1) else f"({kwargs.get('tag')})"
 
+=======
+
+def get_tag(kwargs):
+    return '' if (kwargs.get('tag') == None or kwargs.get('tag') == -1) else f"({kwargs.get('tag')})"
+
+
+>>>>>>> main
 def geo_decorate_point(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -188,11 +200,20 @@ def geo_decorate_point(func):
             _str = f"Point {_tag} = {{ {args[0]}, {args[1]}, {args[2]}, {kwargs.get('meshSize')} }};"
         else:
             _str = f"Point {_tag} = {{ {args[0]}, {args[1]}, {args[2]}, {args[3]} }};"
+<<<<<<< HEAD
         
         print(_str) 
         return func(*args, **kwargs)
     return wrapper
 
+=======
+
+        print(_str)
+        return func(*args, **kwargs)
+    return wrapper
+
+
+>>>>>>> main
 def geo_decorate_line(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -233,6 +254,10 @@ def geo_decorate_surface(func):
         return func(*args, **kwargs)
     return wrapper
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
 def geo_decorate_physical(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -248,6 +273,10 @@ def geo_decorate_physical(func):
         return func(*args, **kwargs)
     return wrapper
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
 _addPoint = geo_decorate_point(model.geo.addPoint)
 _addLine = geo_decorate_line(model.geo.addLine)
 _addCurveLoop = geo_decorate_loop(model.geo.addCurveLoop)
