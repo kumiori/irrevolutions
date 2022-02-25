@@ -19,11 +19,11 @@ def mesh_kink(name,
     Create mesh, with a kink
     """
     # Perform Gmsh work only on rank = 0
-    import numpy as np
     
     if comm.rank == 0:
 
         import gmsh
+        import numpy as np
 
         # Initialise gmsh and set options
         gmsh.initialize()
