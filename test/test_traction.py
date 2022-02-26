@@ -105,7 +105,6 @@ V_alpha = FunctionSpace(mesh, element_alpha)
 # Define the state
 u = Function(V_u, name="Displacement")
 u_ = Function(V_u, name="Boundary Displacement")
-ux_ = Function(V_u.sub(0).collapse(), name="Boundary Displacement")
 zero_u = Function(V_u, name="   Boundary Displacement")
 alpha = Function(V_alpha, name="Damage")
 zero_alpha = Function(V_alpha, name="Damage Boundary Field")
@@ -127,18 +126,14 @@ dofs_alpha_right = locate_dofs_geometrical(
 
 dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
 dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
-dofs_ux_right = locate_dofs_geometrical(
-    (V_u.sub(0), V_u.sub(0).collapse()), lambda x: np.isclose(x[0], Lx)
-)
 # Set Bcs Function
 zero_u.interpolate(lambda x: (np.zeros_like(x[0]), np.zeros_like(x[1])))
 zero_alpha.interpolate((lambda x: np.zeros_like(x[0])))
 u_.interpolate(lambda x: (np.ones_like(x[0]), 0 * np.ones_like(x[1])))
-ux_.interpolate(lambda x: np.ones_like(x[0]))
 alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
 alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
-for f in [zero_u, zero_alpha, u_, ux_, alpha_lb, alpha_ub]:
+for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
     f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                          mode=PETSc.ScatterMode.FORWARD)
 

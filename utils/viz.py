@@ -65,10 +65,21 @@ def plot_vector(u, plotter, subplot=None):
     # figure = plotter.screenshot(f"./output/test_viz/test_viz_MPI{comm.size}-.png")
 
 
-def plot_scalar(alpha, plotter, subplot=None, lineproperties={}):
+def plot_scalar(u, plotter, subplot=None, lineproperties={}):
+    """Plots a scalar function using pyvista
+
+    Args:
+        u: Scalar field
+        plotter plotter: The plotter object
+        subplot plotter: Optional selection of subplot slot
+        lineproperties: Optional line properties (dictionary)
+
+    Returns:
+        plotter: Updated plotter object
+   """
     if subplot:
         plotter.subplot(subplot[0], subplot[1])
-    V = alpha.function_space
+    V = u.function_space
     mesh = V.mesh
     
     ret = compute_topology(mesh, mesh.topology.dim)
@@ -79,8 +90,10 @@ def plot_scalar(alpha, plotter, subplot=None, lineproperties={}):
     grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
 
     plotter.subplot(0, 0)
-    grid.point_data["alpha"] = alpha.compute_point_values().real
-    grid.set_active_scalars("alpha")
+    values = u.vector.array.real.reshape(
+        V.dofmap.index_map.size_local, V.dofmap.index_map_bs)
+    grid.point_data["u"] = values
+    grid.set_active_scalars("u")
     plotter.add_mesh(grid, **lineproperties)
     plotter.view_xy()
     return plotter
