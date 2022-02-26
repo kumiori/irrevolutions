@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys
 sys.path.append('../')
 import numpy as np
@@ -77,7 +78,7 @@ fig = ax.get_figure()
 fig.savefig(f"mesh.png")
 
 
-with open("./test/parameters.yml") as f:
+with open("../test/parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
 

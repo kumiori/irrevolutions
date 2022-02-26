@@ -42,7 +42,7 @@ import matplotlib.pyplot as plt
 import pyvista 
 from pyvista.utilities import xvfb
 
-sys.path.append('./')
+sys.path.append('../')
 
 # meshes
 import meshes
@@ -127,7 +127,7 @@ parameters = {
 }
 
 # parameters.get('loading')
-with open("./solveModel/parametersSolve.yml") as f:
+with open("./parametersSolve.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
 # Mesh
@@ -297,6 +297,8 @@ plotter = pyvista.Plotter(
         shape=(1, 2),
     )
 
+import pdb
+pdb.set_trace()
 # _plt = plot_scalar(u_.sub(0), plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 1))
 _plt.screenshot(f"displacement_MPI.png")
