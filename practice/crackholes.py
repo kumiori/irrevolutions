@@ -1,4 +1,5 @@
 
+import pandas as pd
 import hashlib
 import matplotlib.pyplot as plt
 import sys
@@ -69,8 +70,8 @@ comm = MPI.COMM_WORLD
 parameters = {
     'loading': {
         'min': 0.,
-        'max': 3.,
-        'steps': 10
+        'max': .2,
+        'steps': 2
     },
     'geometry': {
         'geom_type': 'bar',
@@ -82,9 +83,9 @@ parameters = {
     'model': {
         'tdim': 2,
         'E': 1,
-        'nu': .0,
+        'nu': .37,
         'w1': 1.,
-        'ell': 0.1,
+        'ell': 0.05,
         'k_res': 1.e-8
     },
     'solvers': {
@@ -350,7 +351,7 @@ geo_parameters = {
     "b":  .2,
     "ax": .06,
     "bx": .01,
-    "lc":  .05,
+    "lc":  .02,
     "xc": .1,
     "c": 0.275,
     "l1": 0.001,
@@ -455,8 +456,6 @@ _delta = parameters.get("geometry").get("deltac")
 def _geom_pin(x, pin, radius):
   return np.isclose((x[0]-pin[0])**2. + (x[1]-pin[1])**2 - radius**2, 0)
 
-
-
 dofs_u_pin_top = locate_dofs_geometrical(
     V_u, lambda x: _geom_pin(x, [_cx, _cy], _radius))
 dofs_u_pin_bot = locate_dofs_geometrical(
@@ -478,7 +477,6 @@ bcs_u = [
     dirichletbc(u_bot,
                 dofs_u_pin_bot),
 ]
-
 
 bcs_alpha = [
     dirichletbc(np.array(0., dtype=PETSc.ScalarType),
@@ -570,8 +568,9 @@ for (i_t, t) in enumerate(loads):
         f"Elastic Energy {elastic_energy:.3g}, Surface energy: {surface_energy:.3g}")
     print("\n")
 
-    _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-    _plt.screenshot(f"damage-t-{i_t}.png")
+    if comm.rank == 0 and comm.size==1:
+        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+        _plt.screenshot(f"damage-t-{i_t}.png")
 
     with XDMFFile(comm, f"{prefix}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)
@@ -586,47 +585,51 @@ list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
 
 # Viz
-xvfb.start_xvfb(wait=0.05)
-pyvista.OFF_SCREEN = True
+
+# serial viz
+if comm.rank == 0 and comm.size==1:
+    xvfb.start_xvfb(wait=0.05)
+    pyvista.OFF_SCREEN = True
+
+    plotter = pyvista.Plotter(
+        title="Displacement",
+        window_size=[1600, 600],
+        shape=(1, 2),
+    )
+
+    _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+    _plt = plot_vector(u, plotter, subplot=(0, 1))
+    _plt.screenshot(f"{outdir}/crackhole-state.png")
+
+    xvfb.start_xvfb(wait=0.05)
+    pyvista.OFF_SCREEN = True
+
+    plotter = pyvista.Plotter(
+        title="Displacement",
+        window_size=[1600, 600],
+        shape=(1, 2),
+    )
+
+    # _plt = plot_scalar(u_.sub(0), plotter, subplot=(0, 0))
+    _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+    _plt = plot_vector(u, plotter, subplot=(0, 1))
+    # _plt = plot_vector(u, plotter, subplot=(0, 1), factor=.1)
+    _plt.screenshot(os.path.join(outdir, "fields.png"))
 
 
-plotter = pyvista.Plotter(
-    title="Displacement",
-    window_size=[1600, 600],
-    shape=(1, 2),
-)
-_plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-_plt = plot_vector(u, plotter, subplot=(0, 1))
-_plt.screenshot(f"{outdir}/crackhole-state.png")
-# if comm.rank == 0:
-#     plot_energies(history_data, file=f"{prefix}_energies.pdf")
-#     plot_AMit_load(history_data, file=f"{prefix}_it_load.pdf")
+# global viz, always, on root proc 
+elif comm.rank == 0:
+    plt.figure()
+    plt.plot(data.get('load'), data.get('surface'), label='surface')
+    plt.plot(data.get('load'), data.get('elastic'), label='elastic')
 
-plt.figure()
-plt.plot(data.get('load'), data.get('surface'), label='surface')
-plt.plot(data.get('load'), data.get('elastic'), label='elastic')
-
-plt.title('Traction bar energetics')
-plt.legend()
-plt.xticks([0, 1], [0, 1])
-plt.savefig(os.path.join(outdir, "energetics.png"))
-
-xvfb.start_xvfb(wait=0.05)
-pyvista.OFF_SCREEN = True
-
-plotter = pyvista.Plotter(
-    title="Displacement",
-    window_size=[1600, 600],
-    shape=(1, 2),
-)
-
-# _plt = plot_scalar(u_.sub(0), plotter, subplot=(0, 0))
-_plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-_plt = plot_vector(u, plotter, subplot=(0, 1))
-# _plt = plot_vector(u, plotter, subplot=(0, 1), factor=.1)
-_plt.screenshot(os.path.join(outdir, "fields.png"))
+    plt.title('Crackhole energetics')
+    plt.legend()
+    # plt.xticks([0, 1], [0, 1])
+    plt.savefig(os.path.join(outdir, "energetics.png"))
 
 
-pdb.set_trace()
-df = pd.DataFrame(history_data)
-print(df)
+
+if comm.rank == 0:
+    df = pd.DataFrame(history_data)
+    print(df)
