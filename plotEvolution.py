@@ -21,7 +21,7 @@ def main():
     ax.plot(x, y, linewidth=1, color="r")
     ax.axis('off')
     plt.show()
-    fig.savefig("./alpha_part_parabola.png", transparent=True,bbox_inches='tight')
+    fig.savefig("./alpha_part_parabola.png", transparent=True,bbox_inches='tight', dpi=300)
     print("Gamma= "+str((263-x0)/(y0-268)))
 
 
