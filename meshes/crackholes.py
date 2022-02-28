@@ -19,13 +19,21 @@ import matplotlib.pyplot as plt
 algorithms = {'Delaunay': 5, 'FrontalDelaunay': 6}
 
 
-def mesh_crackholes(name,
+def mesh_crackholes(geom_type,
                     Lx,
                     Ly,
                     a,
                     b,
+                    ax,
+                    bx,
                     lc,
                     xc,
+                    c,
+                    l1,
+                    d,
+                    e,
+                    f,
+                    g,
                     deltac,
                     rhoc,
                     offset=0,
@@ -37,13 +45,22 @@ def mesh_crackholes(name,
     Create mesh of 2d tensile test specimen -
          Lx: 
          Ly: 
-         a: 
-         b: 
+         a: centre ellipse
+         b: centre ellipse
+         ax: horiz axis ellipse 
+         bx: vert axis ellipse
          lc: 
-         xc: 
+         xc:
+         c:
+         l1:
+         d:
+         e:
+         f:
+         g:
          deltac: 
          rhoc: 
          offset (defaults 0): offset between pins 
+         refine ratio:
     """
     # Perform Gmsh work only on rank = 0
 
@@ -59,92 +76,80 @@ def mesh_crackholes(name,
         model = gmsh.model()
         model.add("Rectangle")
         model.setCurrent("Rectangle")
-        # points = [p1, p2, p3, p4, p5, p6, p7, p8,p9,p10,p11,p12,p13,p14,p15,p16,p17,p18,p19,p20,p21,p22,p23,p24,p25,p26]
-        p1 = _addPoint(0.0, 0.0, 0, lc, tag=1)
-        p2 = _addPoint(Lx, 0.0, 0, lc, tag=2)
-        p3 = _addPoint(Lx, Ly, 0.0, lc, tag=3)
-        p4 = _addPoint(0, Ly, 0, lc, tag=4)
-        p5 = _addPoint(0, 0.275, 0.0, lc, tag=5)
-        p6 = _addPoint(Lx/4, 0.275, 0, lc/2, tag=6)
-        p7 = _addPoint(0.35, (Ly/2)+0.001, 0.0, lc/3, tag=7)
-        p8 = _addPoint(0.40, 0.25, 0, lc/3, tag=8)
-        p9 = _addPoint(0.35, (Ly/2)-0.001, 0, lc/3, tag=9)
-        p10 = _addPoint(Lx/4, 0.225, 0, lc/2, tag=10)
-        p11 = _addPoint(0, 0.225, 0, lc, tag=11)
+        p1 = model.geo.addPoint(0.0, 0.0, 0, lc, tag=1)
+        p2 = model.geo.addPoint(Lx, 0.0, 0, lc, tag=2)
+        p3 = model.geo.addPoint(Lx, Ly, 0.0, lc, tag=3)
+        p4 = model.geo.addPoint(0, Ly, 0, lc, tag=4)
+        p5 = model.geo.addPoint(0, c, 0.0, lc, tag=5)
+        p6 = model.geo.addPoint(Lx/4, c, 0, lc/2, tag=6)
+        p7 = model.geo.addPoint(d, (Ly/2)+l1, 0.0, lc/3, tag=7)
+        p8 = model.geo.addPoint(e, f, 0, lc/3, tag=8)
+        p9 = model.geo.addPoint(d, (Ly/2)-l1, 0, lc/3, tag=9)
+        p10 = model.geo.addPoint(Lx/4, g, 0, lc/2, tag=10)
+        p11 = model.geo.addPoint(0, g, 0, lc, tag=11)
 
         # xc, deltac, rhoc, offset=0
 
-        p12 = _addPoint(
+        p12 = model.geo.addPoint(
             xc-offset, Ly/2+deltac, 0, lc, tag=12)  # cercle1
-        p13 = _addPoint(xc-offset-rhoc, Ly/2+deltac, 0, lc, tag=13)
-        p14 = _addPoint(xc-offset, Ly/2+deltac+rhoc, 0, lc, tag=14)
-        p15 = _addPoint(xc-offset+rhoc, Ly/2+deltac, 0, lc, tag=15)
-        p16 = _addPoint(xc-offset, Ly/2+deltac-rhoc, 0, lc, tag=16)
+        p13 = model.geo.addPoint(xc-offset-rhoc, Ly/2+deltac, 0, lc, tag=13)
+        p14 = model.geo.addPoint(xc-offset, Ly/2+deltac+rhoc, 0, lc, tag=14)
+        p15 = model.geo.addPoint(xc-offset+rhoc, Ly/2+deltac, 0, lc, tag=15)
+        p16 = model.geo.addPoint(xc-offset, Ly/2+deltac-rhoc, 0, lc, tag=16)
 
-        p17 = _addPoint(
+        p17 = model.geo.addPoint(
             xc+offset, Ly/2-deltac, 0, lc, tag=17)  # cercle2
-        p18 = _addPoint(xc+offset-rhoc, Ly/2-deltac, 0, lc, tag=18)
-        p19 = _addPoint(xc+offset, Ly/2-deltac+rhoc, 0, lc, tag=19)
-        p20 = _addPoint(xc+offset+rhoc, Ly/2-deltac, 0, lc, tag=20)
-        p21 = _addPoint(xc+offset, Ly/2-deltac-rhoc, 0, lc, tag=21)
+        p18 = model.geo.addPoint(xc+offset-rhoc, Ly/2-deltac, 0, lc, tag=18)
+        p19 = model.geo.addPoint(xc+offset, Ly/2-deltac+rhoc, 0, lc, tag=19)
+        p20 = model.geo.addPoint(xc+offset+rhoc, Ly/2-deltac, 0, lc, tag=20)
+        p21 = model.geo.addPoint(xc+offset, Ly/2-deltac-rhoc, 0, lc, tag=21)
 
-        p22 = _addPoint(a, b, 0, lc, tag=22)  # ellipse
-        p23 = _addPoint(a, b+0.01, 0, lc, tag=23)
-        p24 = _addPoint(a+0.03, b, 0, lc, tag=24)
-        p25 = _addPoint(a, b-0.01, 0, lc, tag=25)
-        p26 = _addPoint(a-0.03, b, 0, lc, tag=26)
+        p22 = model.geo.addPoint(a, b, 0, lc, tag=22)  # ellipse
+        p23 = model.geo.addPoint(a, b+bx, 0, lc/3, tag=23)
+        p24 = model.geo.addPoint(a+ax, b, 0, lc/3, tag=24)
+        p25 = model.geo.addPoint(a, b-bx, 0, lc/3, tag=25)
+        p26 = model.geo.addPoint(a-ax, b, 0, lc/3, tag=26)
 
         # Lines = [L1, L2, L3, L4, L5, L6, L7, L8]
-        bottom = _addLine(p1, p2, tag=1)
-        right = _addLine(p2, p3, tag=2)
-        top = _addLine(p3, p4, tag=3)
-        left1 = _addLine(p4, p5, tag=4)
-        halftop = _addLine(p5, p6, tag=5)
-        inclined1 = _addLine(p6, p7, tag=6)
-        liptop = _addLine(p7, p8, tag=7)
-        lipbot = _addLine(p8, p9, tag=8)
-        inclined2 = _addLine(p9, p10, tag=9)
-        halfbottom = _addLine(p10, p11, tag=10)
-        left2 = _addLine(p11, p1, tag=11)
-        cloop1 = _addCurveLoop(
+        bottom = model.geo.addLine(p1, p2, tag=1)
+        right = model.geo.addLine(p2, p3, tag=2)
+        top = model.geo.addLine(p3, p4, tag=3)
+        left1 = model.geo.addLine(p4, p5, tag=4)
+        halftop = model.geo.addLine(p5, p6, tag=5)
+        inclined1 = model.geo.addLine(p6, p7, tag=6)
+        liptop = model.geo.addLine(p7, p8, tag=7)
+        lipbot = model.geo.addLine(p8, p9, tag=8)
+        inclined2 = model.geo.addLine(p9, p10, tag=9)
+        halfbottom = model.geo.addLine(p10, p11, tag=10)
+        left2 = model.geo.addLine(p11, p1, tag=11)
+        cloop1 = model.geo.addCurveLoop(
             [bottom, right, top, left1, halftop, inclined1, liptop, lipbot, inclined2, halfbottom, left2])
-        c1 = _addCircleArc(p13, p12, p14)
-        c2 = _addCircleArc(p14, p12, p15)
-        c3 = _addCircleArc(p15, p12, p16)
-        c4 = _addCircleArc(p16, p12, p13)
-        circle1 = _addCurveLoop([c1, c2, c3, c4])
-        c5 = _addCircleArc(p18, p17, p19)
-        c6 = _addCircleArc(p19, p17, p20)
-        c7 = _addCircleArc(p20, p17, p21)
-        c8 = _addCircleArc(p21, p17, p18)
-        circle2 = _addCurveLoop([c5, c6, c7, c8])
+        c1 = gmsh.model.geo.addCircleArc(p13, p12, p14)
+        c2 = gmsh.model.geo.addCircleArc(p14, p12, p15)
+        c3 = gmsh.model.geo.addCircleArc(p15, p12, p16)
+        c4 = gmsh.model.geo.addCircleArc(p16, p12, p13)
+        circle1 = model.geo.addCurveLoop([c1, c2, c3, c4])
+        c5 = gmsh.model.geo.addCircleArc(p18, p17, p19)
+        c6 = gmsh.model.geo.addCircleArc(p19, p17, p20)
+        c7 = gmsh.model.geo.addCircleArc(p20, p17, p21)
+        c8 = gmsh.model.geo.addCircleArc(p21, p17, p18)
+        circle2 = model.geo.addCurveLoop([c5, c6, c7, c8])
         e1 = gmsh.model.geo.addEllipseArc(p26, p22, p24, p25)
         e2 = gmsh.model.geo.addEllipseArc(p24, p22, p26, p25)
         e3 = gmsh.model.geo.addEllipseArc(p24, p22, p26, p23)
         e4 = gmsh.model.geo.addEllipseArc(p26, p22, p24, p23)
-        Ellipse = _addCurveLoop([e1, -e2, e3, -e4])
+        Ellipse = model.geo.addCurveLoop([e1, -e2, e3, -e4])
 
         # surface_1 =
         model.geo.addPlaneSurface([cloop1, circle1, circle2, Ellipse])
 
-        model.geo.synchronize()
+        gmsh.model.geo.synchronize()
         surface_entities = [model[1] for model in model.getEntities(tdim)]
 
-        model.addPhysicalGroup(tdim, surface_entities, tag=1)
-        model.setPhysicalName(tdim, 1, "Rectangle surface")
+        gmsh.model.addPhysicalGroup(tdim, surface_entities, tag=1)
+        gmsh.model.setPhysicalName(tdim, 1, "Rectangle surface")
 
-        # Set mesh size via points
-        # gmsh.model.mesh.setSize(points, lc)  # heuristic
-
-        # gmsh.model.mesh.optimize("Netgen")
-
-        # Set geometric order of mesh cells
         gmsh.model.mesh.setOrder(order)
-
-        # Define physical groups for subdomains (! target tag > 0)
-        # domain = 1
-        # gmsh.model.addPhysicalGroup(tdim, [v[1] for v in volumes], domain)
-        # gmsh.model.setPhysicalName(tdim, domain, 'domain')
 
         # export pins as physical
         gmsh.model.addPhysicalGroup(tdim - 1, [circle1], tag=99)
@@ -167,13 +172,9 @@ def mesh_crackholes(name,
         gmsh.model.addPhysicalGroup(tdim - 1, [8], tag=14)
         gmsh.model.setPhysicalName(tdim - 1, 14, "topfissure2")
 
-        model.mesh.generate(tdim)
+        gmsh.model.mesh.generate(tdim)
 
-        # Generating the mesh
-    model.geo.synchronize()
-    model.mesh.generate(tdim)
-
-    return gmsh.model
+    return gmsh.model if comm.rank == 0 else None
 
 
 def print_info(gmsh, model, cy, cell_width, cx, points, circles, px, py, ax, k, circle_arcs, _offset):
@@ -228,31 +229,73 @@ if __name__ == "__main__":
     from mpi4py import MPI
     from pathlib import Path
     import dolfinx.plot
-    parameters = {
-        'loading': {
-            'min': 0.4,
-            'max': 1.,
-            'steps': 1
-        },
-        'geometry': {
-            'geom_type': 'bar',
-            'Lx': 1.0,
-            'Ly': 0.5,
-            'rhoc': 0.05,
-            'deltac': 0.2,
-        }
-    }
 
-    model, tdim, tag_names = mesh_crackholes('ikea_real',
-                                        geom_parameters=parameters,
-                                        lc=.1,
-                                        tdim=2,
-                                        order=0,
-                                        msh_file='ikea_real.msh'
-                                        )
+
+
+    # Mesh
+    parameters = {
+        'geometry': {
+            'geom_type': 'crackhole',
+            # 'Lx': 1.0,
+            # 'Ly': 0.5,
+            # 'a': .5,
+            # 'b': .2,
+            # 'lc': .05,
+            "Lx" : 1.,
+            "Ly" : .5,
+            "a" :  .5,
+            "b" :  .2,
+            "lc" :  .05,
+            "xc": .1,
+            "deltac": .1,
+            "rhoc": .05,
+            "offset": 0,
+            "tdim" :  2,
+            "order" :  0
+        },
+    }
+    Lx = parameters.get("geometry").get("Lx")
+    Ly = parameters.get("geometry").get("Ly")
+    a = parameters.get("geometry").get("a")
+    #b=parameters.get("geometry").get("b")
+    geom_type = parameters.get("geometry").get("geom_type")
+
+    gmsh_model=mesh_crackholes('ellipseHole',
+                            Lx,
+                            Ly,
+                            a = .5,
+                            b = .2,
+                            lc = .05,
+                            xc=.1,
+                            deltac=.1,
+                            rhoc=.05,
+                            offset=0,
+                            tdim = 2,
+                            order = 0
+                            )
+
+
+
+
+
+    # model, tdim, tag_names = mesh_crackholes('ikea_real',
+    #                                     geom_parameters=parameters,
+    #                                     lc=.1,
+    #                                     tdim=2,
+    #                                     order=0,
+    #                                     msh_file='ikea_real.msh'
+    #                                     )
+
+    # model, tdim, tag_names = mesh_crackholes('ikea_real',
+    #                                     geom_parameters=parameters,
+    #                                     lc=.1,
+    #                                     tdim=2,
+    #                                     order=0,
+    #                                     msh_file='ikea_real.msh'
+    #                                     )
 
     mesh, mts = gmsh_model_to_mesh(
-        model, cell_data=True, facet_data=False, gdim=tdim)
+        gmsh_model, cell_data=True, facet_data=False, gdim=2)
 
     # Path("output").mkdir(parents=True, exist_ok=True)
     # with XDMFFile(MPI.COMM_WORLD, "output/ikea.xdmf", "w") as ofile:
