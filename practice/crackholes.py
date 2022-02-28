@@ -50,12 +50,9 @@ import algorithms
 from algorithms import am
 # from meshes.crackholes import mesh_crackholes as mesh_function
 
-
 # from damage.utils import ColorPrint
 
-
 logging.basicConfig(level=logging.INFO)
-
 
 sys.path.append("../")
 
@@ -63,18 +60,17 @@ sys.path.append("../")
 petsc4py.init(sys.argv)
 log.set_log_level(log.LogLevel.WARNING)
 
-
 comm = MPI.COMM_WORLD
 
 # Parameters
 parameters = {
     'loading': {
         'min': 0.,
-        'max': .2,
-        'steps': 2
+        'max': 3.,
+        'steps': 30
     },
     'geometry': {
-        'geom_type': 'bar',
+        'geom_type': 'crackhole',
         'Lx': 1.0,
         'Ly': 0.5,
         'rhoc': 0.05,
@@ -85,7 +81,7 @@ parameters = {
         'E': 1,
         'nu': .37,
         'w1': 1.,
-        'ell': 0.05,
+        'ell': 0.01,
         'k_res': 1.e-8
     },
     'solvers': {
@@ -128,7 +124,7 @@ parameters = {
 Lx = parameters["geometry"]["Lx"]
 Ly = parameters["geometry"]["Ly"]
 ell_ = parameters["model"]["ell"]
-lc = ell_ / 3.0
+lc = ell_ / 2.0
 
 geo_parameters = {
     'geom_type': 'crackhole',
@@ -137,7 +133,7 @@ geo_parameters = {
     "l0":  .6,
     "a":  .5,
     "b":  .2,
-    "lc":  .05,
+    "lc": lc,
     "xc": .1,
     "c": 0.275,
     "l1": 0.001,
@@ -166,7 +162,6 @@ l0 = parameters.get("geometry").get("l0")
 #b=parameters.get("geometry").get("b")
 geom_type = parameters.get("geometry").get("geom_type")
 tdim = parameters.get("model").get("tdim")
-
 
 # ---------------------
 
@@ -229,7 +224,6 @@ def mesh_crackholes(geom_type,
         model = gmsh.model()
         model.add("Rectangle")
         model.setCurrent("Rectangle")
-         # points = [p1, p2, p3, p4, p5, p6, p7, p8,p9,p10,p11,p12,p13,p14,p15,p16,p17,p18,p19,p20,p21,p22,p23,p24,p25,p26]
         p1 = model.geo.addPoint(0.0, 0.0, 0, lc, tag=1)
         p2 = model.geo.addPoint(Lx, 0.0, 0, lc, tag=2)
         p3 = model.geo.addPoint(Lx, Ly, 0.0, lc, tag=3)
@@ -300,19 +294,8 @@ def mesh_crackholes(geom_type,
         gmsh.model.addPhysicalGroup(tdim, surface_entities, tag=1)
         gmsh.model.setPhysicalName(tdim, 1, "Rectangle surface")
 
-        # Set mesh size via points
-        # gmsh.model.mesh.setSize(points, lc)  # heuristic
-
-        # gmsh.model.mesh.optimize("Netgen")
-
-        # Set geometric order of mesh cells
         gmsh.model.mesh.setOrder(order)
 
-        # Define physical groups for subdomains (! target tag > 0)
-        # domain = 1
-        # gmsh.model.addPhysicalGroup(tdim, [v[1] for v in volumes], domain)
-        # gmsh.model.setPhysicalName(tdim, domain, 'domain')
-              
         # export pins as physical
         gmsh.model.addPhysicalGroup(tdim - 1, [circle1], tag=99)
         gmsh.model.setPhysicalName(tdim - 1, 99, "topPin")
@@ -450,7 +433,6 @@ _radius = parameters.get("geometry").get("rhoc")
 # works only if symmetric
 _delta = parameters.get("geometry").get("deltac")
 
-
 # unsymmetric case: TODO
 
 def _geom_pin(x, pin, radius):
@@ -466,8 +448,8 @@ dofs_alpha_pin_top = locate_dofs_geometrical(
 dofs_alpha_pin_bot = locate_dofs_geometrical(
     V_alpha, lambda x: _geom_pin(x, [_cx, _cy-2*_delta], _radius))
 
-assert(len(dofs_u_pin_top) == len(dofs_u_pin_bot))
-assert(len(dofs_alpha_pin_top) == len(dofs_alpha_pin_bot))
+# assert(len(dofs_u_pin_top) == len(dofs_u_pin_bot))
+# assert(len(dofs_alpha_pin_top) == len(dofs_alpha_pin_bot))
 
 # Boundary conditions
 
