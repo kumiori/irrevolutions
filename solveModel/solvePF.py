@@ -68,8 +68,8 @@ generateStepwiseOutput=True
 # Parameters
 parameters = {
     'loading': {
-        'min': 0.4,
-        'max': 1.,
+        'min': 0.0,
+        'max': .5,
         'steps': 10000
     },
     'geometry': {
@@ -77,7 +77,7 @@ parameters = {
         'Lx': 100,
         'Ly': 200, 
         'L0':15,
-        's':30,
+        's':5,
     },
     'model': {
         'E': 1E-1,
@@ -157,7 +157,7 @@ plt.figure()
 ax = plot_mesh(mesh)
 fig = ax.get_figure()
 fig.savefig(f"mesh.png")
-"""
+
 mesh.topology.create_entities(tdim - 1)
 
 def left_corner(x):
@@ -166,17 +166,19 @@ def left_corner(x):
 def middle_area(x):
     return np.logical_and(x[1] < Ly/2+3/4*s, x[1] > Ly/2-3/4*s)
 edges = dolfinx.mesh.locate_entities(mesh, tdim-1, middle_area)
-mesh_refined_local2 = dolfinx.mesh.refine(mesh, edges, redistribute=True)
+mesh_refined_local2 = dolfinx.mesh.refine(mesh, edges, redistribute=False)
 
+"""
 edges = dolfinx.mesh.locate_entities(mesh_refined_local2, tdim-1, middle_area)
 mesh_refined_local3 = dolfinx.mesh.refine(mesh_refined_local2, edges, redistribute=True)
+"""
 
 plt.figure()
-ax = plot_mesh(mesh_refined_local3)
+ax = plot_mesh(mesh_refined_local2)
 fig = ax.get_figure()
 fig.savefig(f"mesh_refined_local_bulk.png")
-"""
-usedMesh=mesh # Enables opportunity to improve mesh at specific places, might lead to deformed elements
+
+usedMesh=mesh_refined_local2 # Enables opportunity to improve mesh at specific places, might lead to deformed elements
 # Functional Setting
 
 element_u = ufl.VectorElement("Lagrange", usedMesh.ufl_cell(),
@@ -267,8 +269,8 @@ xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
 plotter = pyvista.Plotter(
         title="Displacement",
-        window_size=[1600, 600],
-        shape=(1, 2),
+        window_size=[800, 600],
+        shape=(1, 1),
     )
 
 for (i_t, t) in enumerate(loads):
@@ -305,10 +307,10 @@ for (i_t, t) in enumerate(loads):
   print(f"Elastic Energy {elastic_energy:.3g}, Surface energy: {surface_energy:.3g}")
   print("\n\n")
   if generateStepwiseOutput:
-    if(surface_energy>1 and i_t%25==0):
+    if(surface_energy>.1 and i_t%25==0):
     #if(i_t>1050 and i_t<1100):
-        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-        _plt.screenshot(f"./plots/s30/alpha"+str(i_t)+".png")
+        _plt = plot_scalar(alpha, plotter)
+        _plt.screenshot(f"./plots/s05_fine/alpha"+str(i_t)+".png")
     #if i_t>1100:
     #    break
   if(i_t>20 and  elastic_energy<1E-3 and elastic_energy<surface_energy):
