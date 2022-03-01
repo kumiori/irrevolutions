@@ -88,10 +88,10 @@ parameters = {
     #In case of evolution (nonlinear) problems, it's necessary to define a max
     #and a min. For the elastic solution, just one value in needed.
     'loading': {
-        'type':'IF', #ID -> Imposed Displacement | IF -> Imposed Force
+        'type':'ID', #ID -> Imposed Displacement | IF -> Imposed Force
         'min': 0,
-        'max': 20.0,
-        'steps': 500
+        'max': 1.0,
+        'steps': 20
     },
     'geometry': {
         'a': 0.00356,
@@ -99,8 +99,8 @@ parameters = {
         'n': 0.0762/60,
         'L': 0.0762,
         'gamma': 60,
-        'de': 0.00356/12,
-        'de2': 0.00356/30  
+        'de': 1.45e-4/4,
+        'de2': 1.45e-4/8  
     },
     'model': {
         'E': 2.3e9,
@@ -108,7 +108,7 @@ parameters = {
         'mu': 0, #don't change it -> calculated later
         'lmbda': 0, #don't change it -> calculated later
         'w1': 2.5e2,
-        'ell': 2*(0.00356/15),
+        'ell': 1.45e-4,
         'k_res': 1.e-8,
         'output':'C:/Users/igora/mec647/NOTCH/A60H356/'
     },

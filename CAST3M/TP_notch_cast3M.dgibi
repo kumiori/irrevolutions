@@ -1,0 +1,214 @@
+************************************************************************
+*FINITE ELEMENT ANALYSIS OF A NOTCHED THREE-POINT FLEXURE TEST
+*TP - FRACTURE INITIATION AT SHARP NOTCHES: CORRELATION USING SIF
+*NAME: Igor ASSIS TORRES
+************************************************************************
+*Gnufich - Fonction pour afficher les résultats en un fichier .txt
+************************************************************************
+DEBPROC GNUFICH TAB0*TABLE;
+
+NL=TAB0.'NL';
+LN1=TAB0.'LN1';
+
+*NB=DIME LN1;
+I=0;
+ii=vale impr;
+OPTI IMPR 2 IMPR TAB0.'FICHIER';
+
+*OPTI IMPR SUPTAB.IMPR;
+
+***** LIGNE DESSOUS À DÉCOMMENTER POUR AVOIR LÉGENDE DES DONNÉES SUR FICHIER.txt
+MESSAGE '#' TAB0.'LIGN1';
+*REPETER BOU1 NB;
+  I=I+1;
+  J=1;
+  X=CHAINE ' ';
+  REPETER BOU2 NL;    
+    NLS=CHAINE 'LN'J;
+    LN=TAB0.NLS;
+    X=CHAINE X ' ' LN;
+    J=J+1;
+  FIN BOU2;
+  MESSAGE X;
+*FIN BOU1;
+OPTI IMPR 8;
+FINPROC;
+
+************************************************************************
+*-------------------------------*
+*-----Lire fichier gmsh.unv-----*
+*-------------------------------*
+
+TAB1 = LIRE 'UNV' 'mesh.unv';
+*list TAB1;
+s = TAB1.'MAILLAGE';
+fissure = TAB1.'fissure';
+sym_plan = TAB1.'sym_plan';
+trac s;
+*crack_tip = TAB1.'Crack_tip';
+*Load_point = TAB1.'Load_point';
+*BC_right = TAB1.'Right_point';
+crack_tip = Noeud 6;
+Load_point = Noeud 5;
+BC_right = Noeud 3;
+
+s = (s ELEM TRI3);
+
+IDENT1 = 1 ;
+IDENT2 = 2 ;
+* On décide l'état de déformations planes (kk = 0) ou de contraintes
+* planes (kk = 1) :
+kk = 0;
+*kk = 1;
+BOOL = kk < 1. ;
+SI   BOOL ;
+opti dime 2 mode plan defo;
+SINON;
+opti dime 2 mode plan cont;
+FINSI;
+opti elem tri3;
+*opti epsilon lineaire;
+
+
+***********************************************************************
+*----------- MATÉRIAU ET CONDITIONS DU PROBLÈME -------------
+***********************************************************************
+*----------- Propriétés matériau -------------
+you = 2.3e9 ; 
+v = 0.36 ;
+KIC = 1.02e6 ;
+* Définition de modele et matériau (plexiglass)
+mod = MODE s MECANIQUE ELASTIQUE ISOTROPE ;
+mat = MATE MOD YOUNG you NU v;
+*----------- Chargement -------------
+* On impose un déplacement (jj = 0) ou une force (jj = 1) :
+*jj = 0;
+jj = 1;
+*deplacement impose selon y en haut
+delta = 1.;
+*force impose selon y en haut
+FYd = -20; 
+
+* ----------- Définition des conditions de symétrie et aux limites -----
+* CL communes
+* Blocage deplacement en Cm
+CL1 = BLOQ UX BC_right;
+CL2 = BLOQ UY BC_right;
+* Blocage deplacement selon x en C
+CL3 = BLOQ UX sym_plan ;
+
+CL0=CL1 et CL2 et CL3;
+
+* Définition du chargement : 
+BOOL = jj < 1. ;
+SI   BOOL ;
+* Déplacement  imposé selon y
+        CL4 = BLOQ UY ch ;
+	CL = CL0 et CL4 ;
+        CHA = DEPI CL4 (delta);
+SINON ;
+* Force impose selon y
+	CL = CL0;
+	CHA =  FORCE FY FYd Load_point;
+FINSI ;
+
+
+***********************************************************************
+*----------- CALCUL DE LA SOLUTION DU PROBLÈME D'ÉLASTICITÉ ---------
+***********************************************************************
+* Calcul de la matrice de rigidité
+krig = rigi mod mat ;
+
+* Calcul du deplacement solution
+u = reso (krig et CL) CHA ;
+
+* Determination du deplacement  selon y en C
+* Si deplament impose on retrouve delta, le deplacement impose en C
+*depYc = extraire u 'VALE' UY ch ;
+*UYc = extraire depYc 1;
+
+* Determination de la force appliquee selon y en C
+* Si force impose c'est la force donnee Fyd
+FYc = FYd;
+* Si d'un déplacement imposé, 
+* il faut remplacer cette valeur par la reaction obtenue en C
+BOOL = jj < 1. ;
+SI   BOOL ;
+f = reac CL4 u;
+forYc = extraire f 'VALE' FY ch;
+FYc = extraire forYc 1;
+FINSI ;
+
+* On montre la déformée de la plaque
+def0 = defo S u 0. blanc ;
+def1 = defo S u  roug ;
+trac (def0 et def1) titre 'deformee' ;
+
+* On montre les contraintes sur la plaque
+sig0 = sigma mod mat u ;
+trac sig0 mod titre 'contraintes' ;
+
+***********************************************************************
+*----------- POST TRAITEMENT -------------
+*----------- CALCUL DU FACTEUR D'INTENSITÉ DE CONTRAINTES -------------
+***********************************************************************
+
+
+* Appel de la procédure G_théta : KI avec la formule d'Irwin
+GTAB = TABL;
+GTAB . 'OBJECTIF' = MOT 'J';
+GTAB . 'FRONT_FISSURE'  = Crack_tip ;
+GTAB . 'LEVRE_SUPERIEURE' = fissure;
+*GTAB . 'LEVRE_INFERIEURE' = ;
+GTAB . 'COUCHE' = 6;
+GTAB . 'SOLUTION_RESO'  = u;
+GTAB . 'CARACTERISTIQUES' = mat;
+GTAB . 'MODELE' = mod;
+GTAB . 'CHARGEMENTS_MECANIQUES' = CHA ;
+
+G_THETA GTAB;
+G_cal = GTAB . 'RESULTATS' ; 
+K_G = (you * G_cal/(1 - (v**2)))**0.5;
+*K1G=GTAB . 'RESULTATS' . 'I';
+*K2G=GTAB . 'RESULTATS' . 'II';
+*GG=(((K1G**2)+(K2G**2))*(1-(v**2)))/you ;
+
+EP = -0.5 * (XTMX u krig);
+Fmax = Fyd * (KIC/K_G);
+* Résultats
+mess '-----------------------------------------------';
+*mess '---Déplacement vertical du point C :' UYc;
+*mess '---Force vertical au point C :'  FYc;
+mess '---KI calculé par G_Théta '  K_G ;
+mess '---G_c calculé par G_Thét :' G_cal ;
+*mess '---   T-stress calculé par FE      :' Tmoy ;
+*mess '---   B-ratio calculé par EF       :' B ;
+mess '-----------------------------------------------';
+
+* On créé le fichier .dat avec ce titre :
+*fich0=CHAINE 'RESULTAT_'IDENT1'.txt';
+fich0=CHAINE 'RESULTAT_cast3m.txt';
+* ces colonnes :
+SUBTAB=TABLE;
+subtab.NL=8;
+SUBTAB.LN1 = IDENT1;
+SUBTAB.LN2 = IDENT2;
+SUBTAB.LN3 = NBEL s;
+SUBTAB.LN4 = NBNO s;
+SUBTAB.LN5 = K_G;
+*SUBTAB.LN5=;
+SUBTAB.LN6 = G_cal;
+SUBTAB.LN7 = EP;
+SUBTAB.LN8 = Fmax;
+
+
+* et ce première ligne :
+SUBTAB.LIGN1= CHAINE 
+'a  c0  Nb_elem  Nb_noeuds  K1_G  G_G  EP  Fmax';
+
+SUBTAB.FICHIER=CHAINE fich0;
+
+GNUFICH SUBTAB;
+
+fin;
+
