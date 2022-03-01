@@ -50,6 +50,7 @@ from dolfinx.fem import (
     Function,
     FunctionSpace,
     assemble_scalar,
+    assemble,
     dirichletbc,
     form,
     locate_dofs_geometrical,
@@ -87,28 +88,29 @@ parameters = {
     #In case of evolution (nonlinear) problems, it's necessary to define a max
     #and a min. For the elastic solution, just one value in needed.
     'loading': {
-        'type':'ID', #ID -> Imposed Displacement | IF -> Imposed Force
+        'type':'IF', #ID -> Imposed Displacement | IF -> Imposed Force
         'min': 0,
-        'max': 1.5,
-        'steps': 30
+        'max': 20.0,
+        'steps': 500
     },
     'geometry': {
-        'a': 0.075,
-        'h': 0.3,
-        'n': 1/50,
-        'L': 1,
-        'gamma': 90,
-        'de': 0.075/20,
-        'de2': 0.075/40  
+        'a': 0.00356,
+        'h': 0.0178,
+        'n': 0.0762/60,
+        'L': 0.0762,
+        'gamma': 60,
+        'de': 0.00356/12,
+        'de2': 0.00356/30  
     },
     'model': {
-        'E': 1.0,
-        'nu': 0.3,
+        'E': 2.3e9,
+        'nu': 0.36,
         'mu': 0, #don't change it -> calculated later
         'lmbda': 0, #don't change it -> calculated later
-        'w1': 1.,
-        'ell': 0.01,
-        'k_res': 1.e-8
+        'w1': 2.5e2,
+        'ell': 2*(0.00356/15),
+        'k_res': 1.e-8,
+        'output':'C:/Users/igora/mec647/NOTCH/A60H356/'
     },
     'solvers': {
           'elasticity': {        
@@ -304,7 +306,7 @@ def BC_alpha_left(x):
         )
 
 def BC_alpha_right(x):
-    long = de*30
+    long = de*50
     #x[0] is the vector of X-coordinate of all points ; x[1] is the vector of Y-coordinate
     return np.logical_or(
         np.logical_and(np.equal(x[1],0),np.logical_and(np.less_equal(x[0],L/2),np.greater_equal(x[0],(L/2)-long))),
@@ -373,7 +375,7 @@ except ImportError:
     from dolfinx.plot import create_vtk_topology as compute_topology
 
 def print_alpha(filename='alpha'):
-    xvfb.start_xvfb(wait=0.05)
+    xvfb.start_xvfb(wait=0.1)
     pyvista.OFF_SCREEN = True
     plotter = pyvista.Plotter(
             title="Damage",
@@ -384,7 +386,7 @@ def print_alpha(filename='alpha'):
     _plt.screenshot(filename+'.png')
 
 def print_displacement(filename='displacement'):
-    xvfb.start_xvfb(wait=0.05)
+    xvfb.start_xvfb(wait=0.1)
     pyvista.OFF_SCREEN = True
     plotter = pyvista.Plotter(
             title="Displacement",
@@ -396,6 +398,7 @@ def print_displacement(filename='displacement'):
 
     _plt.screenshot(filename+'.png')
 
+#from dolfinx.fem.assemble import assemble
 
 for (i_t,t) in enumerate(Loads):
   #update bondary conditions
