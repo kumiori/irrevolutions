@@ -64,8 +64,7 @@ def mesh_kink(name,
         
         # surface_1 =
         model.geo.addPlaneSurface([cloop1, cloop2])
-
-        model.geo.synchronize()
+        gmsh.model.geo.synchronize()
         surface_entities = [model[1] for model in model.getEntities(tdim)]
 
         model.addPhysicalGroup(tdim, surface_entities, tag=1)
