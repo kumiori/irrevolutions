@@ -47,9 +47,9 @@ _This is a trace._
 2) Rough computation, codename "en-passant", in practice/ check the scripts
 3) Singular chouquettes - what's the link?, Food Lab @base 
 
-<img width="300" align="left" alt="Screen Shot 2022-03-04 at 10 03 44 AM" src="https://user-images.githubusercontent.com/2798610/156734844-ac56dec7-5689-454d-acca-10ca8392b204.png">
-<img width="330" align="left" alt="Screen Shot 2022-03-04 at 10 03 44 AM" src="https://user-images.githubusercontent.com/2798610/156734995-cac46287-2b2d-42f2-8338-0ca9800abd37.png">
-<img width="300" alt="Screen Shot 2022-03-04 at 10 15 39 AM" src="https://user-images.githubusercontent.com/2798610/156734790-8db34e2a-6a28-4314-bc64-a187b34a6ae9.png">
+<img width="270" align="left" alt="Screen Shot 2022-03-04 at 10 03 44 AM" src="https://user-images.githubusercontent.com/2798610/156734844-ac56dec7-5689-454d-acca-10ca8392b204.png">
+<img width="300" align="left" alt="Screen Shot 2022-03-04 at 10 03 44 AM" src="https://user-images.githubusercontent.com/2798610/156734995-cac46287-2b2d-42f2-8338-0ca9800abd37.png">
+<img width="270" alt="Screen Shot 2022-03-04 at 10 15 39 AM" src="https://user-images.githubusercontent.com/2798610/156734790-8db34e2a-6a28-4314-bc64-a187b34a6ae9.png">
 
 
 ### Running the notebooks (to be tested *prior* to course start)
