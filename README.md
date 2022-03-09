@@ -1,4 +1,4 @@
-# MEC647, Complex Crack Propagation in Briittle Materials
+# MEC647, Complex Crack Propagation in Brittle Materials
 ## 2021/22 Ed., Master ENSTA Paris Tech, Polytechnique
 
 From little or nothing, to experimental verification of a complex fracture experiment.
