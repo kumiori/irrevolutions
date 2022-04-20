@@ -19,7 +19,7 @@ from dolfinx.io import (
 from dolfinx.cpp.io import perm_gmsh, distribute_entity_data
 from dolfinx.cpp.mesh import to_type, cell_entity_type
 from dolfinx.cpp.graph import AdjacencyList_int32
-from dolfinx.mesh import create_meshtags, create_mesh
+from dolfinx.mesh import meshtags_from_entities, create_mesh
 
 from gmsh import model
 
@@ -143,7 +143,7 @@ def gmsh_model_to_mesh(model, cell_data=False, facet_data=False, gdim=None, expo
             mesh, mesh.topology.dim, cells, cell_values)
         mesh.topology.create_connectivity(mesh.topology.dim, 0)
         adj = AdjacencyList_int32(local_entities)
-        ct = create_meshtags(mesh, mesh.topology.dim, adj,
+        ct = meshtags_from_entities(mesh, mesh.topology.dim, adj,
                              numpy.int32(local_values))
         ct.name = "cells"
 
@@ -161,7 +161,7 @@ def gmsh_model_to_mesh(model, cell_data=False, facet_data=False, gdim=None, expo
         mesh.topology.create_connectivity(mesh.topology.dim - 1,
                                           mesh.topology.dim)
         adj = AdjacencyList_int32(local_entities)
-        ft = create_meshtags(mesh, mesh.topology.dim - 1, adj,
+        ft = meshtags_from_entities(mesh, mesh.topology.dim - 1, adj,
                              numpy.int32(local_values))
         ft.name = "facets"
 
