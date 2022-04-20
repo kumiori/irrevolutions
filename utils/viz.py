@@ -92,7 +92,8 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     plotter.subplot(0, 0)
     values = u.vector.array.real.reshape(
         V.dofmap.index_map.size_local, V.dofmap.index_map_bs)
-    grid.point_data["u"] = values
+    # grid.point_data["u"] = values
+    grid.point_data["u"] = u.x.array
     grid.set_active_scalars("u")
     plotter.add_mesh(grid, **lineproperties)
     plotter.view_xy()
