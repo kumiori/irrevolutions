@@ -9,12 +9,13 @@ def mesh_ep_gmshapi(name,
                     L0, 
                     s,
                     lc,
-                    lc_fine,
                     tdim,
                     order=1,
                     msh_file=None,
                     sep=0.1,
+                    _n=3,
                     comm=MPI.COMM_WORLD):
+                    # _n: coarsening ratio
     if comm.rank == 0:
 
         import gmsh
@@ -27,17 +28,17 @@ def mesh_ep_gmshapi(name,
         model = gmsh.model()
         model.add("Rectangle")
         model.setCurrent("Rectangle")
-        p0 = model.geo.addPoint(0.0, 0.0, 0, lc, tag=0)
-        p1 = model.geo.addPoint(Lx, 0.0, 0, lc, tag=1)
-        p2 = model.geo.addPoint(Lx, Ly, 0.0, lc, tag=2)
-        p3 = model.geo.addPoint(0, Ly, 0, lc, tag=3)
+        p0 = model.geo.addPoint(0.0, 0.0, 0, _n*lc, tag=0)
+        p1 = model.geo.addPoint(Lx, 0.0, 0, _n*lc, tag=1)
+        p2 = model.geo.addPoint(Lx, Ly, 0.0, _n*lc, tag=2)
+        p3 = model.geo.addPoint(0, Ly, 0, _n*lc, tag=3)
         #pLa= model.geo.addPoint(0, Ly/2-s/2, 0, lc, tag=4)
-        pRa= model.geo.addPoint(Lx, Ly/2+s/2-sep, 0, lc_fine, tag=6)
-        pRb= model.geo.addPoint(Lx, Ly/2+s/2+sep, 0, lc_fine, tag=7)
-        pLa= model.geo.addPoint(0, Ly/2-s/2-sep, 0, lc_fine, tag=8)
-        pLb= model.geo.addPoint(0, Ly/2-s/2+sep, 0, lc_fine, tag=5)
-        plM= model.geo.addPoint(L0, Ly/2-s/2, 0, lc_fine, tag=9)
-        prM= model.geo.addPoint(Lx-L0, Ly/2+s/2, 0, lc_fine, tag=10)
+        pRa= model.geo.addPoint(Lx, Ly/2+s/2-sep, 0, lc, tag=6)
+        pRb= model.geo.addPoint(Lx, Ly/2+s/2+sep, 0, lc, tag=7)
+        pLa= model.geo.addPoint(0, Ly/2-s/2-sep, 0, lc, tag=8)
+        pLb= model.geo.addPoint(0, Ly/2-s/2+sep, 0, lc, tag=5)
+        plM= model.geo.addPoint(L0, Ly/2-s/2, 0, lc, tag=9)
+        prM= model.geo.addPoint(Lx-L0, Ly/2+s/2, 0, lc, tag=10)
         # points = [p0, p1, p2, p3]
         bottom = model.geo.addLine(p0, p1, tag=0)
         #right = model.geo.addLine(p1, p2, tag=1)

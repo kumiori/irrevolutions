@@ -13,6 +13,7 @@ from dolfinx.fem import (
 from petsc4py import PETSc
 import ufl
 import numpy as np
+from dolfinx.io import XDMFFile
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
