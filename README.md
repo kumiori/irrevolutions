@@ -88,6 +88,9 @@ as in ```andres-meshes```.
 
 https://docs.gitlab.com/ee/gitlab-basics/feature_branch_workflow.html
 
+ - Create your feature branch:`git checkout -b username-feature`
+ - To push your branch: `git push -u origin feature_branch_name`
+ - Create a pull request on the main branch for merging. Somebody should approve the pull-request. -
 
 
 ### Weekly updates (merge from main)
