@@ -15,7 +15,7 @@ import ufl
 import numpy as np
 sys.path.append("../")
 
-from models import DamageElasticityModel as Brittle
+from models import BrittleMembraneOverElasticFoundation as Banquise
 from algorithms.am import AlternateMinimisation
 
 from meshes.primitives import mesh_bar_gmshapi
@@ -53,10 +53,6 @@ from solvers import SNESSolver
 
 # ///////////
 
-
-
-
-
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
 
@@ -64,7 +60,7 @@ comm = MPI.COMM_WORLD
 model_rank = 0
 
 
-with open("parameters.yml") as f:
+with open("data/banquise/parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
 # Get mesh parameters
@@ -87,7 +83,7 @@ mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
 
 outdir = "output"
-prefix = os.path.join(outdir, "traction")
+prefix = os.path.join(outdir, "banquise1d")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
@@ -146,7 +142,6 @@ for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
 bc_u_left = dirichletbc(
     np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
-# import pdb; pdb.set_trace()
 
 bc_u_right = dirichletbc(
     u_, dofs_u_right)
@@ -167,9 +162,9 @@ alpha_ub.vector.ghostUpdate(
 
 
 bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
-# Define the model
 
-model = Brittle(parameters["model"])
+# Setup the model
+model = Banquise(parameters["model"])
 
 # Energy functional
 f = Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
@@ -187,6 +182,7 @@ solver = AlternateMinimisation(
 history_data = {
     "load": [],
     "elastic_energy": [],
+    "foundation_energy": [],
     "total_energy": [],
     "dissipated_energy": [],
     "solver_data": [],
@@ -211,6 +207,10 @@ for i_t, t in enumerate(loads):
         assemble_scalar(form(model.damage_dissipation_density(state) * dx)),
         op=MPI.SUM,
     )
+    foundation_energy = comm.allreduce(
+        assemble_scalar(form(model.elastic_foundation_density(u) * dx)),
+        op=MPI.SUM,
+    )
     elastic_energy = comm.allreduce(
         assemble_scalar(form(model.elastic_energy_density(state) * dx)),
         op=MPI.SUM,
@@ -219,6 +219,7 @@ for i_t, t in enumerate(loads):
     history_data["load"].append(t)
     history_data["dissipated_energy"].append(dissipated_energy)
     history_data["elastic_energy"].append(elastic_energy)
+    history_data["foundation_energy"].append(foundation_energy)
     history_data["total_energy"].append(elastic_energy+dissipated_energy)
     history_data["solver_data"].append(solver.data)
 
@@ -236,6 +237,18 @@ for i_t, t in enumerate(loads):
 import pandas as pd
 df = pd.DataFrame(history_data)
 print(df)
+
+# Postproc
+
+from utils.plots import plot_energies, plot_AMit_load
+# import pdb; pdb.set_trace()
+
+if comm.rank == 0:
+    plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+    plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+
+sys.exit()
+
 
 # Viz
 from pyvista.utilities import xvfb
@@ -255,6 +268,4 @@ plotter = pyvista.Plotter(
 _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 1))
 _plt.screenshot(f"{outdir}/traction-state.png")
-# if comm.rank == 0:
-#     plot_energies(history_data, file=f"{prefix}_energies.pdf")
-#     plot_AMit_load(history_data, file=f"{prefix}_it_load.pdf")
+
