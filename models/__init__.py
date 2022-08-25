@@ -94,6 +94,8 @@ class DamageElasticityModel(ElasticityModel):
         """
         # Initialize the elastic parameters
         super().__init__(model_parameters)
+        if model_parameters:
+            self.model_parameters.update(model_parameters)
 
         # Initialize the damage parameters
         self.w1 = self.model_parameters["w1"]
@@ -177,43 +179,48 @@ class DamageElasticityModel(ElasticityModel):
         return energy
 
 
-# class ThinFilmModel(DamageElasticityModel):
-#     """
-#     Base class for thin film elasticity coupled with damage.
-#     """
-#     def __init__(self, model_parameters={}, eps_0=ufl.Identity(2)):
-#         """
-#         Initializes the sound material parameters.
-#         * Sound material parameters:
-#             - E_0: sound Young modulus
-#             - K: elastic foundation modulus
-#             - nu_0: sound plasticity ratio
-#             - eps_0: inelastic strain
-#             - sig_d_0: sound damage yield stress
-#             - ell: internal length
-#             - k_res: fully damaged stiffness modulation
-#         """
-#         # Initialize elastic parameters
-#         super().__init__(model_parameters)
+class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
+    """
+    Base class for thin film elasticity coupled with damage.
+    """
+    def __init__(self, model_parameters={}, eps_0=ufl.Identity(2)):
+        """
+        Initialie material parameters.
+        * Sound material:
+            - E_0: sound Young modulus
+            - K: elastic foundation modulus
+            - nu_0: sound plasticity ratio
+            - eps_0: inelastic strain
+            - sig_d_0: sound damage yield stress
+            - ell: internal length
+            - k_res: fully damaged stiffness modulation
+        """
+        # Initialize elastic parameters
+        super().__init__(model_parameters)
+        if model_parameters:
+            self.model_parameters.update(model_parameters)
+            
+        # Initialize the damage parameters
+        self.w1 = self.model_parameters["w1"]
+        self.ell = self.model_parameters["ell"]
+        self.ell_e = self.model_parameters["ell_e"]
+        # self.K = self.model_parameters["K"]
+        self.k_res = self.model_parameters["k_res"]
+        self.eps_0 = eps_0
 
-#         # Initialize the damage parameters
-#         self.w1 = self.model_parameters["w1"]
-#         self.ell = self.model_parameters["ell"]
-#         self.K = self.model_parameters["K"]
-#         self.k_res = self.model_parameters["k_res"]
-#         self.eps_0 = eps_0
+    def elastic_foundation_density(self, u):
+        # K = self.K
+        K = self.ell_e**(-2.)
+        # return 0.5 * K * ufl.inner(u, u)
+        return 0.5 * K * ufl.inner(u, u)
 
-#     def elastic_foundation_density(self, u):
-#         K = self.K
-#         return 0.5 * K * ufl.inner(u, u)
-
-#     def elastic_energy_density(self, state):
-#         """
-#         Returns the elastic energy density from the state.
-#         """
-#         # Parameters
-#         alpha = state["alpha"]
-#         u = state["u"]
-#         eps = self.eps(u) - self.eps_0
-#         return self.elastic_energy_density_strain(
-#             eps, alpha) + self.elastic_foundation_density(u)
+    def elastic_energy_density(self, state):
+        """
+        Returns the elastic energy density from the state.
+        """
+        # Parameters
+        alpha = state["alpha"]
+        u = state["u"]
+        eps = self.eps(u) - self.eps_0
+        return self.elastic_energy_density_strain(
+            eps, alpha) + self.elastic_foundation_density(u)
