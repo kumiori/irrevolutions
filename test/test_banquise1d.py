@@ -189,7 +189,7 @@ history_data = {
 }
 
 for i_t, t in enumerate(loads):
-    u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
+    u_.interpolate(lambda x: (0 * np.ones_like(x[0]),  np.zeros_like(x[1])))
     u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                           mode=PETSc.ScatterMode.FORWARD)
 
