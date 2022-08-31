@@ -1,45 +1,7 @@
-FROM dolfinx/dev-env
+FROM dolfinx/dolfinx:v0.5.0
 
-ARG DOLFINY_BUILD_TYPE=Release
-
-ARG UFL_GIT_COMMIT=645814befcb
-ARG BASIX_GIT_COMMIT=c5f01330735a
-ARG FFCX_GIT_COMMIT=d551e1c082
-ARG DOLFINX_GIT_COMMIT=611361eb24a6b8
-
-ARG PYBIND11_VERSION=2.8.1
 ARG PYVISTA_VERSION=0.32.1
 
-ENV PYTHONDONTWRITEBYTECODE=1
-
-RUN wget -nc --quiet https://github.com/pybind/pybind11/archive/v${PYBIND11_VERSION}.tar.gz && \
-    tar -xf v${PYBIND11_VERSION}.tar.gz && \
-    cd pybind11-${PYBIND11_VERSION} && \
-    mkdir -p build && \
-    cd build && \
-    cmake -DPYBIND11_TEST=False ../ && \
-    make install 
-
-RUN git clone --branch main https://github.com/FEniCS/basix.git \
-    && cd basix \
-    && git checkout $BASIX_GIT_COMMIT \
-    && cmake -G Ninja -DCMAKE_BUILD_TYPE=$DOLFINY_BUILD_TYPE -B build -S . \
-    && cmake --build build \
-    && cmake --install build \
-    && python3 -m pip install ./python \
-    && \
-    pip3 install git+https://github.com/FEniCS/ufl.git@$UFL_GIT_COMMIT \
-    && \
-    pip3 install git+https://github.com/FEniCS/ffcx.git@$FFCX_GIT_COMMIT
-
-RUN git clone --branch main https://github.com/FEniCS/dolfinx.git \
-    && cd dolfinx \
-    && git checkout $DOLFINX_GIT_COMMIT \
-    && export PETSC_ARCH=linux-gnu-real-32 \
-    && cmake -G Ninja -DCMAKE_BUILD_TYPE=$DOLFINY_BUILD_TYPE -B build -S ./cpp/ \
-    && cmake --build build \
-    && cmake --install build \
-    && python3 -m pip install ./python
 
 # Dependencies for pyvista and related packages
 
@@ -53,11 +15,19 @@ RUN apt-get -qq update && \
 
 # pyvista dependencies from pip. Only compatible with x86-64 (amd64).
 # matplotlib improves plotting quality with better color maps and properly rendering colorbars.
+
 RUN dpkgArch="$(dpkg --print-architecture)"; \
     case "$dpkgArch" in amd64) \
     pip3 install --no-cache-dir pyvista==${PYVISTA_VERSION} ;; \
     esac; \
     pip3 install --no-cache-dir matplotlib
 
-RUN pip3 install matplotlib pyvista ipython 
+RUN pip3 install matplotlib ipython pandas
 RUN pip3 install black sympy flake8 autoflake8
+
+
+
+
+
+
+

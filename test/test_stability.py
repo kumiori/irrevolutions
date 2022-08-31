@@ -75,7 +75,7 @@ Ly = parameters["geometry"]["Ly"]
 tdim = parameters["geometry"]["geometric_dimension"]
 _nameExp = parameters["geometry"]["geom_type"]
 ell_ = parameters["model"]["ell"]
-lc = ell_ / 3.0
+lc = ell_ / 5.0
 
 
 # Get geometry model
