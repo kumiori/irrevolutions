@@ -1,3 +1,5 @@
+from hashlib import new
+from types import new_class
 import ufl
 
 import yaml
@@ -224,3 +226,127 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
         eps = self.eps(u) - self.eps_0
         return self.elastic_energy_density_strain(
             eps, alpha) + self.elastic_foundation_density(u)
+
+
+class FatigueBasicModel(DamageElasticityModel):
+    """
+    Base class for fatigue coupled with damage.
+    ``Phase-field modeling of continuous fatigue via toughness degradation``
+    DO  - https://doi.org/10.1016/j.engfracmech.2022.108255
+    UR  - https://www.sciencedirect.com/science/article/pii/S0013794422000224
+    Mesgarnejad, Ataollah
+    """
+
+    def __init__(self, model_parameters={}):
+        from dolfinx.fem import Function, FunctionSpace
+        """
+        Initializes the sound material parameters.
+        * Sound material parameters:
+            - E_0: sound Young modulus
+            - nu_0: sound plasticity ratio
+            - sig_d_0: sound damage yield stress
+            - ell: internal length
+            - k_res: fully damaged stiffness modulation
+        """
+        # Initialize the elastic parameters
+        super().__init__(model_parameters)
+        if model_parameters:
+            self.model_parameters.update(model_parameters)
+
+        # Initialize the damage parameters
+        self.w1 = self.model_parameters["w1"]
+        self.ell = self.model_parameters["ell"]
+        self.k_res = self.model_parameters["k_res"]
+        self.e_min = self.model_parameters["e_min"]
+        _mesh = self.state["u"].mesh
+        element_gamma = ufl.FIniteElement("Lagrange", _mesh.ufl_cell(),
+                              degree=0)
+        _DG0 = FunctionSpace(_mesh, element_gamma)
+        self.gamma = Function(_DG0)
+        self.dgamma = Function(_DG0)
+        # gamma_i = max(gamma_min, gamma_{i-1}+Delta Gamma)
+        # Delta Gamma = (N-{N-i})/|E| \int_E - F_gamma(u_{N-1}, alpha_{N-1}, gamma_{N-1})
+    def w(self, alpha):
+        """
+        Return the dissipated energy function as a function of the state
+        (only depends on damage).
+        """
+        # Return w(alpha) function
+        return alpha
+
+    def _F(self, state):
+        en_des = comm.allreduce(
+                assemble_scalar(form(xxxxxx)), op=MPI.SUM
+            )
+
+        pos(1-(self.e_min / (self.alpha * en_des))) 
+    def update_gamma(self, state):
+        u_old = state["u"]
+        a_old = state["alpha"]
+
+        self.dgamma.interpolate(lambda state: _F(state))  
+
+    def elastic_energy_density_strain(self, eps, alpha):
+        """
+        Returns the elastic energy density from the strain and the damage.
+        """
+        # Parameters
+        lmbda = self.lmbda
+        mu = self.mu
+        energy_density = (
+            self.a(alpha) * 1.0 / 2.0 *
+            (2 * mu * ufl.inner(eps, eps) + lmbda * ufl.tr(eps)**2))
+        return energy_density
+
+    def elastic_energy_density(self, state):
+        """
+        Returns the elastic energy density from the state.
+        """
+        # Parameters
+        alpha = state["alpha"]
+        u = state["u"]
+        eps = self.eps(u)
+        return self.elastic_energy_density_strain(eps, alpha)
+
+    def stress(self, strain, alpha):
+        # Differentiate the elastic energy w.r.t. the strain tensor
+        eps_ = ufl.variable(strain)
+        # Derivative of energy w.r.t. the strain tensor to obtain the stress
+        # tensor
+        sigma = ufl.diff(self.elastic_energy_density_strain(eps_, alpha), eps_)
+        return sigma
+
+    def stress0(self, u):
+        strain = self.eps(u)
+        lmbda = self.lmbda
+        mu = self.mu
+        sigma = 2 * mu * strain + lmbda * ufl.tr(strain) * ufl.Identity(
+            self.model_dimension)
+        return sigma
+
+    def damage_dissipation_density(self, state):
+        """
+        Return the damage dissipation density from the state.
+        """
+        # Get the material parameters
+        self.E
+        w1 = self.w1
+        ell = self.ell
+        # Get the damage
+        alpha = state["alpha"]
+        # Compute the damage gradient
+        grad_alpha = ufl.grad(alpha)
+        # Compute the damage dissipation density
+        D_d = w1 * self.w(alpha) + w1 * ell**2 * ufl.dot(
+            grad_alpha, grad_alpha)
+        return D_d
+
+    def total_energy_density(self, state):
+        """
+        Return the damage dissipation density from the state.
+        """
+        # Get the material parameters
+        energy = self.elastic_energy_density(
+            state) + self.damage_dissipation_density(state)
+        return energy
+
