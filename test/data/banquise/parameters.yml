@@ -1,20 +1,20 @@
 # === Loading === #
 loading:
     min: 0
-    max: 1.001
-    steps: 10
+    max: 3.001
+    steps: 30
 
 #  === Geometry === #
 geometry:
     geometric_dimension: 2
     geom_type: "banquise"
     Lx: 1.
-    Ly: .1
+    Ly: .05
     lc: 0.02
 #  === Model === #
 model:
-    ell: 0.1
-    ell_e: 0.3
+    ell: 0.02
+    ell_e: 0.2
     model_dimension: 2
     model_type: "2D"
     # could be "2D"/ "3D" / "plane_stress" / "plane_strain"
