@@ -29,8 +29,7 @@ def mesh_bar_gmshapi(name,
         hole = gmsh.model.occ.addCircle(L / 2, L / 2, 0., r, tag=1)
         domain = gmsh.model.occ.addRectangle(0, 0, 0., L, H, tag=2, roundedRadius=.1)
         boolean = gmsh.model.occ.cut([(2, hole)], [(2, domain)], tag=3)
-# from meshes import boolean
-# boolean.mesh_moonslice_gmshapi('moon', {}, 0.01, msh_file='bool.msh')
+
 def mesh_moonslice_gmshapi(
     name,
     geom_parameters,
