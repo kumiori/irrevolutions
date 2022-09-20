@@ -30,7 +30,6 @@ def mesh_bar_gmshapi(name,
         domain = gmsh.model.occ.addRectangle(0, 0, 0., L, H, tag=2, roundedRadius=.1)
         boolean = gmsh.model.occ.cut([(2, hole)], [(2, domain)], tag=3)
 
-        
 def mesh_moonslice_gmshapi(
     name,
     geom_parameters,
@@ -92,4 +91,3 @@ def mesh_moonslice_gmshapi(
             gmsh.write(msh_file)
 
     return gmsh.model if comm.rank == 0 else None, tdim
-
