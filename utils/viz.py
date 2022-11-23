@@ -18,6 +18,8 @@ comm = MPI.COMM_WORLD
 import pyvista
 from pyvista.utilities import xvfb
 
+xvfb.start_xvfb(wait=0.05)
+
 import dolfinx.plot
 
 import matplotlib
