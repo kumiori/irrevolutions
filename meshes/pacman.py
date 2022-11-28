@@ -81,16 +81,6 @@ def mesh_pacman(
         model.geo.addSurfaceLoop([s, 1000])
         model.geo.synchronize()
 
-        _n = 10
-        refinement_pts = [model.geo.addPoint(radius * i/(_n), 0, 0.0,
-            lc/refinement, 
-            tag=111+i) for i in range(1,_n)]
-
-        gmsh.model.geo.synchronize()
-
-        # gmsh.model.mesh.embed(0, [refinement_pt], 2, s)
-        gmsh.model.mesh.embed(0, refinement_pts, 2, s)
-
         surface_entities = [model[1] for model in model.getEntities(tdim)]
         domain = model.addPhysicalGroup(tdim, surface_entities)
         model.setPhysicalName(tdim, domain, "Surface")
