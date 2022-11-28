@@ -114,8 +114,6 @@ def mesh_pacman(
 
     return gmsh.model if comm.rank == 0 else None, tdim
 
-# geom_parameters = {'omega': np.pi/10, 'r': 1, 'lc': 0.1}
-# print(f'pacman parameters {geom_parameters}')
 
 # mesh_pacman('pacman',
 #     geom_parameters,
