@@ -7,7 +7,6 @@ import numpy as np
 def mesh_pacman(
     name,
     geom_parameters,
-    lc,
     tdim=2,
     order=1,
     msh_file=None,
@@ -104,7 +103,6 @@ print(f'pacman parameters {geom_parameters}')
 
 mesh_pacman('pacman',
     geom_parameters,
-    0.05,
     tdim=2,
     order=1,
     msh_file='pacman.msh')
