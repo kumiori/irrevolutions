@@ -1,35 +1,15 @@
 #!/usr/bin/env python3
+import pandas as pd
 import numpy as np
 import yaml
 import json
 from pathlib import Path
 import sys
 import os
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-from dolfinx import log
-import ufl
-import numpy as np
-sys.path.append("../")
-from utils.plots import plot_energies
-from utils import ColorPrint
 
-from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation
-
-from meshes.primitives import mesh_bar_gmshapi
-from dolfinx.common import Timer, list_timings, TimingType
-
-import logging
-
-logging.basicConfig(level=logging.INFO)
-
-import dolfinx
-import dolfinx.plot
-from dolfinx.io import XDMFFile, gmshio
+from dolfinx.fem import locate_dofs_geometrical, dirichletbc
+from dolfinx.mesh import CellType
+import dolfinx.mesh
 from dolfinx.fem import (
     Constant,
     Function,
@@ -40,25 +20,42 @@ from dolfinx.fem import (
     locate_dofs_geometrical,
     set_bc,
 )
-import dolfinx.mesh
-from dolfinx.mesh import CellType
-import ufl
-
 from mpi4py import MPI
 import petsc4py
 from petsc4py import PETSc
-import sys
-import yaml
+import dolfinx
+import dolfinx.plot
+from dolfinx import log
+import ufl
+
+from dolfinx.fem.petsc import (
+    set_bc,
+    assemble_vector
+    )
+from dolfinx.io import XDMFFile, gmshio
+import logging
+from dolfinx.common import Timer, list_timings, TimingType
 
 sys.path.append("../")
-from solvers import SNESSolver
 from algorithms.so import StabilitySolver
+from solvers import SNESSolver
+from meshes.primitives import mesh_bar_gmshapi
+from utils import ColorPrint
+from utils.plots import plot_energies
+from utils import norm_H1, norm_L2
+
+
+logging.basicConfig(level=logging.INFO)
+
+
+sys.path.append("../")
 
 
 class ConeSolver:
     """Base class for a minimal implementation of the solution of eigenvalue
     problems bound to a cone. Based on numerical recipe SPA and KR result
     Thanks Yves and Luc."""
+
     def __init__(
         self,
         energy: ufl.form.Form,
@@ -66,11 +63,129 @@ class ConeSolver:
         bcs: list,
         nullspace=None,
         cone_parameters=None,
-    ):    
+    ):
         super(ConeSolver, self).__init__()
 # ///////////
 
 
+class _AlternateMinimisation:
+    def __init__(self,
+                total_energy,
+                state,
+                bcs,
+                solver_parameters={},
+                bounds=(dolfinx.fem.function.Function,
+                        dolfinx.fem.function.Function)
+                ):
+        self.state = state
+        self.alpha = state["alpha"]
+        self.alpha_old = dolfinx.fem.function.Function(self.alpha.function_space)
+        self.u = state["u"]
+        self.alpha_lb = bounds[0]
+        self.alpha_ub = bounds[1]
+        self.total_energy = total_energy
+        self.solver_parameters = solver_parameters
+
+        V_u = state["u"].function_space
+        V_alpha = state["alpha"].function_space
+
+        energy_u = ufl.derivative(
+            self.total_energy, self.u, ufl.TestFunction(V_u))
+        energy_alpha = ufl.derivative(
+            self.total_energy, self.alpha, ufl.TestFunction(V_alpha)
+        )
+
+        self.F = [energy_u, energy_alpha]
+
+        self.elasticity = SNESSolver(
+            energy_u,
+            self.u,
+            bcs.get("bcs_u"),
+            bounds=None,
+            petsc_options=self.solver_parameters.get("elasticity").get("snes"),
+            prefix=self.solver_parameters.get("elasticity").get("prefix"),
+        )
+
+        self.damage = SNESSolver(
+            energy_alpha,
+            self.alpha,
+            bcs.get("bcs_alpha"),
+            bounds=(self.alpha_lb, self.alpha_ub),
+            petsc_options=self.solver_parameters.get("damage").get("snes"),
+            prefix=self.solver_parameters.get("damage").get("prefix"),
+        )
+
+    def solve(self, outdir=None):
+
+        alpha_diff = dolfinx.fem.Function(self.alpha.function_space)
+
+        self.data = {
+            "iteration": [],
+            "error_alpha_L2": [],
+            "error_alpha_H1": [],
+            "F_norm": [],
+            "error_alpha_max": [],
+            "error_residual_u": [],
+            "solver_alpha_reason": [],
+            "solver_alpha_it": [],
+            "solver_u_reason": [],
+            "solver_u_it": [],
+            "total_energy": [],
+        }
+        for iteration in range(
+            self.solver_parameters.get("damage_elasticity").get("max_it")
+        ):
+            with dolfinx.common.Timer("~Alternate Minimization : Elastic solver"):
+                (solver_u_it, solver_u_reason) = self.elasticity.solve()
+            with dolfinx.common.Timer("~Alternate Minimization : Damage solver"):
+                (solver_alpha_it, solver_alpha_reason) = self.damage.solve()
+
+            # Define error function
+            self.alpha.vector.copy(alpha_diff.vector)
+            alpha_diff.vector.axpy(-1, self.alpha_old.vector)
+            alpha_diff.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+
+            error_alpha_H1 = norm_H1(alpha_diff)
+            error_alpha_L2 = norm_L2(alpha_diff)
+
+            Fv = [assemble_vector(form(F)) for F in self.F]
+
+            Fnorm = np.sqrt(
+                np.array(
+                    [comm.allreduce(Fvi.norm(), op=MPI.SUM)
+                        for Fvi in Fv]
+                ).sum()
+            )
+
+            error_alpha_max = alpha_diff.vector.max()[1]
+            total_energy_int = comm.allreduce(
+                assemble_scalar(form(self.total_energy)), op=MPI.SUM
+            )
+            residual_u = assemble_vector(self.elasticity.F_form)
+            residual_u.ghostUpdate(
+                addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
+            )
+            set_bc(residual_u, self.elasticity.bcs, self.u.vector)
+            error_residual_u = ufl.sqrt(residual_u.dot(residual_u))
+
+            self.alpha.vector.copy(self.alpha_old.vector)
+            self.alpha_old.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+
+            self.data["iteration"].append(iteration)
+            self.data["error_alpha_L2"].append(error_alpha_L2)
+            self.data["error_alpha_H1"].append(error_alpha_H1)
+            self.data["F_norm"].append(Fnorm)
+            self.data["error_alpha_max"].append(error_alpha_max)
+            self.data["error_residual_u"].append(error_residual_u)
+            self.data["solver_alpha_it"].append(solver_alpha_it)
+            self.data["solver_alpha_reason"].append(solver_alpha_reason)
+            self.data["solver_u_reason"].append(solver_u_reason)
+            self.data["solver_u_it"].append(solver_u_it)
+            self.data["total_energy"].append(total_energy_int)
 
 
 petsc4py.init(sys.argv)
@@ -83,118 +198,210 @@ model_rank = 0
 with open("parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
+parameters["model"]["model_dimension"] = 1
+parameters["model"]["model_type"] = '1D'
+parameters["model"]["mu"] = 1
+parameters["model"]["w1"] = 1
+parameters["model"]["k_res"] = 1e-4
+
 # Get mesh parameters
 Lx = parameters["geometry"]["Lx"]
 Ly = parameters["geometry"]["Ly"]
 tdim = parameters["geometry"]["geometric_dimension"]
+
 _nameExp = parameters["geometry"]["geom_type"]
 ell_ = parameters["model"]["ell"]
 lc = ell_ / 5.0
-
 
 # Get geometry model
 geom_type = parameters["geometry"]["geom_type"]
 
 # Create the mesh of the specimen with given dimensions
-gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
-
-# Get mesh and meshtags
-mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
-
+mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, 3)
 
 outdir = "output"
-prefix = os.path.join(outdir, "traction")
+prefix = os.path.join(outdir, "c")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
 with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
     file.write_mesh(mesh)
 
-# Function spaces
-# V_u = FunctionSpace(mesh, element_u)
+# Functional Setting
 
-V = FunctionSpace(mesh, element_u)
+element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
+                              degree=1)
+
+element_alpha = ufl.FiniteElement("DG", mesh.ufl_cell(),
+                                  degree=0)
+
+V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
+V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+
+u = dolfinx.fem.Function(V_u, name="Displacement")
+u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
+
+
+alpha = dolfinx.fem.Function(V_alpha, name="Damage")
+
+# Pack state
+state = {"u": u, "alpha": alpha}
+
+# Bounds
+alpha_ub = dolfinx.fem.Function(V_alpha, name="UpperBoundDamage")
+alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
+
+dx = ufl.Measure("dx", domain=mesh)
+ds = ufl.Measure("ds", domain=mesh)
+
+
+# Useful references
+Lx = parameters.get("geometry").get("Lx")
 
 # Define the state
-u = Function(V, name="Unknown")
-u_ = Function(V, name="Boundary Unknown")
-zero_u = Function(V, name="Boundary Unknown")
+u = Function(V_u, name="Unknown")
+u_ = Function(V_u, name="Boundary Unknown")
+zero_u = Function(V_u, name="Boundary Unknown")
 
 state = {"u": u}
-
-# need upper/lower bound for the damage field
-u_lb = Function(V, name="Lower bound")
-u_ub = Function(V, name="Upper bound")
 
 # Measures
 dx = ufl.Measure("dx", domain=mesh)
 ds = ufl.Measure("ds", domain=mesh)
 
-dofs_u_left = locate_dofs_geometrical(
-    V, lambda x: np.isclose(x[0], 0.0))
-dofs_u_right = locate_dofs_geometrical(
-    V, lambda x: np.isclose(x[0], Lx))
+# Boundary sets
 
-dofs_u_left = locate_dofs_geometrical(V, lambda x: np.isclose(x[0], 0.0))
-dofs_u_right = locate_dofs_geometrical(V, lambda x: np.isclose(x[0], Lx))
+
+dofs_alpha_left = locate_dofs_geometrical(
+    V_alpha, lambda x: np.isclose(x[0], 0.))
+dofs_alpha_right = locate_dofs_geometrical(
+    V_alpha, lambda x: np.isclose(x[0], Lx))
+
+dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.))
+dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
+
+# Boundary data
+
+u_.interpolate(lambda x: np.ones_like(x[0]))
+
+# Bounds (nontrivial)
+
+alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
+alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
 # Set Bcs Function
-zero_u.interpolate(lambda x: (np.zeros_like(x[0]), np.zeros_like(x[1])))
-u_.interpolate(lambda x: (np.ones_like(x[0]), 0 * np.ones_like(x[1])))
-u_lb.interpolate(lambda x: np.zeros_like(x[0]))
-u_ub.interpolate(lambda x: np.ones_like(x[0]))
+zero_u.interpolate(lambda x: np.zeros_like(x[0]))
+u_.interpolate(lambda x: np.ones_like(x[0]))
+# u_lb.interpolate(lambda x: np.zeros_like(x[0]))
+# u_ub.interpolate(lambda x: np.ones_like(x[0]))
 
-for f in [zero_u, u_, u_lb, u_ub]:
+for f in [zero_u, u_, alpha_lb, alpha_ub]:
     f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                          mode=PETSc.ScatterMode.FORWARD)
 
 bc_u_left = dirichletbc(
-    # np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V)
-    np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V)
+    np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
 bc_u_right = dirichletbc(
     u_, dofs_u_right)
 bcs_u = [bc_u_left, bc_u_right]
 
-bcs = {"bcs_u": bcs_u}
+bcs_alpha = []
+
+bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 # Define the model
 
-model = Brittle(parameters["model"])
+# Material behaviour
+
+state = {"u": u, "alpha": alpha}
+
+# mat_par = parameters.get()
+
+
+def a(alpha):
+    k_res = parameters["model"]['k_res']
+    return (1 - alpha)**2 + k_res
+
+
+def w(alpha):
+    """
+    Return the homogeneous damage energy term,
+    as a function of the state
+    (only depends on damage).
+    """
+    # Return w(alpha) function
+    return alpha
+
+
+def elastic_energy_density(state):
+    """
+    Returns the elastic energy density from the state.
+    """
+    # Parameters
+    alpha = state["alpha"]
+    u = state["u"]
+    eps = ufl.grad(u)
+
+    _mu = parameters["model"]['mu']
+    energy_density = a(alpha) * _mu * ufl.inner(eps, eps)
+    return energy_density
+
+
+def damage_energy_density(state):
+    """
+    Return the damage dissipation density from the state.
+    """
+    # Get the material parameters
+    _mu = parameters["model"]["mu"]
+    _w1 = parameters["model"]["w1"]
+    _ell = parameters["model"]["ell"]
+    # Get the damage
+    alpha = state["alpha"]
+    # Compute the damage gradient
+    grad_alpha = ufl.grad(alpha)
+    # Compute the damage dissipation density
+    D_d = _w1 * w(alpha) + _w1 * _ell**2 * ufl.dot(
+        grad_alpha, grad_alpha)
+    return D_d
+
+
+total_energy = (elastic_energy_density(state) +
+                damage_energy_density(state)) * dx
+
 
 # Energy functional
 # f = Constant(mesh, 0)
-f = Constant(mesh, np.array([0], dtype=PETSc.ScalarType))
-import pdb; pdb.set_trace()
+f = Constant(mesh, np.array(0, dtype=PETSc.ScalarType))
+
 external_work = f * state["u"] * dx
-# external_work = ufl.dot(f, state["u"]) * dx
-total_energy = model.total_energy_density(state) * dx - external_work
 
 load_par = parameters["loading"]
 loads = np.linspace(load_par["min"],
                     load_par["max"], load_par["steps"])
 
-solver = VariationalInequality(
-    total_energy, state, bcs, parameters.get("solvers"), bounds=(u_lb, u_ub)
+solver = _AlternateMinimisation(
+    total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
 )
 
-stability = ConeSolver(
-    total_energy, state, bcs, stability_parameters=parameters.get("stability")
-)
+# stability = ConeSolver(
+#     total_energy, state, bcs,
+#     stability_parameters=parameters.get("stability")
+# )
 
 history_data = {
     "load": [],
     "elastic_energy": [],
     "dissipated_energy": [],
     "total_energy": [],
-    "solver_data": [],
-    "eigs": [],
-    "stable": [],
+    # "solver_data": [],
+    # "eigs": [],
+    # "stable": [],
 }
 
 check_stability = []
 
 for i_t, t in enumerate(loads):
-    u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
+    u_.interpolate(lambda x: t * np.ones_like(x[0]))
     u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                           mode=PETSc.ScatterMode.FORWARD)
 
@@ -208,23 +415,23 @@ for i_t, t in enumerate(loads):
 
     solver.solve()
 
-    n_eigenvalues = 10
-    is_stable = stability.solve(alpha_lb, n_eigenvalues)
-    is_elastic = stability.is_elastic()
-    inertia = stability.get_inertia()
-    stability.save_eigenvectors(filename=f"{prefix}_eigv_{t:3.2f}.xdmf")
-    check_stability.append(is_stable)
+    # n_eigenvalues = 10
+    # is_stable = stability.solve(alpha_lb, n_eigenvalues)
+    # is_elastic = stability.is_elastic()
+    # inertia = stability.get_inertia()
+    # stability.save_eigenvectors(filename=f"{prefix}_eigv_{t:3.2f}.xdmf")
+    # check_stability.append(is_stable)
 
-    ColorPrint.print_bold(f"State is elastic: {is_elastic}")
-    ColorPrint.print_bold(f"State's inertia: {inertia}")
-    ColorPrint.print_bold(f"State is stable: {is_stable}")
+    # ColorPrint.print_bold(f"State is elastic: {is_elastic}")
+    # ColorPrint.print_bold(f"State's inertia: {inertia}")
+    # ColorPrint.print_bold(f"State is stable: {is_stable}")
 
     dissipated_energy = comm.allreduce(
-        assemble_scalar(form(model.damage_dissipation_density(state) * dx)),
+        assemble_scalar(form(damage_energy_density(state) * dx)),
         op=MPI.SUM,
     )
     elastic_energy = comm.allreduce(
-        assemble_scalar(form(model.elastic_energy_density(state) * dx)),
+        assemble_scalar(form(elastic_energy_density(state) * dx)),
         op=MPI.SUM,
     )
 
@@ -232,9 +439,9 @@ for i_t, t in enumerate(loads):
     history_data["dissipated_energy"].append(dissipated_energy)
     history_data["elastic_energy"].append(elastic_energy)
     history_data["total_energy"].append(elastic_energy+dissipated_energy)
-    history_data["solver_data"].append(solver.data)
-    history_data["eigs"].append(stability.data["eigs"])
-    history_data["stable"].append(stability.data["stable"])
+    # history_data["solver_data"].append(solver.data)
+    # history_data["eigs"].append(stability.data["eigs"])
+    # history_data["stable"].append(stability.data["stable"])
 
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)
@@ -245,9 +452,10 @@ for i_t, t in enumerate(loads):
         json.dump(history_data, a_file)
         a_file.close()
 
-    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+    # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+    print(history_data)
 
-import pandas as pd
+
 df = pd.DataFrame(history_data)
 print(df)
 
