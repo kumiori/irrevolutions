@@ -55,6 +55,7 @@ size = comm.Get_size()
 
 
 def info_dofmap(space, name=None):
+    """Get information on the dofmap"""
     print("\n")
     print("rank", comm.rank, f"space {name}")
 
@@ -447,8 +448,6 @@ class ConeSolver(StabilitySolver):
     ):    
         super(ConeSolver, self).__init__()
 
-
-
     def normalise_eigen(self, u, mode="norm"):
         assert mode == "norm"
         v, beta = u[0], u[1]
@@ -471,7 +470,6 @@ class ConeSolver(StabilitySolver):
             {max(beta.vector[V_alpha_lrange[0] : V_alpha_lrange[1]]):.3f})"
         )
         return coeff_glob
-
 
     def solve(self, alpha_old: dolfinx.fem.function.Function, neig=None):
         # Loosely solve eigenproblem to get initial guess x_0
@@ -549,7 +547,7 @@ class ConeSolver(StabilitySolver):
                 # compute lambdak
                 # compute the residual
                 # project onto cone  = componentwise truncation
-
+                # 
                 # 
 
                 with xk.vector.localForm() as xk_loc, x_old.vector.localForm() as x_old_loc:

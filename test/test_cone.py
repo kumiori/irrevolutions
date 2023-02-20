@@ -56,7 +56,18 @@ from algorithms.so import StabilitySolver
 
 
 class ConeSolver:
-
+    """Base class for a minimal implementation of the solution of eigenvalue
+    problems bound to a cone. Based on numerical recipe SPA and KR result
+    Thanks Yves and Luc."""
+    def __init__(
+        self,
+        energy: ufl.form.Form,
+        state: dict,
+        bcs: list,
+        nullspace=None,
+        cone_parameters=None,
+    ):    
+        super(ConeSolver, self).__init__()
 # ///////////
 
 
@@ -100,10 +111,8 @@ with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding
     file.write_mesh(mesh)
 
 # Function spaces
-# element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
 # V_u = FunctionSpace(mesh, element_u)
 
-element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 V = FunctionSpace(mesh, element_u)
 
 # Define the state
@@ -140,7 +149,8 @@ for f in [zero_u, u_, u_lb, u_ub]:
                          mode=PETSc.ScatterMode.FORWARD)
 
 bc_u_left = dirichletbc(
-    np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V)
+    # np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V)
+    np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V)
 
 bc_u_right = dirichletbc(
     u_, dofs_u_right)
@@ -152,8 +162,11 @@ bcs = {"bcs_u": bcs_u}
 model = Brittle(parameters["model"])
 
 # Energy functional
-f = Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
-external_work = ufl.dot(f, state["u"]) * dx
+# f = Constant(mesh, 0)
+f = Constant(mesh, np.array([0], dtype=PETSc.ScalarType))
+import pdb; pdb.set_trace()
+external_work = f * state["u"] * dx
+# external_work = ufl.dot(f, state["u"]) * dx
 total_energy = model.total_energy_density(state) * dx - external_work
 
 load_par = parameters["loading"]
