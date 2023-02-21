@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import pdb
 import pandas as pd
 import numpy as np
 import yaml
@@ -45,15 +46,27 @@ from utils.plots import plot_energies
 from utils import norm_H1, norm_L2
 
 
-logging.basicConfig(level=logging.INFO)
 
 
 sys.path.append("../")
 
 
-class ConeSolver:
+"""Discrete endommageable springs in series
+        1         2        i        k
+0|----[WWW]--*--[WWW]--*--...--*--{WWW} |========> t
+u_0         u_1       u_2     u_i      u_k
+
+
+[WWW]: endommageable spring, alpha_i
+load: displacement hard-t
+
+"""
+
+
+
+class ConeSolver(StabilitySolver):
     """Base class for a minimal implementation of the solution of eigenvalue
-    problems bound to a cone. Based on numerical recipe SPA and KR result
+    problems bound to a cone. Based on numerical recipe SPA and KR existence result
     Thanks Yves and Luc."""
 
     def __init__(
@@ -64,8 +77,29 @@ class ConeSolver:
         nullspace=None,
         cone_parameters=None,
     ):
-        super(ConeSolver, self).__init__()
-# ///////////
+        super(ConeSolver, self).__init__(
+            energy,
+            state,
+            bcs,
+            nullspace
+    )
+
+    def _solve(self, alpha_old: dolfinx.fem.function.Function, neig=None):
+        """Recursively solves (until convergence) the abstract eigenproblem
+        K \ni x \perp y := Ax - \lambda B x \in K^*
+        based on the SPA recipe, cf. ...
+        """
+        
+        self.solve(alpha_old, neig)
+        # self.spectrum = unstable_spectrum
+        # self.data = {
+        #     "eigs": eigs,
+        #     "perturbations_beta": perturbations_beta,
+        #     "perturbations_v": perturbations_v,
+        #     "stable": bool(stable),
+        # }
+
+        # construct perturbation
 
 
 class _AlternateMinimisation:
@@ -125,7 +159,7 @@ class _AlternateMinimisation:
             "error_alpha_H1": [],
             "F_norm": [],
             "error_alpha_max": [],
-            "error_residual_u": [],
+            "error_residual_F": [],
             "solver_alpha_reason": [],
             "solver_alpha_it": [],
             "solver_u_reason": [],
@@ -163,16 +197,32 @@ class _AlternateMinimisation:
             total_energy_int = comm.allreduce(
                 assemble_scalar(form(self.total_energy)), op=MPI.SUM
             )
-            residual_u = assemble_vector(self.elasticity.F_form)
-            residual_u.ghostUpdate(
+            residual_F = assemble_vector(self.elasticity.F_form)
+            residual_F.ghostUpdate(
                 addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
             )
-            set_bc(residual_u, self.elasticity.bcs, self.u.vector)
-            error_residual_u = ufl.sqrt(residual_u.dot(residual_u))
+            set_bc(residual_F, self.elasticity.bcs, self.u.vector)
+            error_residual_F = ufl.sqrt(residual_F.dot(residual_F))
 
             self.alpha.vector.copy(self.alpha_old.vector)
             self.alpha_old.vector.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+
+            logging.critical(
+                f"AM - Iteration: {iteration:3d}, res F Error: {error_residual_F:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+            )
+
+            logging.critical(
+                f"AM - Iteration: {iteration:3d}, H1 Error: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+            )
+
+            logging.critical(
+                f"AM - Iteration: {iteration:3d}, L2 Error: {error_alpha_L2:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+            )
+
+            logging.critical(
+                f"AM - Iteration: {iteration:3d}, Linfty Error: {error_alpha_max:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
             )
 
             self.data["iteration"].append(iteration)
@@ -180,12 +230,36 @@ class _AlternateMinimisation:
             self.data["error_alpha_H1"].append(error_alpha_H1)
             self.data["F_norm"].append(Fnorm)
             self.data["error_alpha_max"].append(error_alpha_max)
-            self.data["error_residual_u"].append(error_residual_u)
+            self.data["error_residual_F"].append(error_residual_F)
             self.data["solver_alpha_it"].append(solver_alpha_it)
             self.data["solver_alpha_reason"].append(solver_alpha_reason)
             self.data["solver_u_reason"].append(solver_u_reason)
             self.data["solver_u_it"].append(solver_u_it)
             self.data["total_energy"].append(total_energy_int)
+
+
+            if (
+                self.solver_parameters.get(
+                    "damage_elasticity").get("criterion")
+                == "residual_u"
+            ):
+                if error_residual_F <= self.solver_parameters.get(
+                    "damage_elasticity"
+                ).get("alpha_rtol"):
+                    break
+            if (
+                self.solver_parameters.get(
+                    "damage_elasticity").get("criterion")
+                == "alpha_H1"
+            ):
+                if error_alpha_H1 <= self.solver_parameters.get(
+                    "damage_elasticity"
+                ).get("alpha_rtol"):
+                    break
+        else:
+            raise RuntimeError(
+                f"Could not converge after {iteration:3d} iterations, error {error_alpha_H1:3.4e}"
+            )
 
 
 petsc4py.init(sys.argv)
@@ -198,12 +272,18 @@ model_rank = 0
 with open("parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
+parameters["cone"] = ""
+
 parameters["model"]["model_dimension"] = 1
 parameters["model"]["model_type"] = '1D'
 parameters["model"]["mu"] = 1
 parameters["model"]["w1"] = 1
 parameters["model"]["k_res"] = 1e-4
-
+parameters["model"]["k"] = 3
+parameters["model"]["N"] = 3
+parameters["loading"]["max"] = 2
+parameters["loading"]["steps"] = 30
+parameters["geometry"]["geom_type"] = "discrete-damageable"
 # Get mesh parameters
 Lx = parameters["geometry"]["Lx"]
 Ly = parameters["geometry"]["Ly"]
@@ -211,18 +291,32 @@ tdim = parameters["geometry"]["geometric_dimension"]
 
 _nameExp = parameters["geometry"]["geom_type"]
 ell_ = parameters["model"]["ell"]
-lc = ell_ / 5.0
+# lc = ell_ / 5.0
 
 # Get geometry model
 geom_type = parameters["geometry"]["geom_type"]
+_N = parameters["model"]["N"]
+
 
 # Create the mesh of the specimen with given dimensions
-mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, 3)
+mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
 outdir = "output"
-prefix = os.path.join(outdir, "c")
+prefix = os.path.join(outdir, "test_cone")
+
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
+
+import hashlib
+signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+
+if comm.rank == 0:
+    with open(f"{prefix}/parameters.yaml", 'w') as file:
+        yaml.dump(parameters, file)
+
+if comm.rank == 0:
+    with open(f"{prefix}/signature.md5", 'w') as f:
+        f.write(signature)
 
 with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
     file.write_mesh(mesh)
@@ -292,8 +386,6 @@ alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 # Set Bcs Function
 zero_u.interpolate(lambda x: np.zeros_like(x[0]))
 u_.interpolate(lambda x: np.ones_like(x[0]))
-# u_lb.interpolate(lambda x: np.zeros_like(x[0]))
-# u_ub.interpolate(lambda x: np.ones_like(x[0]))
 
 for f in [zero_u, u_, alpha_lb, alpha_ub]:
     f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
@@ -323,6 +415,12 @@ def a(alpha):
     return (1 - alpha)**2 + k_res
 
 
+def a_atk(alpha):
+    k_res = parameters["model"]['k_res']
+    _k = parameters["model"]['k']
+    return (1 - alpha) / ((_k-1) * alpha + 1)
+
+
 def w(alpha):
     """
     Return the homogeneous damage energy term,
@@ -344,6 +442,20 @@ def elastic_energy_density(state):
 
     _mu = parameters["model"]['mu']
     energy_density = a(alpha) * _mu * ufl.inner(eps, eps)
+    return energy_density
+
+
+def elastic_energy_density_atk(state):
+    """
+    Returns the elastic energy density from the state.
+    """
+    # Parameters
+    alpha = state["alpha"]
+    u = state["u"]
+    eps = ufl.grad(u)
+
+    _mu = parameters["model"]['mu']
+    energy_density = a_atk(alpha) * _mu * ufl.inner(eps, eps)
     return energy_density
 
 
@@ -369,6 +481,10 @@ total_energy = (elastic_energy_density(state) +
                 damage_energy_density(state)) * dx
 
 
+total_energy = (elastic_energy_density_atk(state) +
+                damage_energy_density(state)) * dx
+
+
 # Energy functional
 # f = Constant(mesh, 0)
 f = Constant(mesh, np.array(0, dtype=PETSc.ScalarType))
@@ -383,22 +499,32 @@ solver = _AlternateMinimisation(
     total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
 )
 
-# stability = ConeSolver(
-#     total_energy, state, bcs,
-#     stability_parameters=parameters.get("stability")
-# )
+
+
+stability = StabilitySolver(
+    total_energy, state, bcs, stability_parameters=parameters.get("stability")
+)
+
+
+cone = ConeSolver(
+    total_energy, state, bcs,
+    cone_parameters=parameters.get("cone")
+)
 
 history_data = {
     "load": [],
     "elastic_energy": [],
     "dissipated_energy": [],
     "total_energy": [],
-    # "solver_data": [],
-    # "eigs": [],
-    # "stable": [],
+    "solver_data": [],
+    "eigs": [],
+    "stable": [],
+    "F": [],
 }
 
 check_stability = []
+
+logging.basicConfig(level=logging.INFO)
 
 for i_t, t in enumerate(loads):
     u_.interpolate(lambda x: t * np.ones_like(x[0]))
@@ -415,16 +541,16 @@ for i_t, t in enumerate(loads):
 
     solver.solve()
 
-    # n_eigenvalues = 10
-    # is_stable = stability.solve(alpha_lb, n_eigenvalues)
-    # is_elastic = stability.is_elastic()
-    # inertia = stability.get_inertia()
-    # stability.save_eigenvectors(filename=f"{prefix}_eigv_{t:3.2f}.xdmf")
-    # check_stability.append(is_stable)
+    n_eigenvalues = 10
+    is_stable = stability.solve(alpha_lb, n_eigenvalues)
+    is_elastic = stability.is_elastic()
+    inertia = stability.get_inertia()
+    # stability.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
+    check_stability.append(is_stable)
 
-    # ColorPrint.print_bold(f"State is elastic: {is_elastic}")
-    # ColorPrint.print_bold(f"State's inertia: {inertia}")
-    # ColorPrint.print_bold(f"State is stable: {is_stable}")
+    ColorPrint.print_bold(f"State is elastic: {is_elastic}")
+    ColorPrint.print_bold(f"State's inertia: {inertia}")
+    ColorPrint.print_bold(f"State is stable: {is_stable}")
 
     dissipated_energy = comm.allreduce(
         assemble_scalar(form(damage_energy_density(state) * dx)),
@@ -434,32 +560,42 @@ for i_t, t in enumerate(loads):
         assemble_scalar(form(elastic_energy_density(state) * dx)),
         op=MPI.SUM,
     )
-
+    _F = assemble_scalar( form(parameters["model"]['mu'] * a_atk(alpha) * u.dx() * dx) )
     history_data["load"].append(t)
     history_data["dissipated_energy"].append(dissipated_energy)
     history_data["elastic_energy"].append(elastic_energy)
     history_data["total_energy"].append(elastic_energy+dissipated_energy)
-    # history_data["solver_data"].append(solver.data)
-    # history_data["eigs"].append(stability.data["eigs"])
-    # history_data["stable"].append(stability.data["stable"])
+    history_data["solver_data"].append(solver.data)
+    history_data["eigs"].append(stability.data["eigs"])
+    history_data["stable"].append(stability.data["stable"])
+    history_data["F"].append(_F)
 
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)
         file.write_function(alpha, t)
 
     if comm.rank == 0:
-        a_file = open(f"{prefix}/{_nameExp}-data.json", "w")
+        a_file = open(f"{prefix}/time_data.json", "w")
         json.dump(history_data, a_file)
         a_file.close()
 
     # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
-    print(history_data)
+    # print(history_data)
+
 
 
 df = pd.DataFrame(history_data)
 print(df)
 
+
+from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+
 if comm.rank == 0:
-    plot_energies(history_data, file=f"{prefix}_energies.pdf")
+    plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+    plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+    plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
+
+__import__('pdb').set_trace()
+sys.exit()
 
 # Viz
