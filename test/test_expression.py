@@ -45,6 +45,7 @@ from dolfinx.fem import (
     dirichletbc,
     form,
     locate_dofs_geometrical,
+    locate_dofs_topological,
     set_bc,
 )
 import dolfinx.mesh
@@ -81,7 +82,7 @@ _omega = parameters["geometry"]["omega"]
 tdim = parameters["geometry"]["geometric_dimension"]
 _nameExp = parameters["geometry"]["geom_type"]
 ell_ = parameters["model"]["ell"]
-lc = ell_ / 3.0
+lc = ell_ / 1.0
 
 parameters["geometry"]["lc"] = lc
 
@@ -97,7 +98,7 @@ gmsh_model, tdim = mesh_pacman(geom_type, parameters["geometry"], tdim)
 mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
 from dolfinx.mesh import CellType, create_unit_square
-mesh = create_unit_square(MPI.COMM_WORLD, 3, 3, CellType.triangle)
+# mesh = create_unit_square(MPI.COMM_WORLD, 3, 3, CellType.triangle)
 
 
 outdir = "output"
@@ -107,22 +108,6 @@ if comm.rank == 0:
 
 with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
     file.write_mesh(mesh)
-
-def plot_mesh(mesh, ax=None):
-    if ax is None:
-        ax = plt.gca()
-    ax.set_aspect("equal")
-    points = mesh.geometry.x
-    cells = mesh.geometry.dofmap.array.reshape((-1, mesh.topology.dim + 1))
-    tria = tri.Triangulation(points[:, 0], points[:, 1], cells)
-    ax.triplot(tria, color="k")
-    return ax
-
-if comm.rank == 0:
-    plt.figure()
-    ax = plot_mesh(mesh)
-    fig = ax.get_figure()
-    fig.savefig(f"{prefix}/mesh.png")
 
 
 # Function spaces
@@ -160,20 +145,82 @@ class MyExpr:
         value[0] = x[0] + self.a
 
 class MyVExpr:
-    def __init__(self, a, **kwargs):
-        self.a = a
+    def __init__(self, t, **kwargs):
+        self.t = t
 
     def value_shape(self):
         return (2,)
     
     def eval(self, x):
         theta = np.arctan2(x[1], x[0])
-        # e_n = 
-        # e_t = 
-        return (x[0], x[1])
+        _r = np.sqrt(x[0]**2 + x[1]**2)
+        e_n = (x[0], x[1]) / _r
+        e_t = (-x[1], x[0]) / _r
+        return e_n + e_t
         
+
+def singularity_exp(omega):
+    """Exponent of singularity, λ\in [1/2, 1]
+    lmbda : = sin(2*lmbda*(pi - omega)) + lmbda*sin(2(pi-lmbda)) = 0"""
+    from sympy import nsolve, pi, sin, symbols
+
+    x = symbols('x')
+
+    return nsolve(
+        sin(2*x*(pi - omega)) + x*sin(2*(pi-omega)), 
+        x, .5)
+
+import sympy as sp
+
+class NotchOpening:
+    """Asymptotic displacement for a notch of opening omega,
+    Linear elasticity, cf. Leguillon and Sanchez-Palencia (1987)
+    """
+
+    def __init__(self, t, ω, **kwargs):
+        self.t = t
+        self.lmbda = singularity_exp(ω)
+        self.ω = ω
+
+    def eff(self, λ, ω):
+        """auxiliary function"""
+        return ( (1+λ) * np.sin( (1+λ) * (np.pi - ω) ) ) / ( (1-λ) * np.sin( (1-λ) * (np.pi - ω) ) )
+
+    def F(self, Θ):
+        """auxiliary Function"""
+        λ = self.lmbda
+        coeff = self.eff(λ, self.ω)
+        return (np.pi)**(λ - 1) * (np.cos( (1+λ) * Θ)- coeff * np.cos((1-λ) * Θ))/(1-coeff)
+
+    def Fprime(self, Θ):
+        _F = self.F(Θ)
+        return sp.diff(_F, Θ)
+
+    def Fpprime(self, Θ):
+        _F = self.F(Θ)
+        return sp.diff(_F, Θ, 2)
+
+    def Fppprime(self, Θ):
+        _F = self.F(Θ)
+        return sp.diff(_F, Θ, 3)
+
+    def value_shape(self):
+        return (2,)
+    
+    def eval(self, x):
+        Θ = np.arctan2(x[1], x[0])
+        _r = np.sqrt(x[0]**2 + x[1]**2)
+        e_n = (x[0], x[1]) / _r
+        e_t = (-x[1], x[0]) / _r
+        return e_n + e_t
+
+
+
 f = MyExpr(1, domain=mesh)
 fv = MyVExpr(1, domain=mesh)
+fv = NotchOpening(1, _omega, domain=mesh)
+
+
 n = FacetNormal(mesh)
 t = ufl.as_vector([n[1], -n[0]])
 
@@ -181,18 +228,99 @@ bd_facets = locate_entities_boundary(
     mesh, dim=1, marker=lambda x: np.greater((x[0]**2 + x[1]**2), _r**2)
     )
 
-bd_cells = locate_entities_boundary(mesh, dim=1, marker=lambda x: np.greater(x[0], 0.5))
+bd_facets = locate_entities_boundary(
+    mesh, dim=1, marker=lambda x: np.greater((x[0]**2 + x[1]**2), _r**2)
+    )
+  
+bd_cells = locate_entities_boundary(mesh, dim=1, marker = lambda x: np.greater(x[0], 0.5))
 
 bd_facets2 = locate_entities_boundary(
     mesh, dim=1, marker=lambda x: np.greater(x[0], 0.)
     )
+
+
+bd_facets3 = locate_entities_boundary(mesh, dim=1, marker = lambda x: np.full(x.shape[1], True, dtype=bool))
+boundary_dofs = locate_dofs_topological(V_u, mesh.topology.dim - 1, bd_facets3)
 
 u_expr = n + t
 
 boundary_facets = dolfinx.mesh.exterior_facet_indices(mesh.topology)
 cells0 = dolfinx.mesh.locate_entities(mesh, 2, lambda x: x[0] <= 0.5)
 
-uD.interpolate(fv.eval)
+assert((boundary_facets == bd_facets3).all())
+
+# uD.interpolate(fv.eval)
+_x = ufl.SpatialCoordinate(mesh)
+
+
+def _expression(x):
+    values = np.zeros((tdim, x.shape[1]))
+    values[0] = 1.
+    values[1] = 0.
+    return values
+
+uD.interpolate(_expression)
+
+
+with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+    file.write_function(uD, 0)
+
+from utils.viz import (
+    plot_mesh,
+    plot_profile,
+    plot_scalar,
+    plot_vector
+)
+import pyvista
+from pyvista.utilities import xvfb
+
+xvfb.start_xvfb(wait=0.05)
+pyvista.OFF_SCREEN = True
+
+plotter = pyvista.Plotter(
+    title="Test Viz",
+    window_size=[1600, 600],
+    shape=(1, 1),
+)
+
+plt.figure()
+ax = plot_mesh(mesh)
+fig = ax.get_figure()
+fig.savefig(f"{prefix}/test_mesh.png")
+
+_plt = plot_vector(uD, plotter)
+logging.critical('plotted vector')
+_plt.screenshot(f"{prefix}/test_vector.png")
+
+__import__('pdb').set_trace()
+
+
+dirichletbc(uD, boundary_dofs, V_u)
+
+# Test derivatives of an expression
+
+# x = ufl.SpatialCoordinate(mesh)
+# f = ufl.as_vector((x[0], x[1]))
+# expr = Expression(f, V_u.element.interpolation_points())
+
+
+# TODO: Plot field to check
+# import pyvista
+
+# from utils.viz import plot_vector
+# from pyvista.utilities import xvfb
+
+# xvfb.start_xvfb(wait=0.05)
+# pyvista.OFF_SCREEN = True
+
+# plotter = pyvista.Plotter(
+#     title="Test Viz",
+#     window_size=[1600, 600],
+#     shape=(1, 2),
+# )
+
+# _plt = plot_vector(u, plotter, subplot=(0, 1))
+
 
 _asym = Asymptotic(omega = parameters["geometry"]["omega"])
 __import__('pdb').set_trace()
