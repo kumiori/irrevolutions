@@ -254,72 +254,24 @@ _x = ufl.SpatialCoordinate(mesh)
 
 
 def _expression(x, ω=_omega, t=1.):
-    from sympy import nsolve, pi, sin, symbols
-    _Θ = symbols('_Θ')
-
-    values = np.zeros((tdim, x.shape[1]))
-    
-    def eff(λ, ω):
-        """auxiliary function"""
-        return ( (1+λ) * np.sin( (1+λ) * (np.pi - ω) ) ) / ( (1-λ) * np.sin( (1-λ) * (np.pi - ω) ) )
-
-    lmbda = singularity_exp(ω)
-
-    def _F(λ=lmbda, _Θ=symbols('_Θ')):
-        """auxiliary Function"""
-        coeff = eff(λ, ω)
-        func = (np.pi)**(λ - 1) * (np.cos( (1+λ) * _Θ) - coeff * np.cos((1-λ) * _Θ))/(1-coeff)
-        return func
-
-    def F(Θ):
-        __import__('pdb').set_trace()
-        F = sp.lambdify(_Θ, _F, "numpy")
-        return F(Θ)
-
-    def Fprime(Θ):
-        _Fp = sp.lambdify(_Θ, sp.diff(_F(_Θ), _Θ), "numpy")
-        return _Fp(Θ)
-
-    def Fpprime(Θ):
-        _Fpp = sp.lambdify(_Θ, sp.diff(_F(_Θ), _Θ, 2), "numpy")
-        return _Fpp(Θ)
-
-    def Fppprime(Θ):
-        _Fppp = sp.lambdify(_Θ, sp.diff(_F(_Θ), _Θ, 3), "numpy")
-        return _Fppp(Θ)
-
-    Θ = np.arctan2(x[1], x[0])
-    r = np.sqrt(x[0]**2. + x[1]**2.)
-    
-    ur = t * ( r**lmbda / 1. * (F(Θ) + Fpprime(Θ)) )
-    uΘ = t * ( r**lmbda / 1. * (Fprime(Θ) + Fppprime(Θ)))
-    __import__('pdb').set_trace()
-
-    values[0] = ur * np.cos(Θ) - uΘ * np.sin(Θ)
-    values[1] = ur * np.sin(Θ) + uΘ * np.cos(Θ)
-    return values
-
-
-
-
-def _expression2(x, ω=_omega, t=1.):
-    from sympy import nsolve, pi, sin, cos, symbols
+    from sympy import nsolve, pi, sin, cos, pi, symbols
     λ = singularity_exp(ω)
     Θ = symbols('Θ')
     Θv = np.arctan2(x[1], x[0])
+    
+    coeff = ( (1+λ) * sin( (1+λ) * (pi - ω) ) ) / ( (1-λ) * sin( (1-λ) * (pi - ω) ) )
 
-    coeff = .1
     _f = (np.pi)**(λ - 1) * (cos( (1+λ) * Θ) - coeff * cos((1-λ) * Θ))/(1-coeff)
     f = sp.lambdify(Θ, _f, "numpy")
     fp = sp.lambdify(Θ, sp.diff(_f, Θ, 1), "numpy")
     fpp = sp.lambdify(Θ, sp.diff(_f, Θ, 2), "numpy")
     fppp = sp.lambdify(Θ, sp.diff(_f, Θ, 3), "numpy")
 
-    __import__('pdb').set_trace()
-
-    r = 1.
+    r = np.sqrt(x[0]**2. + x[1]**2.)
     ur = t * ( r**λ / 1. * (f(Θv) + fpp(Θv)) )
     uΘ = t * ( r**λ / 1. * (fp(Θv) + fppp(Θv)))
+
+    __import__('pdb').set_trace()
 
     values = np.zeros((tdim, x.shape[1]))
     values[0] = ur * np.cos(Θv) - uΘ * np.sin(Θv)
@@ -327,8 +279,7 @@ def _expression2(x, ω=_omega, t=1.):
     return values
 
 
-
-uD.interpolate(_expression2)
+uD.interpolate(_expression)
 
 
 with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
