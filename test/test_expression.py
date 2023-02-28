@@ -75,7 +75,6 @@ model_rank = 0
 with open("output/test_notch/parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-
 # Get mesh parameters
 _r = parameters["geometry"]["r"]
 _omega = parameters["geometry"]["omega"]
@@ -122,42 +121,6 @@ zero_u = Function(V_u, name="   Boundary Displacement")
 # Data
 
 uD = Function(V_u)
-
-class Asymptotic():
-    def __init__(self, omega, **kwargs):
-        self.omega = omega
-
-    def value_shape(self):
-        return (tdim,)
-    
-    def eval(self, value, x):
-        self.theta = ufl.atan_2(x[1], x[0])
-        # print(self.theta)
-        value[0] = x[0]
-        value[1] = x[1]
-        
-
-class MyExpr:
-    def __init__(self, a, **kwargs):
-        self.a = a
-
-    def eval(self, value, x):
-        value[0] = x[0] + self.a
-
-class MyVExpr:
-    def __init__(self, t, **kwargs):
-        self.t = t
-
-    def value_shape(self):
-        return (2,)
-    
-    def eval(self, x):
-        theta = np.arctan2(x[1], x[0])
-        _r = np.sqrt(x[0]**2 + x[1]**2)
-        e_n = (x[0], x[1]) / _r
-        e_t = (-x[1], x[0]) / _r
-        return e_n + e_t
-        
 
 def singularity_exp(omega):
     """Exponent of singularity, λ\in [1/2, 1]
@@ -215,15 +178,6 @@ class NotchOpening:
         return e_n + e_t
 
 
-
-f = MyExpr(1, domain=mesh)
-fv = MyVExpr(1, domain=mesh)
-fv = NotchOpening(1, _omega, domain=mesh)
-
-
-n = FacetNormal(mesh)
-t = ufl.as_vector([n[1], -n[0]])
-
 bd_facets = locate_entities_boundary(
     mesh, dim=1, marker=lambda x: np.greater((x[0]**2 + x[1]**2), _r**2)
     )
@@ -242,42 +196,44 @@ bd_facets2 = locate_entities_boundary(
 bd_facets3 = locate_entities_boundary(mesh, dim=1, marker = lambda x: np.full(x.shape[1], True, dtype=bool))
 boundary_dofs = locate_dofs_topological(V_u, mesh.topology.dim - 1, bd_facets3)
 
-u_expr = n + t
-
 boundary_facets = dolfinx.mesh.exterior_facet_indices(mesh.topology)
-cells0 = dolfinx.mesh.locate_entities(mesh, 2, lambda x: x[0] <= 0.5)
 
 assert((boundary_facets == bd_facets3).all())
 
-# uD.interpolate(fv.eval)
-_x = ufl.SpatialCoordinate(mesh)
-
-
-def _expression(x, ω=_omega, t=1.):
+def _expression(x, ω=_omega, t=1., par = parameters["material"]):
     from sympy import nsolve, pi, sin, cos, pi, symbols
     λ = singularity_exp(ω)
     Θ = symbols('Θ')
+    _E = par['E']
+    ν = par['E']
     Θv = np.arctan2(x[1], x[0])
     
     coeff = ( (1+λ) * sin( (1+λ) * (pi - ω) ) ) / ( (1-λ) * sin( (1-λ) * (pi - ω) ) )
 
-    _f = (np.pi)**(λ - 1) * (cos( (1+λ) * Θ) - coeff * cos((1-λ) * Θ))/(1-coeff)
+    _f = (2*np.pi)**(λ - 1) * ( cos( (1+λ) * Θ) - coeff * cos((1-λ) * Θ) ) / (1-coeff)
+
     f = sp.lambdify(Θ, _f, "numpy")
     fp = sp.lambdify(Θ, sp.diff(_f, Θ, 1), "numpy")
     fpp = sp.lambdify(Θ, sp.diff(_f, Θ, 2), "numpy")
     fppp = sp.lambdify(Θ, sp.diff(_f, Θ, 3), "numpy")
 
-    r = np.sqrt(x[0]**2. + x[1]**2.)
-    ur = t * ( r**λ / 1. * (f(Θv) + fpp(Θv)) )
-    uΘ = t * ( r**λ / 1. * (fp(Θv) + fppp(Θv)))
-
+    print("F(0)", f(0))
     __import__('pdb').set_trace()
+
+    r = np.sqrt(x[0]**2. + x[1]**2.)
+    _c1 = (λ+1)*(1- ν*λ - ν**2.*(λ+1))
+    _c2 = 1-ν**2.
+    _c3 = 2.*(1+ν)*λ**2. + _c1
+    _c4 = _c2
+    _c5 = λ**2. * (1-λ**2.)
+
+    ur = t * ( r**λ / _E * (_c1*f(Θv) + _c2*fpp(Θv)) ) / _c5
+    uΘ = t * ( r**λ / _E * (_c3*fp(Θv) + _c4*fppp(Θv)) ) / _c5
 
     values = np.zeros((tdim, x.shape[1]))
     values[0] = ur * np.cos(Θv) - uΘ * np.sin(Θv)
     values[1] = ur * np.sin(Θv) + uΘ * np.cos(Θv)
     return values
-
 
 uD.interpolate(_expression)
 
@@ -308,7 +264,7 @@ ax = plot_mesh(mesh)
 fig = ax.get_figure()
 fig.savefig(f"{prefix}/test_mesh.png")
 
-_plt = plot_vector(uD, plotter)
+_plt = plot_vector(uD, plotter, scale=.1)
 logging.critical('plotted vector')
 _plt.screenshot(f"{prefix}/test_vector.png")
 
