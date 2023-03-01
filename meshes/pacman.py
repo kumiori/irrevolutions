@@ -29,9 +29,14 @@ def mesh_pacman(
         gmsh.model.add("pacman")
         # geom_parameters = {'omega': np.pi/4, 'r': 1, 'lc': 0.1}
 
-        omega = geom_parameters.get("omega")
+        omega = geom_parameters.get("omega") / 180 * np.pi
         radius = geom_parameters.get("r")
         lc = geom_parameters.get("lc")
+        elltomesh = geom_parameters.get("elltomesh")
+
+        refinement = geom_parameters.get("refinement")
+
+        # refinement = geom_parameters.get("refinement")
         # R1=1.; R2=2.3; R3=1.; ex=0.; ey=-.3
         model = gmsh.model
         # model.occ.addDisk(0, 0, 0, R, R, tag=10)
@@ -59,10 +64,10 @@ def mesh_pacman(
 
 
         # print(entities)
-        p0 = model.geo.addPoint(0, 0, 0, lc/3, tag=0)
-        p1 = model.geo.addPoint(radius*np.cos(omega / 2), radius*np.sin(omega / 2), 0.0, lc, tag=1)
-        p2 = model.geo.addPoint(radius*np.cos(omega / 2), - radius*np.sin(omega / 2), 0.0, lc, tag=2)
-        p3 = model.geo.addPoint(-radius, 0, 0.0, 2*lc, tag=12)
+        p0 = model.geo.addPoint(0, 0, 0, lc/refinement, tag=0)
+        p1 = model.geo.addPoint( - radius*np.cos(omega / 2), radius*np.sin(omega / 2), 0.0, lc, tag=1)
+        p2 = model.geo.addPoint( - radius*np.cos(omega / 2), - radius*np.sin(omega / 2), 0.0, lc, tag=2)
+        p3 = model.geo.addPoint(radius, 0, 0.0, 2*lc, tag=12)
 
         top = model.geo.addLine(p1, p0, tag=3)
         bot = model.geo.addLine(p0, p2, tag=4)
@@ -98,11 +103,11 @@ def mesh_pacman(
 
     return gmsh.model if comm.rank == 0 else None, tdim
 
-geom_parameters = {'omega': np.pi/10, 'r': 1, 'lc': 0.1}
-print(f'pacman parameters {geom_parameters}')
+# geom_parameters = {'omega': np.pi/10, 'r': 1, 'lc': 0.1}
+# print(f'pacman parameters {geom_parameters}')
 
-mesh_pacman('pacman',
-    geom_parameters,
-    tdim=2,
-    order=1,
-    msh_file='pacman.msh')
+# mesh_pacman('pacman',
+#     geom_parameters,
+#     tdim=2,
+#     order=1,
+#     msh_file='pacman.msh')

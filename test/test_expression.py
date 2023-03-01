@@ -200,7 +200,7 @@ boundary_facets = dolfinx.mesh.exterior_facet_indices(mesh.topology)
 
 assert((boundary_facets == bd_facets3).all())
 
-def _expression(x, ω=_omega, t=1., par = parameters["material"]):
+def _expression(x, ω=_omega / 2., t=1., par = parameters["material"]):
     from sympy import nsolve, pi, sin, cos, pi, symbols
     λ = singularity_exp(ω)
     Θ = symbols('Θ')
@@ -218,7 +218,6 @@ def _expression(x, ω=_omega, t=1., par = parameters["material"]):
     fppp = sp.lambdify(Θ, sp.diff(_f, Θ, 3), "numpy")
 
     print("F(0)", f(0))
-    __import__('pdb').set_trace()
 
     r = np.sqrt(x[0]**2. + x[1]**2.)
     _c1 = (λ+1)*(1- ν*λ - ν**2.*(λ+1))
@@ -254,8 +253,8 @@ xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
 
 plotter = pyvista.Plotter(
-    title="Test Viz",
-    window_size=[1600, 600],
+    title="Test Viz M1 Asymptotic Displacement",
+    window_size=[600, 600],
     shape=(1, 1),
 )
 
@@ -272,38 +271,3 @@ __import__('pdb').set_trace()
 
 
 dirichletbc(uD, boundary_dofs, V_u)
-
-# Test derivatives of an expression
-
-# x = ufl.SpatialCoordinate(mesh)
-# f = ufl.as_vector((x[0], x[1]))
-# expr = Expression(f, V_u.element.interpolation_points())
-
-
-# TODO: Plot field to check
-# import pyvista
-
-# from utils.viz import plot_vector
-# from pyvista.utilities import xvfb
-
-# xvfb.start_xvfb(wait=0.05)
-# pyvista.OFF_SCREEN = True
-
-# plotter = pyvista.Plotter(
-#     title="Test Viz",
-#     window_size=[1600, 600],
-#     shape=(1, 2),
-# )
-
-# _plt = plot_vector(u, plotter, subplot=(0, 1))
-
-
-_asym = Asymptotic(omega = parameters["geometry"]["omega"])
-__import__('pdb').set_trace()
-
-uD.interpolate(_asym)
-
-
-uD.interpolate(lambda x: [np.zeros_like(x[0]), np.zeros_like(x[1])])
-uD.interpolate(_asym)
-
