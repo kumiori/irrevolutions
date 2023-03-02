@@ -21,6 +21,7 @@ import ufl
 import numpy as np
 from pathlib import Path
 from dolfinx.io import XDMFFile, gmshio
+import logging
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -56,35 +57,35 @@ size = comm.Get_size()
 
 def info_dofmap(space, name=None):
     """Get information on the dofmap"""
-    print("\n")
-    print("rank", comm.rank, f"space {name}")
+    logging.info("\n")
+    logging.info("rank", comm.rank, f"space {name}")
 
     dofmap = space.dofmap
-    print("rank", comm.rank, f"dofmap.bs {dofmap.bs}")
-    print(
+    logging.info("rank", comm.rank, f"dofmap.bs {dofmap.bs}")
+    logging.info(
         "rank",
         comm.rank,
         f"space.dofmap.dof_layout.num_dofs (per element) {space.dofmap.dof_layout.num_dofs}",
     )
     local_size = dofmap.index_map.size_local * dofmap.index_map_bs
-    print("rank", comm.rank, f"local_size {local_size}")
+    logging.info("rank", comm.rank, f"local_size {local_size}")
 
-    print(
+    logging.info(
         "rank",
         comm.rank,
         f"dofmap.index_map.size_global {dofmap.index_map.size_global}",
     )
-    print(
+    logging.info(
         "rank",
         comm.rank,
         f"dofmap.index_map.local_range {dofmap.index_map.local_range}",
     )
-    print(
+    logging.info(
         "rank",
         comm.rank,
         f"dofmap.index_map.global_indices {dofmap.index_map.global_indices()}",
     )
-    print(
+    logging.info(
         "rank", comm.rank, f"dofmap.index_map.num_ghosts {dofmap.index_map.num_ghosts}"
     )
 
@@ -134,6 +135,7 @@ class StabilitySolver:
         """Returns whether or not the current state is elastic,
         based on the strict positivity of the gradient of E
         """
+        etol = self.parameters.get("is_elastic_tol")
         E_alpha = dolfinx.fem.assemble_vector(self.F[1])
 
         coef = max(abs(E_alpha.array))
@@ -141,7 +143,7 @@ class StabilitySolver:
 
         comm.Allreduce(coef, coeff_glob, op=MPI.MAX)
 
-        elastic = not np.isclose(coeff_glob, 0.0)
+        elastic = not np.isclose(coeff_glob, 0.0, atol=etol)
 
         return elastic
 
@@ -164,7 +166,7 @@ class StabilitySolver:
         F = dolfinx.fem.petsc.assemble_vector(self.F[1])
 
         with F.localForm() as f_local:
-            idx_grad_local = np.where(np.isclose(f_local[:], 0.0, rtol=gtol))[0]
+            idx_grad_local = np.where(np.isclose(f_local[:], 0.0, atol=gtol))[0]
 
         with self.state[
             1
