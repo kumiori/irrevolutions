@@ -29,7 +29,7 @@ def mesh_pacman(
         gmsh.model.add("pacman")
         # geom_parameters = {'omega': np.pi/4, 'r': 1, 'lc': 0.1}
 
-        omega = geom_parameters.get("omega") / 180 * np.pi
+        omega = np.deg2rad(geom_parameters.get("omega"))
         radius = geom_parameters.get("r")
         lc = geom_parameters.get("lc")
         elltomesh = geom_parameters.get("elltomesh")
@@ -67,8 +67,9 @@ def mesh_pacman(
         p0 = model.geo.addPoint(0, 0, 0, lc/refinement, tag=0)
         p1 = model.geo.addPoint( - radius*np.cos(omega / 2), radius*np.sin(omega / 2), 0.0, lc, tag=1)
         p2 = model.geo.addPoint( - radius*np.cos(omega / 2), - radius*np.sin(omega / 2), 0.0, lc, tag=2)
-        p3 = model.geo.addPoint(radius, 0, 0.0, 2*lc, tag=12)
+        p3 = model.geo.addPoint(radius, 0, 0.0, lc/refinement, tag=12)
 
+        cen = model.geo.addLine(p0, p3, tag=30)
         top = model.geo.addLine(p1, p0, tag=3)
         bot = model.geo.addLine(p0, p2, tag=4)
         arc1 = model.geo.addCircleArc(2, 0, 12, tag=5)
@@ -79,6 +80,16 @@ def mesh_pacman(
         s = model.geo.addPlaneSurface([cloop])
         model.geo.addSurfaceLoop([s, 1000])
         model.geo.synchronize()
+
+        _n = 10
+        refinement_pts = [model.geo.addPoint(radius * i/(_n), 0, 0.0,
+            lc/refinement, 
+            tag=111+i) for i in range(1,_n)]
+
+        gmsh.model.geo.synchronize()
+
+        # gmsh.model.mesh.embed(0, [refinement_pt], 2, s)
+        gmsh.model.mesh.embed(0, refinement_pts, 2, s)
 
         surface_entities = [model[1] for model in model.getEntities(tdim)]
         domain = model.addPhysicalGroup(tdim, surface_entities)

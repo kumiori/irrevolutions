@@ -108,7 +108,6 @@ if comm.rank == 0:
 with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
     file.write_mesh(mesh)
 
-
 # Function spaces
 element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
 V_u = FunctionSpace(mesh, element_u)
@@ -135,49 +134,6 @@ def singularity_exp(omega):
 
 import sympy as sp
 
-class NotchOpening:
-    """Asymptotic displacement for a notch of opening omega,
-    Linear elasticity, cf. Leguillon and Sanchez-Palencia (1987)
-    """
-
-    def __init__(self, t, ω, **kwargs):
-        self.t = t
-        self.lmbda = singularity_exp(ω)
-        self.ω = ω
-
-    def eff(self, λ, ω):
-        """auxiliary function"""
-        return ( (1+λ) * np.sin( (1+λ) * (np.pi - ω) ) ) / ( (1-λ) * np.sin( (1-λ) * (np.pi - ω) ) )
-
-    def F(self, Θ):
-        """auxiliary Function"""
-        λ = self.lmbda
-        coeff = self.eff(λ, self.ω)
-        return (np.pi)**(λ - 1) * (np.cos( (1+λ) * Θ)- coeff * np.cos((1-λ) * Θ))/(1-coeff)
-
-    def Fprime(self, Θ):
-        _F = self.F(Θ)
-        return sp.diff(_F, Θ)
-
-    def Fpprime(self, Θ):
-        _F = self.F(Θ)
-        return sp.diff(_F, Θ, 2)
-
-    def Fppprime(self, Θ):
-        _F = self.F(Θ)
-        return sp.diff(_F, Θ, 3)
-
-    def value_shape(self):
-        return (2,)
-    
-    def eval(self, x):
-        Θ = np.arctan2(x[1], x[0])
-        _r = np.sqrt(x[0]**2 + x[1]**2)
-        e_n = (x[0], x[1]) / _r
-        e_t = (-x[1], x[0]) / _r
-        return e_n + e_t
-
-
 bd_facets = locate_entities_boundary(
     mesh, dim=1, marker=lambda x: np.greater((x[0]**2 + x[1]**2), _r**2)
     )
@@ -200,7 +156,7 @@ boundary_facets = dolfinx.mesh.exterior_facet_indices(mesh.topology)
 
 assert((boundary_facets == bd_facets3).all())
 
-def _expression(x, ω=np.deg2rad(_omega / 2.), t=1., par = parameters["material"]):
+def _local_notch_asymptotic(x, ω=np.deg2rad(_omega / 2.), t=1., par = parameters["material"]):
     from sympy import nsolve, pi, sin, cos, pi, symbols
     λ = singularity_exp(ω)
     Θ = symbols('Θ')
@@ -217,9 +173,12 @@ def _expression(x, ω=np.deg2rad(_omega / 2.), t=1., par = parameters["material"
     fpp = sp.lambdify(Θ, sp.diff(_f, Θ, 2), "numpy")
     fppp = sp.lambdify(Θ, sp.diff(_f, Θ, 3), "numpy")
 
-    print("F(0)", f(0))
-    print("F(pi - ω)", f(np.float16(pi.n() - ω)))
-    print("F(-pi + ω)", f(np.float16(-pi.n() + ω)))
+    # print("F(0)", f(0))
+    # print("F(pi - ω)", f(np.float16(pi.n() - ω)))
+    # print("F(-pi + ω)", f(np.float16(-pi.n() + ω)))
+
+    assert(np.isclose(f(np.float16(pi.n() - ω)), 0.))
+    assert(np.isclose(f(np.float16(-pi.n() + ω)), 0.))
 
     r = np.sqrt(x[0]**2. + x[1]**2.)
     _c1 = (λ+1)*(1- ν*λ - ν**2.*(λ+1))
@@ -236,7 +195,7 @@ def _expression(x, ω=np.deg2rad(_omega / 2.), t=1., par = parameters["material"
     values[1] = ur * np.sin(Θv) + uΘ * np.cos(Θv)
     return values
 
-uD.interpolate(_expression)
+uD.interpolate(_local_notch_asymptotic)
 
 with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
     file.write_function(uD, 0)
@@ -268,7 +227,5 @@ _plt = plot_vector(uD, plotter, scale=.1)
 logging.critical('plotted vector')
 _plt.screenshot(f"{prefix}/test_vector.png")
 
-__import__('pdb').set_trace()
+dirichletbc(value=uD, dofs=boundary_dofs)
 
-
-dirichletbc(uD, boundary_dofs, V_u)

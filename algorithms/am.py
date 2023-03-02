@@ -1,3 +1,4 @@
+from utils import norm_H1, norm_L2
 import logging
 import dolfinx
 from solvers import SNESSolver
@@ -13,6 +14,7 @@ from dolfinx.fem import (
 from petsc4py import PETSc
 import ufl
 import numpy as np
+from dolfinx.io import XDMFFile
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -34,9 +36,11 @@ except ImportError:
         create_matrix,
         set_bc,
         assemble_vector
-        )
+    )
+logging.basicConfig()
 
-from utils import norm_H1, norm_L2
+logging.getLogger().setLevel(logging.INFO)
+
 
 class AlternateMinimisation:
     def __init__(
@@ -104,7 +108,6 @@ class AlternateMinimisation:
             prefix=self.solver_parameters.get("damage").get("prefix"),
         )
 
-
     def solve(self, outdir=None):
 
         alpha_diff = dolfinx.fem.Function(self.alpha.function_space)
@@ -115,6 +118,7 @@ class AlternateMinimisation:
             "error_alpha_H1": [],
             "F_norm": [],
             "error_alpha_max": [],
+            "error_residual_F": [],
             "error_residual_u": [],
             "solver_alpha_reason": [],
             "solver_alpha_it": [],
@@ -131,7 +135,7 @@ class AlternateMinimisation:
             ) as file:
                 file.write_mesh(self.u.function_space.mesh)
 
-        for iteration in range(
+        for iteration in range(1,
             self.solver_parameters.get("damage_elasticity").get("max_it")
         ):
             with dolfinx.common.Timer("~Alternate Minimization : Elastic solver"):
@@ -178,6 +182,7 @@ class AlternateMinimisation:
             self.data["error_alpha_H1"].append(error_alpha_H1)
             self.data["F_norm"].append(Fnorm)
             self.data["error_alpha_max"].append(error_alpha_max)
+            self.data["error_residual_F"].append(Fnorm)
             self.data["error_residual_u"].append(error_residual_u)
             self.data["solver_alpha_it"].append(solver_alpha_it)
             self.data["solver_alpha_reason"].append(solver_alpha_reason)
@@ -203,8 +208,8 @@ class AlternateMinimisation:
                     "damage_elasticity").get("criterion")
                 == "residual_u"
             ):
-                logging.info(
-                    f"AM - Iteration: {iteration:3d}, Error: {error_residual_u:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+                logging.critical(
+                    f"AM - Iteration: {iteration:3d}, Error:  ||Du E||_L2 {error_residual_u:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
                 )
                 if error_residual_u <= self.solver_parameters.get(
                     "damage_elasticity"
@@ -215,8 +220,8 @@ class AlternateMinimisation:
                     "damage_elasticity").get("criterion")
                 == "alpha_H1"
             ):
-                logging.info(
-                    f"AM - Iteration: {iteration:3d}, Error: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+                logging.critical(
+                    f"AM - Iteration: {iteration:3d}, Error ||Δα_i||_H1: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
                 )
                 if error_alpha_H1 <= self.solver_parameters.get(
                     "damage_elasticity"
