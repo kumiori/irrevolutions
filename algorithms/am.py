@@ -1,7 +1,7 @@
 from utils import norm_H1, norm_L2
 import logging
 import dolfinx
-from solvers import SNESSolver
+from solvers import SNESSolver, SNESBlockProblem
 from dolfinx.fem import (
     Constant,
     Function,
@@ -231,3 +231,107 @@ class AlternateMinimisation:
             raise RuntimeError(
                 f"Could not converge after {iteration:3d} iterations, error {error_alpha_H1:3.4e}"
             )
+
+
+
+
+class HybridFractureSolver(AltMinFractureSolver):
+    """Hybrid (AltMin+Newton) solver for fracture"""
+
+    def __init__(
+        self,
+        total_energy,
+        state,
+        bcs,
+        solver_parameters={},
+        bounds=(dolfinx.fem.function.Function, dolfinx.fem.function.Function),
+        monitor=None,
+    ):
+        super(HybridFractureSolver, self).__init__(
+            total_energy, state, bcs, solver_parameters, bounds, monitor
+        )
+
+        # F = self.F
+        self.z = [self.u, self.alpha]
+        bcs_z = bcs.get("bcs_u") + bcs.get("bcs_alpha")
+        self.prefix = "blocknewton"
+
+        nest = False
+        self.newton = SNESBlockProblem(
+            self.F, self.z, bcs=bcs_z, nest=nest, prefix="block"
+        )
+        newton_options = self.solver_parameters.get("newton", self.default_options())
+        self.set_newton_options(newton_options)
+
+    def default_options(self):
+        opts = PETSc.Options(self.prefix)
+
+        opts.setValue("snes_type", "vinewtonrsls")
+        opts.setValue("snes_linesearch_type", "basic")
+        opts.setValue("snes_rtol", 1.0e-08)
+        opts.setValue("snes_atol", 1.0e-08)
+        opts.setValue("snes_max_it", 30)
+        opts.setValue("snes_monitor", "")
+        opts.setValue("linesearch_damping", 0.5)
+
+        nest = False
+
+        if nest:
+            opts.setValue("ksp_type", "cg")
+            opts.setValue("pc_type", "fieldsplit")
+            opts.setValue("fieldsplit_pc_type", "lu")
+            opts.setValue("ksp_rtol", 1.0e-10)
+        else:
+            opts.setValue("ksp_type", "preonly")
+            opts.setValue("pc_type", "lu")
+            opts.setValue("pc_factor_mat_solver_type", "mumps")
+
+        return opts
+
+    def set_newton_options(self, newton_options):
+
+        opts = PETSc.Options(self.prefix)
+        # opts.prefixPush(self.prefix)
+        logging.info(newton_options)
+
+        for k, v in newton_options.items():
+            opts[k] = v
+
+        # opts.prefixPop()
+        self.newton.snes.setFromOptions()
+
+    def compute_bounds(self, v, alpha_lb):
+        lb = dolfinx.fem.create_vector_nest(v)
+        ub = dolfinx.fem.create_vector_nest(v)
+
+        with lb.getNestSubVecs()[0].localForm() as u_sub:
+            u_sub.set(PETSc.NINFINITY)
+
+        with ub.getNestSubVecs()[0].localForm() as u_sub:
+            u_sub.set(PETSc.PINFINITY)
+
+        with lb.getNestSubVecs()[
+            1
+        ].localForm() as alpha_sub, alpha_lb.vector.localForm() as alpha_lb_loc:
+            alpha_lb_loc.copy(result=alpha_sub)
+
+        with ub.getNestSubVecs()[1].localForm() as alpha_sub:
+            alpha_sub.set(1.0)
+
+        return lb, ub
+
+    def solve(self, outdir=None):
+        # Perform AM as customary
+        super().solve(outdir)
+
+        # update bounds and perform Newton step
+        lb, ub = self.compute_bounds(self.newton.F_form, self.alpha)
+        self.newton.snes.setVariableBounds(lb, ub)
+        self.newton.solve(u_init=[self.u, self.alpha])
+
+        newton_data = {
+            "newton_it": self.newton.snes.getIterationNumber() + 1,
+            "newton_Fnorm": self.newton.snes.getFunctionNorm(),
+        }
+        self.data.append(newton_data)
+        # self.data["newton_Fnorm"].append(Fnorm)
