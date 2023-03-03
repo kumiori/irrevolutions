@@ -16,10 +16,12 @@ import ufl
 from dolfinx.fem import FunctionSpace
 from solvers.function import functions_to_vec
 from petsc4py import PETSc
+import json
 
 petsc4py.init(sys.argv)
 
 from mpi4py import MPI
+from utils.viz import plot_mesh, plot_vector, plot_scalar
 
 comm = MPI.COMM_WORLD
 # import pdb
@@ -27,11 +29,14 @@ import dolfinx.plot
 
 # import pyvista
 import yaml
-from algorithms.am import AlternateMinimisation as FractureSolver
+from algorithms.am import AlternateMinimisation as AM
 from models import DamageElasticityModel as Brittle
 from utils import ColorPrint, set_vector_to_constant
 from dolfinx.fem import locate_dofs_topological
 from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
+
+import pyvista
+from pyvista.utilities import xvfb
 
 
 class ConvergenceError(Exception):
@@ -77,6 +82,16 @@ def check_snes_convergence(snes):
         )
 
 
+import os
+from pathlib import Path
+
+outdir = "output"
+prefix = os.path.join(outdir, "hybrid")
+if comm.rank == 0:
+    Path(prefix).mkdir(parents=True, exist_ok=True)
+
+
+
 def test_newtonblock(nest):
     Lx = 1.0
     Ly = 0.1
@@ -91,7 +106,7 @@ def test_newtonblock(nest):
         CellType.triangle,
     )
 
-    with open("parameters.yml") as f:
+    with open(f"{prefix}/parameters.yml") as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
@@ -168,9 +183,9 @@ def test_newtonblock(nest):
     total_energy = model.total_energy_density(state) * dx - external_work
 
     parameters.get("model")["k_res"] = 1e-04
-    parameters.get("solvers").get("damage_elasticity")["alpha_tol"] = 1e-08
+    parameters.get("solvers").get("damage_elasticity")["alpha_tol"] = 1e-03
     parameters.get("solvers").get("damage")["type"] = "SNES"
-    equilibrium = FractureSolver(
+    equilibrium = AM(
         total_energy,
         state,
         bcs,
@@ -237,10 +252,29 @@ def test_newtonblock(nest):
 
         equilibrium.solve()
 
+
+        dissipated_energy = comm.allreduce(
+            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state) * dx)),
+            op=MPI.SUM,
+        )
+        elastic_energy = comm.allreduce(
+            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.elastic_energy_density(state) * dx)),
+            op=MPI.SUM,
+        )
         datai = {
             "it": i_t,
-            "AM_Fnorm": equilibrium.data["error_alpha_H1"][-1],
+            "AM_F_alpha_H1": equilibrium.data["error_alpha_H1"][-1],
+            "AM_Fnorm": equilibrium.data["error_residual_F"][-1],
             "NE_Fnorm": newton.snes.getFunctionNorm(),
+
+            "load" : t,
+            "dissipated_energy" : dissipated_energy,
+            "elastic_energy" : elastic_energy,
+            "total_energy" : elastic_energy+dissipated_energy,
+            "solver_data" : solver.data,
+            "eigs" : stability.data["eigs"],
+            "stable" : stability.data["stable"],
+            # "F" : _F
         }
 
         # update_bounds
@@ -263,21 +297,27 @@ def test_newtonblock(nest):
             alpha_max: {alpha.vector.max()[1]:3.4e}"
         )
 
-        # xvfb.start_xvfb(wait=0.05)
-        # pyvista.OFF_SCREEN = True
-        # plotter = pyvista.Plotter(
-        #     title="SNES Block Restricted",
-        #     window_size=[1600, 600],
-        #     shape=(1, 2),
-        # )
-        # _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-        # _plt = plot_vector(u, plotter, subplot=(0, 1))
-        # if comm.rank == 0:
-        #     Path("output").mkdir(parents=True, exist_ok=True)
-        # _plt.screenshot(f"./output/test_newtonblock_MPI{comm.size}-{i_t}.png")
-        # _plt.close()
+        xvfb.start_xvfb(wait=0.05)
+        pyvista.OFF_SCREEN = True
+        plotter = pyvista.Plotter(
+            title="SNES Block Restricted",
+            window_size=[1600, 600],
+            shape=(1, 2),
+        )
+        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+        _plt = plot_vector(u, plotter, subplot=(0, 1))
+        if comm.rank == 0:
+            Path("output").mkdir(parents=True, exist_ok=True)
+        _plt.screenshot(f"{prefix}/test_hybrid-{comm.size}-{i_t}.png")
+        _plt.close()
 
     print(data)
+
+
+    if comm.rank == 0:
+        a_file = open(f"{prefix}/time_data.json", "w")
+        json.dump(data, a_file)
+        a_file.close()
 
 
 if __name__ == "__main__":

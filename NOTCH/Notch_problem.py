@@ -474,7 +474,7 @@ for (i_t,t) in enumerate(Loads):
   solve_it.solve()
   #postprocessing
   #global
-  surface_energy = assemble_scalar(dolfinx.fem.form(model.damage_dissipation_density(state)*dx))
+  surface_energy = assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state)*dx))
   elastic_energy = assemble_scalar(dolfinx.fem.form(model.elastic_energy_density(state)*dx))
   
   data.get('elastic').append(elastic_energy)

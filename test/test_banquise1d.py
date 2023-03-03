@@ -204,7 +204,7 @@ for i_t, t in enumerate(loads):
     solver.solve()
 
     dissipated_energy = comm.allreduce(
-        assemble_scalar(form(model.damage_dissipation_density(state) * dx)),
+        assemble_scalar(form(model.damage_energy_density(state) * dx)),
         op=MPI.SUM,
     )
     foundation_energy = comm.allreduce(
