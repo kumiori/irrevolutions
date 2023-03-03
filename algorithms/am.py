@@ -1,7 +1,8 @@
 from utils import norm_H1, norm_L2
 import logging
 import dolfinx
-from solvers import SNESSolver, SNESBlockProblem
+from solvers import SNESSolver
+from solvers.snesblockproblem import SNESBlockProblem
 from dolfinx.fem import (
     Constant,
     Function,
@@ -235,7 +236,7 @@ class AlternateMinimisation:
 
 
 
-class HybridFractureSolver(AltMinFractureSolver):
+class HybridFractureSolver(AlternateMinimisation):
     """Hybrid (AltMin+Newton) solver for fracture"""
 
     def __init__(

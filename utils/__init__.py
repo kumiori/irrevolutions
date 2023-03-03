@@ -3,6 +3,7 @@ from dolfinx.fem import assemble_scalar, form
 import numpy as np
 import mpi4py
 import sys
+from petsc4py import PETSc
 
 comm = mpi4py.MPI.COMM_WORLD
 
@@ -84,3 +85,10 @@ def norm_H1(u):
     norm = np.sqrt(comm.allreduce(
         assemble_scalar(norm_form), op=mpi4py.MPI.SUM))
     return norm
+
+
+def set_vector_to_constant(x, value):
+    with x.localForm() as local:
+        local.set(value)
+    x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+

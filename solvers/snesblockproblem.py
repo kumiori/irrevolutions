@@ -7,8 +7,9 @@ import ufl
 from .function import vec_to_functions, functions_to_vec
 
 from petsc4py import PETSc
+from mpi4py import MPI
 import logging
-import pdb
+import numpy as np
 
 class SNESBlockProblem:
     def __init__(
@@ -285,9 +286,9 @@ class SNESBlockProblem:
         self.print_norms(it)
 
     def print_norms(self, it):
-        pprint("\n### SNES iteration {}".format(it))
+        logging.critical("\n### SNES iteration {}".format(it))
         for i, ui in enumerate(self.u):
-            pprint(
+            logging.critical(
                 "# sub {:2d} |x|={:1.3e} |dx|={:1.3e} |r|={:1.3e} ({})".format(
                     i,
                     self.norm_x[it][i],
@@ -296,7 +297,7 @@ class SNESBlockProblem:
                     ui.name,
                 )
             )
-        pprint(
+        logging.critical(
             "# all    |x|={:1.3e} |dx|={:1.3e} |r|={:1.3e}".format(
                 np.linalg.norm(np.asarray(self.norm_x[it])),
                 np.linalg.norm(np.asarray(self.norm_dx[it])),
