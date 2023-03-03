@@ -271,9 +271,9 @@ def test_newtonblock(nest):
             "dissipated_energy" : dissipated_energy,
             "elastic_energy" : elastic_energy,
             "total_energy" : elastic_energy+dissipated_energy,
-            "solver_data" : solver.data,
-            "eigs" : stability.data["eigs"],
-            "stable" : stability.data["stable"],
+            "solver_data" : equilibrium.data,
+            # "eigs" : stability.data["eigs"],
+            # "stable" : stability.data["stable"],
             # "F" : _F
         }
 
