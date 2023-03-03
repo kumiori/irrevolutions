@@ -11,6 +11,12 @@ geometry:
     Lx: 1.
     Ly: .1
     lc: 0.02
+#  === Material === #
+material:
+    ell: 0.1
+    E: 1.
+    sigma_D0: 1.
+    ν: 0.3
 #  === Model === #
 model:
     ell: 0.1
@@ -84,6 +90,7 @@ stability:
     cont_rtol: 1.0e-10
     inactiveset_gatol: 1.e-8
     inactiveset_pwtol: 1.e-8
+    is_elastic_tol: 1.e-8
 
     inertia:
         # MUMPS
