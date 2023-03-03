@@ -4,3 +4,6 @@
 *.png
 *ipynb
 *.pyc
+.vscode/launch.json
+.vscode/settings.json
+.vscode/tasks.json
