@@ -277,7 +277,6 @@ class HybridFractureSolver(AlternateMinimisation):
         newton_options = self.solver_parameters.get("newton", self.default_options())
         self.set_newton_options(newton_options)
         logging.info(self.newton.snes.getTolerances())
-        __import__('pdb').set_trace()
         self.lb = dolfinx.fem.petsc.create_vector_nest(self.newton.F_form)
         self.ub = dolfinx.fem.petsc.create_vector_nest(self.newton.F_form)
         functions_to_vec([self.u_lb, self.alpha_lb], self.lb)
