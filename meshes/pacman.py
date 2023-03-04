@@ -117,8 +117,8 @@ def mesh_pacman(
 geom_parameters = {'omega': np.pi/10, 'r': 1, 'lc': 0.1}
 print(f'pacman parameters {geom_parameters}')
 
-mesh_pacman('pacman',
-    geom_parameters,
-    tdim=2,
-    order=1,
-    msh_file='pacman.msh')
+# mesh_pacman('pacman',
+#     geom_parameters,
+#     tdim=2,
+#     order=1,
+#     msh_file='pacman.msh')
