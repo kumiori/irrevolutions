@@ -1,6 +1,11 @@
+from utils import norm_H1, norm_L2
 import logging
 import dolfinx
 from solvers import SNESSolver
+from solvers.snesblockproblem import SNESBlockProblem
+from solvers.function import functions_to_vec
+from utils import set_vector_to_constant
+
 from dolfinx.fem import (
     Constant,
     Function,
@@ -13,6 +18,7 @@ from dolfinx.fem import (
 from petsc4py import PETSc
 import ufl
 import numpy as np
+from dolfinx.io import XDMFFile
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -34,9 +40,11 @@ except ImportError:
         create_matrix,
         set_bc,
         assemble_vector
-        )
+    )
+logging.basicConfig()
 
-from utils import norm_H1, norm_L2
+# logging.getLogger().setLevel(logging.INFO)
+
 
 class AlternateMinimisation:
     def __init__(
@@ -104,7 +112,6 @@ class AlternateMinimisation:
             prefix=self.solver_parameters.get("damage").get("prefix"),
         )
 
-
     def solve(self, outdir=None):
 
         alpha_diff = dolfinx.fem.Function(self.alpha.function_space)
@@ -115,6 +122,7 @@ class AlternateMinimisation:
             "error_alpha_H1": [],
             "F_norm": [],
             "error_alpha_max": [],
+            "error_residual_F": [],
             "error_residual_u": [],
             "solver_alpha_reason": [],
             "solver_alpha_it": [],
@@ -131,7 +139,7 @@ class AlternateMinimisation:
             ) as file:
                 file.write_mesh(self.u.function_space.mesh)
 
-        for iteration in range(
+        for iteration in range(1,
             self.solver_parameters.get("damage_elasticity").get("max_it")
         ):
             with dolfinx.common.Timer("~Alternate Minimization : Elastic solver"):
@@ -178,6 +186,7 @@ class AlternateMinimisation:
             self.data["error_alpha_H1"].append(error_alpha_H1)
             self.data["F_norm"].append(Fnorm)
             self.data["error_alpha_max"].append(error_alpha_max)
+            self.data["error_residual_F"].append(Fnorm)
             self.data["error_residual_u"].append(error_residual_u)
             self.data["solver_alpha_it"].append(solver_alpha_it)
             self.data["solver_alpha_reason"].append(solver_alpha_reason)
@@ -203,8 +212,8 @@ class AlternateMinimisation:
                     "damage_elasticity").get("criterion")
                 == "residual_u"
             ):
-                logging.info(
-                    f"AM - Iteration: {iteration:3d}, Error: {error_residual_u:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+                logging.critical(
+                    f"AM - Iteration: {iteration:3d}, Error:  ||Du E||_L2 {error_residual_u:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
                 )
                 if error_residual_u <= self.solver_parameters.get(
                     "damage_elasticity"
@@ -215,8 +224,8 @@ class AlternateMinimisation:
                     "damage_elasticity").get("criterion")
                 == "alpha_H1"
             ):
-                logging.info(
-                    f"AM - Iteration: {iteration:3d}, Error: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+                logging.critical(
+                    f"AM - Iteration: {iteration:3d}, Error ||Δα_i||_H1: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
                 )
                 if error_alpha_H1 <= self.solver_parameters.get(
                     "damage_elasticity"
@@ -226,3 +235,148 @@ class AlternateMinimisation:
             raise RuntimeError(
                 f"Could not converge after {iteration:3d} iterations, error {error_alpha_H1:3.4e}"
             )
+
+
+import solvers.restriction as restriction
+
+
+class HybridFractureSolver(AlternateMinimisation):
+    """Hybrid (AltMin+Newton) solver for fracture"""
+
+    def __init__(
+        self,
+        total_energy,
+        state,
+        bcs,
+        solver_parameters={},
+        bounds=(dolfinx.fem.function.Function, dolfinx.fem.function.Function),
+        monitor=None,
+    ):
+        super(HybridFractureSolver, self).__init__(
+            total_energy, state, bcs, solver_parameters, bounds, monitor
+        )
+
+        self.u_lb = dolfinx.fem.Function(state['u'].function_space, name="displacement lower bound")
+        self.u_ub = dolfinx.fem.Function(state['u'].function_space, name="displacement upper bound")
+        self.alpha_lb = dolfinx.fem.Function(state['alpha'].function_space, name="damage lower bound")
+        self.alpha_ub = dolfinx.fem.Function(state['alpha'].function_space, name="damage upper bound")
+
+        set_vector_to_constant(self.u_lb.vector, PETSc.NINFINITY)
+        set_vector_to_constant(self.u_ub.vector, PETSc.PINFINITY)
+        set_vector_to_constant(self.alpha_lb.vector, 0)
+        set_vector_to_constant(self.alpha_ub.vector, 1)
+
+        self.z = [self.u, self.alpha]
+        bcs_z = bcs.get("bcs_u") + bcs.get("bcs_alpha")
+        self.prefix = "blocknewton"
+
+        nest = False
+        self.newton = SNESBlockProblem(
+            self.F, self.z, bcs=bcs_z, nest=nest, prefix="block"
+        )
+        newton_options = self.solver_parameters.get("newton", self.default_options())
+        self.set_newton_options(newton_options)
+        logging.info(self.newton.snes.getTolerances())
+        __import__('pdb').set_trace()
+        self.lb = dolfinx.fem.petsc.create_vector_nest(self.newton.F_form)
+        self.ub = dolfinx.fem.petsc.create_vector_nest(self.newton.F_form)
+        functions_to_vec([self.u_lb, self.alpha_lb], self.lb)
+        functions_to_vec([self.u_ub, self.alpha_ub], self.ub)
+
+    def default_options(self):
+        opts = PETSc.Options(self.prefix)
+
+        opts.setValue("snes_type", "vinewtonrsls")
+        opts.setValue("snes_linesearch_type", "basic")
+        opts.setValue("snes_rtol", 1.0e-08)
+        opts.setValue("snes_atol", 1.0e-08)
+        opts.setValue("snes_max_it", 30)
+        opts.setValue("snes_monitor", "")
+        opts.setValue("linesearch_damping", 0.5)
+
+        nest = False
+
+        if nest:
+            opts.setValue("ksp_type", "cg")
+            opts.setValue("pc_type", "fieldsplit")
+            opts.setValue("fieldsplit_pc_type", "lu")
+            opts.setValue("ksp_rtol", 1.0e-10)
+        else:
+            opts.setValue("ksp_type", "preonly")
+            opts.setValue("pc_type", "lu")
+            opts.setValue("pc_factor_mat_solver_type", "mumps")
+
+        return opts
+
+    def set_newton_options(self, newton_options):
+
+        # self.newton.snes.setMonitor(self.monitor)
+        # _monitor_block
+        opts = PETSc.Options(self.prefix)
+        # opts.prefixPush(self.prefix)
+        logging.info(newton_options)
+
+        for k, v in newton_options.items():
+            opts[k] = v
+
+        # opts.prefixPop()
+        self.newton.snes.setOptionsPrefix(self.prefix)
+        self.newton.snes.setFromOptions()
+
+
+    def compute_bounds(self, v, alpha_lb):
+        __import__('pdb').set_trace()
+        lb = dolfinx.fem.create_vector_nest(v)
+        ub = dolfinx.fem.create_vector_nest(v)
+
+        with lb.getNestSubVecs()[0].localForm() as u_sub:
+            u_sub.set(PETSc.NINFINITY)
+
+        with ub.getNestSubVecs()[0].localForm() as u_sub:
+            u_sub.set(PETSc.PINFINITY)
+
+        with lb.getNestSubVecs()[
+            1
+        ].localForm() as alpha_sub, alpha_lb.vector.localForm() as alpha_lb_loc:
+            alpha_lb_loc.copy(result=alpha_sub)
+
+        with ub.getNestSubVecs()[1].localForm() as alpha_sub:
+            alpha_sub.set(1.0)
+
+        return lb, ub
+
+    def getReducedNorm(self):
+        """Retrieve reduced residual"""
+        self.newton.compute_norms_block(self.newton.snes)
+        return self.newton.norm_r
+
+        # self.newton
+
+    def monitor(self, its, rnorm):
+        logging.critical("Num it, rnorm:", its, rnorm)
+        pass     
+
+    def solve(self, outdir=None):
+        # Perform AM as customary
+        super().solve(outdir)
+        self.newton_data = {
+            "iteration": [],
+            "residual_Fnorm": [],
+            "residual_Frxnorm": []
+        }
+        # update bounds and perform Newton step
+        # lb, ub = self.compute_bounds(self.newton.F_form, self.alpha)
+        functions_to_vec([self.u_lb, self.alpha_lb], self.lb)
+
+        self.newton.snes.setVariableBounds(self.lb, self.ub)
+        
+        self.newton.solve(u_init=[self.u, self.alpha])
+
+        self.newton_data["iteration"].append(self.newton.snes.getIterationNumber() + 1)
+        self.newton_data["residual_Fnorm"].append(self.newton.snes.getFunctionNorm())
+        self.newton_data["residual_Frxnorm"].append(self.getReducedNorm())
+
+        self.data.update(self.newton_data)
+
+        # self.data.append(newton_data)
+        # self.data["newton_Fnorm"].append(Fnorm)

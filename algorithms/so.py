@@ -1,4 +1,8 @@
 import logging
+from pydoc import cli
+from time import clock_settime
+
+from matplotlib.pyplot import cla
 import dolfinx
 from solvers import SNESSolver
 from dolfinx.fem import (
@@ -17,6 +21,7 @@ import ufl
 import numpy as np
 from pathlib import Path
 from dolfinx.io import XDMFFile, gmshio
+import logging
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -51,35 +56,36 @@ size = comm.Get_size()
 
 
 def info_dofmap(space, name=None):
-    print("\n")
-    print("rank", comm.rank, f"space {name}")
+    """Get information on the dofmap"""
+    logging.info("\n")
+    logging.info("rank", comm.rank, f"space {name}")
 
     dofmap = space.dofmap
-    print("rank", comm.rank, f"dofmap.bs {dofmap.bs}")
-    print(
+    logging.info("rank", comm.rank, f"dofmap.bs {dofmap.bs}")
+    logging.info(
         "rank",
         comm.rank,
         f"space.dofmap.dof_layout.num_dofs (per element) {space.dofmap.dof_layout.num_dofs}",
     )
     local_size = dofmap.index_map.size_local * dofmap.index_map_bs
-    print("rank", comm.rank, f"local_size {local_size}")
+    logging.info("rank", comm.rank, f"local_size {local_size}")
 
-    print(
+    logging.info(
         "rank",
         comm.rank,
         f"dofmap.index_map.size_global {dofmap.index_map.size_global}",
     )
-    print(
+    logging.info(
         "rank",
         comm.rank,
         f"dofmap.index_map.local_range {dofmap.index_map.local_range}",
     )
-    print(
+    logging.info(
         "rank",
         comm.rank,
         f"dofmap.index_map.global_indices {dofmap.index_map.global_indices()}",
     )
-    print(
+    logging.info(
         "rank", comm.rank, f"dofmap.index_map.num_ghosts {dofmap.index_map.num_ghosts}"
     )
 
@@ -129,6 +135,7 @@ class StabilitySolver:
         """Returns whether or not the current state is elastic,
         based on the strict positivity of the gradient of E
         """
+        etol = self.parameters.get("is_elastic_tol")
         E_alpha = dolfinx.fem.assemble_vector(self.F[1])
 
         coef = max(abs(E_alpha.array))
@@ -136,7 +143,7 @@ class StabilitySolver:
 
         comm.Allreduce(coef, coeff_glob, op=MPI.MAX)
 
-        elastic = not np.isclose(coeff_glob, 0.0)
+        elastic = not np.isclose(coeff_glob, 0.0, atol=etol)
 
         return elastic
 
@@ -159,7 +166,7 @@ class StabilitySolver:
         F = dolfinx.fem.petsc.assemble_vector(self.F[1])
 
         with F.localForm() as f_local:
-            idx_grad_local = np.where(np.isclose(f_local[:], 0.0, rtol=gtol))[0]
+            idx_grad_local = np.where(np.isclose(f_local[:], 0.0, atol=gtol))[0]
 
         with self.state[
             1
@@ -427,3 +434,241 @@ class StabilitySolver:
             for (i, eig) in enumerate(eigs):
                 ofile.write_function(v[i], eig)
                 ofile.write_function(beta[i], eig)
+
+
+class ConeSolver(StabilitySolver):
+    """Base class for a minimal implementation of the solution of eigenvalue
+    problems bound to a cone. Based on numerical recipe SPA and KR result
+    Thanks Yves and Luc."""
+    def __init__(
+        self,
+        energy: ufl.form.Form,
+        state: dict,
+        bcs: list,
+        nullspace=None,
+        cone_parameters=None,
+    ):    
+        super(ConeSolver, self).__init__()
+
+    def normalise_eigen(self, u, mode="norm"):
+        assert mode == "norm"
+        v, beta = u[0], u[1]
+        V_alpha_lrange = beta.function_space.dofmap.index_map.local_range
+
+        with v.vector.localForm() as v_local:
+            v_local.scale(1.0 / coeff_glob)
+        v.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
+        )
+
+        with beta.vector.localForm() as beta_local:
+            beta_local.scale(1.0 / coeff_glob)
+        beta.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
+        )
+
+        logging.debug(
+            f"{rank}, beta range: ({min(beta.vector[V_alpha_lrange[0] : V_alpha_lrange[1]]):.3f},\
+            {max(beta.vector[V_alpha_lrange[0] : V_alpha_lrange[1]]):.3f})"
+        )
+        return coeff_glob
+
+    def solve(self, alpha_old: dolfinx.fem.function.Function, neig=None):
+        # Loosely solve eigenproblem to get initial guess x_0
+        # Project aka truncate u_k = x_0/phi(x_0)
+        # compute residual, eigen_k, and eigenvect_k
+        # update x_k
+        x_diff = dolfinx.fem.Function(self.alpha.function_space)
+
+        Kspectrum = []
+
+        self.data = {
+            "stable": [],
+            "neg_eigs": [],
+            "zero_eigs": [],
+            "pos_eigs": [],
+            "elastic": [],
+        }
+
+        restricted_dofs = self.get_inactive_dofset(alpha_old)
+        constraints = restriction.Restriction([self.V_u, self.V_alpha], restricted_dofs)
+
+        self.inertia_setup(constraints)
+
+        eigen = eigenblockproblem.SLEPcBlockProblemRestricted(
+            self.F_,
+            self.state,
+            self.lmbda0,
+            bcs=self.bcs,
+            restriction=constraints,
+            prefix="cone",
+        )
+        self.setup_eigensolver(eigen)
+        if neig is not None:
+            eigen.eps.setDimensions(neig, PETSc.DECIDE)
+
+        for iteration in range(
+            self.solver_parameters.get("stability").get("cone").get("max_it")
+        ):
+
+
+            with dolfinx.common.Timer("~Cone Constrained : Internal iterations"):
+                eigen.solve()
+
+                nev, ncv, mpd = eigen.eps.getDimensions()
+                if neig is not None:
+                    neig_out = min(eigen.eps.getConverged(), neig)
+                else:
+                    neig_out = eigen.eps.getConverged()
+
+                log(LogLevel.INFO, f"Number of requested eigenvalues: {nev}")
+                log(LogLevel.INFO, f"Number of requested column vectors: {ncv}")
+                log(LogLevel.INFO, f"Number of mpd: {mpd}")
+                log(LogLevel.INFO, f"converged {ncv:d}")
+
+                # xk.vector.copy(x_diff.vector)
+                # x_diff.vector.axpy(-1, x_old.vector)
+                # x_diff.vector.ghostUpdate(
+                #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+                # )
+
+                logging.debug(f"{rank}) Postprocessing FIRST mode")
+                xk = dolfinx.fem.Function(self.alpha.function_space)
+                x_old = dolfinx.fem.Function(self.alpha.function_space)
+
+                # v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
+                # beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
+                eigval, uk, _ = eigen.getEigenpair(i)
+                _ = self.normalise_eigen(uk)
+
+                with uk[1].vector.localForm() as beta_loc, xk.vector.localForm() as xk_loc:
+                    beta_loc.copy(result=xk_loc)
+                    xk_loc.vector.ghostUpdate(
+                        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+                    )
+                # compute lambdak
+                # compute the residual
+                # project onto cone  = componentwise truncation
+                # 
+                # 
+
+                with xk.vector.localForm() as xk_loc, x_old.vector.localForm() as x_old_loc:
+                    xk_loc.vector.copy(x_old_loc.vector)
+                    x_old.vector.ghostUpdate(
+                        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+                    )
+
+
+            if (
+                self.solver_parameters.get(
+                    "stability").get("cone").get("criterion")
+                == "standard"
+            ):
+                logging.info(
+                    f"CO - Iteration: {iteration:3d}, Error: {norm_H1(x_diff):3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+                )
+                # residual_y = assemble_vector(self.elasticity.F_form)
+
+                if norm_H1(x_diff) <= self.solver_parameters.get(
+                    "stability"
+                ).get("cone").get("x_rtol"):
+                    break
+        else:
+            raise RuntimeError(
+                f"Could not converge after {iteration:3d} iterations, error {error_alpha_H1:3.4e}"
+            )
+
+        for i in range(neig_out):
+            logging.debug(f"{rank}) Postprocessing mode {i}")
+            v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
+            beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
+            eigval, uk, _ = eigen.getEigenpair(i)
+            _ = self.normalise_eigen(uk)
+            log(LogLevel.INFO, "")
+            log(LogLevel.INFO, "i        k          ")
+            log(LogLevel.INFO, "--------------------")
+            log(LogLevel.INFO, "%d     %6e" % (i, eigval.real))
+
+            with uk[0].vector.localForm() as v_loc, v_n.vector.localForm() as v_n_loc:
+                v_loc.copy(result=v_n_loc)
+
+            v_n.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+
+            with uk[1].vector.localForm() as b_loc, beta_n.vector.localForm() as b_n_loc:
+                b_loc.copy(result=b_n_loc)
+
+            beta_n.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+
+            logging.debug(f"mode {i} {uk[0].name}-norm {uk[0].vector.norm()}")
+            logging.debug(f"mode {i} {uk[1].name}-norm {uk[1].vector.norm()}")
+
+            spectrum.append(
+                {
+                    "n": i,
+                    "lambda": eigval.real,
+                    "v": v_n,
+                    "beta": beta_n,
+                }
+            )
+
+        spectrum.sort(key=lambda item: item.get("lambda"))
+        unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
+
+        self.spectrum = unstable_spectrum
+
+        eigs = [mode["lambda"] for mode in spectrum]
+        eig0, u0, _ = eigen.getEigenpair(0)
+
+        self.minmode = u0
+        self.mineig = eig0
+
+        perturbations_v = [spectrum[i]["v"] for i in range(neig_out)]
+        perturbations_beta = [spectrum[i]["beta"] for i in range(neig_out)]
+        # based on eigenvalue
+        stable = np.min(eigs) > float(self.parameters.get("eigen").get("eps_tol"))
+
+        self.data = {
+            "eigs": eigs,
+            "perturbations_beta": perturbations_beta,
+            "perturbations_v": perturbations_v,
+            "stable": bool(stable),
+        }
+
+        return stable
+
+    def save_eigenvectors(self, filename="output/eigvec.xdmf"):
+        eigs = self.data["eigs"]
+        v = self.data["perturbations_v"]
+        beta = self.data["perturbations_beta"]
+        ColorPrint.print_info("Saving the eigenvetors for the following eigenvalues")
+        ColorPrint.print_info(eigs)
+
+        if comm.rank == 0:
+            out_dir = Path(filename).parent.absolute()
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+        with XDMFFile(MPI.COMM_WORLD, filename, "w") as ofile:
+            ofile.write_mesh(self.mesh)
+            for (i, eig) in enumerate(eigs):
+                ofile.write_function(v[i], eig)
+                ofile.write_function(beta[i], eig)
+
+
+# more elegant:
+    def Fs(self):
+        """Nonlinear fixed point scheme, yet Lipschitz-continuous,
+        given a vector x_k in K, returns x_{k+1}"""
+        _lmbda = xAx/xBx
+        # A.mult(e, y) # A*e = y
+        # _y = Ax - _lmbda Bx
+        # pick _s
+        _u = self.xk - _s*_y
+        return _PiK(_u)/phi(_u)
+    
+    def phi(self, v):
+        """Normalisation function"""
+        _coef = norm_H1(v)

@@ -36,7 +36,7 @@ except ImportError:
     from dolfinx.plot import create_vtk_topology as compute_topology
 
 
-def plot_vector(u, plotter, subplot=None):
+def plot_vector(u, plotter, subplot=None, scale=1.):
     if subplot:
         plotter.subplot(subplot[0], subplot[1])
     V = u.function_space
@@ -57,7 +57,7 @@ def plot_vector(u, plotter, subplot=None):
     grid.set_active_vectors("vectors")
     # geom = pyvista.Arrow()
     # glyphs = grid.glyph(orient="vectors", factor=1, geom=geom)
-    glyphs = grid.glyph(orient="vectors", factor=1.0)
+    glyphs = grid.glyph(orient="vectors", factor=scale)
     plotter.add_mesh(glyphs)
     plotter.add_mesh(
         grid, show_edges=True, color="black", style="wireframe", opacity=0.3

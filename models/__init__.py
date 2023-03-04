@@ -152,7 +152,7 @@ class DamageElasticityModel(ElasticityModel):
             self.model_dimension)
         return sigma
 
-    def damage_dissipation_density(self, state):
+    def damage_energy_density(self, state):
         """
         Return the damage dissipation density from the state.
         """
@@ -175,7 +175,7 @@ class DamageElasticityModel(ElasticityModel):
         """
         # Get the material parameters
         energy = self.elastic_energy_density(
-            state) + self.damage_dissipation_density(state)
+            state) + self.damage_energy_density(state)
         return energy
 
 class BrittleMembraneOverElasticFoundation(DamageElasticityModel):

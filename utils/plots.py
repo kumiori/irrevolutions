@@ -16,7 +16,7 @@ def plot_energies(history_data, title="Evolution", file=None):
 
     t = np.array(history_data["load"])
     e_e = np.array(history_data["elastic_energy"])
-    e_d = np.array(history_data["dissipated_energy"])
+    e_d = np.array(history_data["fracture_energy"])
 
     # stress-strain curve
     ax1.plot(
@@ -37,7 +37,7 @@ def plot_energies(history_data, title="Evolution", file=None):
         linewidth=1.0,
         markersize=4.0,
         marker="^",
-        label=r"Dissipated",
+        label=r"Fracture",
     )
     ax1.plot(t, e_d + e_e, color="black", linestyle="-", linewidth=1.0, label=r"Total")
 
@@ -80,7 +80,7 @@ def plot_AMit_load(history_data, title="AM max it - Load", file=None):
     return fig, ax1
 
 
-def plot_force_displacement(history_data, title="Force - Displacement", file=None):
+def plot_force_displacement(history_data, title="Stress - load", file=None):
 
     fig, ax1 = matplotlib.pyplot.subplots()
 
