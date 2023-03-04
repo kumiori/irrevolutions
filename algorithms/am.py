@@ -43,7 +43,7 @@ except ImportError:
     )
 logging.basicConfig()
 
-logging.getLogger().setLevel(logging.INFO)
+# logging.getLogger().setLevel(logging.INFO)
 
 
 class AlternateMinimisation:
@@ -239,136 +239,6 @@ class AlternateMinimisation:
 
 import solvers.restriction as restriction
 
-class AwareMinimisation(AlternateMinimisation):
-    """Alternate Minimisation, aware of exit strategy"""
-    def __init__(
-        self,
-        total_energy,
-        state,
-        bcs,
-        solver_parameters={},
-        bounds=(dolfinx.fem.function.Function, dolfinx.fem.function.Function),
-        monitor=None,
-    ):
-        self.bcs = bcs
-        super(AwareMinimisation, self).__init__(
-            total_energy, state, bcs, solver_parameters, bounds, monitor
-        )
-
-
-        self.F_ = [
-            ufl.derivative(
-                total_energy, state["u"], ufl.TestFunction(state["u"].ufl_function_space())
-            ),
-            ufl.derivative(
-                total_energy,
-                state["alpha"],
-                ufl.TestFunction(state["alpha"].ufl_function_space()),
-            ),
-        ]
-        self.Fform = dolfinx.fem.form(self.F_)
-
-        Jform = [
-            [None for i in range(len(state))] for j in range(len(state))
-        ]
-
-        for (i, iv) in enumerate(self.state):
-            for (j, jv) in enumerate(self.state):
-                print(f'd_{jv} F_{i}')
-                Jform[i][j] = ufl.algorithms.expand_derivatives(
-                    ufl.derivative(
-                        self.F_[i],
-                        self.state[jv],
-                        ufl.TrialFunction(self.state[jv].function_space),
-                    )
-                )
-
-                # If the form happens to be empty replace with None
-                if Jform[i][j].empty():
-                    Jform[i][j] = None
-        # __import__('pdb').set_trace()
-        Jform = [[None, None], [None, None]]
-        self.Jform = dolfinx.fem.form(Jform)
-
-    def get_inactive_dofset(self, a_old) -> set:
-        """Computes the set of dofs where damage constraints are inactive
-        based on the energy gradient and the ub constraint. The global
-        set of inactive constraint-dofs is the union of constrained
-        alpha-dofs and u-dofs.
-        """
-        gtol = self.solver_parameters.get('hybrid').get("inactiveset_gatol")
-        pwtol = self.solver_parameters.get('hybrid').get("inactiveset_pwtol")
-        V_u = self.state['u'].function_space
-
-        F = dolfinx.fem.petsc.assemble_vector(self.Fform[1])
-
-        with F.localForm() as f_local:
-            idx_grad_local = np.where(np.isclose(f_local[:], 0.0, atol=gtol))[0]
-
-        with self.state[
-            'alpha'
-        ].vector.localForm() as a_local, a_old.vector.localForm() as a_old_local:
-            idx_ub_local = np.where(np.isclose(a_local[:], 1.0, rtol=pwtol))[0]
-            idx_lb_local = np.where(np.isclose(a_local[:], a_old_local[:], rtol=pwtol))[
-                0
-            ]
-
-        idx_alpha_local = set(idx_grad_local).difference(
-            set().union(idx_ub_local, idx_lb_local)
-        )
-
-        V_u_size = V_u.dofmap.index_map_bs * (V_u.dofmap.index_map.size_local)
-
-        dofs_u_all = np.arange(V_u_size, dtype=np.int32)
-        dofs_alpha_inactive = np.array(list(idx_alpha_local), dtype=np.int32)
-
-        restricted_dofs = [dofs_u_all, dofs_alpha_inactive]
-
-        localSize = F.getLocalSize()
-
-        restricted = len(dofs_alpha_inactive)
-
-        logging.debug(
-            f"rank {comm.rank}) Restricted to (local) {restricted}/{localSize} nodes, {float(restricted/localSize):.1%} (local)",
-        )
-
-        return restricted_dofs
-
-
-    def solve(self, outdir=None):
-        super(AwareMinimisation, self).solve(outdir)
-        # V_u = self.state['u'].function_space
-        # V_alpha = self.state['alpha'].function_space
-
-        # restricted_dofs = self.get_inactive_dofset(self.alpha_old)
-        # constraints = restriction.Restriction([V_u, V_alpha], restricted_dofs)
-                
-        # Fv = dolfinx.fem.petsc.create_vector_block(self.Fform)
-        # Frx = constraints.restrict_vector(Fv)
-        # # __import__('pdb').set_trace()
-
-        # dolfinx.fem.petsc.assemble_vector_block(
-        #     Frx,
-        #     self.Fform,
-        #     self.Jform,
-        #     self.bcs['bcs_u'] + self.bcs['bcs_alpha']
-        # )
-
-        # Frx.ghostUpdate(
-        #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        # )
-
-        # error_residual_Frx = Frx.norm(2)
-
-        # if (
-        #     self.solver_parameters.get(
-        #         "damage_elasticity").get("criterion")
-        #     == "residual_u"
-        # ):
-        # logging.critical(
-        #     f"AM - Iteration: xxx, Error:  ||Frx||_L2 {error_residual_Frx:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
-        # )
-
 
 class HybridFractureSolver(AlternateMinimisation):
     """Hybrid (AltMin+Newton) solver for fracture"""
@@ -406,7 +276,8 @@ class HybridFractureSolver(AlternateMinimisation):
         )
         newton_options = self.solver_parameters.get("newton", self.default_options())
         self.set_newton_options(newton_options)
-
+        logging.info(self.newton.snes.getTolerances())
+        __import__('pdb').set_trace()
         self.lb = dolfinx.fem.petsc.create_vector_nest(self.newton.F_form)
         self.ub = dolfinx.fem.petsc.create_vector_nest(self.newton.F_form)
         functions_to_vec([self.u_lb, self.alpha_lb], self.lb)
@@ -439,6 +310,8 @@ class HybridFractureSolver(AlternateMinimisation):
 
     def set_newton_options(self, newton_options):
 
+        # self.newton.snes.setMonitor(self.monitor)
+        # _monitor_block
         opts = PETSc.Options(self.prefix)
         # opts.prefixPush(self.prefix)
         logging.info(newton_options)
@@ -449,6 +322,7 @@ class HybridFractureSolver(AlternateMinimisation):
         # opts.prefixPop()
         self.newton.snes.setOptionsPrefix(self.prefix)
         self.newton.snes.setFromOptions()
+
 
     def compute_bounds(self, v, alpha_lb):
         __import__('pdb').set_trace()
@@ -477,7 +351,10 @@ class HybridFractureSolver(AlternateMinimisation):
         return self.newton.norm_r
 
         # self.newton
-        
+
+    def monitor(self, its, rnorm):
+        logging.critical("Num it, rnorm:", its, rnorm)
+        pass     
 
     def solve(self, outdir=None):
         # Perform AM as customary

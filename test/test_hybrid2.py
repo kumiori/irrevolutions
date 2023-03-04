@@ -3,7 +3,7 @@ import sys
 
 import numpy as np
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 from datetime import date
 
 today = date.today()
@@ -86,11 +86,11 @@ import os
 from pathlib import Path
 
 outdir = "output"
-prefix = os.path.join(outdir, "hybrid")
+prefix = os.path.join(outdir, "test_hybrid")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
-def test_newtonblock(nest):
+def test_hybrid(nest):
     Lx = 1.0
     Ly = 0.1
     # tdim = 2
@@ -194,8 +194,8 @@ def test_newtonblock(nest):
 
     block_params["snes_type"] = "vinewtonrsls"
     block_params["snes_linesearch_type"] = "basic"
-    block_params["snes_rtol"] = 1.0e-08
-    block_params["snes_atol"] = 1.0e-08
+    block_params["snes_rtol"] = 1.0e-12
+    block_params["snes_atol"] = 1.0e-12
     block_params["snes_max_it"] = 30
     block_params["snes_monitor"] = ""
     block_params["linesearch_damping"] = 0.5
@@ -284,10 +284,7 @@ def test_newtonblock(nest):
         }
         data.append(datai)
 
-        # update_bounds
-        functions_to_vec([u_lb, alpha_lb], lb)
-        snes.setVariableBounds(lb, ub)
-        # newton.solve(u_init=[u, alpha])
+
         # logging.info(f"getConvergedReason() {newton.snes.getConvergedReason()}")
         # logging.info(f"getFunctionNorm() {newton.snes.getFunctionNorm():.5e}")
         try:
@@ -327,4 +324,4 @@ def test_newtonblock(nest):
 
 
 if __name__ == "__main__":
-    test_newtonblock(nest=False)
+    test_hybrid(nest=False)

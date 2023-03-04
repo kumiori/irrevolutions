@@ -251,8 +251,11 @@ class SNESBlockProblem:
         self.compute_norms_block(snes)
         self.print_norms(it)
 
-        if logging.root.level <= logging.DEBUG:
-            self._plot_solution(it)
+        logging.critical(f'Residual reduced norms {self.norm_r}')
+        logging.critical(f'Residual reduced norm {np.sqrt(np.array([x**2 for x in self.norm_r[0]]).sum())}')
+        
+        # if logging.root.level <= logging.DEBUG:
+        #     self._plot_solution(it)
 
     def _plot_solution(self, it):
         vec_to_functions(self.x, self.solution)
@@ -260,7 +263,7 @@ class SNESBlockProblem:
         # init plotter
         import pyvista
         from pyvista.utilities import xvfb
-        from utils import plot_vector, plot_scalar
+        from utils.viz import plot_vector, plot_scalar
 
         xvfb.start_xvfb(wait=0.05)
         pyvista.OFF_SCREEN = True
@@ -276,7 +279,7 @@ class SNESBlockProblem:
         _plt = plot_vector(self.solution[0], plotter, subplot=(0, 1))
         # save
         _plt.screenshot(
-            f"./output/test_newtonblock/test_newtonblock_MPI{self.comm.size}-{it}-.png"
+            f"./output/test_hybrid/test_newtonblock_MPI{self.comm.size}-{it}-.png"
         )
         _plt.close()
         pass
