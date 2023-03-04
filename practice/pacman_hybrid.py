@@ -1,4 +1,3 @@
-import pdb
 import sys
 from pathlib import Path
 import os
@@ -265,9 +264,6 @@ def pacman_hybrid(nest):
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
 
-    # loads = [0.1, 1.0, 1.1]
-    # loads = np.linspace(0.3, 1., 10)
-
     if comm.rank == 0:
         with open(f"{prefix}/parameters.yaml", 'w') as file:
             yaml.dump(parameters, file)
@@ -374,7 +370,7 @@ def pacman_hybrid(nest):
 
         if comm.rank == 0:
             a_file = open(f"{prefix}/time_data.json", "w")
-            json.dump(data, a_file)
+            json.dump(data, stream=a_file, allow_unicode=True)
             a_file.close()
 
         ColorPrint.print_info(
