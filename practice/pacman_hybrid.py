@@ -286,6 +286,9 @@ def pacman_hybrid(nest):
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
 
+    # loads = [0.1, 1.0, 1.1]
+    # loads = np.linspace(0.3, 1., 10)
+
     if comm.rank == 0:
         with open(f"{prefix}/parameters.yaml", 'w') as file:
             yaml.dump(parameters, file)
@@ -315,6 +318,24 @@ def pacman_hybrid(nest):
         )
 
 
+        # compute the rate
+        alpha.vector.copy(alphadot.vector)
+        alphadot.vector.axpy(-1, alpha_lb.vector)
+        alphadot.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+
+        # logging.info(f"alpha vector norm: {alpha.vector.norm()}")
+        # logging.info(f"alpha lb norm: {alpha_lb.vector.norm()}")
+        # logging.info(f"alphadot norm: {alphadot.vector.norm()}")
+        # logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+
+        rate_12_norm = np.sqrt(comm.allreduce(
+            dolfinx.fem.assemble_scalar(
+                hybrid.scaled_rate_norm(alpha, parameters))
+                , op=MPI.SUM))
+        
+
         dissipated_energy = comm.allreduce(
             dolfinx.fem.assemble_scalar(dolfinx.fem.form(
                 model.damage_energy_density(state) * dx)),
@@ -336,6 +357,8 @@ def pacman_hybrid(nest):
             "elastic_energy": elastic_energy,
             "total_energy": elastic_energy+dissipated_energy,
             "solver_data": hybrid.data,
+            "alphadot_norm": alphadot.vector.norm(),
+            "rate_12_norm": rate_12_norm
             # "eigs" : stability.data["eigs"],
             # "stable" : stability.data["stable"],
             # "F" : _F
