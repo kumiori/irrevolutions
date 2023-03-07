@@ -301,6 +301,7 @@ def test_multifissa(nest):
             # "stable" : stability.data["stable"],
             # "F" : _F
         }
+        data.append(datai)
 
         data["it"].append(datai["it"])
         data["AM_F_alpha_H1"].append(datai["AM_F_alpha_H1"])
