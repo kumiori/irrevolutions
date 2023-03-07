@@ -3,7 +3,7 @@ import sys
 
 import numpy as np
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 from datetime import date
 
 today = date.today()
@@ -116,6 +116,7 @@ def test_hybrid(nest):
     # Define the state
     u = dolfinx.fem.Function(V_u, name="Displacement")
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
+    alphadot = dolfinx.fem.Function(V_alpha, name="Damage rate")
 
     state = {"u": u, "alpha": alpha}
 
@@ -194,8 +195,8 @@ def test_hybrid(nest):
 
     block_params["snes_type"] = "vinewtonrsls"
     block_params["snes_linesearch_type"] = "basic"
-    block_params["snes_rtol"] = 1.0e-12
-    block_params["snes_atol"] = 1.0e-12
+    block_params["snes_rtol"] = 1.0e-8
+    block_params["snes_atol"] = 1.0e-8
     block_params["snes_max_it"] = 30
     block_params["snes_monitor"] = ""
     block_params["linesearch_damping"] = 0.5
@@ -220,10 +221,6 @@ def test_hybrid(nest):
         solver_parameters=parameters.get("solvers"),
     )
 
-    # newton = SNESBlockProblem(
-    #     F, z, bcs=bcs_z, nest=nest, prefix="block"
-    # )
-
     if comm.rank == 0:
         with open(f"{prefix}/parameters.yaml", 'w') as file:
             yaml.dump(parameters, file)
@@ -240,6 +237,9 @@ def test_hybrid(nest):
     # loads = np.linspace(0.0, 1.3, 10)
 
     data = []
+    
+    norm_12_form = dolfinx.fem.form(
+        (ufl.inner(alpha, alpha) + parameters["model"]["ell"] * ufl.inner(ufl.grad(alpha), ufl.grad(alpha))) * dx)
 
     for i_t, t in enumerate(loads):
 
@@ -254,10 +254,27 @@ def test_hybrid(nest):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
         logging.info(f"-- Solving for t = {t:3.2f} --")
-
         hybrid.solve()
+
+        # compute the rate
+        alpha.vector.copy(alphadot.vector)
+        alphadot.vector.axpy(-1, alpha_lb.vector)
+        alphadot.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+
+        logging.info(f"alpha vector norm: {alpha.vector.norm()}")
+        logging.info(f"alpha lb norm: {alpha_lb.vector.norm()}")
+        logging.info(f"alphadot norm: {alphadot.vector.norm()}")
+        logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+
+        rate_12_norm = np.sqrt(comm.allreduce(
+            dolfinx.fem.assemble_scalar(
+                hybrid.scaled_rate_norm(alpha, parameters))
+                , op=MPI.SUM))
+        
+        logging.info(f"rate scaled alpha_12 norm: {rate_12_norm}")
 
         dissipated_energy = comm.allreduce(
             dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state) * dx)),
@@ -278,6 +295,8 @@ def test_hybrid(nest):
             "elastic_energy" : elastic_energy,
             "total_energy" : elastic_energy+dissipated_energy,
             "solver_data" : hybrid.data,
+            "alphadot_norm": alphadot.vector.norm(),
+            "rate_12_norm": rate_12_norm
             # "eigs" : stability.data["eigs"],
             # "stable" : stability.data["stable"],
             # "F" : _F

@@ -111,8 +111,7 @@ prefix = os.path.join(outdir, "pacman")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
-
-def test_hybrid(nest):
+def pacman_hybrid(nest):
     # Parameters
     Lx = 1.0
     Ly = 0.1
@@ -168,6 +167,7 @@ def test_hybrid(nest):
     # Define the state
     u = Function(V_u, name="Displacement")
     alpha = Function(V_alpha, name="Damage")
+    alphadot = Function(V_alpha, name="Damage rate")
 
     # upper/lower bound for the damage field
     alpha_lb = Function(V_alpha, name="Lower bound")
@@ -286,6 +286,9 @@ def test_hybrid(nest):
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
 
+    # loads = [0.1, 1.0, 1.1]
+    # loads = np.linspace(0.3, 1., 10)
+
     if comm.rank == 0:
         with open(f"{prefix}/parameters.yaml", 'w') as file:
             yaml.dump(parameters, file)
@@ -296,9 +299,6 @@ def test_hybrid(nest):
     ub = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
     functions_to_vec([u_lb, alpha_lb], lb)
     functions_to_vec([u_ub, alpha_ub], ub)
-
-    loads = [0.1, 1.0, 1.1]
-    # loads = np.linspace(0.0, 1.3, 10)
 
     data = []
 
@@ -317,11 +317,26 @@ def test_hybrid(nest):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        logging.info(
-            f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
         logging.info(f"-- Solving for t = {t:3.2f} --")
-
         hybrid.solve()
+
+        # compute the rate
+        alpha.vector.copy(alphadot.vector)
+        alphadot.vector.axpy(-1, alpha_lb.vector)
+        alphadot.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+
+        # logging.info(f"alpha vector norm: {alpha.vector.norm()}")
+        # logging.info(f"alpha lb norm: {alpha_lb.vector.norm()}")
+        # logging.info(f"alphadot norm: {alphadot.vector.norm()}")
+        # logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+
+        rate_12_norm = np.sqrt(comm.allreduce(
+            dolfinx.fem.assemble_scalar(
+                hybrid.scaled_rate_norm(alpha, parameters))
+                , op=MPI.SUM))
+        
 
         dissipated_energy = comm.allreduce(
             dolfinx.fem.assemble_scalar(dolfinx.fem.form(
@@ -344,6 +359,8 @@ def test_hybrid(nest):
             "elastic_energy": elastic_energy,
             "total_energy": elastic_energy+dissipated_energy,
             "solver_data": hybrid.data,
+            "alphadot_norm": alphadot.vector.norm(),
+            "rate_12_norm": rate_12_norm
             # "eigs" : stability.data["eigs"],
             # "stable" : stability.data["stable"],
             # "F" : _F
@@ -358,6 +375,12 @@ def test_hybrid(nest):
             logging.info("not converged")
 
         # assert newton.snes.getConvergedReason() > 0
+
+
+        if comm.rank == 0:
+            a_file = open(f"{prefix}/time_data.json", "w")
+            json.dump(data, a_file)
+            a_file.close()
 
         ColorPrint.print_info(
             f"NEWTON - Iterations: {hybrid.newton.snes.getIterationNumber()+1:3d},\
@@ -376,16 +399,11 @@ def test_hybrid(nest):
         _plt = plot_vector(u, plotter, subplot=(0, 1))
         if comm.rank == 0:
             Path("output").mkdir(parents=True, exist_ok=True)
-        _plt.screenshot(f"{prefix}/test_hybrid-{comm.size}-{i_t}.png")
+        _plt.screenshot(f"{prefix}/pacman_hybrid-{comm.size}-{i_t}.png")
         _plt.close()
 
     print(data)
 
-    if comm.rank == 0:
-        a_file = open(f"{prefix}/time_data.json", "w")
-        json.dump(data, a_file)
-        a_file.close()
-
 
 if __name__ == "__main__":
-    test_hybrid(nest=False)
+    pacman_hybrid(nest=False)
