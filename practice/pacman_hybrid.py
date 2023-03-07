@@ -264,6 +264,9 @@ def pacman_hybrid(nest):
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
 
+    # loads = [0.1, 1.0, 1.1]
+    # loads = np.linspace(0.3, 1., 10)
+
     if comm.rank == 0:
         with open(f"{prefix}/parameters.yaml", 'w') as file:
             yaml.dump(parameters, file)
