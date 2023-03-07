@@ -29,7 +29,6 @@ import dolfinx.plot
 
 # import pyvista
 import yaml
-from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation as AM, HybridFractureSolver
 from models import BrittleMembraneOverElasticFoundation as ThinFilm
 from utils import ColorPrint, set_vector_to_constant
@@ -171,12 +170,11 @@ def test_multifissa(nest):
         dolfinx.fem.dirichletbc(zero_alpha, right_dofs_2),
     ]
 
-    bcs_z = bcs_u + bcs_alpha
-
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
-    model = ThinFilm(parameters["model"])
-    __import__('pdb').set_trace()
+    _t = dolfinx.fem.Constant(mesh, 1.)
+
+    model = ThinFilm(parameters["model"], eps_0= _t * ufl.Identity(2))
 
     # Energy functional
     f = dolfinx.fem.Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
@@ -187,7 +185,13 @@ def test_multifissa(nest):
     parameters.get("solvers").get("damage_elasticity")["alpha_tol"] = 1e-03
     parameters.get("solvers").get("damage")["type"] = "SNES"
 
-    equilibrium = AM(
+    Eu = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
+    Ealpha = ufl.derivative(total_energy, alpha, ufl.TestFunction(V_alpha))
+
+    F = [Eu, Ealpha]
+    z = [u, alpha]
+
+    hybrid = HybridFractureSolver(
         total_energy,
         state,
         bcs,
@@ -195,81 +199,31 @@ def test_multifissa(nest):
         solver_parameters=parameters.get("solvers"),
     )
 
-    Eu = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
-    Ealpha = ufl.derivative(total_energy, alpha, ufl.TestFunction(V_alpha))
+    load_par = parameters["loading"]
+    loads = np.linspace(load_par["min"],
+                        load_par["max"], load_par["steps"])
 
-    F = [Eu, Ealpha]
-    z = [u, alpha]
-
-    block_params = {}
-
-    block_params["snes_type"] = "vinewtonrsls"
-    block_params["snes_linesearch_type"] = "basic"
-    block_params["snes_rtol"] = 1.0e-08
-    block_params["snes_atol"] = 1.0e-08
-    block_params["snes_max_it"] = 30
-    block_params["snes_monitor"] = ""
-    block_params["linesearch_damping"] = 0.5
-
-    if nest:
-        block_params["ksp_type"] = "cg"
-        block_params["pc_type"] = "fieldsplit"
-        block_params["fieldsplit_pc_type"] = "lu"
-        block_params["ksp_rtol"] = 1.0e-10
-    else:
-        block_params["ksp_type"] = "preonly"
-        block_params["pc_type"] = "lu"
-        block_params["pc_factor_mat_solver_type"] = "mumps"
-
-
-    opts = PETSc.Options("block")
-
-    opts.setValue("snes_type", "vinewtonrsls")
-    opts.setValue("snes_linesearch_type", "basic")
-    opts.setValue("snes_rtol", 1.0e-08)
-    opts.setValue("snes_atol", 1.0e-08)
-    opts.setValue("snes_max_it", 30)
-    opts.setValue("snes_monitor", "")
-    opts.setValue("linesearch_damping", 0.5)
-
-    if nest:
-        opts.setValue("ksp_type", "cg")
-        opts.setValue("pc_type", "fieldsplit")
-        opts.setValue("fieldsplit_pc_type", "lu")
-        opts.setValue("ksp_rtol", 1.0e-10)
-    else:
-        opts.setValue("ksp_type", "preonly")
-        opts.setValue("pc_type", "lu")
-        opts.setValue("pc_factor_mat_solver_type", "mumps")
-
-    newton = SNESBlockProblem(
-        F, z, bcs=bcs_z, nest=nest, prefix="block"
-    )
 
     if comm.rank == 0:
         with open(f"{prefix}/parameters.yaml", 'w') as file:
             yaml.dump(parameters, file)
 
 
-    snes = newton.snes
+    snes = hybrid.newton.snes
 
-    lb = dolfinx.fem.petsc.create_vector_nest(newton.F_form)
-    ub = dolfinx.fem.petsc.create_vector_nest(newton.F_form)
+    lb = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
+    ub = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
+
     functions_to_vec([u_lb, alpha_lb], lb)
     functions_to_vec([u_ub, alpha_ub], ub)
 
-    # loads = [0.1, 1.0, 1.1]
-    # loads = np.linspace(0.0, 1.3, 10)
-
     data = []
+    __import__('pdb').set_trace()
 
     for i_t, t in enumerate(loads):
 
-        u_.interpolate(lambda x: (t * np.ones_like(x[0]), 0 * np.ones_like(x[1])))
-        u_.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        )
-
+        _t.value = t
+        
         # update the lower bound
         alpha.vector.copy(alpha_lb.vector)
         alpha_lb.vector.ghostUpdate(
@@ -279,8 +233,14 @@ def test_multifissa(nest):
         logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
         logging.info(f"-- Solving for t = {t:3.2f} --")
 
-        equilibrium.solve()
+        hybrid.solve()
 
+
+        rate_12_norm = np.sqrt(comm.allreduce(
+            dolfinx.fem.assemble_scalar(
+                hybrid.scaled_rate_norm(alpha, parameters))
+                , op=MPI.SUM))
+        
 
         dissipated_energy = comm.allreduce(
             dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state) * dx)),
@@ -292,44 +252,44 @@ def test_multifissa(nest):
         )
         datai = {
             "it": i_t,
-            "AM_F_alpha_H1": equilibrium.data["error_alpha_H1"][-1],
-            "AM_Fnorm": equilibrium.data["error_residual_F"][-1],
-            "NE_Fnorm": newton.snes.getFunctionNorm(),
-
-            "load" : t,
-            "dissipated_energy" : dissipated_energy,
-            "elastic_energy" : elastic_energy,
-            "total_energy" : elastic_energy+dissipated_energy,
-            "solver_data" : equilibrium.data,
+            "AM_F_alpha_H1": hybrid.data["error_alpha_H1"][-1],
+            "AM_Fnorm": hybrid.data["error_residual_F"][-1],
+            "NE_Fnorm": hybrid.newton.snes.getFunctionNorm(),
+            "load": t,
+            "dissipated_energy": dissipated_energy,
+            "elastic_energy": elastic_energy,
+            "total_energy": elastic_energy+dissipated_energy,
+            "solver_data": hybrid.data,
+            "rate_12_norm": rate_12_norm
             # "eigs" : stability.data["eigs"],
             # "stable" : stability.data["stable"],
             # "F" : _F
         }
-
-        # update_bounds
-        functions_to_vec([u_lb, alpha_lb], lb)
-        snes.setVariableBounds(lb, ub)
-        newton.solve(u_init=[u, alpha])
-        logging.info(f"getConvergedReason() {newton.snes.getConvergedReason()}")
-        logging.info(f"getFunctionNorm() {newton.snes.getFunctionNorm():.5e}")
-        try:
-            check_snes_convergence(newton.snes)
-        except ConvergenceError:
-            logging.info("non converged")
-
-        # assert newton.snes.getConvergedReason() > 0
         data.append(datai)
 
+        # logging.info(f"getConvergedReason() {newton.snes.getConvergedReason()}")
+        # logging.info(f"getFunctionNorm() {newton.snes.getFunctionNorm():.5e}")
+        try:
+            check_snes_convergence(hybrid.newton.snes)
+        except ConvergenceError:
+            logging.info("not converged")
+
+        if comm.rank == 0:
+            a_file = open(f"{prefix}/time_data.json", "w")
+            json.dump(data, a_file)
+            a_file.close()
+
         ColorPrint.print_info(
-            f"NEWTON - Iterations: {newton.snes.getIterationNumber()+1:3d},\
-            Fnorm: {newton.snes.getFunctionNorm():3.4e},\
+            f"NEWTON - Iterations: {hybrid.newton.snes.getIterationNumber()+1:3d},\
+            Fnorm: {hybrid.newton.snes.getFunctionNorm():3.4e},\
             alpha_max: {alpha.vector.max()[1]:3.4e}"
         )
+
 
         xvfb.start_xvfb(wait=0.05)
         pyvista.OFF_SCREEN = True
         plotter = pyvista.Plotter(
-            title="SNES Block Restricted",
+            title="Multifissuration",
             window_size=[1600, 600],
             shape=(1, 2),
         )
@@ -337,17 +297,10 @@ def test_multifissa(nest):
         _plt = plot_vector(u, plotter, subplot=(0, 1))
         if comm.rank == 0:
             Path("output").mkdir(parents=True, exist_ok=True)
-        _plt.screenshot(f"{prefix}/test_hybrid-{comm.size}-{i_t}.png")
+        _plt.screenshot(f"{prefix}/test_multifissa-{comm.size}-{i_t}.png")
         _plt.close()
 
     print(data)
-
-
-    if comm.rank == 0:
-        a_file = open(f"{prefix}/time_data.json", "w")
-        json.dump(data, a_file)
-        a_file.close()
-
 
 if __name__ == "__main__":
     test_multifissa(nest=False)
