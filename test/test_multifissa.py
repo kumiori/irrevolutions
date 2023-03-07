@@ -218,7 +218,6 @@ def test_multifissa(nest):
     functions_to_vec([u_ub, alpha_ub], ub)
 
     data = []
-    __import__('pdb').set_trace()
 
     for i_t, t in enumerate(loads):
 
@@ -235,13 +234,11 @@ def test_multifissa(nest):
 
         hybrid.solve()
 
-
         rate_12_norm = np.sqrt(comm.allreduce(
             dolfinx.fem.assemble_scalar(
                 hybrid.scaled_rate_norm(alpha, parameters))
                 , op=MPI.SUM))
         
-
         dissipated_energy = comm.allreduce(
             dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state) * dx)),
             op=MPI.SUM,
