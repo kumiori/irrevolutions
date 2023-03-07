@@ -75,7 +75,7 @@ Ly = parameters["geometry"]["Ly"]
 tdim = parameters["geometry"]["geometric_dimension"]
 _nameExp = parameters["geometry"]["geom_type"]
 ell_ = parameters["model"]["ell"]
-lc = ell_ / 3.0
+lc = ell_ / 5.0
 
 
 # Get geometry model
@@ -226,7 +226,7 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"State is stable: {is_stable}")
 
     dissipated_energy = comm.allreduce(
-        assemble_scalar(form(model.damage_dissipation_density(state) * dx)),
+        assemble_scalar(form(model.damage_energy_density(state) * dx)),
         op=MPI.SUM,
     )
     elastic_energy = comm.allreduce(
