@@ -264,6 +264,9 @@ def pacman_hybrid(nest):
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
 
+    # loads = [0.1, 1.0, 1.1]
+    # loads = np.linspace(0.3, 1., 10)
+
     if comm.rank == 0:
         with open(f"{prefix}/parameters.yaml", 'w') as file:
             yaml.dump(parameters, file)
@@ -302,12 +305,6 @@ def pacman_hybrid(nest):
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
-        # logging.info(f"alpha vector norm: {alpha.vector.norm()}")
-        # logging.info(f"alpha lb norm: {alpha_lb.vector.norm()}")
-        # logging.info(f"alphadot norm: {alphadot.vector.norm()}")
-        # logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
-
-        # compute rate
         alpha.vector.copy(alphadot.vector)
         alphadot.vector.axpy(-1, alpha_lb.vector)
         alphadot.vector.ghostUpdate(
