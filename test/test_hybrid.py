@@ -29,7 +29,7 @@ import dolfinx.plot
 
 # import pyvista
 import yaml
-from algorithms.am import AlternateMinimisation as AM
+from algorithms.am import AlternateMinimisation as AM, HybridFractureSolver
 from models import DamageElasticityModel as Brittle
 from utils import ColorPrint, set_vector_to_constant
 from dolfinx.fem import locate_dofs_topological
@@ -86,13 +86,11 @@ import os
 from pathlib import Path
 
 outdir = "output"
-prefix = os.path.join(outdir, "hybrid")
+prefix = os.path.join(outdir, "test_hybrid")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
-
-
-def test_newtonblock(nest):
+def test_hybrid(nest):
     Lx = 1.0
     Ly = 0.1
     # tdim = 2
@@ -118,6 +116,7 @@ def test_newtonblock(nest):
     # Define the state
     u = dolfinx.fem.Function(V_u, name="Displacement")
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
+    alphadot = dolfinx.fem.Function(V_alpha, name="Damage rate")
 
     state = {"u": u, "alpha": alpha}
 
@@ -185,13 +184,6 @@ def test_newtonblock(nest):
     parameters.get("model")["k_res"] = 1e-04
     parameters.get("solvers").get("damage_elasticity")["alpha_tol"] = 1e-03
     parameters.get("solvers").get("damage")["type"] = "SNES"
-    equilibrium = AM(
-        total_energy,
-        state,
-        bcs,
-        bounds=(alpha_lb, alpha_ub),
-        solver_parameters=parameters.get("solvers"),
-    )
 
     Eu = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
     Ealpha = ufl.derivative(total_energy, alpha, ufl.TestFunction(V_alpha))
@@ -203,8 +195,8 @@ def test_newtonblock(nest):
 
     block_params["snes_type"] = "vinewtonrsls"
     block_params["snes_linesearch_type"] = "basic"
-    block_params["snes_rtol"] = 1.0e-08
-    block_params["snes_atol"] = 1.0e-08
+    block_params["snes_rtol"] = 1.0e-8
+    block_params["snes_atol"] = 1.0e-8
     block_params["snes_max_it"] = 30
     block_params["snes_monitor"] = ""
     block_params["linesearch_damping"] = 0.5
@@ -219,29 +211,14 @@ def test_newtonblock(nest):
         block_params["pc_type"] = "lu"
         block_params["pc_factor_mat_solver_type"] = "mumps"
 
+    parameters.get("solvers")['newton'] = block_params
 
-    opts = PETSc.Options("block")
-
-    opts.setValue("snes_type", "vinewtonrsls")
-    opts.setValue("snes_linesearch_type", "basic")
-    opts.setValue("snes_rtol", 1.0e-08)
-    opts.setValue("snes_atol", 1.0e-08)
-    opts.setValue("snes_max_it", 30)
-    opts.setValue("snes_monitor", "")
-    opts.setValue("linesearch_damping", 0.5)
-
-    if nest:
-        opts.setValue("ksp_type", "cg")
-        opts.setValue("pc_type", "fieldsplit")
-        opts.setValue("fieldsplit_pc_type", "lu")
-        opts.setValue("ksp_rtol", 1.0e-10)
-    else:
-        opts.setValue("ksp_type", "preonly")
-        opts.setValue("pc_type", "lu")
-        opts.setValue("pc_factor_mat_solver_type", "mumps")
-
-    newton = SNESBlockProblem(
-        F, z, bcs=bcs_z, nest=nest, prefix="block"
+    hybrid = HybridFractureSolver(
+        total_energy,
+        state,
+        bcs,
+        bounds=(alpha_lb, alpha_ub),
+        solver_parameters=parameters.get("solvers"),
     )
 
     if comm.rank == 0:
@@ -249,10 +226,10 @@ def test_newtonblock(nest):
             yaml.dump(parameters, file)
 
 
-    snes = newton.snes
+    snes = hybrid.newton.snes
 
-    lb = dolfinx.fem.petsc.create_vector_nest(newton.F_form)
-    ub = dolfinx.fem.petsc.create_vector_nest(newton.F_form)
+    lb = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
+    ub = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
     functions_to_vec([u_lb, alpha_lb], lb)
     functions_to_vec([u_ub, alpha_ub], ub)
 
@@ -260,6 +237,9 @@ def test_newtonblock(nest):
     # loads = np.linspace(0.0, 1.3, 10)
 
     data = []
+    
+    norm_12_form = dolfinx.fem.form(
+        (ufl.inner(alpha, alpha) + parameters["model"]["ell"] * ufl.inner(ufl.grad(alpha), ufl.grad(alpha))) * dx)
 
     for i_t, t in enumerate(loads):
 
@@ -274,11 +254,27 @@ def test_newtonblock(nest):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
         logging.info(f"-- Solving for t = {t:3.2f} --")
+        hybrid.solve()
 
-        equilibrium.solve()
+        # compute the rate
+        alpha.vector.copy(alphadot.vector)
+        alphadot.vector.axpy(-1, alpha_lb.vector)
+        alphadot.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
 
+        logging.info(f"alpha vector norm: {alpha.vector.norm()}")
+        logging.info(f"alpha lb norm: {alpha_lb.vector.norm()}")
+        logging.info(f"alphadot norm: {alphadot.vector.norm()}")
+        logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+
+        rate_12_norm = np.sqrt(comm.allreduce(
+            dolfinx.fem.assemble_scalar(
+                hybrid.scaled_rate_norm(alpha, parameters))
+                , op=MPI.SUM))
+        
+        logging.info(f"rate scaled alpha_12 norm: {rate_12_norm}")
 
         dissipated_energy = comm.allreduce(
             dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state) * dx)),
@@ -288,39 +284,38 @@ def test_newtonblock(nest):
             dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.elastic_energy_density(state) * dx)),
             op=MPI.SUM,
         )
+
         datai = {
             "it": i_t,
-            "AM_F_alpha_H1": equilibrium.data["error_alpha_H1"][-1],
-            "AM_Fnorm": equilibrium.data["error_residual_F"][-1],
-            "NE_Fnorm": newton.snes.getFunctionNorm(),
-
+            "AM_F_alpha_H1": hybrid.data["error_alpha_H1"][-1],
+            "AM_Fnorm": hybrid.data["error_residual_F"][-1],
+            "NE_Fnorm": hybrid.newton.snes.getFunctionNorm(),
             "load" : t,
             "dissipated_energy" : dissipated_energy,
             "elastic_energy" : elastic_energy,
             "total_energy" : elastic_energy+dissipated_energy,
-            "solver_data" : equilibrium.data,
+            "solver_data" : hybrid.data,
+            "alphadot_norm": alphadot.vector.norm(),
+            "rate_12_norm": rate_12_norm
             # "eigs" : stability.data["eigs"],
             # "stable" : stability.data["stable"],
             # "F" : _F
         }
-
-        # update_bounds
-        functions_to_vec([u_lb, alpha_lb], lb)
-        snes.setVariableBounds(lb, ub)
-        newton.solve(u_init=[u, alpha])
-        logging.info(f"getConvergedReason() {newton.snes.getConvergedReason()}")
-        logging.info(f"getFunctionNorm() {newton.snes.getFunctionNorm():.5e}")
-        try:
-            check_snes_convergence(newton.snes)
-        except ConvergenceError:
-            logging.info("non converged")
-
-        # assert newton.snes.getConvergedReason() > 0
         data.append(datai)
 
+
+        # logging.info(f"getConvergedReason() {newton.snes.getConvergedReason()}")
+        # logging.info(f"getFunctionNorm() {newton.snes.getFunctionNorm():.5e}")
+        try:
+            check_snes_convergence(hybrid.newton.snes)
+        except ConvergenceError:
+            logging.info("not converged")
+
+        # assert newton.snes.getConvergedReason() > 0
+
         ColorPrint.print_info(
-            f"NEWTON - Iterations: {newton.snes.getIterationNumber()+1:3d},\
-            Fnorm: {newton.snes.getFunctionNorm():3.4e},\
+            f"NEWTON - Iterations: {hybrid.newton.snes.getIterationNumber()+1:3d},\
+            Fnorm: {hybrid.newton.snes.getFunctionNorm():3.4e},\
             alpha_max: {alpha.vector.max()[1]:3.4e}"
         )
 
@@ -348,4 +343,4 @@ def test_newtonblock(nest):
 
 
 if __name__ == "__main__":
-    test_newtonblock(nest=False)
+    test_hybrid(nest=False)

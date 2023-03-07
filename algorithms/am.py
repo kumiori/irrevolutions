@@ -4,7 +4,7 @@ import dolfinx
 from solvers import SNESSolver
 from solvers.snesblockproblem import SNESBlockProblem
 from solvers.function import functions_to_vec
-from utils import set_vector_to_constant
+from utils import set_vector_to_constant, ColorPrint
 
 from dolfinx.fem import (
     Constant,
@@ -218,6 +218,7 @@ class AlternateMinimisation:
                 if error_residual_u <= self.solver_parameters.get(
                     "damage_elasticity"
                 ).get("alpha_rtol"):
+                    error = error_residual_u
                     break
             if (
                 self.solver_parameters.get(
@@ -230,11 +231,19 @@ class AlternateMinimisation:
                 if error_alpha_H1 <= self.solver_parameters.get(
                     "damage_elasticity"
                 ).get("alpha_rtol"):
+                    error = error_alpha_H1
                     break
         else:
             raise RuntimeError(
                 f"Could not converge after {iteration:3d} iterations, error {error_alpha_H1:3.4e}"
             )
+
+        _crit = self.solver_parameters.get("damage_elasticity").get("criterion")
+        ColorPrint.print_info(
+            f"ALTMIN - Iterations: {iteration:3d},\
+            Error: {error:3.4e}, {_crit},\
+            alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+        )   
 
 
 import solvers.restriction as restriction
@@ -322,7 +331,6 @@ class HybridFractureSolver(AlternateMinimisation):
         self.newton.snes.setOptionsPrefix(self.prefix)
         self.newton.snes.setFromOptions()
 
-
     def compute_bounds(self, v, alpha_lb):
         __import__('pdb').set_trace()
         lb = dolfinx.fem.create_vector_nest(v)
@@ -343,6 +351,13 @@ class HybridFractureSolver(AlternateMinimisation):
             alpha_sub.set(1.0)
 
         return lb, ub
+
+    def scaled_rate_norm(self, alpha, parameters):
+        dx = ufl.Measure("dx", alpha.function_space.mesh)
+        return dolfinx.fem.form(
+        (ufl.inner(alpha, alpha) + \
+            parameters["model"]["ell"]**2. * ufl.inner(ufl.grad(alpha), ufl.grad(alpha))) * dx)
+
 
     def getReducedNorm(self):
         """Retrieve reduced residual"""
