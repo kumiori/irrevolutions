@@ -298,7 +298,7 @@ def pacman_hybrid(nest):
         logging.info(f"-- Solving for t = {t:3.2f} --")
         hybrid.solve()
 
-        # compute the rate
+        # compute rate
         alpha.vector.copy(alphadot.vector)
         alphadot.vector.axpy(-1, alpha_lb.vector)
         alphadot.vector.ghostUpdate(
@@ -355,15 +355,23 @@ def pacman_hybrid(nest):
         data["rate_12_norm"].append(datai["rate_12_norm"])
         data["rate_12_norm_unscaled"].append(datai["rate_12_norm_unscaled"])
 
-        # logging.info(f"getConvergedReason() {newton.snes.getConvergedReason()}")
-        # logging.info(f"getFunctionNorm() {newton.snes.getFunctionNorm():.5e}")
+        data["it"].append(datai["it"])
+        data["AM_F_alpha_H1"].append(datai["AM_F_alpha_H1"])
+        data["AM_Fnorm"].append(datai["AM_Fnorm"])
+        data["NE_Fnorm"].append(datai["NE_Fnorm"])
+        data["load"].append(datai["load"])
+        data["fracture_energy"].append(datai["fracture_energy"])
+        data["elastic_energy"].append(datai["elastic_energy"])
+        data["total_energy"].append(datai["total_energy"])
+        data["solver_data"].append(datai["solver_data"])
+        data["rate_12_norm"].append(datai["rate_12_norm"])
+        data["rate_12_norm_unscaled"].append(datai["rate_12_norm_unscaled"])
+
         try:
             check_snes_convergence(hybrid.newton.snes)
+            assert hybrid.snes.getConvergedReason() > 0
         except ConvergenceError:
             logging.info("not converged")
-
-        # assert newton.snes.getConvergedReason() > 0
-
 
         if comm.rank == 0:
             a_file = open(f"{prefix}/time_data.json", "w")
