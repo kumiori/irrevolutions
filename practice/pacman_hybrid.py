@@ -355,18 +355,6 @@ def pacman_hybrid(nest):
         data["rate_12_norm"].append(datai["rate_12_norm"])
         data["rate_12_norm_unscaled"].append(datai["rate_12_norm_unscaled"])
 
-        data["it"].append(datai["it"])
-        data["AM_F_alpha_H1"].append(datai["AM_F_alpha_H1"])
-        data["AM_Fnorm"].append(datai["AM_Fnorm"])
-        data["NE_Fnorm"].append(datai["NE_Fnorm"])
-        data["load"].append(datai["load"])
-        data["fracture_energy"].append(datai["fracture_energy"])
-        data["elastic_energy"].append(datai["elastic_energy"])
-        data["total_energy"].append(datai["total_energy"])
-        data["solver_data"].append(datai["solver_data"])
-        data["rate_12_norm"].append(datai["rate_12_norm"])
-        data["rate_12_norm_unscaled"].append(datai["rate_12_norm_unscaled"])
-
         try:
             check_snes_convergence(hybrid.newton.snes)
             assert hybrid.snes.getConvergedReason() > 0
