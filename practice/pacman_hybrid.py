@@ -167,11 +167,11 @@ def pacman_hybrid(nest):
     # Define the state
     u = Function(V_u, name="Displacement")
     alpha = Function(V_alpha, name="Damage")
-    alphadot = Function(V_alpha, name="Damage rate")
+    alphadot = Function(V_alpha, name="Damage_rate")
 
     # upper/lower bound for the damage field
-    alpha_lb = Function(V_alpha, name="Lower bound")
-    alpha_ub = Function(V_alpha, name="Upper bound")
+    alpha_lb = Function(V_alpha, name="Lower_bound")
+    alpha_ub = Function(V_alpha, name="Upper_bound")
 
     state = {"u": u, "alpha": alpha}
 
@@ -293,14 +293,27 @@ def pacman_hybrid(nest):
         with open(f"{prefix}/parameters.yaml", 'w') as file:
             yaml.dump(parameters, file)
 
-    snes = hybrid.newton.snes
+    # snes = hybrid.newton.snes
 
     lb = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
     ub = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
     functions_to_vec([u_lb, alpha_lb], lb)
     functions_to_vec([u_ub, alpha_ub], ub)
 
-    data = []
+    data = {
+        "it": [],
+        "AM_F_alpha_H1": [],
+        "AM_Fnorm": [],
+        "NE_Fnorm": [],
+        "load": [],
+        "fracture_energy": [],
+        "elastic_energy": [],
+        "total_energy": [],
+        "solver_data": [],
+        "rate_12_norm": [],
+        "rate_12_norm_unscaled": []
+        }
+
 
     for i_t, t in enumerate(loads):
 
@@ -327,11 +340,9 @@ def pacman_hybrid(nest):
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
-        __import__('pdb').set_trace()
         rate_12_norm = hybrid.scaled_rate_norm(alphadot, parameters)
         rate_12_norm_unscaled = hybrid.unscaled_rate_norm(alphadot)
         
-
         fracture_energy = comm.allreduce(
             dolfinx.fem.assemble_scalar(dolfinx.fem.form(
                 model.damage_energy_density(state) * dx)),
@@ -374,7 +385,7 @@ def pacman_hybrid(nest):
 
         try:
             check_snes_convergence(hybrid.newton.snes)
-            assert hybrid.snes.getConvergedReason() > 0
+            assert hybrid.newton.snes.getConvergedReason() > 0
         except ConvergenceError:
             logging.info("not converged")
 

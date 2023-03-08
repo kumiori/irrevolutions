@@ -352,11 +352,19 @@ class HybridFractureSolver(AlternateMinimisation):
 
         return lb, ub
 
+
     def scaled_rate_norm(self, alpha, parameters):
         dx = ufl.Measure("dx", alpha.function_space.mesh)
-        return dolfinx.fem.form(
+        _form = dolfinx.fem.form(
         (ufl.inner(alpha, alpha) + \
             parameters["model"]["ell"]**2. * ufl.inner(ufl.grad(alpha), ufl.grad(alpha))) * dx)
+        return np.sqrt(comm.allreduce(assemble_scalar(_form), op=MPI.SUM))
+
+    def unscaled_rate_norm(self, alpha):
+        dx = ufl.Measure("dx", alpha.function_space.mesh)
+        _form =  dolfinx.fem.form(
+        (ufl.inner(alpha, alpha) + ufl.inner(ufl.grad(alpha), ufl.grad(alpha))) * dx)
+        return np.sqrt(comm.allreduce(assemble_scalar(_form), op=MPI.SUM))
 
 
     def getReducedNorm(self):
