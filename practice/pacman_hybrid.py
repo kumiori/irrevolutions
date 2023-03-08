@@ -311,13 +311,18 @@ def pacman_hybrid(nest):
         # logging.info(f"alphadot norm: {alphadot.vector.norm()}")
         # logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
 
-        rate_12_norm = np.sqrt(comm.allreduce(
-            dolfinx.fem.assemble_scalar(
-                hybrid.scaled_rate_norm(alpha, parameters))
-                , op=MPI.SUM))
-        
+        # compute rate
+        alpha.vector.copy(alphadot.vector)
+        alphadot.vector.axpy(-1, alpha_lb.vector)
+        alphadot.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
 
-        dissipated_energy = comm.allreduce(
+        rate_12_norm = hybrid.scaled_rate_norm(alphadot, parameters)
+        rate_12_norm_unscaled = hybrid.unscaled_rate_norm(alphadot)
+
+
+        fracture_energy = comm.allreduce(
             dolfinx.fem.assemble_scalar(dolfinx.fem.form(
                 model.damage_energy_density(state) * dx)),
             op=MPI.SUM,
@@ -334,17 +339,28 @@ def pacman_hybrid(nest):
             "AM_Fnorm": hybrid.data["error_residual_F"][-1],
             "NE_Fnorm": hybrid.newton.snes.getFunctionNorm(),
             "load": t,
-            "dissipated_energy": dissipated_energy,
+            "fracture_energy": fracture_energy,
             "elastic_energy": elastic_energy,
-            "total_energy": elastic_energy+dissipated_energy,
+            "total_energy": elastic_energy+fracture_energy,
             "solver_data": hybrid.data,
-            "alphadot_norm": alphadot.vector.norm(),
-            "rate_12_norm": rate_12_norm
+            "rate_12_norm": rate_12_norm,
+            "rate_12_norm_unscaled": rate_12_norm_unscaled
             # "eigs" : stability.data["eigs"],
             # "stable" : stability.data["stable"],
             # "F" : _F
         }
-        data.append(datai)
+
+        data["it"].append(datai["it"])
+        data["AM_F_alpha_H1"].append(datai["AM_F_alpha_H1"])
+        data["AM_Fnorm"].append(datai["AM_Fnorm"])
+        data["NE_Fnorm"].append(datai["NE_Fnorm"])
+        data["load"].append(datai["load"])
+        data["fracture_energy"].append(datai["fracture_energy"])
+        data["elastic_energy"].append(datai["elastic_energy"])
+        data["total_energy"].append(datai["total_energy"])
+        data["solver_data"].append(datai["solver_data"])
+        data["rate_12_norm"].append(datai["rate_12_norm"])
+        data["rate_12_norm_unscaled"].append(datai["rate_12_norm_unscaled"])
 
         # logging.info(f"getConvergedReason() {newton.snes.getConvergedReason()}")
         # logging.info(f"getFunctionNorm() {newton.snes.getFunctionNorm():.5e}")
