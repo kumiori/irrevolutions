@@ -46,4 +46,3 @@ def _local_notch_asymptotic(x, ω=45, t=1., par={}):
     values[0] = ur * np.cos(Θv) - uΘ * np.sin(Θv)
     values[1] = ur * np.sin(Θv) + uΘ * np.cos(Θv)
     return values
-
