@@ -17,6 +17,7 @@ from dolfinx.fem import FunctionSpace
 from solvers.function import functions_to_vec
 from petsc4py import PETSc
 import json
+from utils.plots import plot_energies
 
 petsc4py.init(sys.argv)
 
@@ -26,7 +27,7 @@ from utils.viz import plot_mesh, plot_vector, plot_scalar
 comm = MPI.COMM_WORLD
 # import pdb
 import dolfinx.plot
-
+import matplotlib.pyplot as plt
 # import pyvista
 import yaml
 from algorithms.am import AlternateMinimisation as AM, HybridFractureSolver
@@ -91,26 +92,42 @@ if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
 def test_multifissa(nest):
-    Lx = 1.0
-    Ly = 0.1
-    _meshsize = Lx / 50
-    _nel = int(1./_meshsize)
-
-    mesh = create_rectangle(
-        MPI.COMM_WORLD,
-        [np.array([0.0, 0.0]), np.array([Lx, Ly])],
-        [_nel, int(_nel * Ly / Lx)],
-        CellType.triangle,
-    )
+    Lx = 1.
+    Ly = 0.05
+    _meshsize = Lx / 100
 
     try:
         with open(f"{prefix}/parameters.yaml") as f:
             parameters = yaml.load(f, Loader=yaml.FullLoader)
+            Lx = parameters.get("geometry").get("Lx")
+            Ly = parameters.get("geometry").get("Ly")
+            _meshsize = parameters.get("model").get("ell") / parameters.get("geometry").get("elltomesh")
+
     except IOError:
         logging.info('No parameters found, creating new.')
         if comm.rank == 0:
             with open(f"{prefix}/parameters.yaml", 'w') as file:
                 yaml.dump({}, file)
+
+    _nel = int(1./_meshsize)
+
+    logging.info(f'Mesh reslution 1/nel (Lx + Ly/Lx) {1/_nel*(Lx + Ly/Lx)}')
+    mesh = create_rectangle(
+        MPI.COMM_WORLD,
+        [np.array([0.0, 0.0]), np.array([Lx, Ly])],
+        [int(_nel * Lx), int(_nel * Ly)],
+        CellType.triangle,
+    )
+    coord_dofs = mesh.geometry.dofmap
+    logging.info(f"# dofs: {3* len(coord_dofs)}")
+
+    if comm.rank == 0:
+        plt.figure()
+        ax = plot_mesh(mesh)
+        fig = ax.get_figure()
+        fig.savefig(f"{prefix}/mesh.png")
+
+
 
     element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
     V_u = FunctionSpace(mesh, element_u)
@@ -121,6 +138,7 @@ def test_multifissa(nest):
     # Define the state
     u = dolfinx.fem.Function(V_u, name="Displacement")
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
+    alphadot = dolfinx.fem.Function(V_alpha, name="Damage Rate")
 
     state = {"u": u, "alpha": alpha}
 
@@ -162,8 +180,8 @@ def test_multifissa(nest):
     right_dofs_2 = locate_dofs_topological(V_alpha, mesh.topology.dim - 1, right_facets)
 
     bcs_u = [
-        dolfinx.fem.dirichletbc(zero_u, left_dofs_1),
-        dolfinx.fem.dirichletbc(u_, right_dofs_1),
+        # dolfinx.fem.dirichletbc(zero_u, left_dofs_1),
+        # dolfinx.fem.dirichletbc(u_, right_dofs_1),
     ]
     bcs_alpha = [
         dolfinx.fem.dirichletbc(zero_alpha, left_dofs_2),
@@ -217,7 +235,21 @@ def test_multifissa(nest):
     functions_to_vec([u_lb, alpha_lb], lb)
     functions_to_vec([u_ub, alpha_ub], ub)
 
-    data = []
+    # data = []
+
+    data = {
+        "it": [],
+        "AM_F_alpha_H1": [],
+        "AM_Fnorm": [],
+        "NE_Fnorm": [],
+        "load": [],
+        "fracture_energy": [],
+        "elastic_energy": [],
+        "total_energy": [],
+        "solver_data": [],
+        "rate_12_norm": [],
+        "rate_12_norm_unscaled": []
+        }
 
     for i_t, t in enumerate(loads):
 
@@ -233,13 +265,8 @@ def test_multifissa(nest):
         logging.info(f"-- Solving for t = {t:3.2f} --")
 
         hybrid.solve()
-
-        rate_12_norm = np.sqrt(comm.allreduce(
-            dolfinx.fem.assemble_scalar(
-                hybrid.scaled_rate_norm(alpha, parameters))
-                , op=MPI.SUM))
         
-        dissipated_energy = comm.allreduce(
+        fracture_energy = comm.allreduce(
             dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state) * dx)),
             op=MPI.SUM,
         )
@@ -247,25 +274,54 @@ def test_multifissa(nest):
             dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.elastic_energy_density(state) * dx)),
             op=MPI.SUM,
         )
+
+        # compute rate
+        alpha.vector.copy(alphadot.vector)
+        alphadot.vector.axpy(-1, alpha_lb.vector)
+        alphadot.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+
+        rate_12_norm = hybrid.scaled_rate_norm(alphadot, parameters)
+        rate_12_norm_unscaled = hybrid.unscaled_rate_norm(alphadot)
+
         datai = {
             "it": i_t,
             "AM_F_alpha_H1": hybrid.data["error_alpha_H1"][-1],
             "AM_Fnorm": hybrid.data["error_residual_F"][-1],
             "NE_Fnorm": hybrid.newton.snes.getFunctionNorm(),
             "load": t,
-            "dissipated_energy": dissipated_energy,
+            "fracture_energy": fracture_energy,
             "elastic_energy": elastic_energy,
-            "total_energy": elastic_energy+dissipated_energy,
+            "total_energy": elastic_energy+fracture_energy,
             "solver_data": hybrid.data,
-            "rate_12_norm": rate_12_norm
+            "rate_12_norm": rate_12_norm,
+            "rate_12_norm_unscaled": rate_12_norm_unscaled
             # "eigs" : stability.data["eigs"],
             # "stable" : stability.data["stable"],
             # "F" : _F
         }
-        data.append(datai)
 
-        # logging.info(f"getConvergedReason() {newton.snes.getConvergedReason()}")
-        # logging.info(f"getFunctionNorm() {newton.snes.getFunctionNorm():.5e}")
+        data["it"].append(datai["it"])
+        data["AM_F_alpha_H1"].append(datai["AM_F_alpha_H1"])
+        data["AM_Fnorm"].append(datai["AM_Fnorm"])
+        data["NE_Fnorm"].append(datai["NE_Fnorm"])
+        data["load"].append(datai["load"])
+        data["fracture_energy"].append(datai["fracture_energy"])
+        data["elastic_energy"].append(datai["elastic_energy"])
+        data["total_energy"].append(datai["total_energy"])
+        data["solver_data"].append(datai["solver_data"])
+        data["rate_12_norm"].append(datai["rate_12_norm"])
+        data["rate_12_norm_unscaled"].append(datai["rate_12_norm_unscaled"])
+        # "eigs" : stability.data["eigs"],
+        # "stable" : stability.data["stable"],
+        # "F" : _F
+
+        # data.append(datai)
+
+        logging.critical(f"getConvergedReason() {hybrid.newton.snes.getConvergedReason()}")
+        logging.critical(f"getFunctionNorm() {hybrid.newton.snes.getFunctionNorm():.5e}")
+        
         try:
             check_snes_convergence(hybrid.newton.snes)
         except ConvergenceError:
@@ -298,6 +354,9 @@ def test_multifissa(nest):
         _plt.close()
 
     print(data)
+
+    if comm.rank == 0:
+        plot_energies(data, file=f"{prefix}/energies.pdf")
 
 if __name__ == "__main__":
     test_multifissa(nest=False)
