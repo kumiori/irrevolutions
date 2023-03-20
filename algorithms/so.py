@@ -335,6 +335,11 @@ class StabilitySolver:
             prefix="stability",
         )
         self.setup_eigensolver(eigen)
+
+        # save an instance
+        self.eigen = eigen
+
+        
         if neig is not None:
             eigen.eps.setDimensions(neig, PETSc.DECIDE)
 
@@ -354,6 +359,8 @@ class StabilitySolver:
 
         # postprocess
         spectrum = []
+        Kspectrum = []
+        
         for i in range(neig_out):
             logging.debug(f"{rank}) Postprocessing mode {i}")
             v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
@@ -384,6 +391,14 @@ class StabilitySolver:
             logging.debug(f"mode {i} {ur[0].name}-norm {ur[0].vector.norm()}")
             logging.debug(f"mode {i} {ur[1].name}-norm {ur[1].vector.norm()}")
 
+            Kspectrum.append(
+                {
+                    "n": i,
+                    "lambda": eigval.real,
+                    "xk": ur
+                }
+            )
+
             spectrum.append(
                 {
                     "n": i,
@@ -397,6 +412,7 @@ class StabilitySolver:
         unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
 
         self.spectrum = unstable_spectrum
+        self.Kspectrum = Kspectrum
 
         eigs = [mode["lambda"] for mode in spectrum]
         eig0, u0, _ = eigen.getEigenpair(0)
@@ -504,6 +520,8 @@ class ConeSolver(StabilitySolver):
             prefix="cone",
         )
         self.setup_eigensolver(eigen)
+
+
         if neig is not None:
             eigen.eps.setDimensions(neig, PETSc.DECIDE)
 
