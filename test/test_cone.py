@@ -2,6 +2,7 @@
 import pdb
 import pandas as pd
 import numpy as np
+from sympy import derive_by_array
 import yaml
 import json
 from pathlib import Path
@@ -63,6 +64,8 @@ load: displacement hard-t
 """
 
 
+from solvers.function import functions_to_vec
+logging.getLogger().setLevel(logging.CRITICAL)
 
 class ConeSolver(StabilitySolver):
     """Base class for a minimal implementation of the solution of eigenvalue
@@ -81,7 +84,9 @@ class ConeSolver(StabilitySolver):
             energy,
             state,
             bcs,
-            nullspace
+            nullspace,
+            stability_parameters=cone_parameters,
+
     )
 
     def _solve(self, alpha_old: dolfinx.fem.function.Function, neig=None):
@@ -90,17 +95,89 @@ class ConeSolver(StabilitySolver):
         based on the SPA recipe, cf. ...
         """
         
-        self.solve(alpha_old, neig)
-        # self.spectrum = unstable_spectrum
-        # self.data = {
-        #     "eigs": eigs,
-        #     "perturbations_beta": perturbations_beta,
-        #     "perturbations_v": perturbations_v,
-        #     "stable": bool(stable),
-        # }
+        stable = self.solve(alpha_old, neig)
+        __import__('pdb').set_trace()
+        # self.eigen.rA
+        # self.eigen.rB
+        # self.eigen.A
+        # self.eigen.B
+        # self.eigen.u
+        
+        _x = dolfinx.fem.petsc.create_vector_block(self.F)        
+        _y = dolfinx.fem.petsc.create_vector_block(self.F)        
+        _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
+        _Bx = dolfinx.fem.petsc.create_vector_block(self.F)        
+        
+        # Map current solution into vector _x
+        functions_to_vec(self.Kspectrum[0].get("xk"), _x)
+
+        # 
+        # make it admissible: into the cone
+        # 
+
+        logging.info(f"_x is in the cone? {self._isin_cone(_x)}")
+        self._cone_project(_x)
+        logging.info(f"_x is in the cone? {self._isin_cone(_x)}")
+
+        # K_t spectrum:
+        # compute: y_t
+        # {lambdat, xt, yt}
+
+        if self.eigen.restriction is not None:
+            _A = self.eigen.rA
+            _B = self.eigen.rB
+        else:
+            _A = self.eigen.A
+            _B = self.eigen.B
+
+        if self.eigen.empty_B(): logging.critical("empty B")
+
+        if self.eigen.restriction is not None:
+            _x = self.eigen.restriction.restrict_vector(_x)        
+            _Ax = self.eigen.restriction.restrict_vector(_Ax)
+            _Bx = self.eigen.restriction.restrict_vector(_Bx)
+        
+        _A.mult(_x, _Ax)
+
+        xAx = _x.dot(_Ax)
+
+        # compute: lmbda_t
+
+        if not self.eigen.empty_B():
+            _B.mult(_x, _Bx)
+            xBx = _x.dot(_Bx)
+            _lmbda_t = xAx/xBx
+        else:
+            _Bx = _x
+            _lmbda_t = xAx / _x.dot(_x)
+
+        # compute: y_t
+        # if not self.eigen.empty_B():
+        _y = _Ax - _lmbda_t * _Bx
+        # else:
+            # _y = _Ax - _lmbda_t * _x
 
         # construct perturbation
+        return stable
+    
+    def _isin_cone(self, x):
+        """Is in the zone IFF x is in the cone"""
+        return (x.array >= 0).all()
+        
+    def _cone_project(self, v):
+        """Projection function into the cone
 
+            takes arguments:
+            - v: vector ~~function~~
+
+            returns
+        """
+        zero = v.duplicate()
+        zero.zeroEntries()
+
+        v.pointwiseMax(v, zero)
+        
+        return
 
 class _AlternateMinimisation:
     def __init__(self,
@@ -282,7 +359,7 @@ parameters["model"]["k_res"] = 1e-4
 parameters["model"]["k"] = 3
 parameters["model"]["N"] = 3
 parameters["loading"]["max"] = 2
-parameters["loading"]["steps"] = 30
+parameters["loading"]["steps"] = 50
 parameters["geometry"]["geom_type"] = "discrete-damageable"
 # Get mesh parameters
 Lx = parameters["geometry"]["Lx"]
@@ -347,7 +424,6 @@ alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
 
 dx = ufl.Measure("dx", domain=mesh)
 ds = ufl.Measure("ds", domain=mesh)
-
 
 # Useful references
 Lx = parameters.get("geometry").get("Lx")
@@ -500,7 +576,6 @@ solver = _AlternateMinimisation(
 )
 
 
-
 stability = StabilitySolver(
     total_energy, state, bcs, stability_parameters=parameters.get("stability")
 )
@@ -508,13 +583,13 @@ stability = StabilitySolver(
 
 cone = ConeSolver(
     total_energy, state, bcs,
-    cone_parameters=parameters.get("cone")
+    cone_parameters=parameters.get("stability")
 )
 
 history_data = {
     "load": [],
     "elastic_energy": [],
-    "dissipated_energy": [],
+    "fracture_energy": [],
     "total_energy": [],
     "solver_data": [],
     "eigs": [],
@@ -552,7 +627,9 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"State's inertia: {inertia}")
     ColorPrint.print_bold(f"State is stable: {is_stable}")
 
-    dissipated_energy = comm.allreduce(
+    cone._solve(alpha_lb, n_eigenvalues)
+
+    fracture_energy = comm.allreduce(
         assemble_scalar(form(damage_energy_density(state) * dx)),
         op=MPI.SUM,
     )
@@ -562,9 +639,9 @@ for i_t, t in enumerate(loads):
     )
     _F = assemble_scalar( form(parameters["model"]['mu'] * a_atk(alpha) * u.dx() * dx) )
     history_data["load"].append(t)
-    history_data["dissipated_energy"].append(dissipated_energy)
+    history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
-    history_data["total_energy"].append(elastic_energy+dissipated_energy)
+    history_data["total_energy"].append(elastic_energy+fracture_energy)
     history_data["solver_data"].append(solver.data)
     history_data["eigs"].append(stability.data["eigs"])
     history_data["stable"].append(stability.data["stable"])
