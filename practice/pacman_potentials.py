@@ -27,7 +27,7 @@ from utils import ColorPrint, set_vector_to_constant
 from models import ElasticityModel
 from algorithms.am import AlternateMinimisation as AM, HybridFractureSolver
 
-from meshes.pacman import mesh_embedded_pacman
+from meshes.pacman import mesh_embedded_pacman, mesh_cut_pacman
 from utils.lib import _local_notch_asymptotic
 from solvers import SNESSolver as ElasticitySolver
 
@@ -143,44 +143,30 @@ def pacman_embedded(l0 = 0.1, nest = False):
 
     parameters["geometry"]["l0"] = l0
 
-
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
-
-    gmsh_model, tdim = mesh_embedded_pacman(geom_type, parameters["geometry"], tdim, msh_file=f"{prefix}/{_nameExp}.msh")
+    gmsh_model, tdim = mesh_cut_pacman(geom_type, parameters["geometry"], tdim, eta=1.e-5)
 
     # Get mesh and meshtags
-    __import__('pdb').set_trace()   
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_mesh(mesh)
 
-
     if comm.rank == 0:
         plt.figure()
         ax = plot_mesh(mesh)
         fig = ax.get_figure()
-        fig.savefig(f"{prefix}/mesh.png")
+        fig.savefig(f"{prefix}/mesh.pdf")
 
     # Function spaces
     element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
     V_u = FunctionSpace(mesh, element_u)
 
-    # element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-    # V_alpha = FunctionSpace(mesh, element_alpha)
-
     # Define the state
     u = Function(V_u, name="Displacement")
-    # alpha = Function(V_alpha, name="Damage")
-    # alphadot = Function(V_alpha, name="Damage_rate")
 
-    # upper/lower bound for the damage field
-    # alpha_lb = Function(V_alpha, name="Lower_bound")
-    # alpha_ub = Function(V_alpha, name="Upper_bound")
-
-    # state = {"u": u, "alpha": alpha}
     state = {"u": u}
 
     # Data
@@ -199,51 +185,15 @@ def pacman_embedded(l0 = 0.1, nest = False):
 
     boundary_dofs_u = locate_dofs_topological(
         V_u, mesh.topology.dim - 1, ext_bd_facets)
-    # boundary_dofs_alpha = locate_dofs_topological(
-    #     V_alpha, mesh.topology.dim - 1, ext_bd_facets)
 
     uD.interpolate(lambda x: _local_notch_asymptotic(
         x, ω=np.deg2rad(_omega / 2.), par=parameters["material"]))
 
-    # alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
-    # alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
-
-    # for f in [alpha_lb, alpha_ub]:
-    #     f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-    #                          mode=PETSc.ScatterMode.FORWARD)
-
     bcs_u = [dirichletbc(value=uD, dofs=boundary_dofs_u)]
 
-    # bcs_alpha = [
-    #     dirichletbc(
-    #         np.array(0, dtype=PETSc.ScalarType),
-    #         boundary_dofs_alpha,
-    #         V_alpha,
-    #     )
-    # ]
-
-    # set_bc(alpha_ub.vector, bcs_alpha)
-    # alpha_ub.vector.ghostUpdate(
-    #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-    # )
-
-    # bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
     bcs = {"bcs_u": bcs_u}
 
-    # bcs_z = bcs_u + bcs_alpha
-
     # Bounds for Newton solver
-
-    # u_lb = Function(V_u, name="displacement lower bound")
-    # u_ub = Function(V_u, name="displacement upper bound")
-    # alpha_lb = Function(V_alpha, name="damage lower bound")
-    # alpha_ub = Function(V_alpha, name="damage upper bound")
-    # set_vector_to_constant(u_lb.vector, PETSc.NINFINITY)
-    # set_vector_to_constant(u_ub.vector, PETSc.PINFINITY)
-    # set_vector_to_constant(alpha_lb.vector, 0)
-    # set_vector_to_constant(alpha_ub.vector, 1)
-
-    # bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
     model = ElasticityModel(parameters["model"])
 
@@ -252,12 +202,7 @@ def pacman_embedded(l0 = 0.1, nest = False):
     external_work = ufl.dot(f, state["u"]) * dx
     total_energy = model.total_energy_density(state) * dx - external_work
 
-    # parameters.get("model")["k_res"] = 1e-04
-    # parameters.get("solvers").get("damage_elasticity")["alpha_tol"] = 1e-03
-    # parameters.get("solvers").get("damage")["type"] = "SNES"
-
     Eu = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
-    # Ealpha = ufl.derivative(total_energy, alpha, ufl.TestFunction(V_alpha))
 
 
     solver = ElasticitySolver(
@@ -274,9 +219,9 @@ def pacman_embedded(l0 = 0.1, nest = False):
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
 
-    if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
-            yaml.dump(parameters, file)
+    # if comm.rank == 0:
+    #     with open(f"{prefix}/parameters.yaml", 'w') as file:
+    #         yaml.dump(parameters, file)
 
     data = {
         "load": [],
@@ -294,30 +239,9 @@ def pacman_embedded(l0 = 0.1, nest = False):
 
     for i_t, t in enumerate(range(1)):
 
-        # update the lower bound
-        # alpha.vector.copy(alpha_lb.vector)
-        # alpha_lb.vector.ghostUpdate(
-        #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        # )
-
         logging.info(f"-- Solving for t = {t:3.2f} --")
         solver.solve()
 
-        # compute rate
-        # alpha.vector.copy(alphadot.vector)
-        # alphadot.vector.axpy(-1, alpha_lb.vector)
-        # alphadot.vector.ghostUpdate(
-        #         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        #     )
-
-        # rate_12_norm = hybrid.scaled_rate_norm(alphadot, parameters)
-        # rate_12_norm_unscaled = hybrid.unscaled_rate_norm(alphadot)
-        
-        # fracture_energy = comm.allreduce(
-        #     dolfinx.fem.assemble_scalar(dolfinx.fem.form(
-        #         model.damage_energy_density(state) * dx)),
-        #     op=MPI.SUM,
-        # )
         elastic_energy = comm.allreduce(
             dolfinx.fem.assemble_scalar(dolfinx.fem.form(
                 model.elastic_energy_density(state) * dx)),
@@ -334,22 +258,11 @@ def pacman_embedded(l0 = 0.1, nest = False):
         data["elastic_energy"].append(datai["elastic_energy"])
         # data["solver_data"].append(datai["solver_data"])
 
-        # try:
-        #     check_snes_convergence(hybrid.newton.snes)
-        #     assert hybrid.newton.snes.getConvergedReason() > 0
-        # except ConvergenceError:
-        #     logging.info("not converged")
 
         if comm.rank == 0:
             a_file = open(f"{prefix}/time_data.json", "w")
             json.dump(data, a_file)
             a_file.close()
-
-        # ColorPrint.print_info(
-        #     f"NEWTON - Iterations: {hybrid.newton.snes.getIterationNumber()+1:3d},\
-        #     Fnorm: {hybrid.newton.snes.getFunctionNorm():3.4e},\
-        #     alpha_max: {alpha.vector.max()[1]:3.4e}"
-        # )
 
         xvfb.start_xvfb(wait=0.05)
         pyvista.OFF_SCREEN = True
@@ -368,5 +281,32 @@ def pacman_embedded(l0 = 0.1, nest = False):
     return (l0, elastic_energy)
 
 
+
+
+def compute_release(lengths):
+    
+    data = {
+        "l0": [],
+        "elastic_energy": [],
+    }
+    for l in lengths:
+        l0, en = pacman_embedded(l)
+
+        data.get("l0").append(l0)
+        data.get("elastic_energy").append(en)
+
+    return data
+
+
 if __name__ == "__main__":
-    pacman_embedded(l0=.3, nest=False)
+    # pacman_embedded(l0=.3, nest=False)
+    data = compute_release(np.linspace(0.01, .8, 30))
+
+    if comm.rank == 0:
+        a_file = open(f"{prefix}/time_data.json", "w")
+        json.dump(data, a_file)
+        a_file.close()
+
+    import pandas as pd
+    df = pd.DataFrame(data)
+    print(df)
