@@ -232,6 +232,101 @@ def mesh_cut_pacman(
     order=1,
     msh_file=None,
     comm=MPI.COMM_WORLD,
+    eta=1.e-2
+):
+    """
+    Create mesh of 2d pacman specimen according to ... using the Python API of Gmsh.
+    with embedded crack (for potential computations ;)
+    """
+    # Perform Gmsh work only on rank = 0
+
+    if comm.rank == 0:
+        import numpy as np
+        import gmsh
+        import warnings
+        warnings.filterwarnings("ignore")
+        gmsh.initialize()
+        gmsh.option.setNumber("General.Terminal", 1)
+        gmsh.option.setNumber("Mesh.Algorithm", 6)
+        gmsh.model.add("pacman")
+
+        omega = np.deg2rad(geom_parameters.get("omega"))
+        radius = geom_parameters.get("r")
+        lc = geom_parameters.get("lc")
+        elltomesh = geom_parameters.get("elltomesh")
+        l0 = geom_parameters.get("l0")
+
+        refinement = geom_parameters.get("refinement")
+        # eta = geom_parameters.get("eta")
+
+        model = gmsh.model
+
+        entities = gmsh.model.occ.getEntities()
+
+        p0 = gmsh.model.geo.addPoint(0, 0, 0, lc/refinement, tag=0)
+        p1 = gmsh.model.geo.addPoint( - radius*np.cos(omega / 2), radius*np.sin(omega / 2), 0.0, lc, tag=1)
+        p2 = gmsh.model.geo.addPoint( - radius*np.cos(omega / 2), - radius*np.sin(omega / 2), 0.0, lc, tag=2)
+        p3 = gmsh.model.geo.addPoint(radius, 0, 0.0, lc, tag=12)
+
+        pX = gmsh.model.geo.addPoint(l0, 0, 0.0, lc/refinement/3, tag=13)
+        p0_sup = gmsh.model.geo.addPoint(0, eta, 0, lc/refinement, tag=14)
+        p0_inf = gmsh.model.geo.addPoint(0, -eta, 0, lc/refinement, tag=15)
+
+        top = gmsh.model.geo.addLine(p1, p0_sup, tag=3)
+        bot = gmsh.model.geo.addLine(p0_inf, p2, tag=4)
+
+        top_crack = gmsh.model.geo.addLine(p0_sup, pX, tag=7)
+        bot_crack = gmsh.model.geo.addLine(pX, p0_inf, tag=8)
+
+        arc1 = gmsh.model.geo.addCircleArc(p2, p0, p3, tag=5)
+        arc2 = gmsh.model.geo.addCircleArc(p3, p0, p1, tag=6)
+        cloop = gmsh.model.geo.addCurveLoop([top, top_crack, bot_crack, bot, arc1, arc2],  tag=100)
+
+        s = gmsh.model.geo.addPlaneSurface([cloop], tag=1)
+
+        refinement_pts = [gmsh.model.geo.addPoint(l0+lc/2, lc/2*(-1)**i, 0.0, lc/refinement, tag=111+i) for i in range(1,3)]
+        refinement_pts.append(gmsh.model.geo.addPoint(l0+lc/2, 0., 0.0, lc/refinement, tag=114))
+
+        gmsh.model.geo.synchronize()
+
+        gmsh.model.mesh.embed(0, refinement_pts, 2, s)
+        # synchronize
+        model.geo.synchronize()
+
+        surface_entities = [model[1] for model in model.getEntities(tdim)]
+        domain = model.addPhysicalGroup(tdim, surface_entities)
+        model.setPhysicalName(tdim, domain, "Surface")
+        gmsh.model.mesh.setOrder(order)
+
+        gmsh.model.addPhysicalGroup(tdim - 1, [5], tag=20)
+        gmsh.model.setPhysicalName(tdim - 1, 20, "dirichlet_boundary")
+
+
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20)
+
+        # We can constrain resolution
+        # values (see `t10.py' for more details):
+        gmsh.option.setNumber("Mesh.MeshSizeMin", lc/3.)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", 2*lc)
+
+        gmsh.model.mesh.generate(tdim)
+        # Optional: Write msh file
+        if msh_file is not None:
+            gmsh.write(msh_file)
+
+        # gmsh.finalize()
+
+    return gmsh.model if comm.rank == 0 else None, tdim
+
+
+def mesh_cut_pacman_deco(
+    name,
+    geom_parameters,
+    tdim=2,
+    order=1,
+    msh_file=None,
+    comm=MPI.COMM_WORLD,
+    eta=1.e-3
 ):
     """
     Create mesh of 2d pacman specimen according to ... using the Python API of Gmsh.
@@ -255,8 +350,10 @@ def mesh_cut_pacman(
         radius = geom_parameters.get("r")
         lc = geom_parameters.get("lc")
         elltomesh = geom_parameters.get("elltomesh")
+        l0 = geom_parameters.get("l0")
 
         refinement = geom_parameters.get("refinement")
+        # eta = geom_parameters.get("eta")
         l0 = geom_parameters.get("l0")
 
         # refinement = geom_parameters.get("refinement")
@@ -270,21 +367,10 @@ def mesh_cut_pacman(
         # get all elementary entities in the model
         entities = gmsh.model.occ.getEntities()
 
-
-        # for e in entities:
-        #     print("Entity " + str(e) + " of type " + gmsh.model.getType(e[0], e[1]))
-        #     # get the mesh nodes for each elementary entity
-        #     nodeTags, nodeCoords, nodeParams = gmsh.model.mesh.getNodes(e[0], e[1])
-        #     # get the mesh elements for each elementary entity
-        #     elemTypes, elemTags, elemNodeTags = gmsh.model.mesh.getElements(e[0], e[1])
-        #     # count number of elements
-        #     numElem = sum(len(i) for i in elemTags)
-        #     print(" - mesh has " + str(len(nodeTags)) + " nodes and " + str(numElem) +
-        #         " elements")
-        #     boundary = gmsh.model.occ.getBoundary([e])
-        #     print(" - boundary entities " + str(boundary))
-        #     partitions = gmsh.model.occ.getPartitions(e[0], e[1])
-
+        # lc = .01
+        # refinement = 2
+        # omega = np.deg2rad(45)
+        # radius = 1
 
         # print(entities)
         p0 = model.geo.addPoint(0, 0, 0, lc/refinement, tag=0)
@@ -292,34 +378,35 @@ def mesh_cut_pacman(
         p2 = model.geo.addPoint( - radius*np.cos(omega / 2), - radius*np.sin(omega / 2), 0.0, lc, tag=2)
         p3 = model.geo.addPoint(radius, 0, 0.0, lc/refinement, tag=12)
 
-        top = model.geo.addLine(p1, p0, tag=3)
-        bot = model.geo.addLine(p0, p2, tag=4)
-        arc1 = model.geo.addCircleArc(2, 0, 12, tag=5)
-        arc2 = model.geo.addCircleArc(12, 0, 1, tag=6)
-        cloop = model.geo.addCurveLoop([top, bot, arc1, arc2])
+        pX = model.geo.addPoint(l0, 0, 0.0, lc/refinement, tag=13)
+        p0_sup = model.geo.addPoint(0, eta, 0, lc, tag=14)
+        p0_inf = model.geo.addPoint(0, -eta, 0, lc, tag=15)
 
+        top = model.geo.addLine(p1, p0_sup, tag=3)
+        bot = model.geo.addLine(p0_inf, p2, tag=4)
+        arc1 = model.geo.addCircleArc(p2, p0, p3, tag=5)
+        arc2 = model.geo.addCircleArc(p3, p0, p1, tag=6)
+
+        top_crack = model.geo.addLine(p0_sup, pX, tag=7)
+        bot_crack = model.geo.addLine(pX, p0_inf, tag=8)
+
+        cloop = model.geo.addCurveLoop([top, top_crack, bot_crack, bot, arc1, arc2])
 
         s = model.geo.addPlaneSurface([cloop])
+
         model.geo.addSurfaceLoop([s, 1000])
         # model.geo.synchronize()
 
-        _cracktip = model.geo.addPoint(l0, 0, 0.0, lc/refinement, tag=111)
-        crack = model.geo.addLine(0, _cracktip, tag=30)
-
         # synchronize
         model.geo.synchronize()
-
-        # embed "crack" on plate
-        model.mesh.embed(1, [crack], 2, s)
 
         surface_entities = [model[1] for model in model.getEntities(tdim)]
         domain = model.addPhysicalGroup(tdim, surface_entities)
         model.setPhysicalName(tdim, domain, "Surface")
         gmsh.model.mesh.setOrder(order)
 
-        gmsh.model.addPhysicalGroup(tdim - 1, [5], tag=20)
+        gmsh.model.addPhysicalGroup(tdim - 1, [5, 6], tag=20)
         gmsh.model.setPhysicalName(tdim - 1, 20, "dirichlet_boundary")
-
 
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20)
 
