@@ -94,72 +94,120 @@ class ConeSolver(StabilitySolver):
         K \ni x \perp y := Ax - \lambda B x \in K^*
         based on the SPA recipe, cf. ...
         """
-        
+        _s = 0.3
+        self.iterations = 0
+
         stable = self.solve(alpha_old, neig)
-        __import__('pdb').set_trace()
-        # self.eigen.rA
-        # self.eigen.rB
-        # self.eigen.A
-        # self.eigen.B
-        # self.eigen.u
         
-        _x = dolfinx.fem.petsc.create_vector_block(self.F)        
-        _y = dolfinx.fem.petsc.create_vector_block(self.F)        
-        _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
-        _Bx = dolfinx.fem.petsc.create_vector_block(self.F)        
-        
-        # Map current solution into vector _x
-        functions_to_vec(self.Kspectrum[0].get("xk"), _x)
+        # The cone is non-trivial, aka non-empty
+        # only if the state is irreversibly damage-critical
 
-        # 
-        # make it admissible: into the cone
-        # 
+        if self._critical:
 
-        logging.info(f"_x is in the cone? {self._isin_cone(_x)}")
-        self._cone_project(_x)
-        logging.info(f"_x is in the cone? {self._isin_cone(_x)}")
+            # loop
 
-        # K_t spectrum:
-        # compute: y_t
-        # {lambdat, xt, yt}
+            __import__('pdb').set_trace()
+            self._xdiff = dolfinx.fem.petsc.create_vector_block(self.F)    
 
-        if self.eigen.restriction is not None:
-            _A = self.eigen.rA
-            _B = self.eigen.rB
-        else:
-            _A = self.eigen.A
-            _B = self.eigen.B
+            _x = dolfinx.fem.petsc.create_vector_block(self.F)        
+            _y = dolfinx.fem.petsc.create_vector_block(self.F)        
+            _xnew = dolfinx.fem.petsc.create_vector_block(self.F)        
+            _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
+            _Bx = dolfinx.fem.petsc.create_vector_block(self.F)        
+            
+            # Map current solution into vector _x
+            functions_to_vec(self.Kspectrum[0].get("xk"), _x)
+    
+            while not self.loop(_x):
+                # make it admissible: map into the cone
 
-        if self.eigen.empty_B(): logging.critical("empty B")
+                logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
+                self._cone_project(_x)
+                logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
 
-        if self.eigen.restriction is not None:
-            _x = self.eigen.restriction.restrict_vector(_x)        
-            _Ax = self.eigen.restriction.restrict_vector(_Ax)
-            _Bx = self.eigen.restriction.restrict_vector(_Bx)
-        
-        _A.mult(_x, _Ax)
+                # K_t spectrum:
+                # compute {lambdat, xt, yt}
 
-        xAx = _x.dot(_Ax)
+                if self.eigen.restriction is not None:
+                    _A = self.eigen.rA
+                    _B = self.eigen.rB
 
-        # compute: lmbda_t
+                    _x = self.eigen.restriction.restrict_vector(_x)        
+                    _v = self.eigen.restriction.restrict_vector(_v)        
+                    _y = self.eigen.restriction.restrict_vector(_y)        
+                    _Ax = self.eigen.restriction.restrict_vector(_Ax)
+                    _Bx = self.eigen.restriction.restrict_vector(_Bx)
+                else:
+                    _A = self.eigen.A
+                    _B = self.eigen.B
 
-        if not self.eigen.empty_B():
-            _B.mult(_x, _Bx)
-            xBx = _x.dot(_Bx)
-            _lmbda_t = xAx/xBx
-        else:
-            _Bx = _x
-            _lmbda_t = xAx / _x.dot(_x)
+                _A.mult(_x, _Ax)
+                xAx = _x.dot(_Ax)
 
-        # compute: y_t
-        # if not self.eigen.empty_B():
-        _y = _Ax - _lmbda_t * _Bx
-        # else:
-            # _y = _Ax - _lmbda_t * _x
+                # compute: lmbda_t
+                if not self.eigen.empty_B():
+                    _B.mult(_x, _Bx)
+                    xBx = _x.dot(_Bx)
+                    _lmbda_t = xAx/xBx
+                else:
+                    logging.critical("B = Id")
+                    _Bx = _x
+                    _lmbda_t = xAx / _x.dot(_x)
 
-        # construct perturbation
+                # compute: y_t
+                # _y = _Ax - _lmbda_t * _Bx
+                _y.waxpy(-_lmbda_t, _Bx, _Ax)
+
+                # construct perturbation
+                # _v = _x - _s*y_t
+                _x.copy(self._xdiff)
+                _x.waxpy(-_s, _y, _x)
+                
+                # L2-normalise
+                n2 = _x.normalize()
+
+                # iterate
+                # x_i+1 = _v 
+
+
+
         return stable
     
+    def convergenceTest(self, x):
+        """convergenceTest"""
+        __import__('pdb').set_trace()
+        _atol = self.parameters.get("eigen").get("eps_tol")
+        _maxit = self.parameters.get("eigen").get("eps_max_it")
+
+        if self.iterations == _maxit:
+            raise RuntimeError(f'SPA solver did not converge within {_maxit} iterations. Aborting')
+            # return False        
+        # xdiff = -x + x_old
+        self._xdiff.axpy(-1, x)
+
+        error_alpha_L2 = norm_L2(self._xdiff)
+
+        if error_alpha_L2 < _atol:
+            return True
+        elif self.iterations == 0 or error_alpha_L2 >= _atol:
+            return False
+
+    # v = mode[i].get("xk") for mode in self.spectrum
+    def loop(self, x):
+        # its = self.iterations
+        reason = self.convergenceTest(x)
+        
+        # update xold
+        # x.copy(self._xold)
+        # x.vector.ghostUpdate(
+        #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        # )
+
+        if not reason:
+            self.iterations += 1
+
+        return reason
+
     def _isin_cone(self, x):
         """Is in the zone IFF x is in the cone"""
         return (x.array >= 0).all()
@@ -172,6 +220,7 @@ class ConeSolver(StabilitySolver):
 
             returns
         """
+        # __import__('pdb').set_trace()
         zero = v.duplicate()
         zero.zeroEntries()
 
