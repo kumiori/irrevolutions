@@ -94,9 +94,9 @@ class ConeSolver(StabilitySolver):
         K \ni x \perp y := Ax - \lambda B x \in K^*
         based on the SPA recipe, cf. ...
         """
-        _s = 0.3
+        _s = 0.1
         self.iterations = 0
-
+        errors = []
         stable = self.solve(alpha_old, neig)
         
         # The cone is non-trivial, aka non-empty
@@ -107,24 +107,22 @@ class ConeSolver(StabilitySolver):
             # loop
 
             # __import__('pdb').set_trace()
-            self._xdiff = dolfinx.fem.petsc.create_vector_block(self.F)    
 
             _x = dolfinx.fem.petsc.create_vector_block(self.F)        
             _y = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _xnew = dolfinx.fem.petsc.create_vector_block(self.F)        
             _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
             _Bx = dolfinx.fem.petsc.create_vector_block(self.F)        
+            self._xold = dolfinx.fem.petsc.create_vector_block(self.F)    
             
             # Map current solution into vector _x
             functions_to_vec(self.Kspectrum[0].get("xk"), _x)
     
             while not self.loop(_x):
+                errors.append(self.error)
                 # make it admissible: map into the cone
-
                 # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
                 self._cone_project(_x)
                 # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
-
                 # K_t spectrum:
                 # compute {lambdat, xt, yt}
 
@@ -132,8 +130,8 @@ class ConeSolver(StabilitySolver):
                     _A = self.eigen.rA
                     _B = self.eigen.rB
 
-                    _x = self.eigen.restriction.restrict_vector(_x)        
-                    _y = self.eigen.restriction.restrict_vector(_y)        
+                    _x = self.eigen.restriction.restrict_vector(_x)
+                    _y = self.eigen.restriction.restrict_vector(_y)
                     _Ax = self.eigen.restriction.restrict_vector(_Ax)
                     _Bx = self.eigen.restriction.restrict_vector(_Bx)
                 else:
@@ -153,27 +151,30 @@ class ConeSolver(StabilitySolver):
                     _Bx = _x
                     _lmbda_t = xAx / _x.dot(_x)
 
-                # compute: y_t
-                # _y = _Ax - _lmbda_t * _Bx
+                # compute: y_t = _Ax - _lmbda_t * _Bx
                 _y.waxpy(-_lmbda_t, _Bx, _Ax)
 
                 # construct perturbation
                 # _v = _x - _s*y_t
-                _x.copy(self._xdiff)
+
+                _x.copy(self._xold)
                 _x.axpy(-_s, _y)
+                
+                # project onto cone
+                self._cone_project(_x)
                 
                 # L2-normalise
                 n2 = _x.normalize()
                 _x.view()
                 # iterate
                 # x_i+1 = _v 
-
-
+                print(errors)
 
         return stable
     
     def convergenceTest(self, x):
-        """convergenceTest"""
+        """Test convergence of current iterate x against 
+        prior"""
         _atol = self.parameters.get("eigen").get("eps_tol")
         _maxit = self.parameters.get("eigen").get("eps_max_it")
 
@@ -181,9 +182,13 @@ class ConeSolver(StabilitySolver):
             raise RuntimeError(f'SPA solver did not converge within {_maxit} iterations. Aborting')
             # return False        
         # xdiff = -x + x_old
-        self._xdiff.axpy(-1, x)
+        diff = x.duplicate()
+        diff.zeroEntries()
 
-        error_alpha_L2 = self._xdiff.norm()
+        diff.waxpy(-1., self._xold, x)
+
+        error_alpha_L2 = diff.norm()
+        self.error = error_alpha_L2
         logging.critical(f"error_alpha_L2? {error_alpha_L2}")
 
         if error_alpha_L2 < _atol:
