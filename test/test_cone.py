@@ -165,11 +165,14 @@ class ConeSolver(StabilitySolver):
                 
                 # L2-normalise
                 n2 = _x.normalize()
-                _x.view()
+                # _x.view()
                 # iterate
                 # x_i+1 = _v 
                 print(errors)
 
+
+            logging.critical(f"eigenfunction is in cone? {self._isin_cone(_x)}")
+        
         return stable
     
     def convergenceTest(self, x):
