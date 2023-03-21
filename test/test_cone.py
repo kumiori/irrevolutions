@@ -106,7 +106,7 @@ class ConeSolver(StabilitySolver):
 
             # loop
 
-            __import__('pdb').set_trace()
+            # __import__('pdb').set_trace()
             self._xdiff = dolfinx.fem.petsc.create_vector_block(self.F)    
 
             _x = dolfinx.fem.petsc.create_vector_block(self.F)        
@@ -175,7 +175,6 @@ class ConeSolver(StabilitySolver):
     
     def convergenceTest(self, x):
         """convergenceTest"""
-        __import__('pdb').set_trace()
         _atol = self.parameters.get("eigen").get("eps_tol")
         _maxit = self.parameters.get("eigen").get("eps_max_it")
 
@@ -185,7 +184,7 @@ class ConeSolver(StabilitySolver):
         # xdiff = -x + x_old
         self._xdiff.axpy(-1, x)
 
-        error_alpha_L2 = norm_L2(self._xdiff)
+        error_alpha_L2 = self._xdiff.norm()
 
         if error_alpha_L2 < _atol:
             return True
@@ -210,22 +209,32 @@ class ConeSolver(StabilitySolver):
 
     def _isin_cone(self, x):
         """Is in the zone IFF x is in the cone"""
-        return (x.array >= 0).all()
+
+        # get the subvector associated to damage dofs with inactive constraints 
+        _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
+        _is = PETSc.IS().createGeneral(_dofs)
+        _sub = x.getSubVector(_is)
+
+        return (_sub.array >= 0).all()
         
     def _cone_project(self, v):
-        """Projection function into the cone
+        """Projection vector into the cone
 
             takes arguments:
-            - v: vector ~~function~~
+            - v: vector in a mixed space
 
             returns
         """
-        # __import__('pdb').set_trace()
-        zero = v.duplicate()
+        
+        # get the subvector associated to damage dofs with inactive constraints 
+        _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
+        _is = PETSc.IS().createGeneral(_dofs)
+        _sub = v.getSubVector(_is)
+        zero = _sub.duplicate()
         zero.zeroEntries()
 
-        v.pointwiseMax(v, zero)
-        
+        _sub.pointwiseMax(_sub, zero)
+        v.restoreSubVector(_is, _sub)
         return
 
 class _AlternateMinimisation:
