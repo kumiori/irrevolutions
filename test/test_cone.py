@@ -168,9 +168,9 @@ class ConeSolver(StabilitySolver):
                 # _x.view()
                 # iterate
                 # x_i+1 = _v 
-                print(errors)
 
-
+            logging.critical(f"Convergence of SPA algorithm with s={_s}")
+            print(errors)
             logging.critical(f"eigenfunction is in cone? {self._isin_cone(_x)}")
         
         return stable
