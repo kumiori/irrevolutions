@@ -121,9 +121,9 @@ class ConeSolver(StabilitySolver):
             while not self.loop(_x):
                 # make it admissible: map into the cone
 
-                logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
+                # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
                 self._cone_project(_x)
-                logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
+                # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
 
                 # K_t spectrum:
                 # compute {lambdat, xt, yt}
@@ -133,7 +133,6 @@ class ConeSolver(StabilitySolver):
                     _B = self.eigen.rB
 
                     _x = self.eigen.restriction.restrict_vector(_x)        
-                    _v = self.eigen.restriction.restrict_vector(_v)        
                     _y = self.eigen.restriction.restrict_vector(_y)        
                     _Ax = self.eigen.restriction.restrict_vector(_Ax)
                     _Bx = self.eigen.restriction.restrict_vector(_Bx)
@@ -161,11 +160,11 @@ class ConeSolver(StabilitySolver):
                 # construct perturbation
                 # _v = _x - _s*y_t
                 _x.copy(self._xdiff)
-                _x.waxpy(-_s, _y, _x)
+                _x.axpy(-_s, _y)
                 
                 # L2-normalise
                 n2 = _x.normalize()
-
+                _x.view()
                 # iterate
                 # x_i+1 = _v 
 
@@ -185,6 +184,7 @@ class ConeSolver(StabilitySolver):
         self._xdiff.axpy(-1, x)
 
         error_alpha_L2 = self._xdiff.norm()
+        logging.critical(f"error_alpha_L2? {error_alpha_L2}")
 
         if error_alpha_L2 < _atol:
             return True
