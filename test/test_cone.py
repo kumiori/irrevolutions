@@ -427,8 +427,9 @@ parameters["model"]["w1"] = 1
 parameters["model"]["k_res"] = 1e-4
 parameters["model"]["k"] = 3
 parameters["model"]["N"] = 3
-parameters["loading"]["max"] = 2
-parameters["loading"]["steps"] = 50
+parameters["loading"]["max"] = 1.8
+parameters["loading"]["steps"] = 10
+
 parameters["geometry"]["geom_type"] = "discrete-damageable"
 # Get mesh parameters
 Lx = parameters["geometry"]["Lx"]
@@ -619,9 +620,17 @@ def damage_energy_density(state):
     return D_d
 
 
+def stress(state):
+    """
+    Return the one-dimensional stress
+    """
+    u = state["u"]
+    alpha = state["alpha"]
+
+    return parameters["model"]['mu'] * a_atk(alpha) * u.dx() * dx
+
 total_energy = (elastic_energy_density_atk(state) +
                 damage_energy_density(state)) * dx
-
 
 # Energy functional
 # f = Constant(mesh, 0)
@@ -663,6 +672,8 @@ check_stability = []
 
 logging.basicConfig(level=logging.INFO)
 
+__import__('pdb').set_trace()
+
 for i_t, t in enumerate(loads):
     u_.interpolate(lambda x: t * np.ones_like(x[0]))
     u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
@@ -678,8 +689,8 @@ for i_t, t in enumerate(loads):
 
     solver.solve()
 
-    n_eigenvalues = 10
-    is_stable = stability.solve(alpha_lb, n_eigenvalues)
+    # n_eigenvalues = 10
+    is_stable = stability.solve(alpha_lb)
     is_elastic = stability.is_elastic()
     inertia = stability.get_inertia()
     # stability.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
@@ -699,7 +710,8 @@ for i_t, t in enumerate(loads):
         assemble_scalar(form(elastic_energy_density(state) * dx)),
         op=MPI.SUM,
     )
-    _F = assemble_scalar( form(parameters["model"]['mu'] * a_atk(alpha) * u.dx() * dx) )
+    _F = assemble_scalar( form(stress(state)) )
+    
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
@@ -708,7 +720,7 @@ for i_t, t in enumerate(loads):
     history_data["eigs"].append(stability.data["eigs"])
     history_data["stable"].append(stability.data["stable"])
     history_data["F"].append(_F)
-
+    
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)
         file.write_function(alpha, t)
@@ -718,8 +730,8 @@ for i_t, t in enumerate(loads):
         json.dump(history_data, a_file)
         a_file.close()
 
-    # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
-    # print(history_data)
+list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+# print(history_data)
 
 
 
