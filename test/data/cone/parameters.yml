@@ -2,7 +2,7 @@
 loading:
     min: 0
     max: 1.001
-    steps: 10
+    steps: 30
 
 #  === Geometry === #
 geometry:
