@@ -427,8 +427,9 @@ parameters["model"]["w1"] = 1
 parameters["model"]["k_res"] = 1e-4
 parameters["model"]["k"] = 3
 parameters["model"]["N"] = 3
-parameters["loading"]["max"] = 2
-parameters["loading"]["steps"] = 50
+parameters["loading"]["max"] = 1.8
+parameters["loading"]["steps"] = 10
+
 parameters["geometry"]["geom_type"] = "discrete-damageable"
 # Get mesh parameters
 Lx = parameters["geometry"]["Lx"]
@@ -502,6 +503,7 @@ u = Function(V_u, name="Unknown")
 u_ = Function(V_u, name="Boundary Unknown")
 zero_u = Function(V_u, name="Boundary Unknown")
 
+
 # Measures
 dx = ufl.Measure("dx", domain=mesh)
 ds = ufl.Measure("ds", domain=mesh)
@@ -546,9 +548,10 @@ bcs_alpha = []
 bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 # Define the model
 
-bounds={"lb": alpha_lb, "ub": alpha_ub}
-
 # Material behaviour
+
+# mat_par = parameters.get()
+
 
 def a(alpha):
     k_res = parameters["model"]['k_res']
@@ -570,14 +573,6 @@ def w(alpha):
     # Return w(alpha) function
     return alpha
 
-def stress(state):
-    """
-    Return the one-dimensional stress
-    """
-    u = state["u"]
-    alpha = state["alpha"]
-    
-    return parameters["model"]['mu'] * a_atk(alpha) * u.dx() * dx
 
 def elastic_energy_density(state):
     """
@@ -625,9 +620,17 @@ def damage_energy_density(state):
     return D_d
 
 
+def stress(state):
+    """
+    Return the one-dimensional stress
+    """
+    u = state["u"]
+    alpha = state["alpha"]
+
+    return parameters["model"]['mu'] * a_atk(alpha) * u.dx() * dx
+
 total_energy = (elastic_energy_density_atk(state) +
                 damage_energy_density(state)) * dx
-
 
 # Energy functional
 # f = Constant(mesh, 0)
@@ -668,3 +671,80 @@ history_data = {
 check_stability = []
 
 logging.basicConfig(level=logging.INFO)
+
+__import__('pdb').set_trace()
+
+for i_t, t in enumerate(loads):
+    u_.interpolate(lambda x: t * np.ones_like(x[0]))
+    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
+                          mode=PETSc.ScatterMode.FORWARD)
+
+    # update the lower bound
+    alpha.vector.copy(alpha_lb.vector)
+    alpha_lb.vector.ghostUpdate(
+        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    )
+
+    logging.critical(f"-- Solving for t = {t:3.2f} --")
+
+    solver.solve()
+
+    # n_eigenvalues = 10
+    is_stable = stability.solve(alpha_lb)
+    is_elastic = stability.is_elastic()
+    inertia = stability.get_inertia()
+    # stability.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
+    check_stability.append(is_stable)
+
+    ColorPrint.print_bold(f"State is elastic: {is_elastic}")
+    ColorPrint.print_bold(f"State's inertia: {inertia}")
+    ColorPrint.print_bold(f"State is stable: {is_stable}")
+
+    # cone._solve(alpha_lb, n_eigenvalues)
+
+    fracture_energy = comm.allreduce(
+        assemble_scalar(form(damage_energy_density(state) * dx)),
+        op=MPI.SUM,
+    )
+    elastic_energy = comm.allreduce(
+        assemble_scalar(form(elastic_energy_density(state) * dx)),
+        op=MPI.SUM,
+    )
+    _F = assemble_scalar( form(stress(state)) )
+    
+    history_data["load"].append(t)
+    history_data["fracture_energy"].append(fracture_energy)
+    history_data["elastic_energy"].append(elastic_energy)
+    history_data["total_energy"].append(elastic_energy+fracture_energy)
+    history_data["solver_data"].append(solver.data)
+    history_data["eigs"].append(stability.data["eigs"])
+    history_data["stable"].append(stability.data["stable"])
+    history_data["F"].append(_F)
+    
+    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+        file.write_function(u, t)
+        file.write_function(alpha, t)
+
+    if comm.rank == 0:
+        a_file = open(f"{prefix}/time_data.json", "w")
+        json.dump(history_data, a_file)
+        a_file.close()
+
+list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+# print(history_data)
+
+
+
+df = pd.DataFrame(history_data)
+print(df)
+
+
+from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+
+if comm.rank == 0:
+    plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+    plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+    plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
+
+
+# Viz
