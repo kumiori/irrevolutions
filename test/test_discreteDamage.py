@@ -89,25 +89,26 @@ class ConeSolver(StabilitySolver):
 
     )
 
-    def _solve(self, alpha_old: dolfinx.fem.function.Function, neig=None):
+    def _solve(self, alpha_old: dolfinx.fem.function.Function):
         """Recursively solves (until convergence) the abstract eigenproblem
         K \ni x \perp y := Ax - \lambda B x \in K^*
         based on the SPA recipe, cf. ...
         """
-        _s = 0.1
+        # _s = 0.1
+        _s = self.parameters.get("cone").get("scaling")
         self.iterations = 0
         errors = []
-        stable = self.solve(alpha_old, neig)
+        stable = self.solve(alpha_old)
         
         # The cone is non-trivial, aka non-empty
         # only if the state is irreversibly damage-critical
 
         if self._critical:
-
+            __import__('pdb').set_trace()
+            
             # loop
-            # __import__('pdb').set_trace()
-
             _x = dolfinx.fem.petsc.create_vector_block(self.F)        
+            _x_orig = dolfinx.fem.petsc.create_vector_block(self.F)        
             _y = dolfinx.fem.petsc.create_vector_block(self.F)        
             _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
             _Bx = dolfinx.fem.petsc.create_vector_block(self.F)        
@@ -115,9 +116,12 @@ class ConeSolver(StabilitySolver):
             
             # Map current solution into vector _x
             functions_to_vec(self.Kspectrum[0].get("xk"), _x)
-    
+            
+            lambda_k = []
+
             while not self.loop(_x):
-                
+                print("")
+                logging.critical(f" Cone-convergence loop iteration {self.iterations:2d}")
                 errors.append(self.error)
                 # make it admissible: map into the cone
                 # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
@@ -127,6 +131,17 @@ class ConeSolver(StabilitySolver):
                 # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
                 # K_t spectrum:
                 # compute {lambdat, xt, yt}
+
+                alpha_dofs = self.eigen.restriction.bglobal_dofs_vec[1]
+                logging.critical(f"> mode {self.Kspectrum[0]['n']:2d}")
+                logging.critical(f"original eigenvector, full: {_x.array}")
+                logging.critical(f"original eigenvector, alpha dofs: {_x.array[alpha_dofs]}")
+                logging.critical(f"original eigenvector, is in cone 🍦? {self._isin_cone(_x)}")
+
+                logging.critical(f"original eigenvalue {self.Kspectrum[0]['lambda']:.3f}")
+                
+                self._debug(self.eigen)
+
 
                 if self.eigen.restriction is not None:
                     _A = self.eigen.rA
@@ -162,26 +177,84 @@ class ConeSolver(StabilitySolver):
                 _x.copy(self._xold)
                 _x.axpy(-_s, _y)
                 
+                logging.critical(f"perturbed eigenvalue {_lmbda_t:.3f}")
+                logging.critical(f"perturbed eigenvalue {_x.array}")
                 # project onto cone
                 self._cone_project(_x)
+                logging.critical(f"perturbed , projected eigenvalue {_x.array}")
                 
                 # L2-normalise
                 n2 = _x.normalize()
+                lambda_k.append(_lmbda_t)
+                logging.critical(f"lambda_k 🍦? {lambda_k}")
+
                 # _x.view()
                 # iterate
                 # x_i+1 = _v 
 
             logging.critical(f"Convergence of SPA algorithm with s={_s}")
             print(errors)
-            logging.critical(f"eigenfunction is in cone? {self._isin_cone(_x)}")
+            logging.critical(f"eigenfunction is in cone 🍦? {self._isin_cone(_x)}")
         
+            print("")
+            functions_to_vec(self.Kspectrum[0].get("xk"), _x_orig)
+            logging.critical(f"original eigenvalue = {self.Kspectrum[0]['lambda']:.3f}, eigenvector {_x_orig.array}")
+            logging.critical(f"converged eigenvalue = {lambda_k[-1]:.3f}, eigenvector {_x.array}")
+            logging.critical(f"converged residual {_y.array}")
+            print("")
+
         return stable
     
+
+    def _debug(self, eigen):
+        """debugging eigenproblem"""
+        import scipy
+
+        def plot_matrix(M):
+            import numpy as np
+            import matplotlib.pyplot as plt
+
+            fig, ax = plt.subplots()
+
+            ax.matshow(M.todense(), cmap=plt.cm.Blues)
+
+            for i in range(M.shape[0]):
+                for j in range(M.shape[0]):
+                    c = M[j,i]
+                    ax.text(i, j, f"{c:.3f}", va='center', ha='center')
+
+            return fig
+
+        indptr, indices, data = self.eigen.rA.getValuesCSR()
+        _rA = scipy.sparse.csr_matrix((data, indices, indptr), shape=self.eigen.rA.sizes[0])
+
+        _fig = plot_matrix(_rA)
+        _fig.savefig(f"mat-r-{self.eigen.eps.getOptionsPrefix()}.png")
+
+        _eigs = scipy.sparse.linalg.eigs(_rA.toarray())[0]
+
+        logging.critical(f"eigs of sparse? {[np.real(f) for f in np.sort(scipy.sparse.linalg.eigs(_rA.toarray())[0])]}")
+
+        _x = dolfinx.fem.petsc.create_vector_block(self.F)        
+        _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
+        # _Bx = dolfinx.fem.petsc.create_vector_block(self.F)        
+        functions_to_vec(self.Kspectrum[0].get("xk"), _x)
+        
+        _x = self.eigen.restriction.restrict_vector(_x)
+        _Ax = self.eigen.restriction.restrict_vector(_Ax)
+
+        self.eigen.rA.mult(_x, _Ax)
+        xAx = _x.dot(_Ax)
+        
+        logging.critical(f"eigs of operator xAx/||_x||^2 = {xAx/ _x.dot(_x):.3f}")
+
     def convergenceTest(self, x):
-        """Test convergence of current iterate x against 
-        prior"""
-        _atol = self.parameters.get("eigen").get("eps_tol")
-        _maxit = self.parameters.get("eigen").get("eps_max_it")
+        """
+        Test convergence of current iterate x against 
+        prior
+        """
+        _atol = self.parameters.get("cone").get("cone_rtol")
+        _maxit = self.parameters.get("cone").get("cone_max_it")
 
         if self.iterations == _maxit:
             raise RuntimeError(f'SPA solver did not converge within {_maxit} iterations. Aborting')
@@ -417,7 +490,13 @@ model_rank = 0
 with open("parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-parameters["cone"] = ""
+parameters["stability"]["cone"] = {            
+                "maxmodes": 3,
+                "cone_atol": 1.e-7,
+                "cone_rtol": 1.e-7,
+                "cone_max_it": 100,
+                "scaling": 0.1,
+                }
 # parameters["cone"]["atol"] = 1e-7
 
 parameters["model"]["model_dimension"] = 1
@@ -672,7 +751,7 @@ check_stability = []
 
 logging.basicConfig(level=logging.INFO)
 
-__import__('pdb').set_trace()
+# __import__('pdb').set_trace()
 
 for i_t, t in enumerate(loads):
     u_.interpolate(lambda x: t * np.ones_like(x[0]))
@@ -700,7 +779,7 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"State's inertia: {inertia}")
     ColorPrint.print_bold(f"State is stable: {is_stable}")
 
-    # cone._solve(alpha_lb, n_eigenvalues)
+    cone._solve(alpha_lb)
 
     fracture_energy = comm.allreduce(
         assemble_scalar(form(damage_energy_density(state) * dx)),
