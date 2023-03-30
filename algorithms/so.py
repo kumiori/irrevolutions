@@ -128,6 +128,10 @@ class StabilitySolver:
             ),
         ]
         self.F = dolfinx.fem.form(self.F_)
+        
+        # Is the current state critical? 
+        self._critical = False
+
         self.bcs = bcs["bcs_u"] + bcs["bcs_alpha"]
         pass
 
@@ -185,6 +189,21 @@ class StabilitySolver:
         dofs_u_all = np.arange(V_u_size, dtype=np.int32)
         dofs_alpha_inactive = np.array(list(idx_alpha_local), dtype=np.int32)
 
+        if len(dofs_alpha_inactive) > 0:
+            self._critical = True
+        else:
+            self._critical = False
+        
+        logging.critical(
+            f"rank {comm.rank}) Current state is critical? {self._critical}"
+        )
+        if self._critical:
+            logging.critical(
+                f"rank {comm.rank})     > The cone is open 🍦"
+            )
+
+        # F.view()
+
         restricted_dofs = [dofs_u_all, dofs_alpha_inactive]
 
         localSize = F.getLocalSize()
@@ -207,6 +226,12 @@ class StabilitySolver:
         st.setType("sinvert")
         st.setShift(-1.0e-3)
 
+        eigen.eps.setTolerances(
+            self.parameters["eigen"]["eig_rtol"], 
+            self.parameters["eigen"]["eps_max_it"]
+            )
+
+        eigen.eps.setDimensions(self.parameters["maxmodes"], PETSc.DECIDE)
         eigen.eps.setFromOptions()
         # eigen.eps.view()
 
@@ -311,7 +336,7 @@ class StabilitySolver:
     def postproc_eigs(self, eigs, eigen):
         pass
 
-    def solve(self, alpha_old: dolfinx.fem.function.Function, neig=None):
+    def solve(self, alpha_old: dolfinx.fem.function.Function):
 
         self.data = {
             "stable": [],
@@ -339,13 +364,11 @@ class StabilitySolver:
         # save an instance
         self.eigen = eigen
 
-        
-        if neig is not None:
-            eigen.eps.setDimensions(neig, PETSc.DECIDE)
-
         eigen.solve()
 
         nev, ncv, mpd = eigen.eps.getDimensions()
+        neig = self.parameters["maxmodes"]
+
         if neig is not None:
             neig_out = min(eigen.eps.getConverged(), neig)
         else:
@@ -424,7 +447,7 @@ class StabilitySolver:
         perturbations_beta = [spectrum[i]["beta"] for i in range(neig_out)]
         # based on eigenvalue
         stable = np.min(eigs) > float(self.parameters.get("eigen").get("eps_tol"))
-
+        
         self.data = {
             "eigs": eigs,
             "perturbations_beta": perturbations_beta,
