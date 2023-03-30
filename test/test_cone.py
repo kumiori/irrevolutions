@@ -39,7 +39,7 @@ import logging
 from dolfinx.common import Timer, list_timings, TimingType
 
 sys.path.append("../")
-from algorithms.so import StabilitySolver
+from algorithms.so import StabilitySolver, ConeSolver
 from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
@@ -66,186 +66,6 @@ load: displacement hard-t
 
 from solvers.function import functions_to_vec
 logging.getLogger().setLevel(logging.CRITICAL)
-
-class ConeSolver(StabilitySolver):
-    """Base class for a minimal implementation of the solution of eigenvalue
-    problems bound to a cone. Based on numerical recipe SPA and KR existence result
-    Thanks Yves and Luc."""
-
-    def __init__(
-        self,
-        energy: ufl.form.Form,
-        state: dict,
-        bcs: list,
-        nullspace=None,
-        cone_parameters=None,
-    ):
-        super(ConeSolver, self).__init__(
-            energy,
-            state,
-            bcs,
-            nullspace,
-            stability_parameters=cone_parameters,
-
-    )
-
-    def _solve(self, alpha_old: dolfinx.fem.function.Function, neig=None):
-        """Recursively solves (until convergence) the abstract eigenproblem
-        K \ni x \perp y := Ax - \lambda B x \in K^*
-        based on the SPA recipe, cf. ...
-        """
-        _s = 0.1
-        self.iterations = 0
-        errors = []
-        stable = self.solve(alpha_old, neig)
-        
-        # The cone is non-trivial, aka non-empty
-        # only if the state is irreversibly damage-critical
-
-        if self._critical:
-
-            # loop
-            # __import__('pdb').set_trace()
-
-            _x = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _y = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _Bx = dolfinx.fem.petsc.create_vector_block(self.F)        
-            self._xold = dolfinx.fem.petsc.create_vector_block(self.F)    
-            
-            # Map current solution into vector _x
-            functions_to_vec(self.Kspectrum[0].get("xk"), _x)
-    
-            while not self.loop(_x):
-                
-                errors.append(self.error)
-                # make it admissible: map into the cone
-                # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
-                
-                self._cone_project(_x)
-
-                # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
-                # K_t spectrum:
-                # compute {lambdat, xt, yt}
-
-                if self.eigen.restriction is not None:
-                    _A = self.eigen.rA
-                    _B = self.eigen.rB
-
-                    _x = self.eigen.restriction.restrict_vector(_x)
-                    _y = self.eigen.restriction.restrict_vector(_y)
-                    _Ax = self.eigen.restriction.restrict_vector(_Ax)
-                    _Bx = self.eigen.restriction.restrict_vector(_Bx)
-                else:
-                    _A = self.eigen.A
-                    _B = self.eigen.B
-
-                _A.mult(_x, _Ax)
-                xAx = _x.dot(_Ax)
-
-                # compute: lmbda_t
-                if not self.eigen.empty_B():
-                    _B.mult(_x, _Bx)
-                    xBx = _x.dot(_Bx)
-                    _lmbda_t = xAx/xBx
-                else:
-                    logging.critical("B = Id")
-                    _Bx = _x
-                    _lmbda_t = xAx / _x.dot(_x)
-
-                # compute: y_t = _Ax - _lmbda_t * _Bx
-                _y.waxpy(-_lmbda_t, _Bx, _Ax)
-
-                # construct perturbation
-                # _v = _x - _s*y_t
-
-                _x.copy(self._xold)
-                _x.axpy(-_s, _y)
-                
-                # project onto cone
-                self._cone_project(_x)
-                
-                # L2-normalise
-                n2 = _x.normalize()
-                # _x.view()
-                # iterate
-                # x_i+1 = _v 
-
-            logging.critical(f"Convergence of SPA algorithm with s={_s}")
-            print(errors)
-            logging.critical(f"eigenfunction is in cone? {self._isin_cone(_x)}")
-        
-        return stable
-    
-    def convergenceTest(self, x):
-        """Test convergence of current iterate x against 
-        prior"""
-        _atol = self.parameters.get("eigen").get("eps_tol")
-        _maxit = self.parameters.get("eigen").get("eps_max_it")
-
-        if self.iterations == _maxit:
-            raise RuntimeError(f'SPA solver did not converge within {_maxit} iterations. Aborting')
-            # return False        
-        # xdiff = -x + x_old
-        diff = x.duplicate()
-        diff.zeroEntries()
-
-        diff.waxpy(-1., self._xold, x)
-
-        error_alpha_L2 = diff.norm()
-        self.error = error_alpha_L2
-        logging.critical(f"error_alpha_L2? {error_alpha_L2}")
-
-        if error_alpha_L2 < _atol:
-            return True
-        elif self.iterations == 0 or error_alpha_L2 >= _atol:
-            return False
-
-    # v = mode[i].get("xk") for mode in self.spectrum
-    def loop(self, x):
-        # its = self.iterations
-        reason = self.convergenceTest(x)
-        
-        # update xold
-        # x.copy(self._xold)
-        # x.vector.ghostUpdate(
-        #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        # )
-
-        if not reason:
-            self.iterations += 1
-
-        return reason
-
-    def _isin_cone(self, x):
-        """Is in the zone IFF x is in the cone"""
-
-        # get the subvector associated to damage dofs with inactive constraints 
-        _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
-        _is = PETSc.IS().createGeneral(_dofs)
-        _sub = x.getSubVector(_is)
-
-        return (_sub.array >= 0).all()
-        
-    def _cone_project(self, v):
-        """Projection vector into the cone
-
-            takes arguments:
-            - v: vector in a mixed space
-
-            returns
-        """
-        
-        # get the subvector associated to damage dofs with inactive constraints 
-        _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
-        _is = PETSc.IS().createGeneral(_dofs)
-        _sub = v.getSubVector(_is)
-        zero = _sub.duplicate()
-        zero.zeroEntries()
-
-        _sub.pointwiseMax(_sub, zero)
-        v.restoreSubVector(_is, _sub)
-        return
 
 class _AlternateMinimisation:
     def __init__(self,
@@ -417,7 +237,7 @@ model_rank = 0
 with open("parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-parameters["cone"] = ""
+# parameters["stability"]["cone"] = ""
 # parameters["cone"]["atol"] = 1e-7
 
 parameters["model"]["model_dimension"] = 1
@@ -449,7 +269,7 @@ _N = parameters["model"]["N"]
 mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
 outdir = "output"
-prefix = os.path.join(outdir, "test_cone")
+prefix = os.path.join(outdir, f"test_cone-N{parameters['model']['N']}")
 
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
@@ -664,15 +484,14 @@ history_data = {
     "total_energy": [],
     "solver_data": [],
     "eigs": [],
-    "stable": [],
+    "cone-stable": [],
+    "non-bifurcation": [],
     "F": [],
 }
 
 check_stability = []
 
 logging.basicConfig(level=logging.INFO)
-
-__import__('pdb').set_trace()
 
 for i_t, t in enumerate(loads):
     u_.interpolate(lambda x: t * np.ones_like(x[0]))
@@ -700,7 +519,7 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"State's inertia: {inertia}")
     ColorPrint.print_bold(f"State is stable: {is_stable}")
 
-    # cone._solve(alpha_lb, n_eigenvalues)
+    stable = cone._solve(alpha_lb)
 
     fracture_energy = comm.allreduce(
         assemble_scalar(form(damage_energy_density(state) * dx)),
@@ -718,7 +537,8 @@ for i_t, t in enumerate(loads):
     history_data["total_energy"].append(elastic_energy+fracture_energy)
     history_data["solver_data"].append(solver.data)
     history_data["eigs"].append(stability.data["eigs"])
-    history_data["stable"].append(stability.data["stable"])
+    history_data["non-bifurcation"].append(not stability.data["stable"])
+    history_data["cone-stable"].append(stable)
     history_data["F"].append(_F)
     
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
@@ -732,8 +552,6 @@ for i_t, t in enumerate(loads):
 
 list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 # print(history_data)
-
-
 
 df = pd.DataFrame(history_data)
 print(df)
