@@ -54,13 +54,12 @@ from utils import norm_H1, norm_L2
 sys.path.append("../")
 
 
-"""Discrete endommageable springs in series
-        1         2        i        k
-0|----[WWW]--*--[WWW]--*--...--*--{WWW} |========> t
-u_0         u_1       u_2     u_i      u_k
+"""Traction endommageable bar
+
+0|WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW|========> t
 
 
-[WWW]: endommageable spring, alpha_i
+[WWW]: endommageable bar, alpha
 load: displacement hard-t
 
 """
@@ -95,13 +94,13 @@ class ConeSolver(StabilitySolver):
         K \ni x \perp y := Ax - \lambda B x \in K^*
         based on the SPA recipe, cf. ...
         """
-        _s = 0.1
+        _s = float(self.parameters.get("cone").get("scaling"))
         self.iterations = 0
         errors = []
         self.stable = True
         stable = self.solve(alpha_old)
         self.data = {
-            "iteration": [],
+            "iterations": [],
             "error_x_L2": [],
             "lambda_k": [],
             "y_norm_L2": [],
@@ -113,6 +112,8 @@ class ConeSolver(StabilitySolver):
         # only if the state is irreversibly damage-critical
 
         if self._critical:
+            errors.append(1)
+            self.data["y_norm_L2"].append(1)
 
             # loop
 
@@ -131,6 +132,7 @@ class ConeSolver(StabilitySolver):
         
                 while not self.loop(_x):
                     errors.append(self.error)
+
                     # make it admissible: map into the cone
                     # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
                     
@@ -187,15 +189,15 @@ class ConeSolver(StabilitySolver):
                     self.data["y_norm_L2"].append(_y.norm())
                     
             logging.critical(f"Convergence of SPA algorithm with s={_s}")
-            print(errors)
+            # print(errors)
             logging.critical(f"Eigenfunction is in cone? {self._isin_cone(_x)}")
             
             self.data["iterations"] = self.iterations
             self.data["error_x_L2"] = errors
 
-            if (self._isin_cone(_x)):
+            # if (self._isin_cone(_x)):
                 # bifurcating out of existence, not out of a numerical test
-            # if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_atol"))):
+            if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_atol"))):
                 stable = bool(False)
         return bool(stable)
     
@@ -219,11 +221,11 @@ class ConeSolver(StabilitySolver):
 
         error_x_L2 = diff.norm()
         self.error = error_x_L2
-        logging.debug(f"error_x_L2? {error_x_L2}")
+        logging.critical(f"error_x_L2 = {error_x_L2}")
 
-        self.data["iteration"].append(self.iterations)
-        self.data["error_x_L2"].append(error_x_L2)
-        print(error_x_L2)
+        # self.data["iterations"].append(self.iterations)
+        # self.data["error_x_L2"].append(error_x_L2)
+
         if error_x_L2 < _atol:
             self._converged = True
             return True
@@ -265,16 +267,17 @@ class ConeSolver(StabilitySolver):
 
             returns
         """
-        
-        # get the subvector associated to damage dofs with inactive constraints 
-        _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
-        _is = PETSc.IS().createGeneral(_dofs)
-        _sub = v.getSubVector(_is)
-        zero = _sub.duplicate()
-        zero.zeroEntries()
+        with dolfinx.common.Timer(f"~Second Order: Cone Project"):
+            
+            # get the subvector associated to damage dofs with inactive constraints 
+            _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
+            _is = PETSc.IS().createGeneral(_dofs)
+            _sub = v.getSubVector(_is)
+            zero = _sub.duplicate()
+            zero.zeroEntries()
 
-        _sub.pointwiseMax(_sub, zero)
-        v.restoreSubVector(_is, _sub)
+            _sub.pointwiseMax(_sub, zero)
+            v.restoreSubVector(_is, _sub)
         return
 
 petsc4py.init(sys.argv)
@@ -286,8 +289,8 @@ model_rank = 0
 with open("../test/parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-parameters["cone"] = ""
-# parameters["cone"]["atol"] = 1e-7
+# parameters["cone"] = ""
+parameters["stability"]["cone"]["scaling"] = .1
 
 parameters["model"]["model_dimension"] = 2
 parameters["model"]["model_type"] = '1D'
@@ -295,9 +298,10 @@ parameters["model"]["w1"] = 1
 parameters["model"]["ell"] = .3
 parameters["model"]["k_res"] = 1e-8
 parameters["loading"]["max"] = 1.8
-parameters["loading"]["steps"] = 10
+parameters["loading"]["steps"] = 30
 
 parameters["geometry"]["geom_type"] = "traction-bar"
+parameters["geometry"]["ell_lc"] = 4
 # Get mesh parameters
 Lx = parameters["geometry"]["Lx"]
 Ly = parameters["geometry"]["Ly"]
@@ -317,8 +321,8 @@ prefix = os.path.join(outdir, "traction_cone")
 
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
-
-gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, parameters["geometry"]["lc"], tdim)
+_lc = ell_ / parameters["geometry"]["ell_lc"] 
+gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
 
 # Get mesh and meshtags
 mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
