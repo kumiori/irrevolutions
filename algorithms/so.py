@@ -149,7 +149,7 @@ class StabilitySolver:
         comm.Allreduce(coef, coeff_glob, op=MPI.MAX)
 
         elastic = not np.isclose(coeff_glob, 0.0, atol=etol)
-
+        logging.critical(f'is_elastic coeff_glob = {coeff_glob}')
         return elastic
 
     def is_stable(self) -> bool:
@@ -196,7 +196,7 @@ class StabilitySolver:
             self._critical = False
         
         logging.critical(
-            f"rank {comm.rank}) Current state is critical? {self._critical}"
+            f"rank {comm.rank}) Current state is damage-critical? {self._critical}"
         )
         if self._critical:
             logging.critical(
@@ -512,6 +512,7 @@ class ConeSolver(StabilitySolver):
             "iterations": [],
             "error_x_L2": [],
             "lambda_k": [],
+            "lambda_0": [],
             "y_norm_L2": [],
         }
         
@@ -597,17 +598,22 @@ class ConeSolver(StabilitySolver):
                     self.data["lambda_k"].append(_lmbda_t)
                     self.data["y_norm_L2"].append(_y.norm())
                     
-            logging.critical(f"Convergence of SPA algorithm with s={_s}")
+            logging.critical(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
             # print(errors)
             logging.critical(f"Eigenfunction is in cone? {self._isin_cone(_x)}")
             
             self.data["iterations"] = self.iterations
             self.data["error_x_L2"] = errors
+            self.data["lambda_0"] = _lmbda_t
 
             # if (self._isin_cone(_x)):
                 # bifurcating out of existence, not out of a numerical test
+            # logging.critical(_lmbda_t)
             if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_atol"))):
                 stable = bool(False)
+                # __import__('pdb').set_trace()
+            else:
+                stable = bool(True)
         return bool(stable)
     
     def convergenceTest(self, x):
@@ -630,7 +636,7 @@ class ConeSolver(StabilitySolver):
 
         error_x_L2 = diff.norm()
         self.error = error_x_L2
-        logging.critical(f"error_x_L2 = {error_x_L2}")
+        # logging.critical(f"error_x_L2 = {error_x_L2}")
 
         # self.data["iterations"].append(self.iterations)
         # self.data["error_x_L2"].append(error_x_L2)
