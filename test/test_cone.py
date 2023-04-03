@@ -243,12 +243,12 @@ with open("parameters.yml") as f:
 parameters["model"]["model_dimension"] = 1
 parameters["model"]["model_type"] = '1D'
 parameters["model"]["mu"] = 1
-parameters["model"]["w1"] = 1
+parameters["model"]["w1"] = 100
 parameters["model"]["k_res"] = 1e-4
 parameters["model"]["k"] = 3
-parameters["model"]["N"] = 3
+parameters["model"]["N"] = 2
 parameters["loading"]["max"] = 1.8
-parameters["loading"]["steps"] = 10
+parameters["loading"]["steps"] = 30
 
 parameters["geometry"]["geom_type"] = "discrete-damageable"
 # Get mesh parameters
@@ -394,18 +394,18 @@ def w(alpha):
     return alpha
 
 
-def elastic_energy_density(state):
-    """
-    Returns the elastic energy density from the state.
-    """
-    # Parameters
-    alpha = state["alpha"]
-    u = state["u"]
-    eps = ufl.grad(u)
+# def elastic_energy_density(state):
+#     """
+#     Returns the elastic energy density from the state.
+#     """
+#     # Parameters
+#     alpha = state["alpha"]
+#     u = state["u"]
+#     eps = ufl.grad(u)
 
-    _mu = parameters["model"]['mu']
-    energy_density = a(alpha) * _mu * ufl.inner(eps, eps)
-    return energy_density
+#     _mu = parameters["model"]['mu']
+#     energy_density = a(alpha) * _mu * ufl.inner(eps, eps)
+#     return energy_density
 
 
 def elastic_energy_density_atk(state):
@@ -418,7 +418,7 @@ def elastic_energy_density_atk(state):
     eps = ufl.grad(u)
 
     _mu = parameters["model"]['mu']
-    energy_density = a_atk(alpha) * _mu * ufl.inner(eps, eps)
+    energy_density = _mu / 2. * a_atk(alpha) * ufl.inner(eps, eps)
     return energy_density
 
 
@@ -483,10 +483,13 @@ history_data = {
     "fracture_energy": [],
     "total_energy": [],
     "solver_data": [],
+    "cone_data": [],
     "eigs": [],
     "cone-stable": [],
     "non-bifurcation": [],
     "F": [],
+    "alpha_t": [],
+    "u_t": [],
 }
 
 check_stability = []
@@ -526,7 +529,7 @@ for i_t, t in enumerate(loads):
         op=MPI.SUM,
     )
     elastic_energy = comm.allreduce(
-        assemble_scalar(form(elastic_energy_density(state) * dx)),
+        assemble_scalar(form(elastic_energy_density_atk(state) * dx)),
         op=MPI.SUM,
     )
     _F = assemble_scalar( form(stress(state)) )
@@ -536,11 +539,17 @@ for i_t, t in enumerate(loads):
     history_data["elastic_energy"].append(elastic_energy)
     history_data["total_energy"].append(elastic_energy+fracture_energy)
     history_data["solver_data"].append(solver.data)
+    history_data["cone_data"].append(cone.data)
     history_data["eigs"].append(stability.data["eigs"])
     history_data["non-bifurcation"].append(not stability.data["stable"])
     history_data["cone-stable"].append(stable)
     history_data["F"].append(_F)
+    history_data["alpha_t"].append(state["alpha"].vector.array.tolist())
+    history_data["u_t"].append(state["u"].vector.array.tolist())
     
+    logging.critical(f"u_t {u.vector.array}")
+    logging.critical(f"u_t norm {state['u'].vector.norm()}")
+
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)
         file.write_function(alpha, t)

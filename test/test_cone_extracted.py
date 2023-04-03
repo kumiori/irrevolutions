@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-from test_discreteDamage import ConeSolver
-from solvers.function import functions_to_vec
-from utils.plots import plot_energies
-from utils import ColorPrint, norm_H1, norm_L2
-from solvers import SNESSolver
-from meshes.primitives import mesh_bar_gmshapi
-from algorithms.so import StabilitySolver
 import json
 import logging
 import os
@@ -13,23 +6,15 @@ import pdb
 import sys
 from pathlib import Path
 
-from pip import main
-
 import dolfinx
 import dolfinx.mesh
 import dolfinx.plot
 import numpy as np
 import pandas as pd
-import petsc4py
-import ufl
 import yaml
-from dolfinx import log
 from dolfinx.common import Timer, TimingType, list_timings
-from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
-                         dirichletbc, form, locate_dofs_geometrical, set_bc)
-from dolfinx.fem.petsc import assemble_vector, set_bc
-from dolfinx.io import XDMFFile, gmshio
-from dolfinx.mesh import CellType
+from dolfinx.fem import (assemble_scalar, form)
+from dolfinx.io import XDMFFile
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
 
@@ -37,8 +22,8 @@ from petsc4py import PETSc
 from sympy import derive_by_array
 
 sys.path.append("../")
+from utils import ColorPrint
 
-sys.path.append("../")
 
 
 """Discrete endommageable springs in series
@@ -56,7 +41,7 @@ load: displacement hard-t
 logging.getLogger().setLevel(logging.CRITICAL)
 
 
-class ConstrainedProblem:
+class ConstrainedEvolution:
     """A Problem, solved.
         We consider the following problem:
         ...
@@ -65,11 +50,152 @@ class ConstrainedProblem:
     # has: context and solver(s)
 
 
-def main(custom_parameters):
+def setup(custom_parameters):
+    """docstring for setup"""
     
-    from test_discreteDamage import mesh, solver, stability, history_data, loads, stress
-    from test_discreteDamage import state, u_, bounds
-    from test_discreteDamage import damage_energy_density, elastic_energy_density, dx
+    from dolfinx.fem.FunctionSpace import Function
+    import ufl
+
+    with open("parameters.yml") as f:
+        parameters = yaml.load(f, Loader=yaml.FullLoader)
+
+    parameters["cone"] = ""
+    # parameters["cone"]["atol"] = 1e-7
+
+    parameters["model"]["model_dimension"] = 1
+    parameters["model"]["model_type"] = '1D'
+    parameters["model"]["mu"] = 1
+    parameters["model"]["w1"] = 1
+    parameters["model"]["k_res"] = 1e-4
+    parameters["model"]["k"] = 3
+    parameters["model"]["N"] = 3
+    parameters["loading"]["min"] = .5
+    parameters["loading"]["max"] = 2
+    parameters["loading"]["steps"] = 50
+    parameters["geometry"]["geom_type"] = "discrete-damageable"
+
+    # Get mesh parameters
+    Lx = parameters["geometry"]["Lx"]
+    Ly = parameters["geometry"]["Ly"]
+    tdim = parameters["geometry"]["geometric_dimension"]
+
+    _nameExp = parameters["geometry"]["geom_type"]
+    ell_ = parameters["model"]["ell"]
+    # lc = ell_ / 5.0
+
+    # Get geometry model
+    geom_type = parameters["geometry"]["geom_type"]
+    _N = parameters["model"]["N"]
+
+
+    # Create the mesh of the specimen with given dimensions
+    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
+
+    outdir = "output"
+    prefix = os.path.join(outdir, "test_cone")
+
+    if comm.rank == 0:
+        Path(prefix).mkdir(parents=True, exist_ok=True)
+
+    import hashlib
+    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+
+    if comm.rank == 0:
+        with open(f"{prefix}/parameters.yaml", 'w') as file:
+            yaml.dump(parameters, file)
+
+    if comm.rank == 0:
+        with open(f"{prefix}/signature.md5", 'w') as f:
+            f.write(signature)
+
+    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+        file.write_mesh(mesh)
+
+    # Functional Setting
+
+    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
+                                degree=1)
+
+    element_alpha = ufl.FiniteElement("DG", mesh.ufl_cell(),
+                                    degree=0)
+
+    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
+    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+
+    u = dolfinx.fem.Function(V_u, name="Displacement")
+    u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
+
+
+    alpha = dolfinx.fem.Function(V_alpha, name="Damage")
+
+    # Pack state
+    state = {"u": u, "alpha": alpha}
+
+    # Bounds
+    alpha_ub = dolfinx.fem.Function(V_alpha, name="UpperBoundDamage")
+    alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
+
+    dx = ufl.Measure("dx", domain=mesh)
+    ds = ufl.Measure("ds", domain=mesh)
+
+    # Useful references
+    Lx = parameters.get("geometry").get("Lx")
+
+    # Define the state
+    u = Function(V_u, name="Unknown")
+    u_ = Function(V_u, name="Boundary Unknown")
+    zero_u = Function(V_u, name="Boundary Unknown")
+
+    # Measures
+    dx = ufl.Measure("dx", domain=mesh)
+    ds = ufl.Measure("ds", domain=mesh)
+
+    # Boundary sets
+
+
+    dofs_alpha_left = locate_dofs_geometrical(
+        V_alpha, lambda x: np.isclose(x[0], 0.))
+    dofs_alpha_right = locate_dofs_geometrical(
+        V_alpha, lambda x: np.isclose(x[0], Lx))
+
+    dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.))
+    dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
+
+    # Boundary data
+
+    u_.interpolate(lambda x: np.ones_like(x[0]))
+
+    # Bounds (nontrivial)
+
+    alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
+    alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
+
+    # Set Bcs Function
+    zero_u.interpolate(lambda x: np.zeros_like(x[0]))
+    u_.interpolate(lambda x: np.ones_like(x[0]))
+
+    for f in [zero_u, u_, alpha_lb, alpha_ub]:
+        f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
+                            mode=PETSc.ScatterMode.FORWARD)
+
+    bc_u_left = dirichletbc(
+        np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u)
+
+    bc_u_right = dirichletbc(
+        u_, dofs_u_right)
+    bcs_u = [bc_u_left, bc_u_right]
+
+    bcs_alpha = []
+
+    bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
+    # Define the model
+
+    bounds={"lb": alpha_lb, "ub": alpha_ub}
+
+    # Material behaviour
+    return
+
+def main(custom_parameters):
 
     print("")
     
@@ -80,6 +206,13 @@ def main(custom_parameters):
     print("")
     with open("parameters.yml") as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
+
+    # solvers, cts = ConstrainedEvolution(parameters)
+    #  
+    from test_discreteDamage import mesh, solver, stability, history_data, loads, stress
+    from test_discreteDamage import state, u_, bounds
+    from test_discreteDamage import damage_energy_density, elastic_energy_density, dx
+
 
     _nameExp = parameters["geometry"]["geom_type"]
 
@@ -132,7 +265,7 @@ def main(custom_parameters):
 
         maxmodes = parameters["stability"]["cone"]["maxmodes"]
 
-        is_stable = stability.solve(alpha_lb, maxmodes)
+        is_stable = stability.solve(alpha_lb)
         is_elastic = stability.is_elastic()
         inertia = stability.get_inertia()
         # stability.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
@@ -214,5 +347,7 @@ if __name__ == "__main__":
                 }
         }
     }
-    # print(flatten(_parameters))
+
+    setup(custom_parameters)
+
     main(custom_parameters)
