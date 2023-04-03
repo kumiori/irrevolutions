@@ -104,7 +104,6 @@ class ConeSolver(StabilitySolver):
         # only if the state is irreversibly damage-critical
 
         if self._critical:
-            __import__('pdb').set_trace()
             
             # loop
             _x = dolfinx.fem.petsc.create_vector_block(self.F)        
@@ -134,9 +133,9 @@ class ConeSolver(StabilitySolver):
 
                 alpha_dofs = self.eigen.restriction.bglobal_dofs_vec[1]
                 logging.critical(f"> mode {self.Kspectrum[0]['n']:2d}")
-                logging.critical(f"original eigenvector, full: {_x.array}")
-                logging.critical(f"original eigenvector, alpha dofs: {_x.array[alpha_dofs]}")
-                logging.critical(f"original eigenvector, is in cone 🍦? {self._isin_cone(_x)}")
+                logging.critical(f"iterating eigenvector, full: {_x.array}")
+                logging.critical(f"iterating eigenvector, alpha dofs: {_x.array[alpha_dofs]}")
+                logging.critical(f"iterating eigenvector, is in cone 🍦? {self._isin_cone(_x)}")
 
                 logging.critical(f"original eigenvalue {self.Kspectrum[0]['lambda']:.3f}")
                 
@@ -267,7 +266,7 @@ class ConeSolver(StabilitySolver):
 
         error_alpha_L2 = diff.norm()
         self.error = error_alpha_L2
-        logging.critical(f"error_alpha_L2? {error_alpha_L2}")
+        logging.critical(f"error_alpha_L2? {error_alpha_L2:.2e}")
 
         if error_alpha_L2 < _atol:
             return True
@@ -492,8 +491,8 @@ with open("parameters.yml") as f:
 
 parameters["stability"]["cone"] = {            
                 "maxmodes": 3,
-                "cone_atol": 1.e-7,
-                "cone_rtol": 1.e-7,
+                "cone_atol": 1.e-5,
+                "cone_rtol": 1.e-5,
                 "cone_max_it": 100,
                 "scaling": 0.1,
                 }
