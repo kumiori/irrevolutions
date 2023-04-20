@@ -478,6 +478,7 @@ def discrete_atk(arg_N=2):
 
     # Pack state
     state = {"u": u, "alpha": alpha}
+    z = [u, alpha]
 
     # Bounds
     alpha_ub = dolfinx.fem.Function(V_alpha, name="UpperBoundDamage")
