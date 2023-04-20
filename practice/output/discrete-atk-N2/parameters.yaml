@@ -6,9 +6,9 @@ geometry:
   geometric_dimension: 2
   lc: 0.02
 loading:
-  max: 2.0
+  max: 3
   min: 0
-  steps: 30
+  steps: 100
 material:
   E: 1.0
   ell: 0.1
