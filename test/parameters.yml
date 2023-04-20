@@ -76,6 +76,15 @@ solvers:
         alpha_rtol: 1.0e-5
         criterion: "alpha_H1"
 
+    newton:
+        snes_type: "vinewtonrsls"
+        snes_linesearch_type: "basic"
+        snes_rtol: 1.0e-8
+        snes_atol: 1.0e-8
+        snes_max_it: 30
+        snes_monitor: ""
+        linesearch_damping: 0.5
+
 stability:
     order: 3
     maxmodes: 3
