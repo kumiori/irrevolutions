@@ -315,7 +315,6 @@ class HybridFractureSolver(_AlternateMinimisation):
         self.newton.snes.setFromOptions()
 
     def compute_bounds(self, v, alpha_lb):
-        __import__('pdb').set_trace()
         lb = dolfinx.fem.create_vector_nest(v)
         ub = dolfinx.fem.create_vector_nest(v)
 
@@ -361,7 +360,9 @@ class HybridFractureSolver(_AlternateMinimisation):
 
     def solve(self, outdir=None):
         # Perform AM as customary
-        super().solve(outdir)
+        with dolfinx.common.Timer("~Alternate Minimization : AM* solver"):
+            super().solve(outdir)
+        
         self.newton_data = {
             "iteration": [],
             "residual_Fnorm": [],
@@ -369,11 +370,12 @@ class HybridFractureSolver(_AlternateMinimisation):
         }
         # update bounds and perform Newton step
         # lb, ub = self.compute_bounds(self.newton.F_form, self.alpha)
-        functions_to_vec([self.u_lb, self.alpha_lb], self.lb)
+        with dolfinx.common.Timer("~Alternate Minimization : Hybrid solver"):
+            functions_to_vec([self.u_lb, self.alpha_lb], self.lb)
 
-        self.newton.snes.setVariableBounds(self.lb, self.ub)
-        
-        self.newton.solve(u_init=[self.u, self.alpha])
+            self.newton.snes.setVariableBounds(self.lb, self.ub)
+            
+            self.newton.solve(u_init=[self.u, self.alpha])
 
         self.newton_data["iteration"].append(self.newton.snes.getIterationNumber() + 1)
         self.newton_data["residual_Fnorm"].append(self.newton.snes.getFunctionNorm())
@@ -400,13 +402,13 @@ def discrete_atk(arg_N=2):
     parameters["model"]["model_dimension"] = 1
     parameters["model"]["model_type"] = '1D'
     parameters["model"]["mu"] = 1
-    parameters["model"]["w1"] = 1
-    parameters["model"]["k_res"] = 1e-4
-    parameters["model"]["k"] = 3
+    parameters["model"]["w1"] = 2
+    parameters["model"]["k_res"] = 0
+    parameters["model"]["k"] = 4
     parameters["model"]["N"] = arg_N
     # parameters["loading"]["max"] = 2.
     parameters["loading"]["max"] = parameters["model"]["k"] 
-    parameters["loading"]["steps"] = 15
+    parameters["loading"]["steps"] = 50
 
     parameters["geometry"]["geom_type"] = "discrete-damageable"
     # Get mesh parameters
@@ -660,6 +662,7 @@ def discrete_atk(arg_N=2):
         "u_t": [],
         "alphadot_norm" : [],
         "rate_12_norm" : [], 
+        "unscaled_rate_12_norm" : [], 
     }
 
     check_stability = []
@@ -682,8 +685,6 @@ def discrete_atk(arg_N=2):
 
         logging.critical(f"-- Solving for t = {t:3.2f} --")
 
-        __import__('pdb').set_trace()
-
         solver.solve()
 
         ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
@@ -699,17 +700,19 @@ def discrete_atk(arg_N=2):
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
-        logging.info(f"alpha vector norm: {alpha.vector.norm()}")
-        logging.info(f"alpha lb norm: {alpha_lb.vector.norm()}")
-        logging.info(f"alphadot norm: {alphadot.vector.norm()}")
-        logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
-
-        rate_12_norm = np.sqrt(comm.allreduce(
-            dolfinx.fem.assemble_scalar(
-                hybrid.scaled_rate_norm(alpha, parameters))
-                , op=MPI.SUM))
+        logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
+        logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
+        logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
+        logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+        # rate_12_norm = np.sqrt(comm.allreduce(
+        #     dolfinx.fem.assemble_scalar(
+        #         hybrid.scaled_rate_norm(alpha, parameters))
+        #         , op=MPI.SUM))
         
-        logging.info(f"rate scaled alpha_12 norm: {rate_12_norm}")
+        rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
+        urate_12_norm = hybrid.unscaled_rate_norm(alpha)
+        logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
+        logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
 
         ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
@@ -754,10 +757,10 @@ def discrete_atk(arg_N=2):
         history_data["F"].append(_F)
         history_data["alpha_t"].append(state["alpha"].vector.array.tolist())
         history_data["u_t"].append(state["u"].vector.array.tolist())
-        history_data["alphadot_norm"] = alphadot.vector.norm()
-        history_data["rate_12_norm"] = rate_12_norm
+        history_data["alphadot_norm"].append(alphadot.vector.norm())
+        history_data["rate_12_norm"].append(rate_12_norm)
+        history_data["unscaled_rate_12_norm"].append(urate_12_norm)
 
-        
         logging.critical(f"u_t {u.vector.array}")
         logging.critical(f"u_t norm {state['u'].vector.norm()}")
 
@@ -770,12 +773,18 @@ def discrete_atk(arg_N=2):
             json.dump(history_data, a_file)
             a_file.close()
 
+        logging.critical(f"-- Solved, processed, and saved for t = {t:3.2f} --")
+        print("           .")
+        print("          ..")
+        print("           ...")
+        print("           ......")
+        print("         ............")
+
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
     # print(history_data)
 
     df = pd.DataFrame(history_data)
     print(df)
-
 
     return history_data, prefix, _nameExp
 
@@ -804,13 +813,17 @@ if __name__ == "__main__":
     args = parser.parse_args()
     # print()
 
-    # __import__('pdb').set_trace()
     history_data, prefix, name = discrete_atk(args.N)
 
     logging.info(f'Output in {prefix}')
 
+    if comm.rank == 0:
+        a_file = open(f"{prefix}/time_data.json", "w")
+        json.dump(history_data, a_file)
+        a_file.close()
+
     postprocess(history_data, prefix, name)
 
-    logging.info(f'Output in {prefix}')
+    logging.critical(f'Output in {prefix}')
 else:
    print("File executed when imported")
