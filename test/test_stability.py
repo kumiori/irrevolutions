@@ -226,7 +226,7 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"State is stable: {is_stable}")
 
     dissipated_energy = comm.allreduce(
-        assemble_scalar(form(model.damage_dissipation_density(state) * dx)),
+        assemble_scalar(form(model.damage_energy_density(state) * dx)),
         op=MPI.SUM,
     )
     elastic_energy = comm.allreduce(

@@ -69,7 +69,7 @@ Ly = parameters["geometry"]["Ly"]
 tdim = parameters["geometry"]["geometric_dimension"]
 _nameExp = parameters["geometry"]["geom_type"]
 ell_ = parameters["model"]["ell"]
-lc = ell_ / 3.0
+lc = ell_ / 5.0
 
 
 # Get geometry model
@@ -87,13 +87,6 @@ prefix = os.path.join(outdir, "banquise1d")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
-# check = parameters["solvers"]["damage_elasticity"]["check"]
-# if check:
-#     check_load = parameters["solvers"]["damage_elasticity"]["check_load"]
-#     out_subdir = f"{outdir}/fields_check"
-#     if comm.rank == 0:
-#         Path(out_subdir).mkdir(parents=True, exist_ok=True)
-
 with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
     file.write_mesh(mesh)
 
@@ -106,9 +99,10 @@ V_alpha = FunctionSpace(mesh, element_alpha)
 
 # Define the state
 u = Function(V_u, name="Displacement")
+alpha = Function(V_alpha, name="Damage")
+
 u_ = Function(V_u, name="Boundary Displacement")
 zero_u = Function(V_u, name="   Boundary Displacement")
-alpha = Function(V_alpha, name="Damage")
 zero_alpha = Function(V_alpha, name="Damage Boundary Field")
 
 state = {"u": u, "alpha": alpha}
@@ -128,10 +122,11 @@ dofs_alpha_right = locate_dofs_geometrical(
 
 dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
 dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
+
 # Set Bcs Function
 zero_u.interpolate(lambda x: (np.zeros_like(x[0]), np.zeros_like(x[1])))
 zero_alpha.interpolate((lambda x: np.zeros_like(x[0])))
-u_.interpolate(lambda x: (np.ones_like(x[0]), 0 * np.ones_like(x[1])))
+u_.interpolate(lambda x: (np.zeros_like(x[0]), np.zeros_like(x[1])))
 alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
 alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
@@ -142,38 +137,45 @@ for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
 bc_u_left = dirichletbc(
     np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
-
 bc_u_right = dirichletbc(
     u_, dofs_u_right)
 bcs_u = [bc_u_left, bc_u_right]
+bcs_u = []
 
-bcs_alpha = [
-    dirichletbc(
-        np.array(0, dtype=PETSc.ScalarType),
-        np.concatenate([dofs_alpha_left, dofs_alpha_right]),
-        V_alpha,
-    )
-]
+# bcs_alpha = [
+#     dirichletbc(
+#         np.array(0, dtype=PETSc.ScalarType),
+#         np.concatenate([dofs_alpha_left, dofs_alpha_right]),
+#         V_alpha,
+#     )
+# ]
+
+bcs_alpha = []
 
 set_bc(alpha_ub.vector, bcs_alpha)
 alpha_ub.vector.ghostUpdate(
     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
 )
 
+# eps_0 = ufl.Identity(2)
+tau = Constant(mesh, np.array(0., dtype=PETSc.ScalarType))
+
+eps_0 = tau * ufl.as_tensor([[1., 0], [0, 0]])
 
 bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
 # Setup the model
-model = Banquise(parameters["model"])
+model = Banquise(parameters["model"], eps_0=eps_0)
 
 # Energy functional
-f = Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
-external_work = ufl.dot(f, state["u"]) * dx
+gv = Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
+external_work = ufl.dot(gv, state["u"]) * dx
 total_energy = model.total_energy_density(state) * dx - external_work
 
 load_par = parameters["loading"]
 loads = np.linspace(load_par["min"],
-                    load_par["max"], load_par["steps"])
+                    load_par["max"],
+                    load_par["steps"])
 
 solver = AlternateMinimisation(
     total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
@@ -189,9 +191,13 @@ history_data = {
 }
 
 for i_t, t in enumerate(loads):
-    u_.interpolate(lambda x: (0 * np.ones_like(x[0]),  np.zeros_like(x[1])))
-    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                          mode=PETSc.ScatterMode.FORWARD)
+    # Mise à jour des chargements.
+
+    f.value=[0, 0]
+    tau.value = t
+    # u_.interpolate(lambda x: (0 * np.ones_like(x[0]),  np.zeros_like(x[1])))
+    # u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
+    #                       mode=PETSc.ScatterMode.FORWARD)
 
     # update the lower bound
     alpha.vector.copy(alpha_lb.vector)
@@ -204,7 +210,7 @@ for i_t, t in enumerate(loads):
     solver.solve()
 
     dissipated_energy = comm.allreduce(
-        assemble_scalar(form(model.damage_dissipation_density(state) * dx)),
+        assemble_scalar(form(model.damage_energy_density(state) * dx)),
         op=MPI.SUM,
     )
     foundation_energy = comm.allreduce(
@@ -232,7 +238,7 @@ for i_t, t in enumerate(loads):
         json.dump(history_data, a_file)
         a_file.close()
 
-    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
 import pandas as pd
 df = pd.DataFrame(history_data)

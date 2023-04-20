@@ -152,7 +152,7 @@ class DamageElasticityModel(ElasticityModel):
             self.model_dimension)
         return sigma
 
-    def damage_dissipation_density(self, state):
+    def damage_energy_density(self, state):
         """
         Return the damage dissipation density from the state.
         """
@@ -175,9 +175,8 @@ class DamageElasticityModel(ElasticityModel):
         """
         # Get the material parameters
         energy = self.elastic_energy_density(
-            state) + self.damage_dissipation_density(state)
+            state) + self.damage_energy_density(state)
         return energy
-
 
 class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
     """
@@ -199,6 +198,7 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
         super().__init__(model_parameters)
         if model_parameters:
             self.model_parameters.update(model_parameters)
+        
             
         # Initialize the damage parameters
         self.w1 = self.model_parameters["w1"]
@@ -224,3 +224,29 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
         eps = self.eps(u) - self.eps_0
         return self.elastic_energy_density_strain(
             eps, alpha) + self.elastic_foundation_density(u)
+
+
+from dolfinx.fem.function import Function
+class VariableThickness:
+    #accept the class as argument
+    def __init__(self, model):
+        self.model = model
+    
+    #accept the class's __init__ method arguments
+    def __call__(self, thickness: Function, model_parameters={}, eps_0=ufl.Identity(2)):
+
+        #replace energy densities with newdisplay
+        self.model.elastic_energy_density = thickness * self.model.elastic_energy_density
+        self.model.elastic_foundation_density = thickness * self.model.elastic_foundation_density
+        self.model.damage_dissipation_density = thickness * self.model.damage_dissipation_density
+        
+        #return the instance of the class
+        obj = self.model(thickness, model_parameters, eps_0)
+        return obj
+
+
+@VariableThickness
+class BanquiseVaryingThickness(BrittleMembraneOverElasticFoundation):
+    def __init__(self, thickness: Function, model_parameters={}, eps_0=ufl.Identity(2)):
+        super().__init__(model_parameters)
+        self.h = thickness

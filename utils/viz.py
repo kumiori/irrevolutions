@@ -18,6 +18,8 @@ comm = MPI.COMM_WORLD
 import pyvista
 from pyvista.utilities import xvfb
 
+xvfb.start_xvfb(wait=0.05)
+
 import dolfinx.plot
 
 import matplotlib
@@ -61,6 +63,7 @@ def plot_vector(u, plotter, subplot=None, scale=1.):
         grid, show_edges=True, color="black", style="wireframe", opacity=0.3
     )
     plotter.view_xy()
+    plotter.set_background('white')
     return plotter
     # figure = plotter.screenshot(f"./output/test_viz/test_viz_MPI{comm.size}-.png")
 
@@ -96,6 +99,7 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     grid.set_active_scalars("u")
     plotter.add_mesh(grid, **lineproperties)
     plotter.view_xy()
+    plotter.set_background('white')
     return plotter
 
 
