@@ -7,3 +7,12 @@
 .vscode/launch.json
 .vscode/settings.json
 .vscode/tasks.json
+
+#seb
+
+**.DS_Store
+**.aux
+**.log
+**.spl
+*/src.cls/*
+**synctex.gz
