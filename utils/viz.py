@@ -146,3 +146,21 @@ def plot_mesh(mesh, ax=None):
     tria = tri.Triangulation(points[:, 0], points[:, 1], cells)
     ax.triplot(tria, color="k")
     return ax
+
+import scipy
+
+def plot_matrix(M):
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+    indptr, indices, data = M.getValuesCSR()
+    _M = scipy.sparse.csr_matrix((data, indices, indptr), shape=M.sizes[0])
+    ax.matshow(_M.todense(), cmap=plt.cm.Blues)
+
+    for i in range(_M.shape[0]):
+        for j in range(_M.shape[0]):
+            c = _M[j,i]
+            ax.text(i, j, f"{c:.3f}", va='center', ha='center')
+
+    return fig

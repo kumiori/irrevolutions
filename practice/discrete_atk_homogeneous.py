@@ -253,7 +253,7 @@ def discrete_atk(arg_N=2):
     parameters["model"]["N"] = arg_N
     # parameters["loading"]["max"] = 2.
     parameters["loading"]["max"] = parameters["model"]["k"] 
-    parameters["loading"]["steps"] = 100
+    parameters["loading"]["steps"] = 30
 
     parameters["geometry"]["geom_type"] = "discrete-damageable"
     # Get mesh parameters
@@ -522,7 +522,7 @@ def discrete_atk(arg_N=2):
             # damaging
             _α = (t/_tc - 1) / (_k - 1)
             _alphah = [_α for i in range(0, _N)]
-            _uh = [a_atk(_α) * i/_N for i in range(0, _N+1)]
+            _uh = [a_atk(_α) / (_N*a_atk(_α)) * i/_N for i in range(0, _N+1)]
 
         _alpha.vector[:] = _alphah
         _u.vector[:] = _uh
