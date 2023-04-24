@@ -6,8 +6,7 @@ import dolfinx
 import ufl
 from .function import vec_to_functions
 from slepc4py import SLEPc
-
-# from damage.utils import analyse_matrix
+from utils.viz import plot_matrix
 
 # plot_matrix
 
@@ -318,12 +317,15 @@ class SLEPcBlockProblemRestricted:
             for line in viewer.readlines():
                 logging.debug(line)
 
-        if not self.empty_B():
-            # pdb.set_trace()
             # logging.critical(f"rB-{self.eps.getOptionsPrefix()[0:-1]}")
             # logging.critical(f"mat rB sizes {self.rB.sizes}")
             # logging.critical(f"mat  B sizes {self.B.sizes}")
             # logging.critical(f"mat  B norm {self.B.norm()}")
+
+
+        if not self.empty_B():
+            # pdb.set_trace()
+
             viewer = PETSc.Viewer().createASCII(
                 f"rB-{self.eps.getOptionsPrefix()[0:-1]}.txt"
             )
@@ -334,12 +336,6 @@ class SLEPcBlockProblemRestricted:
 
             # data_rA = analyse_matrix(self.rA, prefix="rA")
             # data_rB = analyse_matrix(self.rB, prefix="rB")
-
-            # fig_rArB = plot_matrix(self.rA, self.rB, ms=10, names=["rA", "rB"])
-            # fig_rArB.savefig(f"mat-r-{self.eps.getOptionsPrefix()[0:-1]}.png")
-
-            # fig_AB = plot_matrix(self.A, self.B, ms=10, names=["A", "B"])
-            # fig_AB.savefig(f"mat-{self.eps.getOptionsPrefix()[0:-1]}.png")
 
         if self.restriction is not None:
             self.eps.setOperators(self.rA, self.rB)
