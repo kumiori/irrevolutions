@@ -1,0 +1,697 @@
+\documentclass[]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[lined]{algorithm2e}
+
+% pygments
+\usepackage{fancyvrb}
+\usepackage{color}
+
+\usepackage{datetime}
+% end pygments
+\usepackage{geometry}
+\usepackage{changes}
+
+\usepackage[backend=biber,style=numeric,natbib=true,firstinits=true,url=false,doi=false,isbn=false,maxnames=5]{biblatex}
+%\addbibresource{biblio.bib}
+%\AtEveryBibitem{  \clearfield{day}  \clearfield{month}  \clearfield{endday}  \clearfield{endmonth}}
+
+\usepackage[pdftex,pdfauthor={Andres A Leon Baldelli},pdftitle={},pdfsubject={},pdfkeywords={},pdfproducer={Latex with hyperref},pdfcreator={pdflatex}]{hyperref}
+\usepackage{xcolor}
+
+
+% Running Headers and footers
+%\usepackage{fancyhdr}
+
+% Multipart figures
+%\usepackage{subfigure}
+
+% More symbols
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{latexsym}
+
+% Surround parts of graphics with box
+\usepackage{boxedminipage}
+
+% Package for including code in the document
+\usepackage{listings}
+
+% If you want to generate a toc for each chapter (use with book)
+\usepackage{minitoc}
+
+% This is now the recommended way for checking for PDFLaTeX:
+\usepackage{ifpdf}
+\usepackage{showlabels}
+
+% 
+\newenvironment{system}% 
+{\left\lbrace\begin{array}{@{}l@{}}}% 
+{\end{array}\right.} 
+
+
+\input{/Users/kumiori/Documents/WIP/tex_macros/incl_macro_gen.tex}
+
+% \ifpdf
+% \usepackage[pdftex]{graphicx}
+\usepackage{graphicx}
+
+\title{Notes approximation}
+\author{ALB}
+
+\newtheorem{prop}{Proposition}
+\newtheorem{proof}{Proof}
+\newtheorem{lemma}{Lemma}
+\newtheorem{definition}{Definition}
+% \newtheorem{remark}{Remark}
+
+
+%% 
+%% Copyright 2007-2020 Elsevier Ltd
+%% 
+%% This file is NOT! part of the 'Elsarticle Bundle'.
+%% Fuck Elsevier and Fuck Springer.
+%% Analysis kills. And now we prove _the opposite_
+%% /83252
+%% ---------------------------------------------
+%% 
+%% It may be distributed under the conditions of the LaTeX Project Public
+%% License, either version 1.2 of this license or (at your option) any
+%% later version.  The latest version of this license is in
+%%    http://www.latex-project.org/lppl.txt
+%% and version 1.2 or later is part of all distributions of LaTeX
+%% version 1999/12/01 or later.
+%% 
+%% The list of all files belonging to the 'Elsarticle Bundle' is
+%% given in the file `manifest.txt'.
+%% 
+%% Template article for Elsevier's document class `elsarticle'
+%% with harvard style bibliographic references
+
+%\documentclass[preprint,12pt,authoryear]{elsarticle}
+
+%% Use the option review to obtain double line spacing
+%% \documentclass[authoryear,preprint,review,12pt]{elsarticle}
+
+%% Use the options 1p,twocolumn; 3p; 3p,twocolumn; 5p; or 5p,twocolumn
+%% for a journal layout:
+%% \documentclass[final,1p,times,authoryear]{elsarticle}
+%% \documentclass[final,1p,times,twocolumn,authoryear]{elsarticle}
+% \documentclass[final,3p,times,authoryear]{elsarticle}
+% \documentclass[final,3p,times,twocolumn,authoryear]{elsarticle}
+%% \documentclass[final,5p,times,authoryear]{elsarticle}
+%% \documentclass[final,5p,times,twocolumn,authoryear]{elsarticle}
+
+%% For including figures, graphicx.sty has been loaded in
+%% elsarticle.cls. If you prefer to use the old commands
+%% please give \usepackage{epsfig}
+\graphicspath{ {./figures/} }
+
+%% The amssymb package provides various useful mathematical symbols
+\usepackage{amssymb}
+%% The amsthm package provides extended theorem environments
+%% \usepackage{amsthm}
+\usepackage{amsmath,bm} %seb
+
+%% The lineno packages adds line numbers. Start line numbering with
+%% \begin{linenumbers}, end it with \end{linenumbers}. Or switch it on
+%% for the whole article with \linenumbers.
+%\usepackage{lineno} % seb
+% \linenumbers % seb only is draft mode (one column)
+
+\renewcommand*\d{\mathop{}\!\mathrm{d}} % seb
+
+% \journal{XXX}
+
+\begin{document}
+
+% \begin{frontmatter}
+
+%% Title, authors and addresses
+
+%% use the tnoteref command within \title for footnotes;
+%% use the tnotetext command for theassociated footnote;
+%% use the fnref command within \author or \affiliation for footnotes;
+%% use the fntext command for theassociated footnote;
+%% use the corref command within \author for corresponding author footnotes;
+%% use the cortext command for theassociated footnote;
+%% use the ead command for the email address,
+%% and the form \ead[url] for the home page:
+%% \title{Title\tnoteref{label1}}
+%% \tnotetext[label1]{}
+%% \author{Name\corref{cor1}\fnref{label2}}
+%% \ead{email address}
+%% \ead[url]{home page}
+%% \fntext[label2]{}
+%% \cortext[cor1]{}
+%% \affiliation{organization={},
+%%            addressline={}, 
+%%            city={},
+%%            postcode={}, 
+%%            state={},
+%%            country={}}
+%% \fntext[label3]{}
+
+\title{Discrete Damage}
+
+%% use optional labels to link authors explicitly to addresses:
+%% \author[label1,label2]{}
+%% \affiliation[label1]{organization={},
+%%             addressline={},
+%%             city={},
+%%             postcode={},
+%%             state={},
+%%             country={}}
+%%
+%% \affiliation[label2]{organization={},
+%%             addressline={},
+%%             city={},
+%%             postcode={},
+%%             state={},
+%%             country={}}
+
+\author{Andres, Seb, ...}
+
+% \affiliation{organization={},%Department and Organization
+%             addressline={}, 
+%             city={},
+%             postcode={}, 
+%             state={},
+%             country={}}
+
+\begin{abstract}
+%% Text of abstract
+
+\end{abstract}
+
+%%Graphical abstract
+%\begin{graphicalabstract}
+%\includegraphics{grabs}
+%\end{graphicalabstract}
+
+%%Research highlights
+%\begin{highlights}
+%\item Research highlight 1
+%\item Research highlight 2
+%\end{highlights}
+
+% \begin{keyword}
+%% keywords here, in the form: keyword \sep keyword
+
+%% PACS codes here, in the form: \PACS code \sep code
+
+%% MSC codes here, in the form: \MSC code \sep code
+%% or \MSC[2008] code \sep code (2000 is the default)
+
+% \end{keyword}
+
+% \end{frontmatter}
+
+%% \linenumbers
+
+%% main text
+%
+%
+%
+%
+%
+%
+\section{Variational formulation} \label{sec:varia}
+%
+%
+%
+%
+%
+%
+%
+% \newcommand{\load}{\Delta}
+\newcommand{\load}{t}
+
+A bar of length $L$ and section $S$ is stretched along the $x$ axis.
+The material of the bar has nominal Young's modulus $Y$.
+We note $u(x)$ the horizontal displacement.
+The bar is clamped at its left end, and a displacement $\load \ge 0$ is imposed of the right end
+\begin{equation}
+\label{eq:bc}
+u(0)=0 \, , \quad u(L)=\load
+\end{equation}
+ The total energy of the bar is 
+%\begin{subequations}
+\begin{align}
+\label{eq:energy}
+{\cal E}(\epsilon(x),\alpha(x)) & = \int_0^L \frac12 Y S a(\alpha(x)) \, \epsilon^2(x) \d x+ \int_0^L W S w(\alpha(x)) \d x 
+\end{align}
+%\end{subequations}
+where the first integral is the strain energy and $W$ is the dissipated energy (per unit volume) due to damage and $\epsilon$ is the longitudinal strain.
+The functions  $a(\alpha)$ and $w(\alpha)$ are non-dimensionalized functions, to be discussed later on.
+As the boundary conditions are written with $u(x)$, we need to include the constraint
+\begin{equation}
+\label{eq:strain_disp}
+\epsilon = u'(x)
+\end{equation}
+that is, work with the Lagrangian
+%\begin{subequations}
+\begin{align}
+\label{eq:lagrangian}
+{\cal L}(\epsilon,\alpha,u) & = {\cal E}(\epsilon,\alpha) -  \int_0^L \sigma(x) \, S \,  (\epsilon-u') \d x 
+\end{align}
+%\end{subequations}
+where the continuous lagrange multiplier $\sigma(x)$ is identified with the axial stress in the bar.
+
+
+%
+%
+%
+%
+%
+%
+%
+\section{Non-dimensionalisation} \label{sec:going_admin}
+%
+%
+%
+%
+%
+%
+%
+In this statics problem, we can freely (and with no loss of generality) choose a unit length and a unit force. We choose $L$ as unit length, and $YS$ as unit force.
+We introduce the 'hat' adim variables
+\begin{align}
+\hat{x}=x/L \, , \:
+\hat{u}=u/L \, , \:
+\hat{\load}=\load/L \, , \:
+\hat{W}=W/Y \, , \:
+\hat{\sigma}=\sigma/Y \, , \:
+\hat{{\cal E}}=\frac{{\cal E}}{YSL}  \, , \:
+\hat{{\cal L}}=\frac{{\cal L}}{YSL}
+\end{align}
+and simplify (\ref{eq:lagrangian}) to
+\begin{subequations}
+\label{eq:going_adim}
+\begin{align}
+\hat{{\cal E}}(\epsilon,\alpha)& = 
+\int_0^1 \frac12  a(\alpha) \, \epsilon^2(\hat{x}) \d \hat{x}+ \int_0^1 \hat{W}  w(\alpha) \d \hat{x} \\
+\hat{{\cal L}}(\epsilon,\alpha,\hat{u}) & = \hat{{\cal E}}(\epsilon,\alpha) -  
+\int_0^1 \hat{\sigma}(\hat{x})  \,  \big( \epsilon-u'(\hat{x}) \big) \d \hat{x} 
+\end{align}
+\end{subequations}
+And from now on, we drop the hats while keeping in mind that we deal with adim variables.
+
+%
+%
+%
+%
+%
+%
+%
+\section{First variation} \label{sec:1st_varia}
+%
+%
+%
+\begin{prop}[criticality]
+    existence of critical load $t_c$. Independent of $N$ that is $\e$.
+    pointwise condition. Easy to see, after remarking that optimal displacement at the nodes $u_i\sim 1/N$ hence
+    amounts to a rescaling of the load $t\mapsto t/N$
+\end{prop}
+\begin{prop}[stability]
+    Bifurcation vs. stability gap $\delta=\delta_\e$.
+    Global condition: the gap scales with $\e$ aka with $N$
+\end{prop}
+%
+%
+%
+%
+We seek extremal configurations of ${\cal E}(\epsilon,\alpha)$, under the constraints (\ref{eq:strain_disp}) and (\ref{eq:bc}).
+Applying the lagrange multiplier rule, we work with ${\cal L}$ and look for the conditions under which the first variation of ${\cal L}$ vanishes, for the the two variables $\epsilon$ and $\hat{u}$.
+The minimisation with regard to the third variable $\alpha$, involving irreversibility conditions, will be considered in a second step.
+We introduce the variations $\bar{\epsilon}(x)$, $\bar{u}(x)$. The boundary conditions (\ref{eq:bc}) imply that
+\begin{align}
+\label{eq:bc_bar}
+\bar{u}(0)=0 \text{ and } \bar{u}(1)=0
+\end{align} 
+%
+\begin{subequations}
+\label{sys:1st_varia}
+\begin{align}
+\left. \frac{{\cal L}(\epsilon+\eta\bar{\epsilon},\alpha,u+\eta \bar{u})-{\cal L}(\epsilon,\alpha,u)}{\eta} \right|_{\eta \to 0} = & 
+\int_0^1 a(\alpha) \, \epsilon \, \bar{\epsilon} \d x -
+\int_0^1 \sigma(x)  \,  (\bar{\epsilon}-\bar{u}') \d x = 0 \quad \forall \, \bar{\epsilon}, \, \bar{u}
+\\
+= & \int_0^1 \big( a(\alpha) \, \epsilon - \sigma(x) \big) \, \bar{\epsilon} - \sigma'(x) \, \bar{u} \d x
+= 0 \quad \forall \, \bar{\epsilon}, \, \bar{u} \label{eq:1st_varia}
+\end{align} 
+\end{subequations}
+The boundary term involved in the integration by part on $\bar{u}'(x)$ identically vanishes because of (\ref{eq:bc_bar}).
+Condition (\ref{eq:1st_varia}) consequently yield
+\begin{subequations}
+\label{sys:equil_sol}
+\begin{align}
+\sigma'(x) & =  0 \\
+\sigma & =  a(\alpha(x)) \; \epsilon(x) \label{eq:9b}
+\end{align} 
+\end{subequations}
+We find that the axial stress in the beam $\sigma$ is uniform. As the damage field $\alpha(x)$ might not be uniform, the longitudinal strain $\epsilon(x)$ still generically depend on $x$.
+%
+We now seek to minimise ${\cal E}$ using the equilibrium conditions we have just found. First we discard the variable $u(x)$ and replace the imposed displacement condition (\ref{eq:bc}) with 
+\begin{align}
+\label{eq:bc_bis}
+u(1)-u(0) = \int_0^1 u'(x) \d x = \int_0^1 \epsilon(x) \d x =  \load
+\end{align} 
+
+\begin{equation}
+    w_1=1
+\end{equation}
+Consequently we now work with the Lagrangian
+\begin{align}
+{\cal L}(\epsilon(x),\alpha(x)) & = \int_0^1 \frac12 a(\alpha) \, \epsilon^2 \d x+  \int_0^1  w(\alpha) \d x - \sigma \int_0^1 \epsilon(x) \d x
+\end{align} 
+where the lagrange multiplier associated the the displacement condition (\ref{eq:bc_bis}) is directly identified with $\sigma$, the axial stress in the bar which is also the applied external tension.
+Extremizing with regard to $\epsilon(x)$ leads to (\ref{eq:9b}) which we use to rewrite (\ref{eq:bc_bis}) as
+\begin{align}
+\sigma = \frac{\load}{ \int_0^1 a^{-1}(\alpha)  \d x}
+\end{align} 
+which enable us to rewrite the strain energy as
+\begin{align}
+ \int_0^1 \frac12 a(\alpha) \, \epsilon^2 \d x =  \int_0^1 \frac12 \, \frac{\sigma^2}{a(\alpha)}  \d x
+ = \frac12 \, \frac{\load^2}{\int_0^1 a^{-1}(\alpha) \d x}
+\end{align} 
+We finally obtain an energy which only depends on $\alpha(x)$
+\begin{align}
+{\cal E}(\alpha(x)) & = \frac12 \, \frac{\load^2}{\int_0^1 a^{-1}(\alpha) \d x}  +
+ \int_0^1 W  w(\alpha) \d x 
+\end{align} 
+During the loading process, $\load = \load(t)$, the field $\alpha(x,t)$ cannot decrease.
+A necessary condition is that, at all time
+\begin{subequations}
+\begin{align}
+\forall x: \quad \dot{\alpha}(x,t) \ge 0 \text{~ and ~}
+\mu(x) \ge 0 \text{~ and ~}
+\mu(x) \, \dot{\alpha}(x,t) = 0 \\
+\text{ with } \left. \frac{{\cal E}(\alpha+\eta \bar{\alpha})-{\cal E}(\alpha)}{\eta} \right|_{\eta \to 0}
+=
+\int_0^1 \mu(x) \, \bar{\alpha} \, \d x \text{ } \forall \bar{\alpha}
+\\
+\text{ hence } \mu(x)=
+W \, w'(\alpha) + \frac12 \, \frac{a'(\alpha)}{a^2 } \, \frac{\load^2}{\left( \int_0^1 a^{-1}(\alpha) \d x \right)^2}
+\end{align} 
+\end{subequations}
+And a sufficient condition is
+%\begin{subequations}
+\begin{align}
+\forall \bar{\alpha} \ge0: \int_0^1 W w''(\alpha) \bar{\alpha}^2 \d x +
+ \frac12  \, \frac{\load^2}{\left( \int_0^1 a^{-1}(\alpha) \d x \right)^2}
+ %
+\int_0^1 
+\left(
+\frac{a''(\alpha)}{a^2 } -2\frac{a'(\alpha)^2}{a^3 } 
+\right)
+\bar{\alpha}^2 \d x
++
+\load^2 \, \frac{\left( \int_0^1 \frac{a'(\alpha)}{a^2} \, \bar{\alpha} \, \d x \right)^2 }{\left( \int_0^1 a^{-1}(\alpha) \d x \right)^3}
+>0
+\end{align} 
+%\end{subequations}
+or, setting $s(\alpha)=1/a(\alpha)$
+%\begin{subequations}
+\begin{align}
+\label{eq:second_varia}
+\forall \bar{\alpha} \ge0: \int_0^1 W w''(\alpha) \bar{\alpha}^2 \d x -
+ \frac12  \, \frac{\load^2}{\left( \int_0^1 s(\alpha) \d x \right)^2}
+ %
+\int_0^1 s''(\alpha) \, \bar{\alpha}^2 \d x
++
+\load^2 \, \frac{\left( \int_0^1 s'(\alpha) \, \bar{\alpha} \, \d x \right)^2 }{\left( \int_0^1 s(\alpha) \d x \right)^3}
+>0
+\end{align} 
+%\end{subequations}
+
+\subsection{The homogeneus branch aka fundamental solutions}
+
+\begin{equation}
+    \label{eqn:homogeneous}
+    \alpha(x) = \alpha_t, \qquad u(x)=u_t
+\end{equation}
+
+with
+
+\begin{equation}
+    \label{eqn:homogeneous}
+    \alpha_t=, \qquad u_t=, \qquad e_t = cst = \frac{a(\alpha_i)}{S}t
+\end{equation}
+is the unique solution to \eqref{} with vanishing gradients.
+
+
+%
+%
+%
+%
+%
+%
+%
+\section{Discrete scaling} \label{sec:going_discrete}
+%
+%
+%
+%
+%
+%
+% %
+% \begin{figure}[htb]
+% \centering
+% \includegraphics[width=0.95 \columnwidth]{base_functions}
+% \caption{\label{fig:base_functions}
+% ---.}
+% \end{figure}
+We think in discrete terms now. 
+That is, 
+we introduce $N$  elastic-dammageable elements in series of equal nature and size $h=1/N$, \footnote{(with $s_i=i \, h$ and $i \in (1;N)$)}, 
+% and use the following base functions, see Figure~\ref{fig:base_functions}
+% \begin{subequations}
+%  \label{eq:base_func}
+% \begin{align}
+% H_i(x) &= 1 \text{~ if ~} x_{i-1} \le x \le x_i  \\
+% H_i(x) &= 0 \text{~ otherwise ~} 
+% \end{align}
+% \end{subequations}
+
+% The variation $\bar{\alpha}(x)$ and $\alpha(x)$ are represented as
+% \begin{subequations}
+% \label{eq:discrete_variations}
+% \begin{align}
+% \bar{\alpha}(s) &= \sum_{i=1}^N \bar{\alpha}_i H_i(s) \label{eq:19a} \\
+% \alpha(s) &= \sum_{i=1}^N \alpha_i H_i(s) \label{eq:19b} 
+% \end{align}
+% \end{subequations}
+
+\begin{align}
+    \label{eq:energy}
+    {\cal E_N}(\epsilon,\alpha) & = \sum_{i=1}^N   \frac{1}{2}\mu a(\alpha) \epsilon^2+ \sum_{i=1}^N w_1 w(\alpha) 
+\end{align}
+
+
+\begin{align}
+    \label{eq:energy}
+    {\cal E}_N(y) =\frac{1}{N}{\cal E_N}(\epsilon,\alpha) & = \frac{1}{2}N \mu \sum_{i=1}^N a_k(\alpha) ({u_{i}-u_{i-1}})^2+ \frac{w_1 }{N}\sum_{i=1}^N w(\alpha) 
+\end{align}
+
+\begin{align}
+    \label{eq:energy}
+    {\cal E}_\e(y) =\frac{1}{N}{\cal E_N}(\epsilon,\alpha) & = \frac{1}{2\e} \mu \sum_{i=1}^N a_k(\alpha) ({u_{i}-u_{i-1}})^2+ \e{w_1 }\sum_{i=1}^N w(\alpha) 
+\end{align}
+
+let's keep $ N$.
+
+
+\subsection{first variation}
+allows to rewrite the discrete strain energy
+\begin{align}
+    N\sum_{1}^N\frac{1}{2} a(\alpha_i)  \epsilon_i^2 = N \frac{1}{2} \sum_{1}^N  \frac{\sigma_i^2}{a(\alpha_i)} 
+    = \frac{1}{2} \frac{\load^2}{\sum_{1}^N a^{-1}(\alpha_i)}
+    = \frac{1}{2} \frac{\load^2}{\sum_{1}^N s(\alpha_i)}
+\end{align} 
+
+
+\begin{equation}
+    \label{eqn:}
+    E = \frac{t}{2}\sigma\sum s_i, \frac{e_i}{s_i} = \frac{\sigma_i}{\mu}, \frac{\sigma_i}{\mu}=\frac{t}{\sum s_i}
+\end{equation}
+
+\begin{equation}
+    \label{eqn:}
+    e_i = \frac{ts_i}{\sum_k s_k}, E =\frac{1}{2}\frac{1}{\sum s_i}t^2 + \frac{w_1}{N^2}\sum w(\alpha_i)
+\end{equation}
+
+
+\begin{equation}
+    \label{eqn:}
+    E_\alpha
+    =
+-\frac12 s'(\alpha_i) \frac{\load^2}{\left( \sum s(\alpha_i)  \right)^2} + \frac{1}{N^2} w'(\alpha)
+\end{equation}
+
+\begin{equation}
+    \label{eqn:}
+    E_\alpha
+    =
+\frac12 \, \frac{a'(\alpha)}{a^2 } \frac{\load^2}{\left( \int_0^1 a^{-1}(\alpha) \d x \right)^2} + \frac{1}{N^2} w'(\alpha)
+\end{equation}
+\begin{align}
+    \label{eqn:}
+    {E_N}_\alpha \beta
+    & =
+\frac12 \sum\frac{a'(\alpha_i)\beta_i}{a(\alpha_k)^2 } \frac{\load^2}{\left( \sum a^{-1}(\alpha_k) \right)^2} + \frac{1}{N^2} w'(\alpha_i)\beta_i \\
+& =
+\frac12 \sum  a'(\alpha_i)\beta_i \frac{ s^2(\alpha_k) \load^2}{\left( \sum s(\alpha_k) \right)^2} + \frac{1}{N^2} w'(\alpha_i)\beta_i \\
+\end{align}
+
+hence 
+\begin{equation}
+    \label{eqn:}
+    0=...=
+    \frac12 \sum   \frac{ s^2(\alpha_k) \load^2}{\left( \sum s(\alpha_k) \right)^2}\beta_i 
+\pm+ \frac{1}{N^2} \frac{w'(\alpha_i)}{a'(\alpha_i)}\beta_i \\
+\end{equation}
+
+from which follows
+\begin{equation}
+    \label{eqn:}
+    t\leq t_c :=
+\end{equation}
+
+because 
+
+the homogeneous branch, with $\tau:=t/t_c$
+
+\begin{equation}
+    \label{eqn:}
+    e_0 = \frac{t}{N}, E =\frac{1}{2}\frac{1}{\sum ... s_i}t^2 + \frac{w_1}{N^2}N w(\alpha_0), u_i = i e_0
+\end{equation}
+
+\begin{equation}
+    \label{eqn:}
+    \alpha_t = \frac{\tau-1}{k-1}, \sigma_t = \sigma_c \frac{k-\tau}{k-1}
+\end{equation}
+
+
+
+\subsection{second variation}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.8\textwidth]{stability_param_num_anal.png}
+    \caption{Parametric stability vs. N, Stability numerically and analyticaly computed. Solid lines represent the analytical stability condition, positive values correspond to stable states, negative otherwise (scaled for clarity). Dots indicate values of the minimum eigenvalue \emph{in the cone.} Note $H_{ii}>0 \Longleftarrow \sigma_K > 0$, as per theorem NLB}
+    \label{<label>}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.8\textwidth]{stability_gap.png}
+    \caption{Stability gap vs. N, computed in multiples of critical time $t_c$.}
+    \label{<label>}
+\end{figure}
+
+
+We note $S=\sum_i^N s(\alpha_i)$.
+
+\begin{equation}
+    \label{eqn:}
+H=\frac{1}{N^2}\sum w''(\alpha_i)  -
+\sum\frac12 \frac{\load^2}{S^2}
+\left( \frac{2(s'(\alpha_i))^2}{S} - s''(\alpha_i) \right)   
+%
+% \sum s''(\alpha_i)
+% +
+% \load^2  \frac{\left( \sum s'(\alpha_i)    \right)^2 }{\left( \sum s(\alpha_i) \right)^3}
+\end{equation}
+Suppose $w$ is linear.
+The second variation above can then be written in matrix form as 
+\begin{subequations}
+    \begin{align}
+    \label{eq:second_varia_discrete}
+    \text{ for } i \neq j: H_{ij} = \load^2 \frac{s'(\alpha_i) s'(\alpha_j)}{S^3} \\
+    %
+    H_{ii} = \frac{1}{N^2} w''(\alpha_i) - \frac{\load^2}{2}  \frac{s''(\alpha_i)}{S^2}  + \load^2 \frac{s'(\alpha_i)^2}{S^3} 
+    \end{align} 
+    \end{subequations}
+
+    in the homogeneous case
+    \begin{align}
+        \label{eqn:}
+        S&=Ns_0 \\
+        H_{ii}^0 &= - \frac{\load^2}{2}  \frac{s''(\alpha_0)}{N^2s_0^2}  + \load^2 \frac{s'(\alpha_0)^2}{N^3s_0^3}\\
+         &= 
+         \frac{\load^2}{ N^2s_0^2} \left(\frac{s'(\alpha_0)^2}{Ns_0} - \frac{s''(\alpha_0)}{2} \right) \\
+         H_{ij} &= \load^2 \frac{s'(\alpha_0)^2}{N^3s_0^3}
+    \end{align}
+
+--- 
+
+In the example $a=a_k$
+we have
+\begin{align}
+    \label{eqn:}
+    S&=Ns_0 \\
+    H_{ii}^0 &= \frac{\load^2}{ N^2s_0^2} \left(\frac{s'(\alpha_0)^2}{Ns_0} - \frac{s''(\alpha_0)}{2} \right) \\
+    H_{ij} &= \load^2 \frac{s'(\alpha_0)^2}{N^3s_0^3}
+\end{align}
+
+according to theorem NLB, the cone-stability is lost, due to the diagonal entries, 
+when
+\begin{equation}
+    \label{eqn:}
+    \frac{s'(\alpha_0)^2}{Ns_0} - \frac{s''(\alpha_0)}{2}<0
+\end{equation}
+which depends on $N$.
+
+The second variation in (\ref{eq:second_varia}) can then be written in matrix form as 
+\begin{subequations}
+\begin{align}
+\label{eq:second_varia_discrete}
+\text{ for } i \neq j: H_{ij} = \load^2 h^2  \frac{s'(\alpha_i) s'(\alpha_j)}{S^3} \\
+%
+H_{ii} = h\, w''(\alpha_i) - \frac{\load^2}{2} h  \frac{s''(\alpha_i)}{S^2}  + \load^2 h^2  \frac{s'(\alpha_i)^2}{S^3} 
+\end{align} 
+\end{subequations}
+And the condition (\ref{eq:second_varia}) can be written as
+\begin{align}
+\label{eq:cond_second_varia_discrete}
+\forall  \bar{\alpha}_i >0 , \forall  \bar{\alpha}_j >0  : \sum_{i,j} H_{ij} \alpha_i \alpha_j >0 
+\end{align} 
+this condition is fulfilled if  (a sufficient condition)
+\begin{align}
+\label{eq:cond_second_varia_discrete_bis}
+\forall  i,j  :  H_{ij} >0 
+\end{align} 
+constitutes a (sufficient) condition to check the stability-in-the-cone of the current state.
+
+
+
+
+%
+%
+%
+%
+%
+%
+%
+%
+%
+%% The Appendices part is started with the command \appendix;
+%% appendix sections are then done as normal sections
+%% \appendix
+
+%% \section{}
+%% \label{}
+
+%% If you have bibdatabase file and want bibtex to generate the
+%% bibitems, please use
+%%
+
+% \bibliographystyle{elsarticle-harv} 
+% \bibliography{discrete_damage}
+
+\end{document}
+
+\endinput
+%%
+%% End of file `elsarticle-template-harv.tex'.
