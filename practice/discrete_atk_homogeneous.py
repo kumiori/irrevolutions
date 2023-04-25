@@ -247,9 +247,9 @@ def discrete_atk(arg_N=2):
     parameters["model"]["model_dimension"] = 1
     parameters["model"]["model_type"] = '1D'
     parameters["model"]["mu"] = 1
-    parameters["model"]["w1"] = 1
+    parameters["model"]["w1"] = 2
     parameters["model"]["k_res"] = 1e-4
-    parameters["model"]["k"] = 3
+    parameters["model"]["k"] = 4
     parameters["model"]["N"] = arg_N
     # parameters["loading"]["max"] = 2.
     parameters["loading"]["max"] = parameters["model"]["k"] 
@@ -500,7 +500,7 @@ def discrete_atk(arg_N=2):
 
     def _critical_load(matpar):
         _mu, _k, _w1, _N = matpar["mu"], matpar["k"], matpar["w1"], matpar["N"]
-        return np.sqrt(8*_w1 / (_mu*_k)/_N**2)
+        return np.sqrt(8*_w1 / (_mu*_k)/4)
 
     def _homogeneous_state(state, t, matpar):
         """docstring for _homogeneous_state"""
@@ -522,7 +522,8 @@ def discrete_atk(arg_N=2):
             # damaging
             _α = (t/_tc - 1) / (_k - 1)
             _alphah = [_α for i in range(0, _N)]
-            _uh = [a_atk(_α) / (_N*a_atk(_α)) * i/_N for i in range(0, _N+1)]
+            _e = t/_N
+            _uh = [_e * i for i in range(0, _N+1)]
 
         _alpha.vector[:] = _alphah
         _u.vector[:] = _uh
