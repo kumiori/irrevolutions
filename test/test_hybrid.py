@@ -181,6 +181,10 @@ def test_hybrid(nest):
     external_work = ufl.dot(f, state["u"]) * dx
     total_energy = model.total_energy_density(state) * dx - external_work
 
+    def _potential_energy(equilibrium):
+        """returns total_energy computed on substituted field"""
+        return ufl.replace(total_energy, equilibrium)
+
     parameters.get("model")["k_res"] = 1e-04
     parameters.get("solvers").get("damage_elasticity")["alpha_tol"] = 1e-03
     parameters.get("solvers").get("damage")["type"] = "SNES"

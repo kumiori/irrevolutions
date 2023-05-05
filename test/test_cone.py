@@ -370,8 +370,6 @@ bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
 # Material behaviour
 
-# mat_par = parameters.get()
-
 
 def a(alpha):
     k_res = parameters["model"]['k_res']
@@ -392,20 +390,6 @@ def w(alpha):
     """
     # Return w(alpha) function
     return alpha
-
-
-# def elastic_energy_density(state):
-#     """
-#     Returns the elastic energy density from the state.
-#     """
-#     # Parameters
-#     alpha = state["alpha"]
-#     u = state["u"]
-#     eps = ufl.grad(u)
-
-#     _mu = parameters["model"]['mu']
-#     energy_density = a(alpha) * _mu * ufl.inner(eps, eps)
-#     return energy_density
 
 
 def elastic_energy_density_atk(state):
