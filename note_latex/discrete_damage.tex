@@ -1,19 +1,18 @@
 %% 
-%% Copyright 2007-2020 Elsevier Ltd
-%% 
+%%
 %% This file is part of the 'Elsarticle Bundle'.
 %% ---------------------------------------------
-%% 
+%%
 %% It may be distributed under the conditions of the LaTeX Project Public
 %% License, either version 1.2 of this license or (at your option) any
 %% later version.  The latest version of this license is in
 %%    http://www.latex-project.org/lppl.txt
 %% and version 1.2 or later is part of all distributions of LaTeX
 %% version 1999/12/01 or later.
-%% 
+%%
 %% The list of all files belonging to the 'Elsarticle Bundle' is
 %% given in the file `manifest.txt'.
-%% 
+%%
 %% Template article for Elsevier's document class `elsarticle'
 %% with harvard style bibliographic references
 
@@ -74,9 +73,9 @@
 %% \fntext[label2]{}
 %% \cortext[cor1]{}
 %% \affiliation{organization={},
-%%            addressline={}, 
+%%            addressline={},
 %%            city={},
-%%            postcode={}, 
+%%            postcode={},
 %%            state={},
 %%            country={}}
 %% \fntext[label3]{}
@@ -102,9 +101,9 @@
 \author{Andres, Seb, ...}
 
 \affiliation{organization={},%Department and Organization
-            addressline={}, 
+            addressline={},
             city={},
-            postcode={}, 
+            postcode={},
             state={},
             country={}}
 
@@ -161,11 +160,11 @@ The bar is clamped at its left end, and a displacement $\Delta \ge 0$ is imposed
 \label{eq:bc}
 u(0)=0 \, , \quad u(L)=\Delta
 \end{equation}
- The total energy of the bar is 
+ The total energy of the bar is
 %\begin{subequations}
 \begin{align}
 \label{eq:energy}
-{\cal E}(\epsilon(x),\alpha(x)) & = \int_0^L \frac12 Y S a(\alpha(x)) \, \epsilon^2(x) \d x+ \int_0^L W S w(\alpha(x)) \d x 
+{\cal E}(\epsilon(x),\alpha(x)) & = \int_0^L \frac12 Y S a(\alpha(x)) \, \epsilon^2(x) \d x+ \int_0^L W S w(\alpha(x)) \d x
 \end{align}
 %\end{subequations}
 where the first integral is the strain energy and $W$ is the dissipated energy (per unit volume) due to damage and $\epsilon$ is the longitudinal strain.
@@ -179,7 +178,7 @@ that is, work with the Lagrangian
 %\begin{subequations}
 \begin{align}
 \label{eq:lagrangian}
-{\cal L}(\epsilon,\alpha,u) & = {\cal E}(\epsilon,\alpha) -  \int_0^L \sigma(x) \, S \,  (\epsilon-u') \d x 
+{\cal L}(\epsilon,\alpha,u) & = {\cal E}(\epsilon,\alpha) -  \int_0^L \sigma(x) \, S \,  (\epsilon-u') \d x
 \end{align}
 %\end{subequations}
 where the continuous lagrange multiplier $\sigma(x)$ is identified with the axial stress in the bar.
@@ -215,10 +214,10 @@ and simplify (\ref{eq:lagrangian}) to
 \begin{subequations}
 \label{eq:going_adim}
 \begin{align}
-\hat{{\cal E}}(\epsilon,\alpha)& = 
+\hat{{\cal E}}(\epsilon,\alpha)& =
 \int_0^1 \frac12  a(\alpha) \, \epsilon^2(\hat{x}) \d \hat{x}+ \int_0^1 \hat{W}  w(\alpha) \d \hat{x} \\
-\hat{{\cal L}}(\epsilon,\alpha,\hat{u}) & = \hat{{\cal E}}(\epsilon,\alpha) -  
-\int_0^1 \hat{\sigma}(\hat{x})  \,  \big( \epsilon-u'(\hat{x}) \big) \d \hat{x} 
+\hat{{\cal L}}(\epsilon,\alpha,\hat{u}) & = \hat{{\cal E}}(\epsilon,\alpha) -
+\int_0^1 \hat{\sigma}(\hat{x})  \,  \big( \epsilon-u'(\hat{x}) \big) \d \hat{x}
 \end{align}
 \end{subequations}
 And from now on, we drop the 'hats' while keeping in mind that we deal with adim variables.
@@ -245,18 +244,18 @@ We introduce the variations $\bar{\epsilon}(x)$, $\bar{u}(x)$. The boundary cond
 \begin{align}
 \label{eq:bc_bar}
 \bar{u}(0)=0 \text{ and } \bar{u}(1)=0
-\end{align} 
+\end{align}
 %
 \begin{subequations}
 \label{sys:1st_varia}
 \begin{align}
-\left. \frac{{\cal L}(\epsilon+\eta\bar{\epsilon},\alpha,u+\eta \bar{u})-{\cal L}(\epsilon,\alpha,u)}{\eta} \right|_{\eta \to 0} = & 
+\left. \frac{{\cal L}(\epsilon+\eta\bar{\epsilon},\alpha,u+\eta \bar{u})-{\cal L}(\epsilon,\alpha,u)}{\eta} \right|_{\eta \to 0} = &
 \int_0^1 a(\alpha) \, \epsilon \, \bar{\epsilon} \d x -
 \int_0^1 \sigma(x)  \,  (\bar{\epsilon}-\bar{u}') \d x = 0 \quad \forall \, \bar{\epsilon}, \, \bar{u}
 \\
 = & \int_0^1 \big( a(\alpha) \, \epsilon - \sigma(x) \big) \, \bar{\epsilon} - \sigma'(x) \, \bar{u} \d x
 = 0 \quad \forall \, \bar{\epsilon}, \, \bar{u} \label{eq:1st_varia}
-\end{align} 
+\end{align}
 \end{subequations}
 The boundary term involved in the integration by part on $\bar{u}'(x)$ identically vanishes because of (\ref{eq:bc_bar}).
 Condition (\ref{eq:1st_varia}) consequently yield
@@ -265,34 +264,34 @@ Condition (\ref{eq:1st_varia}) consequently yield
 \begin{align}
 \sigma'(x) & =  0 \\
 \sigma & =  a(\alpha(x)) \; \epsilon(x) \label{eq:9b}
-\end{align} 
+\end{align}
 \end{subequations}
 We find that the axial stress in the beam $\sigma$ is uniform. As the damage field $\alpha(x)$ might not be uniform, the longitudinal strain $\epsilon(x)$ still generically depend on $x$.
 %
-We now seek to minimise ${\cal E}$ using the equilibrium conditions we have just found. First we discard the variable $u(x)$ and replace the imposed displacement condition (\ref{eq:bc}) with 
+We now seek to minimise ${\cal E}$ using the equilibrium conditions we have just found. First we discard the variable $u(x)$ and replace the imposed displacement condition (\ref{eq:bc}) with
 \begin{align}
 \label{eq:bc_bis}
 u(1)-u(0) = \int_0^1 u'(x) \d x = \int_0^1 \epsilon(x) \d x =  \Delta
-\end{align} 
+\end{align}
 Consequently we now work with the Lagrangian
 \begin{align}
 {\cal L}(\epsilon(x),\alpha(x)) & = \int_0^1 \frac12 a(\alpha) \, \epsilon^2 \d x+ \int_0^1 W  w(\alpha) \d x - \sigma \int_0^1 \epsilon(x) \d x
-\end{align} 
+\end{align}
 where the lagrange multiplier associated the the displacement condition (\ref{eq:bc_bis}) is directly identified with $\sigma$, the axial stress in the bar which is also the applied external tension.
 Extremizing with regard to $\epsilon(x)$ leads to (\ref{eq:9b}) which we use to rewrite (\ref{eq:bc_bis}) as
 \begin{align}
 \sigma = \frac{\Delta}{ \int_0^1 a^{-1}(\alpha)  \d x}
-\end{align} 
+\end{align}
 which enable us to rewrite the strain energy as
 \begin{align}
  \int_0^1 \frac12 a(\alpha) \, \epsilon^2 \d x =  \int_0^1 \frac12 \, \frac{\sigma^2}{a(\alpha)}  \d x
  = \frac12 \, \frac{\Delta^2}{\int_0^1 a^{-1}(\alpha) \d x}
-\end{align} 
+\end{align}
 We finally obtain an energy which only depends on $\alpha(x)$
 \begin{align}
 {\cal E}(\alpha(x)) & = \frac12 \, \frac{\Delta^2}{\int_0^1 a^{-1}(\alpha) \d x}  +
- \int_0^1 W  w(\alpha) \d x 
-\end{align} 
+ \int_0^1 W  w(\alpha) \d x
+\end{align}
 During the loading process, $\Delta = \Delta(t)$, the field $\alpha(x,t)$ cannot decrease.
 A necessary condition is that, at all time
 \begin{subequations}
@@ -306,7 +305,7 @@ A necessary condition is that, at all time
 \\
 \text{ hence } \mu(x)=
 W \, w'(\alpha) + \frac12 \, \frac{a'(\alpha)}{a^2 } \, \frac{\Delta^2}{\left( \int_0^1 a^{-1}(\alpha) \d x \right)^2}
-\end{align} 
+\end{align}
 \end{subequations}
 And a sufficient condition is
 %\begin{subequations}
@@ -314,15 +313,15 @@ And a sufficient condition is
 \forall \bar{\alpha} \ge0: \int_0^1 W w''(\alpha) \bar{\alpha}^2 \d x +
  \frac12  \, \frac{\Delta^2}{\left( \int_0^1 a^{-1}(\alpha) \d x \right)^2}
  %
-\int_0^1 
+\int_0^1
 \left(
-\frac{a''(\alpha)}{a^2 } -2\frac{a'(\alpha)^2}{a^3 } 
+\frac{a''(\alpha)}{a^2 } -2\frac{a'(\alpha)^2}{a^3 }
 \right)
 \bar{\alpha}^2 \d x
 +
 \Delta^2 \, \frac{\left( \int_0^1 \frac{a'(\alpha)}{a^2} \, \bar{\alpha} \, \d x \right)^2 }{\left( \int_0^1 a^{-1}(\alpha) \d x \right)^3}
 >0
-\end{align} 
+\end{align}
 %\end{subequations}
 or, setting $s(\alpha)=1/a(\alpha)$
 %\begin{subequations}
@@ -335,10 +334,10 @@ or, setting $s(\alpha)=1/a(\alpha)$
 +
 \Delta^2 \, \frac{\left( \int_0^1 s'(\alpha) \, \bar{\alpha} \, \d x \right)^2 }{\left( \int_0^1 s(\alpha) \d x \right)^3}
 >0
-\end{align} 
+\end{align}
 %\end{subequations}
 
- 
+
 %
 %
 %
@@ -365,7 +364,7 @@ We introduce $N$ segments of equal size $h=1/N$, with $s_i=i \, h$ and $i \in (1
  \label{eq:base_func}
 \begin{align}
 H_i(x) &= 1 \text{~ if ~} x_{i-1} \le x \le x_i  \\
-H_i(x) &= 0 \text{~ otherwise ~} 
+H_i(x) &= 0 \text{~ otherwise ~}
 \end{align}
 \end{subequations}
 
@@ -374,31 +373,31 @@ The variation $\bar{\alpha}(x)$ and $\alpha(x)$ are represented as
 \label{eq:discrete_variations}
 \begin{align}
 \bar{\alpha}(s) &= \sum_{i=1}^N \bar{\alpha}_i \, H_i(s) \label{eq:19a} \\
-\alpha(s) &= \sum_{i=1}^N \alpha_i \, H_i(s) \label{eq:19b} 
+\alpha(s) &= \sum_{i=1}^N \alpha_i \, H_i(s) \label{eq:19b}
 \end{align}
 \end{subequations}
 
 
 
-We note $S=\int_0^1 s(\alpha) \d x$. The second variation in (\ref{eq:second_varia}) can then be written in matrix form as 
+We note $S=\int_0^1 s(\alpha) \d x$. The second variation in (\ref{eq:second_varia}) can then be written in matrix form as
 \begin{subequations}
 \begin{align}
 \label{eq:second_varia_discrete}
 \text{ for } i \neq j: \, H_{ij} = \Delta^2 \, h^2 \,  \frac{s'(\alpha_i) \, s'(\alpha_j)}{S^3} \\
 %
-H_{ii} = h\, W w''(\alpha_i) - \frac{\Delta^2}{2} \, h \,  \frac{s''(\alpha_i)}{S^2}  + \Delta^2 \, h^2 \,  \frac{s'(\alpha_i)^2}{S^3} 
-\end{align} 
+H_{ii} = h\, W w''(\alpha_i) - \frac{\Delta^2}{2} \, h \,  \frac{s''(\alpha_i)}{S^2}  + \Delta^2 \, h^2 \,  \frac{s'(\alpha_i)^2}{S^3}
+\end{align}
 \end{subequations}
 And the condition (\ref{eq:second_varia}) can be written as
 \begin{align}
 \label{eq:cond_second_varia_discrete}
-\forall  \bar{\alpha}_i >0 \, , \forall  \bar{\alpha}_j >0  : \sum_{i,j} H_{ij} \, \alpha_i \, \alpha_j >0 
-\end{align} 
-this condition is fulfilled if 
+\forall  \bar{\alpha}_i >0 \, , \forall  \bar{\alpha}_j >0  : \sum_{i,j} H_{ij} \, \alpha_i \, \alpha_j >0
+\end{align}
+this condition is fulfilled if
 \begin{align}
 \label{eq:cond_second_varia_discrete_bis}
-\forall  i,j  :  H_{ij} >0 
-\end{align} 
+\forall  i,j  :  H_{ij} >0
+\end{align}
 
 
 
@@ -423,7 +422,7 @@ this condition is fulfilled if
 %% bibitems, please use
 %%
 
-\bibliographystyle{elsarticle-harv} 
+\bibliographystyle{elsarticle-harv}
 \bibliography{discrete_damage}
 
 \end{document}
