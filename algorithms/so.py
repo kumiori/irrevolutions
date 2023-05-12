@@ -548,8 +548,9 @@ class ConeSolver(StabilitySolver):
                     # make it admissible: map into the cone
                     # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
 
-                    self._cone_project(_x)
-                    
+                    # self._cone_project(_x)
+                    _x = self._cone_project_restricted(_x)
+
                     # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
                     # K_t spectrum:
                     # compute {lambdat, xt, yt}
@@ -558,7 +559,7 @@ class ConeSolver(StabilitySolver):
                         _A = self.eigen.rA
                         _B = self.eigen.rB
 
-                        _x = self.eigen.restriction.restrict_vector(_x)
+                        # _x = self.eigen.restriction.restrict_vector(_x)
                         _y = self.eigen.restriction.restrict_vector(_y)
                         _Ax = self.eigen.restriction.restrict_vector(_Ax)
                         _Bx = self.eigen.restriction.restrict_vector(_Bx)
@@ -593,7 +594,9 @@ class ConeSolver(StabilitySolver):
                     _x.axpy(-_s, _y)
                     
                     # project onto cone
-                    self._cone_project(_x)
+                    # self._cone_project(_x)
+                    _x = self._cone_project_restricted(_x)
+
                     assert self._xold.size == _x.size
                     
                     _xold.copy(self._xold)
@@ -706,5 +709,35 @@ class ConeSolver(StabilitySolver):
 
             _sub.pointwiseMax(_sub, zero)
             v.restoreSubVector(_is, _sub)
+        return
+
+        
+    def _cone_project_restricted(self, v):
+        """Projects vector into the relevant cone
+            handling restrictions.
+
+            takes arguments:
+            - v: vector in a mixed space
+
+            returns
+        """
+        with dolfinx.common.Timer(f"~Second Order: Cone Project"):
+            # logging.critical(f"num dofs {len(self.eigen.restriction.bglobal_dofs_vec[1])}")
+            # get the subvector associated to damage dofs with inactive constraints 
+
+            _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
+            _is = PETSc.IS().createGeneral(_dofs)
+            _sub = v.getSubVector(_is)
+            zero = _sub.duplicate()
+
+            zero.zeroEntries()
+
+            _sub.pointwiseMax(_sub, zero)
+            v.restoreSubVector(_is, _sub)
+
+            if self.eigen.restriction is not None:
+                return self.eigen.restriction.restrict_vector(v)
+            else:
+                return v
         return
 
