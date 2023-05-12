@@ -535,19 +535,21 @@ class ConeSolver(StabilitySolver):
             
             # Map current solution into vector _x
             functions_to_vec(self.Kspectrum[0].get("xk"), _x)
-            
+            logging.critical(f"         Size of _x : {_x.size}")
             self.data["lambda_k"].append(self.Kspectrum[0].get("lambda"))
+            logging.critical(f'         initial lambda-guess : {self.Kspectrum[0].get("lambda")}')
 
             with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
+                assert self._xold.size == _x.size
         
-                while not self.loop(_x):
+                while not self.converged(_x):
                     errors.append(self.error)
 
                     # make it admissible: map into the cone
                     # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
-                    
-                    self._cone_project(_x)
 
+                    self._cone_project(_x)
+                    
                     # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
                     # K_t spectrum:
                     # compute {lambdat, xt, yt}
@@ -560,9 +562,12 @@ class ConeSolver(StabilitySolver):
                         _y = self.eigen.restriction.restrict_vector(_y)
                         _Ax = self.eigen.restriction.restrict_vector(_Ax)
                         _Bx = self.eigen.restriction.restrict_vector(_Bx)
+
+                        _xold = self.eigen.restriction.restrict_vector(self._xold)
                     else:
                         _A = self.eigen.A
                         _B = self.eigen.B
+                        _xold = self._xold
 
                     _A.mult(_x, _Ax)
                     xAx = _x.dot(_Ax)
@@ -582,12 +587,16 @@ class ConeSolver(StabilitySolver):
 
                     # construct perturbation
                     # _v = _x - _s*y_t
-
-                    _x.copy(self._xold)
+        
+                    # _x.copy(self._xold)
+                    _x.copy(_xold)
                     _x.axpy(-_s, _y)
                     
                     # project onto cone
                     self._cone_project(_x)
+                    assert self._xold.size == _x.size
+                    
+                    _xold.copy(self._xold)
                     
                     # L2-normalise
                     n2 = _x.normalize()
@@ -599,7 +608,6 @@ class ConeSolver(StabilitySolver):
                     self.data["y_norm_L2"].append(_y.norm())
                     
             logging.critical(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
-            # print(errors)
             logging.critical(f"Eigenfunction is in cone? {self._isin_cone(_x)}")
             
             self.data["iterations"] = self.iterations
@@ -611,11 +619,24 @@ class ConeSolver(StabilitySolver):
             # logging.critical(_lmbda_t)
             if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_atol"))):
                 stable = bool(False)
-                # __import__('pdb').set_trace()
             else:
                 stable = bool(True)
         return bool(stable)
     
+    def converged(self, x):
+        converged = self.convergenceTest(x)
+        
+        # update xold
+        # x.copy(self._xold)
+        # x.vector.ghostUpdate(
+        #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        # )
+
+        if not converged:
+            self.iterations += 1
+
+        return converged
+
     def convergenceTest(self, x):
         """Test convergence of current iterate x against 
         prior"""
@@ -625,44 +646,36 @@ class ConeSolver(StabilitySolver):
         _atol = self.parameters.get("cone").get("cone_atol")
         _maxit = self.parameters.get("cone").get("cone_max_it")
 
+        if self.eigen.restriction is not None:
+            _x = self.eigen.restriction.restrict_vector(x)
+            _xold = self.eigen.restriction.restrict_vector(self._xold)
+        else:
+            _x = x
+            _xold = self._xold
+
         if self.iterations == _maxit:
             raise RuntimeError(f'SPA solver did not converge within {_maxit} iterations. Aborting')
             # return False        
-        # xdiff = -x + x_old
-        diff = x.duplicate()
+        diff = _x.duplicate()
         diff.zeroEntries()
 
-        diff.waxpy(-1., self._xold, x)
-
+        # xdiff = -x + x_old
+        diff.waxpy(-1., _xold, _x)
         error_x_L2 = diff.norm()
-        self.error = error_x_L2
-        # logging.critical(f"error_x_L2 = {error_x_L2}")
 
-        # self.data["iterations"].append(self.iterations)
-        # self.data["error_x_L2"].append(error_x_L2)
+        self.error = error_x_L2
+        if not self.iterations % 100:
+            logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2}")
+
+        self.data["iterations"].append(self.iterations)
+        self.data["error_x_L2"].append(error_x_L2)
 
         if error_x_L2 < _atol:
             self._converged = True
-            return True
         elif self.iterations == 0 or error_x_L2 >= _atol:
-            return False
+            self._converged = False
 
-
-    # v = mode[i].get("xk") for mode in self.spectrum
-    def loop(self, x):
-        # its = self.iterations
-        reason = self.convergenceTest(x)
-        
-        # update xold
-        # x.copy(self._xold)
-        # x.vector.ghostUpdate(
-        #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        # )
-
-        if not reason:
-            self.iterations += 1
-
-        return reason
+        return self._converged
 
     def _isin_cone(self, x):
         """Is in the zone IFF x is in the cone"""
@@ -683,7 +696,7 @@ class ConeSolver(StabilitySolver):
             returns
         """
         with dolfinx.common.Timer(f"~Second Order: Cone Project"):
-            
+            # logging.critical(f"num dofs {len(self.eigen.restriction.bglobal_dofs_vec[1])}")
             # get the subvector associated to damage dofs with inactive constraints 
             _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
             _is = PETSc.IS().createGeneral(_dofs)
