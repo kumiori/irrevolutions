@@ -1,3 +1,4 @@
+from ctypes import c_void_p
 from petsc4py import PETSc
 from mpi4py import MPI
 import sys
@@ -105,25 +106,28 @@ _is = PETSc.IS().createGeneral(alpha_dofs)
 # this is a pointer
 _sub = v.getSubVector(_is)
 
-one = _sub.duplicate()
-# one.interpolate(1.)
+a = _sub.duplicate()
+# a.interpolate(1.)
 
 maps = [(form.function_spaces[0].dofmap.index_map, form.function_spaces[0].dofmap.index_map_bs) for form in F]
 
-print(f"one array {one.array}")
+print(f"a array {a.array}")
 
-# with one.localForm() as loc:
+# with a.localForm() as loc:
 #     loc.set(1.0)
 # *** AttributeError: attribute 'array_r' of 'petsc4py.PETSc.Vec' objects is not writable
-one.array = [1]*len(alpha_dofs)
-one.assemble()
+a.array = [1]*len(alpha_dofs)
+a.array = [.5*k for k in [-2,.5, -1, 2, 3, 4, 5, 3][0:len(alpha_dofs)]]
+a.assemble()
 
-_sub.pointwiseMax(_sub, one)
-print(f"one array {one.array}")
+_sub.pointwiseMax(_sub, a)
+_sub.assemble()
+print(f"one array {a.array}")
 
-print(f"v original (_sub) {v.array}")
+print(f"v (_sub) {v.array}")
 print(f"sub array {_sub.array}")
 v.restoreSubVector(_is, _sub)
+# _sub is destroyed
 
 print(f"v restored (projected) {v.array}")
 
@@ -138,11 +142,98 @@ for i, space in enumerate([V_u, V_alpha]):
     print(i, space, "size_local", size_local)
     print(i, space, "num_ghosts", num_ghosts)
 
-__import__('pdb').set_trace()
 
+from dolfinx import cpp as _cpp
 x0_local = _cpp.la.petsc.get_local_vectors(x, maps)
 
-_cpp.la.petsc.scatter_local_vectors(v, x0_local, maps)
-v.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+print(f"this should scatter x0_local into the global vector v")
 
+_cpp.la.petsc.scatter_local_vectors(v, x0_local, maps)
+v.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.FORWARD)
+
+print(f"v should now be zero")
+print(f"v restored (projected) {v.array}")
+
+_sub = v.getSubVector(_is)
+_sub.pointwiseMax(_sub, a)
+
+# _cpp.la.petsc.scatter_local_vectors(v, x0_local, maps)
+print(f"v should now be harmless")
+
+print(f"v restored {v.array}")
+
+v_r = restriction.restrict_vector(v)
+print(f"v_restricted.size {v_r.size}")
+print(f"v_restricted.array_r {v_r.array_r}")
+c_dofs = restriction.bglobal_dofs_vec[1]
+
+# its=0
+
+def converged(x):
+    import random
+    _converged = bool(np.int32(random.uniform(0, 1)))
+    
+    # update xold
+    # x.copy(_xold)
+    # x.vector.ghostUpdate(
+    #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    # )
+
+    # if not converged:
+    #     its += 1
+    
+    print("converged" if _converged else f" converging")
+
+    return _converged
+
+def _cone_project(v):
+    """Projection vector into the cone
+
+        takes arguments:
+        - v: vector in a mixed space
+
+        returns
+    """
+
+    _dofs = restriction.bglobal_dofs_vec[1]
+    _is = PETSc.IS().createGeneral(_dofs)
+    
+    # new vector
+    w = v.copy()
+    _sub = w.getSubVector(_is)
+    
+    zero = _sub.duplicate()
+    zero.zeroEntries()
+
+    _sub.pointwiseMax(_sub, zero)
+    w.restoreSubVector(_is, _sub)
+    return w
+
+
+_sub = v.getSubVector(_is)
+_sub.array = [.5*k for k in [-2,.5, -1, 2, 3, 4, 5, 3][0:len(alpha_dofs)]]
+_sub.assemble()
+v.restoreSubVector(_is, _sub)
+
+# get initial guess (full)
+# restrict 
+# project component
+# x_r = restriction.restrict_vector(v)
+# x_rp = _cone_project(v)
+
+while not converged(x):
+    # if restriction is not None:
+    # this is the general case
+    # update xk
+    # update full field
+    # update x old full
+    # xold.copy(...)
+
+    print(converged(x))
+    
+v_local = _cpp.la.petsc.get_local_vectors(v, maps)
+v1_local = v_local[1]
+print(f"v1_local {v1_local}")
 __import__('pdb').set_trace()
+_cpp.la.petsc.scatter_local_vectors(v, v_local, maps)
+v.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
