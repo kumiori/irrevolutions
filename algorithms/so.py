@@ -538,6 +538,8 @@ class ConeSolver(StabilitySolver):
             logging.critical(f"         Size of _x : {_x.size}")
             self.data["lambda_k"].append(self.Kspectrum[0].get("lambda"))
             logging.critical(f'         initial lambda-guess : {self.Kspectrum[0].get("lambda")}')
+            if not self.eigen.empty_B():
+                logging.debug("B = Id")
 
             with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
                 assert self._xold.size == _x.size
@@ -579,7 +581,6 @@ class ConeSolver(StabilitySolver):
                         xBx = _x.dot(_Bx)
                         _lmbda_t = xAx/xBx
                     else:
-                        logging.debug("B = Id")
                         _Bx = _x
                         _lmbda_t = xAx / _x.dot(_x)
 
@@ -597,7 +598,7 @@ class ConeSolver(StabilitySolver):
                     # self._cone_project(_x)
                     _x = self._cone_project_restricted(_x)
 
-                    assert self._xold.size == _x.size
+                    # assert self._xold.size == _x.size
                     
                     _xold.copy(self._xold)
                     
@@ -609,18 +610,18 @@ class ConeSolver(StabilitySolver):
 
                     self.data["lambda_k"].append(_lmbda_t)
                     self.data["y_norm_L2"].append(_y.norm())
-                    
-            logging.critical(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
-            logging.critical(f"Eigenfunction is in cone? {self._isin_cone(_x)}")
-            
+
             self.data["iterations"] = self.iterations
             self.data["error_x_L2"] = errors
             self.data["lambda_0"] = _lmbda_t
 
+            logging.critical(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
+            logging.critical(f"Eigenfunction is in cone? {self._isin_cone(_x)}")
+            logging.critical(f"Eigenvalue {_lmbda_t}")
+
             # if (self._isin_cone(_x)):
                 # bifurcating out of existence, not out of a numerical test
-            # logging.critical(_lmbda_t)
-            if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_atol"))):
+            if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_rtol"))):
                 stable = bool(False)
             else:
                 stable = bool(True)
@@ -725,8 +726,21 @@ class ConeSolver(StabilitySolver):
             # logging.critical(f"num dofs {len(self.eigen.restriction.bglobal_dofs_vec[1])}")
             # get the subvector associated to damage dofs with inactive constraints 
 
-            _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
+            
+            # if is already restricted
+            if v.size == len(self.eigen.restriction.bglobal_dofs_vec_stacked):
+                # use all dofs
+                _dofs = np.arange(len(self.eigen.restriction.blocal_dofs[1])).tolist()
+            # else get from restriction
+            else:
+                _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
+
             _is = PETSc.IS().createGeneral(_dofs)
+            logging.debug(f"rank {comm.rank}) IS.size from block-local dofs {_is.size}")
+            logging.debug(f"rank {comm.rank}) v size                          {v.size}")
+            logging.debug(f"rank {comm.rank}) IS Indices from block-local dofs {_is.getIndices()}")
+            logging.debug(f"rank {comm.rank}) Restricted dofs {len(self.eigen.restriction.blocal_dofs[1])}")
+            
             _sub = v.getSubVector(_is)
             zero = _sub.duplicate()
 
@@ -735,7 +749,7 @@ class ConeSolver(StabilitySolver):
             _sub.pointwiseMax(_sub, zero)
             v.restoreSubVector(_is, _sub)
 
-            if self.eigen.restriction is not None:
+            if self.eigen.restriction is not None and v.size != len(self.eigen.restriction.bglobal_dofs_vec_stacked):
                 return self.eigen.restriction.restrict_vector(v)
             else:
                 return v
