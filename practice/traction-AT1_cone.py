@@ -85,7 +85,7 @@ parameters["model"]["w1"] = 1
 parameters["model"]["ell"] = .1
 parameters["model"]["k_res"] = 1e-8
 parameters["loading"]["max"] = 3
-parameters["loading"]["steps"] = 20
+parameters["loading"]["steps"] = 30
 
 parameters["geometry"]["geom_type"] = "traction-bar"
 parameters["geometry"]["ell_lc"] = 3
@@ -260,7 +260,8 @@ check_stability = []
 # logging.getLogger().setLevel(logging.INFO)
 logging.getLogger().setLevel(logging.DEBUG)
 
-for i_t, t in enumerate(loads):
+# for i_t, t in enumerate(loads):
+for i_t, t in enumerate([0., .99, 1.01]):
     u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
     u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                           mode=PETSc.ScatterMode.FORWARD)
@@ -330,7 +331,8 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
     ColorPrint.print_bold(f"===================-=================")
     
-    stable = cone._solve(alpha_lb)
+    stable = cone.my_solve(alpha_lb, x0=stability.Kspectrum[0].get("xk"))
+    # stable = cone.my_solve(alpha_lb)
     # _F = assemble_scalar( form(stress(state)) )
     
     fracture_energy = comm.allreduce(
@@ -354,8 +356,7 @@ for i_t, t in enumerate(loads):
     history_data["total_energy"].append(elastic_energy+fracture_energy)
     history_data["solver_data"].append(solver.data)
     history_data["eigs"].append(stability.data["eigs"])
-    history_data["stable"].append(stable)
-    # history_data["stable"].append(stability.data["stable"])
+    history_data["stable"].append(stability.data["stable"])
     history_data["F"].append(stress)
     history_data["cone_data"].append(cone.data)
     history_data["alphadot_norm"].append(alphadot.vector.norm())
@@ -372,6 +373,11 @@ for i_t, t in enumerate(loads):
         json.dump(history_data, a_file)
         a_file.close()
 
+    ColorPrint.print_bold(f"   Written timely data.    ")
+    print()
+    print()
+    print()
+    print()
 list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 # print(history_data)
 
