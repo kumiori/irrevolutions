@@ -666,7 +666,7 @@ class ConeSolver(StabilitySolver):
         # __import__('pdb').set_trace()
 
         if not self._is_critical(alpha_old):
-            return bool(False)
+            return bool(True)
 
         restricted_dofs = self.get_inactive_dofset(alpha_old)
         constraints = restriction.Restriction([self.V_u, self.V_alpha], restricted_dofs)
