@@ -83,9 +83,9 @@ parameters["model"]["model_dimension"] = 2
 parameters["model"]["model_type"] = '1D'
 parameters["model"]["w1"] = 1
 parameters["model"]["ell"] = .1
-parameters["model"]["k_res"] = 1e-8
+parameters["model"]["k_res"] = 0.
 parameters["loading"]["max"] = 3
-parameters["loading"]["steps"] = 30
+parameters["loading"]["steps"] = 100
 
 parameters["geometry"]["geom_type"] = "traction-bar"
 parameters["geometry"]["ell_lc"] = 3
@@ -185,10 +185,10 @@ bc_u_right = dirichletbc(
 bcs_u = [bc_u_left, bc_u_right]
 
 bcs_alpha = []
-bcs_alpha = [
-    dolfinx.fem.dirichletbc(zero_alpha, dofs_alpha_left),
-    dolfinx.fem.dirichletbc(zero_alpha, dofs_alpha_right),
-]
+# bcs_alpha = [
+#     dolfinx.fem.dirichletbc(zero_alpha, dofs_alpha_left),
+#     dolfinx.fem.dirichletbc(zero_alpha, dofs_alpha_right),
+# ]
 
 set_bc(alpha_ub.vector, bcs_alpha)
 alpha_ub.vector.ghostUpdate(
@@ -215,7 +215,8 @@ loads = np.linspace(load_par["min"],
                     load_par["max"], load_par["steps"])
 
 solver = AlternateMinimisation(
-    total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
+    total_energy, state, bcs, parameters.get("solvers"), 
+    bounds=(alpha_lb, alpha_ub)
 )
 
 hybrid = HybridFractureSolver(
@@ -257,11 +258,11 @@ check_stability = []
 
 # logging.basicConfig(level=logging.INFO)
 # logging.getLogger().setLevel(logging.ERROR)
-# logging.getLogger().setLevel(logging.INFO)
-logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.INFO)
+# logging.getLogger().setLevel(logging.DEBUG)
 
-# for i_t, t in enumerate(loads):
-for i_t, t in enumerate([0., .99, 1.01]):
+for i_t, t in enumerate(loads):
+# for i_t, t in enumerate([0., .99, 1.01]):
     u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
     u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                           mode=PETSc.ScatterMode.FORWARD)
@@ -302,11 +303,7 @@ for i_t, t in enumerate([0., .99, 1.01]):
     logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
     logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
     logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
-    # rate_12_norm = np.sqrt(comm.allreduce(
-    #     dolfinx.fem.assemble_scalar(
-    #         hybrid.scaled_rate_norm(alpha, parameters))
-    #         , op=MPI.SUM))
-    
+
     rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
     urate_12_norm = hybrid.unscaled_rate_norm(alpha)
     logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
@@ -315,7 +312,6 @@ for i_t, t in enumerate([0., .99, 1.01]):
 
     ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
     ColorPrint.print_bold(f"===================-=================")
-
 
     # n_eigenvalues = 10
     is_stable = stability.solve(alpha_lb)
