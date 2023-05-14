@@ -611,6 +611,9 @@ class ConeSolver(StabilitySolver):
                     self.data["lambda_k"].append(_lmbda_t)
                     self.data["y_norm_L2"].append(_y.norm())
 
+
+
+
             self.data["iterations"] = self.iterations
             self.data["error_x_L2"] = errors
             self.data["lambda_0"] = _lmbda_t
@@ -626,7 +629,40 @@ class ConeSolver(StabilitySolver):
             else:
                 stable = bool(True)
         return bool(stable)
+
+    def __solve(self, alpha_old: dolfinx.fem.function.Function, neig=None):
+        _s = float(self.parameters.get("cone").get("scaling"))
+        self.iterations = 0
+        errors = []
+        self.stable = True
+        stable = self.solve(alpha_old)
+        self.data = {
+            "iterations": [],
+            "error_x_L2": [],
+            "lambda_k": [],
+            "lambda_0": [],
+            "y_norm_L2": [],
+        }
+        
+        self._converged = False
+        errors.append(1)
+        self.data["y_norm_L2"].append(1)
+        _x = dolfinx.fem.petsc.create_vector_block(self.F)        
+        functions_to_vec(self.Kspectrum[0].get("xk"), _x)
+        _xr = restriction(_x)
     
+        with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
+            while not self._converged(_x):
+                errors.append(self.error)
+                # play with restrictions
+                _Ar.mult(_xr, _Axr)
+                xAx_r = _xr.dot(_Axr)
+                # B=id for us
+                _lmbda_t = xAx_r / _xr.dot(_xr)
+                _y.waxpy(-_lmbda_t, _Bxr, _Axr)
+                _x.copy(_xold)
+                _x.axpy(-_s, _y)
+
     def converged(self, x):
         converged = self.convergenceTest(x)
         
@@ -712,6 +748,18 @@ class ConeSolver(StabilitySolver):
             v.restoreSubVector(_is, _sub)
         return
 
+    def _extend_vector(vres, vext):
+        """extends restricted vector vr into v, in place"""
+        # v = dolfinx.fem.petsc.create_vector_block(F)
+
+        _isall = PETSc.IS().createGeneral(restriction.bglobal_dofs_vec_stacked)
+        _suball = vext.getSubVector(_isall)
+
+        vres.copy(_suball)
+        vext.restoreSubVector(_isall, _suball)
+        
+        return
+
         
     def _cone_project_restricted(self, v):
         """Projects vector into the relevant cone
@@ -755,3 +803,22 @@ class ConeSolver(StabilitySolver):
                 return v
         return
 
+
+    def _cone_restrict_project(self, v):
+        """returns the projection of a full state vector v
+        (considering the restriction), onto the positive cone
+        the returned vector (new) is defined on the same space as v"""
+
+        vk = v.copy()
+        zero = v.duplicate()
+        zero.zeroEntries()
+
+        _is = PETSc.IS().createGeneral(self.eigen.restriction.bglobal_dofs_vec[1])
+        _sub = vk.getSubVector(_is)
+        print(f"{rank}) _sub-.array_r {_sub.array_r}")
+        _subzero = zero.getSubVector(_is)
+        _sub.pointwiseMax(_sub, _subzero)
+        print(f"{rank}) _sub+.array_r {_sub.array_r}")
+        vk.restoreSubVector(_is, _sub)
+
+        return vk

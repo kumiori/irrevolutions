@@ -1,8 +1,12 @@
-from ctypes import c_void_p
-from petsc4py import PETSc
-from mpi4py import MPI
 import sys
 import os
+from ctypes import c_void_p
+
+import petsc4py
+petsc4py.init(sys.argv)
+from mpi4py import MPI
+from petsc4py import PETSc
+
 import dolfinx
 import ufl
 sys.path.append("../")
@@ -169,9 +173,9 @@ c_dofs = restriction.bglobal_dofs_vec[1]
 
 # its=0
 
+import random
 def converged(x):
-    import random
-    _converged = bool(np.int32(random.uniform(0, 1)))
+    _converged = bool(np.int32(random.uniform(0, 1.5)))
     
     # update xold
     # x.copy(_xold)
@@ -186,7 +190,7 @@ def converged(x):
 
     return _converged
 
-def _cone_project(v):
+def _cone_project(v, v_r):
     """Projection vector into the cone
 
         takes arguments:
@@ -215,11 +219,17 @@ _sub.array = [.5*k for k in [-2,.5, -1, 2, 3, 4, 5, 3][0:len(alpha_dofs)]]
 _sub.assemble()
 v.restoreSubVector(_is, _sub)
 
+
+urandom = v.duplicate()
+urandom.array = [random.uniform(0, 1.5) for r in range(v.local_size)]
+
 # get initial guess (full)
+urandom.copy(x)
+
 # restrict 
 # project component
-# x_r = restriction.restrict_vector(v)
-# x_rp = _cone_project(v)
+x_r = restriction.restrict_vector(x)
+# x_rp = _cone_project(x, x_r)
 
 while not converged(x):
     # if restriction is not None:
@@ -230,10 +240,22 @@ while not converged(x):
     # xold.copy(...)
 
     print(converged(x))
-    
+
+
+comm = MPI.COMM_WORLD
+
+rank = comm.Get_rank()
+size = comm.Get_size()
+
+print(rank)
+__import__('pdb').set_trace()
 v_local = _cpp.la.petsc.get_local_vectors(v, maps)
 v1_local = v_local[1]
 print(f"v1_local {v1_local}")
+
+print(f"{comm.rank}, {rank}/{size} restriction.bglobal_dofs_vec {restriction.bglobal_dofs_vec}")
+print(f"{comm.rank}, {rank}/{size} restriction.bglobal_dofs_vec {restriction.blocal_dofs}")
 __import__('pdb').set_trace()
+# scatters block_local vectors into v
 _cpp.la.petsc.scatter_local_vectors(v, v_local, maps)
 v.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
