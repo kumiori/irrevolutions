@@ -267,8 +267,10 @@ class HybridFractureSolver(AlternateMinimisation):
 
         self.u_lb = dolfinx.fem.Function(state['u'].function_space, name="displacement lower bound")
         self.u_ub = dolfinx.fem.Function(state['u'].function_space, name="displacement upper bound")
-        self.alpha_lb = dolfinx.fem.Function(state['alpha'].function_space, name="damage lower bound")
-        self.alpha_ub = dolfinx.fem.Function(state['alpha'].function_space, name="damage upper bound")
+        self.alpha_lb = bounds[0]
+        # self.alpha_lb = dolfinx.fem.Function(state['alpha'].function_space, name="damage lower bound")
+        # self.alpha_ub = dolfinx.fem.Function(state['alpha'].function_space, name="damage upper bound")
+        self.alpha_ub = bounds[1]
 
         set_vector_to_constant(self.u_lb.vector, PETSc.NINFINITY)
         set_vector_to_constant(self.u_ub.vector, PETSc.PINFINITY)
@@ -376,7 +378,7 @@ class HybridFractureSolver(AlternateMinimisation):
         logging.critical("Num it, rnorm:", its, rnorm)
         pass     
 
-    def solve(self, outdir=None):
+    def solve(self, alpha_lb, outdir=None):
         # Perform AM as customary
         with dolfinx.common.Timer("~Alternate Minimization : AM solver"):
             super().solve(outdir)
@@ -391,6 +393,7 @@ class HybridFractureSolver(AlternateMinimisation):
         
         with dolfinx.common.Timer("~Alternate Minimization : Hybrid solver"):
             functions_to_vec([self.u_lb, self.alpha_lb], self.lb)
+            # logging.critical(f"max alpha.vector lb: {max(self.alpha_lb.vector.array)}")
 
             self.newton.snes.setVariableBounds(self.lb, self.ub)
             
