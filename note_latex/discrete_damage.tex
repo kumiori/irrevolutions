@@ -391,13 +391,21 @@ H_{ii} = h\, W w''(\alpha_i) - \frac{\Delta^2}{2} \, h \,  \frac{s''(\alpha_i)}{
 And the condition (\ref{eq:second_varia}) can be written as
 \begin{align}
 \label{eq:cond_second_varia_discrete}
-\forall  \bar{\alpha}_i >0 \, , \forall  \bar{\alpha}_j >0  : \sum_{i,j} H_{ij} \, \alpha_i \, \alpha_j >0
+\forall  \bar{\alpha}_i >0 \, , \forall  \bar{\alpha}_j >0  : \sum_{i,j} H_{ij} \, \bar{\alpha_i} \, \bar{{\alpha_j}} >0
 \end{align}
-this condition is fulfilled if
+this condition is fulfilled if (theorem NB, mais andres dit que c'est Frobenius-Peron...)
 \begin{align}
 \label{eq:cond_second_varia_discrete_bis}
 \forall  i,j  :  H_{ij} >0
 \end{align}
+en fait c'est faux, c'est plutot
+\begin{subequations}
+\begin{align}
+\label{eq:cond_second_varia_discrete_bis}
+\forall  i  &:  0 < H_{ij}  \\
+\forall  i \neq j  &:  - \sqrt{H_{ii} H_{jj} } < H_{ij}
+\end{align}
+\end{subequations}
 
 
 
