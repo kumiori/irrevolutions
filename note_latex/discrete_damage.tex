@@ -39,13 +39,17 @@
 \usepackage{amssymb}
 %% The amsthm package provides extended theorem environments
 %% \usepackage{amsthm}
-\usepackage{amsmath,bm} %seb
+\usepackage{amsmath,bm,color} %seb
 
 %% The lineno packages adds line numbers. Start line numbering with
 %% \begin{linenumbers}, end it with \end{linenumbers}. Or switch it on
 %% for the whole article with \linenumbers.
 %\usepackage{lineno} % seb
 % \linenumbers % seb only is draft mode (one column)
+
+\newcommand{\seb}[1]{{\bf\color{blue} seb: #1 }} % BY SEB 2023
+\newcommand{\alb}[1]{{\bf\color{red} ALB : #1 }} 
+
 
 \renewcommand*\d{\mathop{}\!\mathrm{d}} % seb
 
@@ -338,6 +342,83 @@ or, setting $s(\alpha)=1/a(\alpha)$
 %\end{subequations}
 
 
+
+
+
+\section{Our specific material model}
+\seb{notations: $Y \equiv  E_0$, $W=w_1$, and $\varepsilon \equiv \epsilon$} \\
+To analyze the effect of softening on the strength, we consider a specific parametric material model characterized by the degradation functions
+\begin{equation}
+%    \begin{split}
+        a(\alpha) := \frac{1-w(\alpha)}{1 + \left(\gamma-1\right)w(\alpha)} \, ,
+        \qquad
+        w(\alpha) := 1 - (1-\alpha)^2
+    \label{eq:ATK_model}
+\end{equation}
+
+which we call the Linear Softening (LS) model \citep{Le2018Strain-gradient}.
+
+A close inspection reveals that this model enjoys the following properties:
+\begin{itemize}
+    \item Strain hardening if and only if $\gamma>1$; 
+    \item Stress softening for any $\gamma>0$;
+    \item Maximum allowable stress $\sigma_c$ and strain for elastic limit $\varepsilon_c$ are given by:
+\begin{equation}
+\sigma_c:=\sqrt{\dfrac{2E_0 w_1 }{\gamma}}
+\, , \quad
+\varepsilon_c:=\sqrt{\dfrac{2 w_1 }{E_0 \gamma}}
+\label{eq:criticalstress}
+\end{equation}
+\end{itemize}
+NB: we will choose $w_1 = \gamma E_0 / 2$ with no loss of generality.
+%
+%
+%
+\subsection{Homogenous evolutions}
+%
+%
+%
+%
+%
+The evolution of stress, strain, and damage under monotonically increasing displacement-controlled loading, where the response is uniform (homogenous) $\varepsilon L=\Delta$, the response is purely elastic for 
+$\Delta \leq  \varepsilon_c = \sqrt{2w_1/(E_0 \, \gamma)}$, where the damage criterion is not still attained. For $\Delta \geq  \varepsilon_\infty := \sqrt{2w_1 \gamma / E_0}$ the full damage level is attained and the stress is zero. For intermediate value, the damage is found by solving for the damage criterion as an equality. This gives the following strain-stress relations
+\begin{equation}
+\label{eq:cases}
+\begin{cases}
+   \sigma = E_0 \,{\varepsilon}, &\text{ if } {\varepsilon} \leq \varepsilon_c \, , \\
+    %
+    \sigma = E_0\left({\varepsilon} -\sqrt{\frac{2w_1 \gamma}{E_0 }}\right), 
+    &\text{ if } 
+   \varepsilon_c    \leq    \varepsilon \leq    \varepsilon_\infty,    \\
+    %
+    \sigma=0, 
+    &\text{ if } 
+    \varepsilon_\infty \leq  \varepsilon.\\
+\end{cases}
+\end{equation}
+During the second phase $( \varepsilon_c    \leq    \varepsilon \leq    \varepsilon_\infty)$ we have
+\begin{subequations}
+\begin{align}
+\label{eq:eps_homog}
+\varepsilon_*(\alpha)  &= \sqrt{\dfrac{2w_1}{E_0 \gamma}}\left(1+ \alpha \, (\gamma-1)(2-\alpha ) \right) \\
+%
+\sigma_*(\alpha) &= \sqrt{\dfrac{2E_0 w_1}{\gamma}}(1-\alpha)^2
+\end{align}
+\end{subequations}
+NB: once the adim variables are used, $\sigma_c=1$, $\varepsilon_c=1$, and $\varepsilon_\infty=\gamma$.
+
+
+%\begin{figure}[t]
+%        \begin{center}
+%            \includegraphics[width=0.47\textwidth]{figures/LS-homogenous.pdf}
+%            %\includegraphics[width=0.47\textwidth]{figures/homogeneousDEV.pdf}
+%        \end{center}
+%        \caption{Homogenous response in purely spherical (left) and deviatoric (right) loading modes. Slid black lines are the stress, the dashed line the damage level. The gray area under the stress curve is the dissipated energy in a homogenous damage process $w_1$ and must coincide for the two loading modes. }
+%        \label{fig:homogenousmodes}
+%\end{figure}
+
+
+
 %
 %
 %
@@ -402,7 +483,7 @@ en fait c'est faux, c'est plutot
 \begin{subequations}
 \begin{align}
 \label{eq:cond_second_varia_discrete_bis}
-\forall  i  &:  0 < H_{ij}  \\
+\forall  i  &:  0 < H_{ii}  \\
 \forall  i \neq j  &:  - \sqrt{H_{ii} H_{jj} } < H_{ij}
 \end{align}
 \end{subequations}

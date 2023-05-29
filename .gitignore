@@ -9,10 +9,13 @@
 .vscode/tasks.json
 
 #seb
-
+.DS_Store
+*/.DS_Store
 **.DS_Store
 **.aux
 **.log
 **.spl
+**.bbl # latex
+**.blg # latex
 */src.cls/*
 **synctex.gz
