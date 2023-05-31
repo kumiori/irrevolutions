@@ -474,19 +474,17 @@ And the condition (\ref{eq:second_varia}) can be written as
 \label{eq:cond_second_varia_discrete}
 \forall  \bar{\alpha}_i >0 \, , \forall  \bar{\alpha}_j >0  : \sum_{i,j} H_{ij} \, \bar{\alpha_i} \, \bar{{\alpha_j}} >0
 \end{align}
-this condition is fulfilled if (theorem NB, mais andres dit que c'est Frobenius-Peron...)
-\begin{align}
-\label{eq:cond_second_varia_discrete_bis}
-\forall  i,j  :  H_{ij} >0
-\end{align}
-en fait c'est faux, c'est plutot
+this condition is fulfilled iff 
 \begin{subequations}
 \begin{align}
 \label{eq:cond_second_varia_discrete_bis}
 \forall  i  &:  0 < H_{ii}  \\
-\forall  i \neq j  &:  - \sqrt{H_{ii} H_{jj} } < H_{ij}
+\text{and } \forall  i \neq j  &:  - \sqrt{H_{ii} H_{jj} } < H_{ij}
 \end{align}
 \end{subequations}
+which seems to be related to Perron-Froebenius theorem.
+
+Perron-Froebenius theorem says that if a matrix has all its entries $>0$, then it admits an eigenvector with only $>0$ components. The associated eigenvalue is $>0$ is equal to the spectral radius of the matrix (max of the module of all eigenvalues).
 
 
 
