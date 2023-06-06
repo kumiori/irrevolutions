@@ -311,7 +311,7 @@ A necessary condition is that, at all time
 W \, w'(\alpha) + \frac12 \, \frac{a'(\alpha)}{a^2 } \, \frac{\Delta^2}{\left( \int_0^1 a^{-1}(\alpha) \d x \right)^2} \label{eq:mu_critere}
 \end{align}
 \end{subequations}
-And a sufficient condition is
+And a sufficient condition (when $\mu(x)=0$) is
 %\begin{subequations}
 \begin{align}
 \forall \bar{\alpha} \ge0: \int_0^1 W w''(\alpha) \bar{\alpha}^2 \d x +
@@ -553,10 +553,60 @@ But for other branches, a formula for $H_{ii}$ involving  only $\Delta$, as (\re
 
 
 
+%
+%
+%
+%
+%
+%
+%
+\section{The full Hessian matrix (LS model)} \label{sec:complete_H}
+%
+%
+%
+%
+%
+%
+%
+%
+\begin{figure}[htb]
+\centering
+\includegraphics[width=0.4 \columnwidth]{full_hessian_matrix}
+\caption{\label{fig:full_hessian} The full hessian matrix.}
+\end{figure}
+%
+We go back to the full energy
 
-
-
-
+\begin{align}
+{\cal E}(\alpha(x)) & = \int_0^1 \frac12 a(\alpha) \, \epsilon^2 \d x+ \int_0^1 W  w(\alpha) \d x \end{align}
+which has to be studied under the equality constraint $ \int_0^1 \epsilon(x) \d x =  \Delta$, that is we work with the Lagrangian
+\begin{align}
+{\cal L}(\epsilon(x),\alpha(x)) & = \int_0^1 \frac12 a(\alpha) \, \epsilon^2 \d x+ \int_0^1 W  w(\alpha) \d x - \sigma \int_0^1 \epsilon(x) \d x
+\end{align}
+or in discrete form
+\begin{align}
+{\cal L}(\epsilon_i,\alpha_i) & = h \, \sum_i \frac12 a(\alpha_i) \, \epsilon_i^2 + W  w(\alpha_i) - \sigma  \epsilon_i
+\end{align}
+The matrix elements of the Hessian are then
+\begin{subequations}
+\begin{align}
+H^\epsilon_{{ij}} := N \frac{\partial^2 {\cal L}}{\partial \epsilon_i \, \partial \epsilon_j} & = a(\alpha_i) \, \delta_{ij} \ge 0 \\
+%
+H^{\epsilon \alpha}_{{ij}} := N\frac{\partial^2 {\cal L}}{\partial \epsilon_i \, \partial \alpha_j}   & =   a'(\alpha_i) \, \epsilon_j \, \delta_{ij} \le 0 \\
+%
+H^\alpha_{{ij}} := N\frac{\partial^2 {\cal L}}{\partial \alpha_i \, \partial \alpha_j}   & = a''(\alpha_i) \, \epsilon_j^2 \, \delta_{ij} + W \, w''(\alpha_i)  \, \delta_{ij} \ge 0
+\end{align}
+\end{subequations}
+This hessian matrix has to be studied in the forward cone for the $\alpha_i$ variables, and with the equality constraint. That is, for stability, we need the quadratic form
+\begin{subequations}
+\begin{align}
+Q(\bar{\epsilon}, \bar{\alpha}) = \sum_{i=1}^N
+H^\epsilon_{ii} \, \bar{\epsilon}_i^2 +
+H^{\epsilon \alpha}_{ii} \, \bar{\epsilon}_i \, \bar{\alpha}_i +
+H^\alpha_{ii} \, \bar{\alpha}_i^2 >0 \text{ for all } \bar{\alpha}_i \ge 0 
+\text{ and for all } \bar{\epsilon}_i \text{ such that } \sum_i \bar{\epsilon}_i = 0
+\end{align}
+\end{subequations}
 %
 %
 %
