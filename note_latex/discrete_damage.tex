@@ -308,7 +308,7 @@ A necessary condition is that, at all time
 \int_0^1 \mu(x) \, \bar{\alpha} \, \d x \text{ } \forall \bar{\alpha}
 \\
 \text{ hence } \mu(x)=
-W \, w'(\alpha) + \frac12 \, \frac{a'(\alpha)}{a^2 } \, \frac{\Delta^2}{\left( \int_0^1 a^{-1}(\alpha) \d x \right)^2}
+W \, w'(\alpha) + \frac12 \, \frac{a'(\alpha)}{a^2 } \, \frac{\Delta^2}{\left( \int_0^1 a^{-1}(\alpha) \d x \right)^2} \label{eq:mu_critere}
 \end{align}
 \end{subequations}
 And a sufficient condition is
@@ -460,13 +460,22 @@ The variation $\bar{\alpha}(x)$ and $\alpha(x)$ are represented as
 
 
 
-We note $S=\int_0^1 s(\alpha) \d x$. The second variation in (\ref{eq:second_varia}) can then be written in matrix form as
+We note $S=\int_0^1 s(\alpha) \d x = h \, \sum_i s(\alpha_i)$. 
+Equation (\ref{eq:mu_critere}) reads 
+\begin{align}
+\mu_i=
+W \, w'(\alpha_i) + \frac12 \, \frac{a'(\alpha_i)}{a^2 } \, \frac{\Delta^2}{S^2} \label{eq:mu_critere_discrete}
+\end{align}
+
+
+
+The second variation in (\ref{eq:second_varia}) can then be written in matrix form as
 \begin{subequations}
 \begin{align}
 \label{eq:second_varia_discrete}
 \text{ for } i \neq j: \, H_{ij} = \Delta^2 \, h^2 \,  \frac{s'(\alpha_i) \, s'(\alpha_j)}{S^3} \\
 %
-H_{ii} = h\, W w''(\alpha_i) - \frac{\Delta^2}{2} \, h \,  \frac{s''(\alpha_i)}{S^2}  + \Delta^2 \, h^2 \,  \frac{s'(\alpha_i)^2}{S^3}
+H_{ii} = h\, W w''(\alpha_i) - \frac{\Delta^2}{2} \, h \,  \frac{s''(\alpha_i)}{S^2}  + \Delta^2 \, h^2 \,  \frac{s'(\alpha_i)^2}{S^3} \label{eq_Hii}
 \end{align}
 \end{subequations}
 And the condition (\ref{eq:second_varia}) can be written as
@@ -485,6 +494,59 @@ this condition is fulfilled iff
 which seems to be related to Perron-Froebenius theorem.
 
 Perron-Froebenius theorem says that if a matrix has all its entries $>0$, then it admits an eigenvector with only $>0$ components. The associated eigenvalue is $>0$ and is equal to the spectral radius of the matrix (max of the module of all eigenvalues).
+
+
+%
+%
+%
+%
+%
+%
+%
+\section{Loss of cone-stability} \label{sec:loss_stab}
+%
+%
+%
+%
+%
+%
+%
+In this section, we show that {\em all} equilibrium branches loose stability when $\Delta=h \, \gamma$.
+Please note that for an index $i$ experiencing damage, we have $\mu_i=0$ in (\ref{eq:mu_critere_discrete}), that is
+\begin{subequations}
+\begin{align}
+\mu_i = \frac{\gamma}{2} \, \left( 1 - \frac{1}{(1-\alpha)^2} \, \frac{\Delta^2}{S^2} \right)=0 \label{eq:mui_active} \\
+\text{ that is } \Delta = (1-\alpha_i) \, S(\alpha_1, \alpha_2, \ldots, \alpha_N) \label{eq:rel_delta_S}
+\end{align}
+\end{subequations}
+
+Please also note that (\ref{eq_Hii}) writes
+\begin{align}
+\label{eq:Hii_LS}
+H_{ii} = \frac{h \, \Delta^2 \gamma}{S^3 (1-\alpha_i)^4} \left( -(1-\alpha_i) S(\alpha_1, \alpha_2, \ldots, \alpha_N) + h \gamma \right)
+\end{align}
+
+\subsection{The branch of homogeneous solutions}
+On this branch we have $\alpha_i = \alpha_H$ for all $i$.
+Hence $S=h \sum_i s(\alpha_i) = h N s(\alpha_H)=s(\alpha_H)$.
+For each $i$, (\ref{eq:mui_active}) holds.
+All diagonal terms in the Hessian matrix are the same, and (\ref{eq:Hii_LS}) with (\ref{eq:mui_active}) yields
+\begin{align}
+\label{eq:Hii_LS_bis}
+H_{ii} = \frac{h \, \Delta^2 \gamma}{S^3 (1-\alpha_H)^4} \left( -\Delta + h \gamma \right)
+\end{align}
+So the loss of stability happens when $\Delta = h \gamma$.
+
+\subsection{Any branch with several $i$ experiencing damage}
+On a branche with indices $i$ damaging and indices $j$ passives, we have that all the $\alpha_i$ share the same value (because of history), and all the $\mu_j>0$ (because the value of $\sigma=\Delta/S$ has decreased since this $j$ was damaging, see (\ref{eq:mui_active})). 
+Hence the stability test has only to be carried for the indices $i$, and consequently yields the same result as in (\ref{eq:Hii_LS_bis}).
+
+Remark: for AT1, (\ref{eq:rel_delta_S}) reads $\Delta = S \, (1-\alpha_i)^{3/2}$ and (\ref{eq:Hii_LS}) reads $H_{ii} = c \, (-(1-\alpha_i)^2 \, S + (4/3) h)$. 
+For the branch of homogeneous solutions, we can evaluate $S=(1-\alpha_H)^{-2}$ and hence $H_{ii} = c \, (-1 + (4/3) h)$ (stable only for $N<4/3$ !).
+But for other branches, a formula for $H_{ii}$ involving  only $\Delta$, as (\ref{eq:Hii_LS_bis}), does not exist.
+
+
+
 
 
 
