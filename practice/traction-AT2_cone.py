@@ -88,21 +88,20 @@ with open("../test/parameters.yml") as f:
 
 # parameters["cone"] = ""
 parameters["stability"]["cone"]["scaling"] = .1
+parameters["stability"]["cone"]["cone_max_it"] = 5000
+parameters["stability"]["cone"]["cone_atol"] = 1e-4
 
 parameters["model"]["model_dimension"] = 2
 parameters["model"]["model_type"] = '1D'
 parameters["model"]["w1"] = 1
-parameters["model"]["ell"] = .3
-parameters["model"]["k_res"] = 1e-8
-parameters["loading"]["max"] = 3.
-parameters["loading"]["steps"] = 100
-
-parameters["stability"]["cone"]["cone_atol"] = 1e-5
-parameters["stability"]["cone"]["cone_max_it"] = 6000
-parameters["stability"]["cone"]["scaling"] = 0.05
+parameters["model"]["ell"] = .1
+parameters["model"]["k_res"] = 0.
+# parameters["loading"]["min"] = .0
+parameters["loading"]["max"] = 1.5
+parameters["loading"]["steps"] = 200
 
 parameters["geometry"]["geom_type"] = "traction-bar"
-parameters["geometry"]["ell_lc"] = 4
+parameters["geometry"]["ell_lc"] = 5
 # Get mesh parameters
 Lx = parameters["geometry"]["Lx"]
 Ly = parameters["geometry"]["Ly"]
@@ -111,6 +110,9 @@ tdim = parameters["geometry"]["geometric_dimension"]
 _nameExp = parameters["geometry"]["geom_type"]
 ell_ = parameters["model"]["ell"]
 # lc = ell_ / 5.0
+
+# Get geometry model
+geom_type = parameters["geometry"]["geom_type"]
 
 # Get geometry model
 geom_type = parameters["geometry"]["geom_type"]
@@ -272,6 +274,7 @@ check_stability = []
 logging.getLogger().setLevel(logging.INFO)
 
 for i_t, t in enumerate(loads):
+# for i_t, t in enumerate([0., .99, 1.0, 1.01]):
     u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
     u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                           mode=PETSc.ScatterMode.FORWARD)
@@ -282,19 +285,24 @@ for i_t, t in enumerate(loads):
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
+    logging.critical("--  --")
+    logging.critical("")
+    logging.critical("")
+    logging.critical("")
+    
     ColorPrint.print_bold(f"   Solving first order: AM   ")
     ColorPrint.print_bold(f"===================-=========")
 
 
-    logging.critical(f"-- Solving for t = {t:3.2f} --")
+    logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
     solver.solve()
 
     ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
     ColorPrint.print_bold(f"===================-=============")
 
-    logging.info(f"-- Solving for t = {t:3.2f} --")
-    hybrid.solve()
+    logging.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
+    hybrid.solve(alpha_lb)
 
     # compute the rate
     alpha.vector.copy(alphadot.vector)
@@ -307,11 +315,7 @@ for i_t, t in enumerate(loads):
     logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
     logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
     logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
-    # rate_12_norm = np.sqrt(comm.allreduce(
-    #     dolfinx.fem.assemble_scalar(
-    #         hybrid.scaled_rate_norm(alpha, parameters))
-    #         , op=MPI.SUM))
-    
+
     rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
     urate_12_norm = hybrid.unscaled_rate_norm(alpha)
     logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
@@ -320,7 +324,6 @@ for i_t, t in enumerate(loads):
 
     ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
     ColorPrint.print_bold(f"===================-=================")
-
 
     # n_eigenvalues = 10
     is_stable = stability.solve(alpha_lb)
@@ -331,13 +334,14 @@ for i_t, t in enumerate(loads):
 
     ColorPrint.print_bold(f"State is elastic: {is_elastic}")
     ColorPrint.print_bold(f"State's inertia: {inertia}")
-    ColorPrint.print_bold(f"State is stable: {is_stable}")
+    # ColorPrint.print_bold(f"State is stable: {is_stable}")
     
     ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
     ColorPrint.print_bold(f"===================-=================")
     
-    stable = cone._solve(alpha_lb)
-    # _F = assemble_scalar( form(stress(state)) )
+    stable = cone.my_solve(alpha_lb, x0=stability.Kspectrum[0].get("xk"))
+    # stable = cone.my_solve(alpha_lb)
+    # __import__('pdb').set_trace()
     
     fracture_energy = comm.allreduce(
         assemble_scalar(form(model.damage_energy_density(state) * dx)),
@@ -353,15 +357,14 @@ for i_t, t in enumerate(loads):
         assemble_scalar(form(_stress[0, 0] * dx)),
         op=MPI.SUM,
     )
-    # __import__('pdb').set_trace()
+
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
     history_data["total_energy"].append(elastic_energy+fracture_energy)
     history_data["solver_data"].append(solver.data)
     history_data["eigs"].append(stability.data["eigs"])
-    history_data["stable"].append(stable)
-    # history_data["stable"].append(stability.data["stable"])
+    history_data["stable"].append(stability.data["stable"])
     history_data["F"].append(stress)
     history_data["cone_data"].append(cone.data)
     history_data["alphadot_norm"].append(alphadot.vector.norm())
@@ -378,13 +381,20 @@ for i_t, t in enumerate(loads):
         json.dump(history_data, a_file)
         a_file.close()
 
+    ColorPrint.print_bold(f"   Written timely data.    ")
+    print()
+    print()
+    print()
+    print()
 list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 # print(history_data)
 
 
-
 df = pd.DataFrame(history_data)
 print(df)
+
+
+# Viz
 
 
 from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
@@ -394,10 +404,6 @@ if comm.rank == 0:
     plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
     plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
-
-# Viz
-
-# Viz
 from pyvista.utilities import xvfb
 import pyvista
 import sys
@@ -415,6 +421,3 @@ plotter = pyvista.Plotter(
 _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 1))
 _plt.screenshot(f"{prefix}/traction-state.png")
-# if comm.rank == 0:
-#     plot_energies(history_data, file=f"{prefix}_energies.pdf")
-#     plot_AMit_load(history_data, file=f"{prefix}_it_load.pdf")
