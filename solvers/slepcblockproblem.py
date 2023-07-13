@@ -312,10 +312,10 @@ class SLEPcBlockProblemRestricted:
             )
             self.rA.view(viewer)
 
-            viewer = open(f"rA-{self.eps.getOptionsPrefix()[0:-1]}.txt", "r")
+            # viewer = open(f"rA-{self.eps.getOptionsPrefix()[0:-1]}.txt", "r")
 
-            for line in viewer.readlines():
-                logging.debug(line)
+            # for line in viewer.readlines():
+            #     logging.debug(line)
 
             # logging.critical(f"rB-{self.eps.getOptionsPrefix()[0:-1]}")
             # logging.critical(f"mat rB sizes {self.rB.sizes}")
@@ -330,9 +330,9 @@ class SLEPcBlockProblemRestricted:
                 f"rB-{self.eps.getOptionsPrefix()[0:-1]}.txt"
             )
             self.rB.view(viewer)
-            viewer = open(f"rB-{self.eps.getOptionsPrefix()[0:-1]}.txt", "r")
-            for line in viewer.readlines():
-                logging.debug(line)
+            # viewer = open(f"rB-{self.eps.getOptionsPrefix()[0:-1]}.txt", "r")
+            # for line in viewer.readlines():
+            #     logging.debug(line)
 
             # data_rA = analyse_matrix(self.rA, prefix="rA")
             # data_rB = analyse_matrix(self.rB, prefix="rB")

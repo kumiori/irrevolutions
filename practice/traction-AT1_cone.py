@@ -32,7 +32,6 @@ import ufl
 
 from dolfinx.fem.petsc import (
     set_bc,
-    assemble_vector
     )
 from dolfinx.io import XDMFFile, gmshio
 import logging
@@ -42,7 +41,6 @@ sys.path.append("../")
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
 from algorithms.so import StabilitySolver, ConeSolver
-from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
 from utils.plots import plot_energies
@@ -84,11 +82,12 @@ parameters["model"]["model_type"] = '1D'
 parameters["model"]["w1"] = 1
 parameters["model"]["ell"] = .1
 parameters["model"]["k_res"] = 0.
-parameters["loading"]["max"] = 3
-parameters["loading"]["steps"] = 100
+# parameters["loading"]["min"] = .0
+parameters["loading"]["max"] = 1.5
+parameters["loading"]["steps"] = 200
 
 parameters["geometry"]["geom_type"] = "traction-bar"
-parameters["geometry"]["ell_lc"] = 3
+parameters["geometry"]["ell_lc"] = 5
 # Get mesh parameters
 Lx = parameters["geometry"]["Lx"]
 Ly = parameters["geometry"]["Ly"]
@@ -227,11 +226,9 @@ hybrid = HybridFractureSolver(
     solver_parameters=parameters.get("solvers"),
 )
 
-
 stability = StabilitySolver(
     total_energy, state, bcs, stability_parameters=parameters.get("stability")
 )
-
 
 cone = ConeSolver(
     total_energy, state, bcs,
@@ -262,7 +259,7 @@ logging.getLogger().setLevel(logging.INFO)
 # logging.getLogger().setLevel(logging.DEBUG)
 
 for i_t, t in enumerate(loads):
-# for i_t, t in enumerate([0., .99, 1.01]):
+# for i_t, t in enumerate([0., .99, 1.0, 1.01]):
     u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
     u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                           mode=PETSc.ScatterMode.FORWARD)
@@ -290,7 +287,7 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"===================-=============")
 
     logging.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
-    hybrid.solve()
+    hybrid.solve(alpha_lb)
 
     # compute the rate
     alpha.vector.copy(alphadot.vector)
@@ -329,7 +326,7 @@ for i_t, t in enumerate(loads):
     
     stable = cone.my_solve(alpha_lb, x0=stability.Kspectrum[0].get("xk"))
     # stable = cone.my_solve(alpha_lb)
-    # _F = assemble_scalar( form(stress(state)) )
+    # __import__('pdb').set_trace()
     
     fracture_energy = comm.allreduce(
         assemble_scalar(form(model.damage_energy_density(state) * dx)),
@@ -345,7 +342,7 @@ for i_t, t in enumerate(loads):
         assemble_scalar(form(_stress[0, 0] * dx)),
         op=MPI.SUM,
     )
-    # __import__('pdb').set_trace()
+
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
@@ -382,6 +379,7 @@ list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 df = pd.DataFrame(history_data)
 print(df)
 
+# Viz
 
 from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 
@@ -391,9 +389,7 @@ if comm.rank == 0:
     plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
 
-# Viz
 
-# Viz
 from pyvista.utilities import xvfb
 import pyvista
 import sys
@@ -411,4 +407,5 @@ plotter = pyvista.Plotter(
 _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 1))
 _plt.screenshot(f"{prefix}/traction-state.png")
+
 

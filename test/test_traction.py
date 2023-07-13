@@ -74,10 +74,12 @@ tdim = parameters["geometry"]["geometric_dimension"]
 _nameExp = parameters["geometry"]["geom_type"]
 _nameExp = "bar"
 ell_ = parameters["model"]["ell"]
+
+
 lc = ell_ / 3.0
 
 parameters["loading"]["max"] = 3
-parameters["loading"]["steps"] = 40
+parameters["loading"]["steps"] = 100
 
 # Get geometry model
 geom_type = parameters["geometry"]["geom_type"]
@@ -148,13 +150,14 @@ bc_u_right = dirichletbc(
     u_, dofs_u_right)
 bcs_u = [bc_u_left, bc_u_right]
 
-bcs_alpha = [
-    dirichletbc(
-        np.array(0, dtype=PETSc.ScalarType),
-        np.concatenate([dofs_alpha_left, dofs_alpha_right]),
-        V_alpha,
-    )
-]
+# bcs_alpha = [
+#     dirichletbc(
+#         np.array(0, dtype=PETSc.ScalarType),
+#         np.concatenate([dofs_alpha_left, dofs_alpha_right]),
+#         V_alpha,
+#     )
+# ]
+
 bcs_alpha = []
 
 set_bc(alpha_ub.vector, bcs_alpha)

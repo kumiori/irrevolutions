@@ -149,7 +149,7 @@ class StabilitySolver:
         comm.Allreduce(coef, coeff_glob, op=MPI.MAX)
 
         elastic = not np.isclose(coeff_glob, 0.0, atol=etol)
-        logging.critical(f'is_elastic coeff_glob = {coeff_glob}')
+        logging.debug(f'is_elastic coeff_glob = {coeff_glob}')
         return elastic
 
     def is_stable(self) -> bool:
@@ -198,6 +198,7 @@ class StabilitySolver:
         logging.critical(
             f"rank {comm.rank}) Current state is damage-critical? {self._critical}"
         )
+
         if self._critical:
             logging.critical(
                 f"rank {comm.rank})     > The cone is open 🍦"
@@ -663,12 +664,13 @@ class ConeSolver(StabilitySolver):
             functions_to_vec(self.Kspectrum[0].get("xk"), _x)
         else:
             functions_to_vec(x0, _x)
-        # __import__('pdb').set_trace()
 
+        # __import__('pdb').set_trace()
         if not self._is_critical(alpha_old):
             return bool(True)
-
         restricted_dofs = self.get_inactive_dofset(alpha_old)
+        
+        
         constraints = restriction.Restriction([self.V_u, self.V_alpha], restricted_dofs)
 
         self._converged = False
