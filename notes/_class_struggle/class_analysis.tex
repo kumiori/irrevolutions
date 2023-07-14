@@ -82,9 +82,7 @@
 \textbf{``Class Stability'' 50/50} - 
 Project: \textbf{\proj}~  }
 \author{  
-\emph{IM3}\footnote{}~,
-IM2\footnote{},  
-IM1\footnote{}
+\emph{ALB}\footnote{}~,
 }
 
 \date{\vspace{-5em}}
@@ -116,11 +114,10 @@ IM1\footnote{}
 \medskip
 
 \textbf{Abstract}
-Fuck HSBC, and the banking system \emph{as a consequence}.
+% Fuck HSBC, and the banking system \emph{as a consequence}.
 \section{Context}
-With help from the automated language \emph{graph transversal} ride. A fast one.
-We analyse a few classes of damage models.
-For fun and !profit.
+With help from the automated language \emph{graph transversal} ride. A fast one:
+we analyse a few classes of damage models, for fun and !profit.
 
 
 
@@ -148,6 +145,16 @@ _crit
 \end{verbatim}
 
 
+$$
+0=- \frac{0.5 E_{0} k t^{2}}{L^{2} \left(k \alpha{\left(x \right)} - \alpha{\left(x \right)} + 1\right)^{2}} + w_{1}
+$$
+
+critical load
+
+$$
+0=- \frac{0.5 E_{0} k t^{2}}{L^{2}} + w_{1}
+$$
+
 \begin{equation}
   \label{eqn:mod-crit}
   % \left\{
@@ -160,29 +167,6 @@ _crit
   % \right\}
 \end{equation}
 
-critical load
-
-\begin{equation}
-  \label{eqn:mod-crit-load}
-  % \left\{ u{\left(x \right)} : \frac{t x}{L}, \  
-  % \alpha{\left(x \right)} : \begin{cases} -- \frac{t}{L \sqrt{w_{1}}} & \text{for}\: t \geq \0 & \text{otherwise} \end{cases}\right\}
-  \left[ - L \sqrt{w_{1}}, \  L \sqrt{w_{1}}\right]
-\end{equation}
-
-
-
-
-\begin{Verbatim}
-  sp.diff(atk.energy(state), \alpha) \
-    .subs({u: _u0, \alpha: \alpha}) \
-    .simplify()
-\end{Verbatim}
-
-\begin{equation}
-  \label{eqn:mod-eqdiff}
-  \frac{w_{1} \alpha^{2}{\left(x \right)} + 2 w_{1} \alpha{\left(x \right)} + w_{1} - \frac{t^{2}}{L^{2}}}{\alpha^{2}{\left(x \right)} + 2 \alpha{\left(x \right)} + 1}
-  =0
-\end{equation}
 
 \begin{figure}[htbp]
   \centering
@@ -193,6 +177,26 @@ critical load
   \caption{class analysis}
   \label{fig:class-analyser}
 \end{figure}
+
+
+
+
+
+Homogeneous response
+
+\begin{equation}
+  \label{eqn:mod-homog}
+  \begin{cases}
+    \frac{- L w_{1} + 0.707106781186548 t \sqrt{E_{0} k w_{1}}}{L w_{1} \left(k - 1.0\right)} & \text{for} : t \geq 1.4142135623731 L \sqrt{\frac{w_{1}}{E_{0} k}} \\ 
+    0 & \text{otherwise} 
+  \end{cases}
+\end{equation}
+
+
+
+
+
+
 \section*{ATn}
 \subsection*{$n=2$}
 
@@ -286,5 +290,15 @@ a_t = 0.5 t - 1.0
 $$
 \subsection*{$p=1, q=2$}
 \subsection*{$p=2, q=1$}
+
+
+
+
+\subsection*{Bifurcations}
+$$
+\frac{1}{\ilen}D(\sigma) := \int_0^{\bar \alpha(\sigma)} \frac{d \beta}{\sqrt{H(\sigma, \beta)}}
+$$
+
+
 \end{document}
 
