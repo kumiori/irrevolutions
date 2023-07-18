@@ -6,3 +6,24 @@
 .vscode/launch.json
 .vscode/settings.json
 .vscode/tasks.json
+## Core latex/pdflatex auxiliary files:
+**/*.aux
+**/*.lof
+**/*.log
+**/*.lot
+**/*.fls
+**/*.out
+**/*.toc
+**/*.fmt
+**/*.fot
+**/*.cb
+**/*.cb2
+**/*.lb
+**/*.mtc
+**/*.loc
+**/*.soc
+**/*.synctex.gz
+**/*.mtc0
+**/*.maf
+**/*.fdb_latexmk
+**/*.blg
