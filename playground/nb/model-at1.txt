@@ -1,0 +1,14 @@
+\begin{equation}\label{ eqn:at1-a }a(\alpha)=\left(1 - \alpha{\left(x \right)}\right)^{2}\end{equation}
+\begin{equation}\label{ eqn:at1-aprime }a'(\alpha)=2 \alpha{\left(x \right)} - 2\end{equation}
+\begin{equation}\label{ eqn:at1-apprime }a''(\alpha)=2\end{equation}
+\begin{equation}\label{ eqn:at1-s }s(\alpha)=\frac{1}{\left(1 - \alpha{\left(x \right)}\right)^{2}}\end{equation}
+\begin{equation}\label{ eqn:at1-sprime }s'(\alpha)=\frac{2}{\left(1 - \alpha{\left(x \right)}\right)^{3}}\end{equation}
+\begin{equation}\label{ eqn:at1-spprime }s''(\alpha)=\frac{6}{\left(\alpha{\left(x \right)} - 1\right)^{4}}\end{equation}
+
+\begin{equation}\label{ eqn:at1-crit }0=- \frac{1.0 E_{0} t^{2}}{L^{2}} + 1\end{equation}
+\begin{equation}\label{ eqn:at1-crit_load }t_c=L \sqrt{\frac{1}{E_{0}}}\end{equation}
+\begin{equation}\label{ eqn:at1-Hsigmabeta }H(\sigma, \beta)=\frac{2 \beta - \sigma^{2} \left(\frac{1}{\left(1 - \beta\right)^{2}} - \frac{1}{E_{0}}\right)}{E_{0}}\end{equation}
+\begin{equation}\label{ eqn:at1-Hsigmabeta_mat }H(\sigma, \gamma)=\frac{2 \alpha_{0} \gamma - \sigma^{2} \left(\frac{1}{\left(- \alpha_{0} \gamma + 1\right)^{2}} - \frac{1}{E_{0}}\right)}{E_{0}}\end{equation}
+\begin{equation}\label{ eqn:at1-one_over_H }1/\sqrt{H(\sigma, \beta)}=\frac{1}{\sqrt{\frac{2 \beta}{E_{0}} - \frac{\sigma^{2}}{E_{0} \left(\beta - 1\right)^{2}} + \frac{\sigma^{2}}{E_{0}^{2}}}}\end{equation}
+\begin{equation}\label{ eqn:at1-eps_integrand }(S(\beta)-S_0)/\sqrt{H(\sigma, \beta)}=\frac{E_{0} - \left(\beta - 1\right)^{2}}{E_{0} \sqrt{\frac{2 E_{0} \beta \left(\beta - 1\right)^{2} - \sigma^{2} \left(E_{0} - \left(\beta - 1\right)^{2}\right)}{E_{0}^{2} \left(\beta - 1\right)^{2}}} \left(\beta - 1\right)^{2}}\end{equation}
+\begin{equation}\label{ eqn:at1-eps_integrand_gamma }(S(\gamma)-S_0)/\sqrt{H(\sigma, \gamma)}=\frac{\frac{1}{\left(- \alpha_{0} \gamma + 1\right)^{2}} - \frac{1}{E_{0}}}{\sqrt{\frac{2 \alpha_{0} \gamma - \sigma^{2} \left(\frac{1}{\left(- \alpha_{0} \gamma + 1\right)^{2}} - \frac{1}{E_{0}}\right)}{E_{0}}}}\end{equation}

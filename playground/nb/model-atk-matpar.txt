@@ -1,0 +1,17 @@
+\begin{equation}\label{ eqn:atk-a }a(\alpha)=\frac{1 - \alpha{\left(x \right)}}{\alpha{\left(x \right)} + 1}\end{equation}
+\begin{equation}\label{ eqn:atk-aprime }a'(\alpha)=- \frac{1 - \alpha{\left(x \right)}}{\left(\alpha{\left(x \right)} + 1\right)^{2}} - \frac{1}{\alpha{\left(x \right)} + 1}\end{equation}
+\begin{equation}\label{ eqn:atk-apprime }a''(\alpha)=\frac{2 \left(- \frac{\alpha{\left(x \right)} - 1}{\alpha{\left(x \right)} + 1} + 1\right)}{\left(\alpha{\left(x \right)} + 1\right)^{2}}\end{equation}
+\begin{equation}\label{ eqn:atk-s }s(\alpha)=\frac{\alpha{\left(x \right)} + 1}{1 - \alpha{\left(x \right)}}\end{equation}
+\begin{equation}\label{ eqn:atk-sprime }s'(\alpha)=\frac{1}{1 - \alpha{\left(x \right)}} + \frac{\alpha{\left(x \right)} + 1}{\left(1 - \alpha{\left(x \right)}\right)^{2}}\end{equation}
+\begin{equation}\label{ eqn:atk-spprime }s''(\alpha)=\frac{2 \cdot \left(1 - \frac{\alpha{\left(x \right)} + 1}{\alpha{\left(x \right)} - 1}\right)}{\left(\alpha{\left(x \right)} - 1\right)^{2}}\end{equation}
+
+\begin{equation}\label{ eqn:atk-crit }0=- \frac{0.5 E_{0} k t^{2}}{L^{2}} + 1.0 w_{1}\end{equation}
+\begin{equation}\label{ eqn:atk-crit_load }t_c=1.4142135623731 L \sqrt{\frac{w_{1}}{E_{0} k}}\end{equation}
+\begin{equation}\label{ eqn:atk-Hsigmabeta }H(\sigma, \beta)=\frac{2 \beta - \sigma^{2} \left(\frac{\beta \left(k - 1\right) + 1}{1 - \beta} - \frac{1}{E_{0}}\right)}{E_{0}}\end{equation}
+\begin{equation}\label{ eqn:atk-Hsigmabeta_mat }H(\sigma, \gamma)=- \sigma^{2} \left(\frac{\alpha_{0} \cdot \left(2 - \frac{\gamma}{\alpha_{0}}\right)}{\gamma} - 1\right) + 2 - \frac{2 \gamma}{\alpha_{0}}\end{equation}
+\begin{equation}\label{ eqn:atk-one_over_H }1/\sqrt{H(\sigma, \beta)}=\frac{\sqrt{2}}{2 \sqrt{\frac{\beta \left(\beta + \sigma^{2} - 1\right)}{\beta - 1}}}\end{equation}
+\begin{equation}\label{ eqn:atk-eps_integrand }(S(\beta)-S_0)/\sqrt{H(\sigma, \beta)}=- \frac{\sqrt{2} \beta}{\sqrt{\frac{\beta \left(\beta + \sigma^{2} - 1\right)}{\beta - 1}} \left(\beta - 1\right)}\end{equation}
+\begin{equation}\label{ eqn:atk-eps_integrand_gamma }(S(\gamma)-S_0)/\sqrt{H(\sigma, \gamma)}=\frac{\frac{\alpha_{0} \cdot \left(2 - \frac{\gamma}{\alpha_{0}}\right)}{\gamma} - 1}{\sqrt{- \sigma^{2} \left(\frac{\alpha_{0} \cdot \left(2 - \frac{\gamma}{\alpha_{0}}\right)}{\gamma} - 1\right) + 2 - \frac{2 \gamma}{\alpha_{0}}}}\end{equation}
+\begin{equation}\label{ eqn:atk-deriv_integrand_gamma }\frac{\partial H}{\partial \gamma}=- \sigma^{2} \left(\frac{\alpha_{0} \cdot \left(2 - \frac{\gamma}{\alpha_{0}}\right)}{\gamma} - 1\right) + 2 - \frac{2 \gamma}{\alpha_{0}}\end{equation}
+\begin{equation}\label{ eqn:atk-deriv_integrand_gamma_one }\frac{\partial H}{\partial \gamma}|_{\gamma=1}=2 \alpha_{0} \sigma^{2} - \frac{2}{\alpha_{0}}\end{equation}
+\begin{equation}\label{ eqn:atk-deriv_integrand_gamma_one }\frac{\partial 1/\sqrt{H}}{\partial \gamma}|_{\gamma=1}=\frac{\sqrt{2} \alpha_{0} \left(- 2 \alpha_{0} \left(\alpha_{0} \left(\sigma^{2} \cdot \left(1 - \alpha_{0}\right) + 1\right) - 1\right) - \left(\alpha_{0} - 1\right) \left(\alpha_{0}^{2} \sigma^{2} - 1\right)\right) \sqrt{- \sigma^{2} \left(\alpha_{0} - 1\right) + 1 - \frac{1}{\alpha_{0}}}}{2 \left(\alpha_{0} \left(- \sigma^{2} \left(\alpha_{0} - 1\right) + 1\right) - 1\right)^{2}}\end{equation}

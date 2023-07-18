@@ -1,0 +1,7 @@
+\begin{equation}\label{ eqn:atn-crit }- \frac{1.0 E_{0} t^{2}}{L^{2}} + 1\end{equation}
+\begin{equation}\label{ eqn:atn-crit_load }L \sqrt{\frac{1}{E_{0}}}\end{equation}
+\begin{equation}\label{ eqn:atn-Hsigmabeta }\frac{2 β - σ^{2} \left(\frac{1}{\left(1 - β\right)^{2}} - \frac{1}{E_{0}}\right)}{E_{0}}\end{equation}
+\begin{equation}\label{ eqn:atn-Hsigmagamma }\frac{2 \alpha_{0} γ - σ^{2} \left(\frac{1}{\left(- \alpha_{0} γ + 1\right)^{2}} - \frac{1}{E_{0}}\right)}{E_{0}}\end{equation}
+\begin{equation}\label{ eqn:atn-Hsigmagamma_mat }2 \alpha_{0} γ - σ^{2} \left(-1 + \frac{1}{\left(- \alpha_{0} γ + 1\right)^{2}}\right)\end{equation}
+\begin{equation}\label{ eqn:atn-one_over_H }\frac{1}{\sqrt{2 β + σ^{2} - \frac{σ^{2}}{\left(β - 1\right)^{2}}}}\end{equation}
+\begin{equation}\label{ eqn:atn-eps_integrand }\frac{1 - \left(β - 1\right)^{2}}{\sqrt{\frac{2 β \left(β - 1\right)^{2} + σ^{2} \left(\left(β - 1\right)^{2} - 1\right)}{\left(β - 1\right)^{2}}} \left(β - 1\right)^{2}}\end{equation}
