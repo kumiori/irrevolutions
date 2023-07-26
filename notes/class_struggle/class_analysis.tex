@@ -33,7 +33,6 @@
 
 % Multipart figures
 %\usepackage{subfigure}
-
 % More symbols
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -313,13 +312,63 @@ $$
 \subsection*{$p=1, q=2$}
 \subsection*{$p=2, q=1$}
 
+--------------------
 
 
+\section*{Max $\alpha$ as a function of $\sigma$}
+
+\textbf{With material parameters, ATK, AT1, PQ, resp}
+\subimport{../../playground/nb/}{/alpha-max-models.txt}
+
+
+\clearpage
 
 \subsection*{Bifurcations}
+How to \emph{successfully} integrate? $$ \int_0^{1} \frac{d \gamma}{\sqrt{H(\sigma, \alpha_0 \gamma)}}
 $$
-\frac{1}{\ilen}D(\sigma) := \int_0^{\bar \alpha(\sigma)} \frac{d \beta}{\sqrt{H(\sigma, \beta)}}
-$$
+La fonction $H$ s'annule en $\gamma=0, \gamma=\alpha_0$, ses dérivées étant bornées pour $\sigma>0$, 
+$H'_\sigma(\gamma=1)$ est négative et explose, $H'_\sigma(\gamma=0)$ est positive.
+L'integrale devrait converger, mais je n'arrive pas à le calculer numériquement, ni par integration symbolique, ni par quadrature.
+
+Sebastien : saurais-tu integrer cette fonction numériquement? (ou symboliquement, avec Mathematica)
+dans un des cas de figure des modeles ATk, AT1, PQ?
+Puisque $H'(0), H'(1)$ sont bornés, la singularité devrait etre portée par un terme de la forme $({x-x_0})^{-1/2}$, integrable autour de $x_0$.
+
+\begin{figure}[htbp]
+  \begin{center}
+  \includegraphics[width=.5\textwidth]{../figures/H-heuristics.jpeg}
+  \caption{$H$ has two zeros. How to \emph{succesfully} integrate?}
+  \label{fig:class-analyser}
+  \end{center}
+\end{figure}
+
+
+\textbf{ATk}
+\subimport{../../playground/nb/}{/H-atk.txt}
+\begin{figure}[htbp]
+  \includegraphics[width=.33\textheight]{../figures/atk-Hbeta.pdf}
+  \includegraphics[width=.33\textheight]{../figures/atk-H-prime-beta.pdf}
+  \caption{class analysis}
+  \label{fig:class-analyser}
+\end{figure}
+\textbf{AT1}
+\subimport{../../playground/nb/}{/H-at1.txt}
+\begin{figure}[htbp]
+  \includegraphics[width=.33\textheight]{../figures/at1-Hbeta.pdf}
+  \includegraphics[width=.33\textheight]{../figures/at1-H-prime-beta.pdf}
+  \caption{class analysis}
+  \label{fig:class-analyser}
+\end{figure}
+\textbf{PQ}
+\subimport{../../playground/nb/}{/H-pq.txt}
+\begin{figure}[htbp]
+  \includegraphics[width=.33\textheight]{../figures/pq-Hbeta.pdf}
+  \includegraphics[width=.33\textheight]{../figures/pq-H-prime-beta.pdf}
+  \caption{class analysis}
+  \label{fig:class-analyser}
+\end{figure}
+
+
 
 
 \end{document}

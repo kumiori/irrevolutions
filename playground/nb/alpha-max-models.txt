@@ -1,0 +1,3 @@
+\begin{equation}\label{ eqn:atk-alpha-max }\bar \alpha=1 - \sigma^{2}\end{equation}
+\begin{equation}\label{ eqn:at1-alpha-max }\bar \alpha=- \frac{\sigma \sqrt{\sigma^{2} + 8}}{4} - \frac{\left(\sigma - 2\right) \left(\sigma + 2\right)}{4}\end{equation}
+\begin{equation}\label{ eqn:pq-alpha-max }\bar \alpha=1 - \frac{\sigma^{2}}{2}\end{equation}

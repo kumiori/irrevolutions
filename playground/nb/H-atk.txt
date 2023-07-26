@@ -1,0 +1,4 @@
+\begin{equation}\label{ eqn:atk-H }H_\sigma(, \gamma)=2 \alpha_{0} \gamma - \sigma^{2} \left(-1 + \frac{\alpha_{0} \gamma + 1}{- \alpha_{0} \gamma + 1}\right)\end{equation}
+\begin{equation}\label{ eqn:atk-Hprime }H'_\sigma(\gamma)=2 \alpha_{0} - \sigma^{2} \left(\frac{\alpha_{0}}{- \alpha_{0} \gamma + 1} + \frac{\alpha_{0} \left(\alpha_{0} \gamma + 1\right)}{\left(- \alpha_{0} \gamma + 1\right)^{2}}\right)\end{equation}
+\begin{equation}\label{ eqn:atk-Hprime-zero }H'_\sigma(\gamma)(0)=- 2 \alpha_{0} \sigma^{2} + 2 \alpha_{0}\end{equation}
+\begin{equation}\label{ eqn:atk-Hprime-one }H'_\sigma(\gamma)(1)=2 \alpha_{0} - \sigma^{2} \left(\frac{\alpha_{0}}{1 - \alpha_{0}} + \frac{\alpha_{0} \left(\alpha_{0} + 1\right)}{\left(1 - \alpha_{0}\right)^{2}}\right)\end{equation}

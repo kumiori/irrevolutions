@@ -1,0 +1,4 @@
+\begin{equation}\label{ eqn:at1-H }H_\sigma(, \gamma)=2 \alpha_{0} \gamma - \sigma^{2} \left(-1 + \frac{1}{\left(- \alpha_{0} \gamma + 1\right)^{2}}\right)\end{equation}
+\begin{equation}\label{ eqn:at1-Hprime }H'_\sigma(\gamma)=- \frac{2 \alpha_{0} \sigma^{2}}{\left(- \alpha_{0} \gamma + 1\right)^{3}} + 2 \alpha_{0}\end{equation}
+\begin{equation}\label{ eqn:at1-Hprime-zero }H'_\sigma(\gamma)(0)=- 2 \alpha_{0} \sigma^{2} + 2 \alpha_{0}\end{equation}
+\begin{equation}\label{ eqn:at1-Hprime-one }H'_\sigma(\gamma)(1)=- \frac{2 \alpha_{0} \sigma^{2}}{\left(1 - \alpha_{0}\right)^{3}} + 2 \alpha_{0}\end{equation}
