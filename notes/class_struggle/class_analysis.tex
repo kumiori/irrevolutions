@@ -314,17 +314,43 @@ $$
 
 --------------------
 
+\clearpage
 
-\section*{Max $\alpha$ as a function of $\sigma$}
+\section*{Classes of damage}
 
-\textbf{With material parameters, ATK, AT1, PQ, resp}
+\textbf{Material parameters, ATK, AT1, PQ, resp}
+\subimport{../../playground/nb/}{/parameters-models.txt}
+\textbf{Max $\alpha$ as a function of $\sigma$ with material parameters, ATK, AT1, PQ, resp}
 \subimport{../../playground/nb/}{/alpha-max-models.txt}
+
+\textbf{Implicit $H$ With material parameters, ATK, AT1, PQ, resp}
+\subimport{../../playground/nb/}{/Himplicit-models.txt}
+
+\textbf{Explicit $H$ With material parameters, ATK, AT1, PQ, resp}
+
+\subimport{../../playground/nb/}{/Hexplicit-models.txt}
+\textbf{Derivatives $\bar H$ with material parameters, ATK, AT1, PQ, resp}
+
+\subimport{../../playground/nb/}{/Hprime-models.txt}
+
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=.312\textheight, angle=90]{../figures/atk-Hbeta.pdf}
+  \includegraphics[width=.312\textheight, angle=90]{../figures/at1-Hbeta.pdf}
+  \includegraphics[width=.312\textheight, angle=90]{../figures/pq-Hbeta.pdf}
+  \includegraphics[width=\textwidth]{../figures/Hprime-models.pdf}
+  \caption{class analysis}
+  \label{fig:class-analyser}
+\end{figure}
 
 
 \clearpage
 
 \subsection*{Bifurcations}
-How to \emph{successfully} integrate? $$ \int_0^{1} \frac{d \gamma}{\sqrt{H(\sigma, \alpha_0 \gamma)}}
+How to \emph{successfully} integrate? 
+$$ 
+\int_0^{1} \frac{d \gamma}{\sqrt{H(\sigma, \alpha_0 \gamma)}} = \int_0^{1} \frac{d \gamma}{\sqrt{\bar H(\sigma,\gamma)}}
 $$
 La fonction $H$ s'annule en $\gamma=0, \gamma=\alpha_0$, ses dérivées étant bornées pour $\sigma>0$, 
 $H'_\sigma(\gamma=1)$ est négative et explose, $H'_\sigma(\gamma=0)$ est positive.
@@ -370,6 +396,22 @@ Puisque $H'(0), H'(1)$ sont bornés, la singularité devrait etre portée par un
 
 
 
+\clearpage
+
+\subsection*{Computations}
+ATk
+start from 
+
+$$
+\frac{2 \gamma \left(\sigma^{2} - 1\right) \left(\gamma \left(\sigma^{2} - 1\right) - \sigma^{2} + 1\right)}{- \gamma \left(\sigma^{2} - 1\right) - 1}
+$$
+
+substitute $\tau := \sigma^2 - 1$
+
+\begin{equation}
+  \label{eqn:}
+  \frac{2 \gamma \tau^{2} \cdot \left(1 - \gamma\right)}{\gamma \tau + 1}
+\end{equation}
 
 \end{document}
 
