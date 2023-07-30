@@ -2,6 +2,9 @@
 ## 202* Forall T
 
 From little or nothing, to experimental verification of a complex fracture experiment.
+We solve the following (difficult) problem:
+ 
+Let $y=(\alpha, u)$ be an admissible state of a brittle system where $\alpha: \Omega \mapsto [0, 1]$ is a smooth damage field which identifies cracks (where $\alpha =1$) and $u$ is a displacement field. Provided a material model (an energy) $E_\ell$, given a time horizon $T$, let's find a map $t \in [0, T]\mapsto y_t$ such that: damage is non-decreasing and the observed state $y_t$ is energy-minimal, among admissible variations. 
 
 ## The current branch
 
@@ -47,7 +50,6 @@ https://docs.gitlab.com/ee/gitlab-basics/feature_branch_workflow.html
  - To push your branch: `git push -u origin feature_branch_name`
  - Create a pull request on the main branch for merging. Somebody should approve the pull-request. -
 
-
 ### Weekly updates (merge from main)
 ```
 git checkout main
@@ -55,6 +57,9 @@ git pull
 git checkout yourname-branch
 git merge main
 ```
+
+Asymmetrically, feature-work is `rebased`.
+
 ### To run the code (on Docker)
 
 First, run the container, attaching an interactive session and sharing data space 
@@ -69,6 +74,11 @@ On a Windox:
 ```
 docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix:latest
 ```
+
+This code was initially conceived as a support for the teaching course MEC647, 
+(Complex) Crack Propagation in Brittle Materials, delivered to the students of the international
+master programme, joint between École Polytechnique and ENSTA-Paristech throughout 2020-2022. 
+Hence the cryptic repository name.
 
 ### Course Schedule
 
@@ -91,7 +101,9 @@ docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix
 
 ### Acknowledgements
 
-Corrado Maurini, Sorbonne Université
+To all the students for their effort, participation, and motivation.
+
+Corrado Maurini, Sorbonne Université.
 
 ### License
 
