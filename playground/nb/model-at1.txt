@@ -4,14 +4,3 @@
 \begin{equation}\label{ eqn:at1-s }s(\alpha)=\frac{1}{\left(1 - \alpha{\left(x \right)}\right)^{2}}\end{equation}
 \begin{equation}\label{ eqn:at1-sprime }s'(\alpha)=\frac{2}{\left(1 - \alpha{\left(x \right)}\right)^{3}}\end{equation}
 \begin{equation}\label{ eqn:at1-spprime }s''(\alpha)=\frac{6}{\left(\alpha{\left(x \right)} - 1\right)^{4}}\end{equation}
-
-\begin{equation}\label{ eqn:at1-crit }0=- \frac{1.0 E_{0} t^{2}}{L^{2}} + 1\end{equation}
-\begin{equation}\label{ eqn:at1-crit_load }t_c=L \sqrt{\frac{1}{E_{0}}}\end{equation}
-\begin{equation}\label{ eqn:at1-Hsigmabeta }H(\sigma, \beta)=\frac{2 \beta - \sigma^{2} \left(\frac{1}{\left(1 - \beta\right)^{2}} - \frac{1}{E_{0}}\right)}{E_{0}}\end{equation}
-\begin{equation}\label{ eqn:at1-Hsigmabeta_mat }H(\sigma, \gamma)=\frac{- \sigma^{2} \left(\frac{\alpha_{0}^{2}}{\gamma^{2}} - \frac{1}{E_{0}}\right) + 2 - \frac{2 \gamma}{\alpha_{0}}}{E_{0}}\end{equation}
-\begin{equation}\label{ eqn:at1-one_over_H }1/\sqrt{H(\sigma, \beta)}=\frac{1}{\sqrt{\frac{2 \beta}{E_{0}} - \frac{\sigma^{2}}{E_{0} \left(\beta - 1\right)^{2}} + \frac{\sigma^{2}}{E_{0}^{2}}}}\end{equation}
-\begin{equation}\label{ eqn:at1-eps_integrand }(S(\beta)-S_0)/\sqrt{H(\sigma, \beta)}=\frac{E_{0} - \left(\beta - 1\right)^{2}}{E_{0} \sqrt{\frac{2 E_{0} \beta \left(\beta - 1\right)^{2} - \sigma^{2} \left(E_{0} - \left(\beta - 1\right)^{2}\right)}{E_{0}^{2} \left(\beta - 1\right)^{2}}} \left(\beta - 1\right)^{2}}\end{equation}
-\begin{equation}\label{ eqn:at1-eps_integrand_gamma }(S(\gamma)-S_0)/\sqrt{H(\sigma, \gamma)}=\frac{\frac{\alpha_{0}^{2}}{\gamma^{2}} - \frac{1}{E_{0}}}{\sqrt{\frac{- \sigma^{2} \left(\frac{\alpha_{0}^{2}}{\gamma^{2}} - \frac{1}{E_{0}}\right) + 2 - \frac{2 \gamma}{\alpha_{0}}}{E_{0}}}}\end{equation}
-\begin{equation}\label{ eqn:at1-deriv_integrand_gamma }\frac{\partial H}{\partial \gamma}=\frac{- \sigma^{2} \left(\frac{\alpha_{0}^{2}}{\gamma^{2}} - \frac{1}{E_{0}}\right) + 2 - \frac{2 \gamma}{\alpha_{0}}}{E_{0}}\end{equation}
-\begin{equation}\label{ eqn:at1-deriv_integrand_gamma_one }\frac{\partial H}{\partial \gamma}|_{\gamma=1}=\frac{2 \left(\alpha_{0}^{3} \sigma^{2} - 1\right)}{E_{0} \alpha_{0}}\end{equation}
-\begin{equation}\label{ eqn:at1-deriv_integrand_gamma_one }\frac{\partial 1/\sqrt{H}}{\partial \gamma}|_{\gamma=1}=\frac{E_{0}^{2} \alpha_{0} \sqrt{- \frac{- 2 E_{0} \alpha_{0} + 2 E_{0} + \alpha_{0} \sigma^{2} \left(E_{0} \alpha_{0}^{2} - 1\right)}{E_{0}^{2} \alpha_{0}}} \cdot \left(2 \alpha_{0}^{2} \left(- 2 E_{0} \alpha_{0} + 2 E_{0} + \alpha_{0} \sigma^{2} \left(E_{0} \alpha_{0}^{2} - 1\right)\right) - \left(E_{0} \alpha_{0}^{2} - 1\right) \left(\alpha_{0}^{3} \sigma^{2} - 1\right)\right)}{\left(- 2 E_{0} \alpha_{0} + 2 E_{0} + \alpha_{0} \sigma^{2} \left(E_{0} \alpha_{0}^{2} - 1\right)\right)^{2}}\end{equation}
