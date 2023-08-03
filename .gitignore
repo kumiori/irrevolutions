@@ -2,7 +2,6 @@
 *.xdmf
 *.h5
 *.png
-*ipynb
 *.pyc
 .vscode/launch.json
 .vscode/settings.json

@@ -142,9 +142,9 @@ class AlternateMinimisation:
         for iteration in range(1,
             self.solver_parameters.get("damage_elasticity").get("max_it")
         ):
-            with dolfinx.common.Timer("~Alternate Minimization : Elastic solver"):
+            with dolfinx.common.Timer("~Alternate Minimization: Elastic solver"):
                 (solver_u_it, solver_u_reason) = self.elasticity.solve()
-            with dolfinx.common.Timer("~Alternate Minimization : Damage solver"):
+            with dolfinx.common.Timer("~Alternate Minimization: Damage solver"):
                 (solver_alpha_it, solver_alpha_reason) = self.damage.solve()
 
             # Define error function
@@ -267,8 +267,10 @@ class HybridFractureSolver(AlternateMinimisation):
 
         self.u_lb = dolfinx.fem.Function(state['u'].function_space, name="displacement lower bound")
         self.u_ub = dolfinx.fem.Function(state['u'].function_space, name="displacement upper bound")
-        self.alpha_lb = dolfinx.fem.Function(state['alpha'].function_space, name="damage lower bound")
-        self.alpha_ub = dolfinx.fem.Function(state['alpha'].function_space, name="damage upper bound")
+        self.alpha_lb = bounds[0]
+        # self.alpha_lb = dolfinx.fem.Function(state['alpha'].function_space, name="damage lower bound")
+        # self.alpha_ub = dolfinx.fem.Function(state['alpha'].function_space, name="damage upper bound")
+        self.alpha_ub = bounds[1]
 
         set_vector_to_constant(self.u_lb.vector, PETSc.NINFINITY)
         set_vector_to_constant(self.u_ub.vector, PETSc.PINFINITY)
@@ -359,13 +361,11 @@ class HybridFractureSolver(AlternateMinimisation):
             parameters["model"]["ell"]**2. * ufl.inner(ufl.grad(alpha), ufl.grad(alpha))) * dx)
         return np.sqrt(comm.allreduce(assemble_scalar(_form), op=MPI.SUM))
 
-
     def unscaled_rate_norm(self, alpha):
         dx = ufl.Measure("dx", alpha.function_space.mesh)
         _form =  dolfinx.fem.form(
         (ufl.inner(alpha, alpha) + ufl.inner(ufl.grad(alpha), ufl.grad(alpha))) * dx)
         return np.sqrt(comm.allreduce(assemble_scalar(_form), op=MPI.SUM))
-
 
     def getReducedNorm(self):
         """Retrieve reduced residual"""
@@ -378,9 +378,11 @@ class HybridFractureSolver(AlternateMinimisation):
         logging.critical("Num it, rnorm:", its, rnorm)
         pass     
 
-    def solve(self, outdir=None):
+    def solve(self, alpha_lb, outdir=None):
         # Perform AM as customary
-        super().solve(outdir)
+        with dolfinx.common.Timer("~Alternate Minimization : AM solver"):
+            super().solve(outdir)
+
         self.newton_data = {
             "iteration": [],
             "residual_Fnorm": [],
@@ -388,11 +390,14 @@ class HybridFractureSolver(AlternateMinimisation):
         }
         # update bounds and perform Newton step
         # lb, ub = self.compute_bounds(self.newton.F_form, self.alpha)
-        functions_to_vec([self.u_lb, self.alpha_lb], self.lb)
-
-        self.newton.snes.setVariableBounds(self.lb, self.ub)
         
-        self.newton.solve(u_init=[self.u, self.alpha])
+        with dolfinx.common.Timer("~Alternate Minimization : Hybrid solver"):
+            functions_to_vec([self.u_lb, self.alpha_lb], self.lb)
+            # logging.critical(f"max alpha.vector lb: {max(self.alpha_lb.vector.array)}")
+
+            self.newton.snes.setVariableBounds(self.lb, self.ub)
+            
+            self.newton.solve(u_init=[self.u, self.alpha])
 
         self.newton_data["iteration"].append(self.newton.snes.getIterationNumber() + 1)
         self.newton_data["residual_Fnorm"].append(self.newton.snes.getFunctionNorm())
