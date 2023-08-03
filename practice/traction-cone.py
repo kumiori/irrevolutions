@@ -58,18 +58,12 @@ import yaml
 sys.path.append("../")
 from solvers import SNESSolver
 
-# ///////////
-
-
-
-
-
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
+size = comm.Get_size()
 
 # Mesh on node model_rank and then distribute
 model_rank = 0
-
 
 with open("../test/parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
@@ -205,7 +199,6 @@ cone = ConeSolver(
     cone_parameters=parameters.get("stability")
 )
 
-
 history_data = {
     "load": [],
     "elastic_energy": [],
@@ -320,18 +313,16 @@ from utils.viz import plot_mesh, plot_vector, plot_scalar
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
 
-
-plotter = pyvista.Plotter(
-    title="Displacement",
-    window_size=[1600, 600],
-    shape=(1, 2),
-)
-_plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-_plt = plot_vector(u, plotter, subplot=(0, 1))
-_plt.screenshot(f"{prefix}/traction-state.png")
-# if comm.rank == 0:
-#     plot_energies(history_data, file=f"{prefix}_energies.pdf")
-#     plot_AMit_load(history_data, file=f"{prefix}_it_load.pdf")
+# if size == 1:
+if comm.rank == 0:
+    plotter = pyvista.Plotter(
+        title="Displacement",
+        window_size=[1600, 600],
+        shape=(1, 2),
+    )
+    _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+    _plt = plot_vector(u, plotter, subplot=(0, 1))
+    _plt.screenshot(f"{prefix}/traction-state.png")
 
 
 from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
