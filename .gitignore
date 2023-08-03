@@ -1,5 +1,7 @@
 */output/*
 *.xdmf
+*.msh
+*.pdf
 *.h5
 *.png
 *.pyc
@@ -27,3 +29,7 @@
 **/*.maf
 **/*.fdb_latexmk
 **/*.blg
+**/*.bcf
+**/*.run.xml
+**/*.xmpdata
+**/*.xmpi
