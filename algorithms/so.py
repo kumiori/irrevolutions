@@ -196,7 +196,7 @@ class StabilitySolver:
             self._critical = False
         
         logging.critical(
-            f"rank {comm.rank}) Current state is damage-critical? {self._critical}"
+            f"rank {comm.rank}) Current state is damage-critical? 🌪 {self._critical}"
         )
 
         if self._critical:
@@ -498,6 +498,7 @@ class ConeSolver(StabilitySolver):
             stability_parameters=cone_parameters,
 
     )
+        self._converged = False
 
     def _solve(self, alpha_old: dolfinx.fem.function.Function, x0=None):
         """Recursively solves (until convergence) the abstract eigenproblem
@@ -644,7 +645,6 @@ class ConeSolver(StabilitySolver):
         else:
             return bool(False)
 
-
     def my_solve(self, alpha_old: dolfinx.fem.function.Function, x0=None):
         _s = float(self.parameters.get("cone").get("scaling"))
         self.iterations = 0
@@ -665,11 +665,9 @@ class ConeSolver(StabilitySolver):
         else:
             functions_to_vec(x0, _x)
 
-        # __import__('pdb').set_trace()
         if not self._is_critical(alpha_old):
             return bool(True)
         restricted_dofs = self.get_inactive_dofset(alpha_old)
-        
         
         constraints = restriction.Restriction([self.V_u, self.V_alpha], restricted_dofs)
 
@@ -686,6 +684,8 @@ class ConeSolver(StabilitySolver):
             restriction=constraints,
             prefix="stability",
         )
+        
+        self.eigen = eigen
 
         eigen.A.zeroEntries()
         dolfinx.fem.petsc.assemble_matrix_block(eigen.A, eigen.A_form, eigen.bcs)
@@ -714,25 +714,37 @@ class ConeSolver(StabilitySolver):
                 # B=id for us
                 _lmbda_t = xAx_r / _xk.dot(_xk)
                 _y.waxpy(-_lmbda_t, _xk, _Axr)
-                
+                logging.critical(f"_lmbda_t {_lmbda_t}")
+
+                diff = _xk.duplicate()
+
                 _xk.copy(self._xoldr)
+
                 _xk.ghostUpdate(
                     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
                 )
                 # update current iterate
                 _xk.axpy(-_s, _y)
+                # project onto cone
+                self._cone_project(_xk)
+                logging.critical(f"Projection _xk is in cone 🍦? {self._isin_cone(_xk)}")
+                
                 # normalise eigen
+
                 n2 = _xk.normalize()
+        
+                diff.waxpy(-1, self._xoldr, _xk)
 
                 self.data["lambda_k"].append(_lmbda_t)
                 self.data["y_norm_L2"].append(_y.norm())
+
 
         self.data["iterations"] = self.iterations
         self.data["error_x_L2"] = errors
         self.data["lambda_0"] = _lmbda_t
 
         logging.critical(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
-        # logging.critical(f"Eigenfunction is in cone? {self._isin_cone(_xk)}")
+        logging.critical(f"Eigenfunction is in cone 🍦? {self._isin_cone(_xk)}")
         logging.critical(f"Errors {errors}")
         logging.critical(f"Eigenvalue {_lmbda_t}")
 
@@ -748,12 +760,21 @@ class ConeSolver(StabilitySolver):
 
     def converged(self, x):
         converged = self._convergenceTest(x)
+        logging.critical(f"Iteration {self.iterations} - Converged? {converged}")
         
         if not converged:
             self.iterations += 1
+        else:
+            self._converged = True
+            self.x_converged = x.copy()
 
         return converged
 
+    def get_perturbation(self):
+        if self._converged:
+            return self.x_converged
+        else:
+            return None
 
     def _convergenceTest(self, x):
         """Test convergence of current iterate xk against 
@@ -775,7 +796,7 @@ class ConeSolver(StabilitySolver):
         error_x_L2 = diff.norm()
 
         self.error = error_x_L2
-        if not self.iterations % 100:
+        if not self.iterations % 3:
             logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2}")
 
         self.data["iterations"].append(self.iterations)
@@ -787,20 +808,6 @@ class ConeSolver(StabilitySolver):
             self._converged = False
 
         return self._converged
-
-    # def converged(self, x):
-    #     converged = self.convergenceTest(x)
-        
-    #     # update xold
-    #     # x.copy(self._xold)
-    #     # x.vector.ghostUpdate(
-    #     #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-    #     # )
-
-    #     if not converged:
-    #         self.iterations += 1
-
-    #     return converged
 
     def convergenceTest(self, x):
         """Test convergence of current iterate x against 
@@ -849,7 +856,7 @@ class ConeSolver(StabilitySolver):
         _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
         _is = PETSc.IS().createGeneral(_dofs)
         _sub = x.getSubVector(_is)
-
+        
         return (_sub.array >= 0).all()
         
     def _cone_project(self, v):
@@ -885,7 +892,6 @@ class ConeSolver(StabilitySolver):
         
         return
 
-        
     def _cone_project_restricted(self, v):
         """Projects vector into the relevant cone
             handling restrictions.
@@ -921,13 +927,12 @@ class ConeSolver(StabilitySolver):
 
             _sub.pointwiseMax(_sub, zero)
             v.restoreSubVector(_is, _sub)
-
+            __import__('pdb').set_trace()
             if self.eigen.restriction is not None and v.size != len(self.eigen.restriction.bglobal_dofs_vec_stacked):
                 return self.eigen.restriction.restrict_vector(v)
             else:
                 return v
         return
-
 
     def _cone_restrict_project(self, v):
         """returns the projection of a full state vector v
@@ -947,3 +952,18 @@ class ConeSolver(StabilitySolver):
         vk.restoreSubVector(_is, _sub)
 
         return vk
+
+    # def converged(self, x):
+    #     converged = self.convergenceTest(x)
+        
+    #     # update xold
+    #     # x.copy(self._xold)
+    #     # x.vector.ghostUpdate(
+    #     #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    #     # )
+
+    #     if not converged:
+    #         self.iterations += 1
+
+    #     return converged
+
