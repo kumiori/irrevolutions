@@ -48,27 +48,67 @@ class LineSearch(object):
         self.alpha0 = Function(state['alpha'].function_space)
 
 
-    def search(self, state, perturbation, m=3, mode=0):
+    def search(self, state, perturbation, m=3, mode=0, hmax=.1):
         dx = Measure("dx", domain=self.mesh) #-> volume measure
 
-        __import__('pdb').set_trace()
+        # self._state = state
 
+        v = perturbation["v"]
+        beta = perturbation["beta"]
+
+        u_0 = Function(state["u"].function_space)
+        alpha_0 = Function(state["alpha"].function_space)
+        
+        state["u"].vector.copy(u_0.vector)
+        state["alpha"].vector.copy(alpha_0.vector)
+        
         en_0 = assemble_scalar(form(self.energy))
 
         # get admissible interval
-
         # discretise interval for polynomial interpolation at order m
 
+        htest = np.linspace(0, hmax, np.int32(m+1))
+        energies_1d = []
+
         # compute energy at discretised points
+        for h in htest:
+            with state["u"].vector.localForm() as u_local, \
+                state["alpha"].vector.localForm() as alpha_local, \
+                v.vector.localForm() as v_local, \
+                beta.vector.localForm() as beta_local:
+
+                u_local.array[:] = u_local.array[:] + h*v_local.array[:]
+                alpha_local.array[:] = alpha_local.array[:] + h*beta_local.array[:]
+        
+            state["alpha"].vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+            state["u"].vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+
+            en_h = assemble_scalar(form(self.energy))
+            energies_1d.append(en_h-en_0)
+
 
         # compute polynomial coefficients
 
-        # compute minimum of polynomial
+        z = np.polyfit(htest, energies_1d, m)
+        p = np.poly1d(z)
 
+        # compute minimum of polynomial
+        if m==2:
+            log(LogLevel.INFO, 'Line search using quadratic interpolation')
+            h_opt = - z[1]/(2*z[0])
+        else:
+            log(LogLevel.INFO, 'Line search using polynomial interpolation (order {})'.format(m))
+            h = np.linspace(0, 10*hmax, 30)
+            h_opt = h[np.argmin(p(h))]
+
+        return h_opt, (0, hmax), energies_1d
         # return arg-minimum of 1d energy-perturbations
 
     
     def admissible_interval(self, state, perturbation, alpha_lb, bifurcation):
+        """Computes the admissible interval for the line search, based on 
+        the solution to the rate problem"""
+
         alpha = state["alpha"]
         # beta = perturbation["beta"]
         beta = bifurcation[1]
@@ -118,6 +158,5 @@ class LineSearch(object):
             # get next perturbation mode
 
         assert hmax > hmin, 'hmax > hmin'
-        __import__('pdb').set_trace()
-        
+
         return (hmin, hmax)
