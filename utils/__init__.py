@@ -86,6 +86,17 @@ def norm_H1(u):
         assemble_scalar(norm_form), op=mpi4py.MPI.SUM))
     return norm
 
+def seminorm_H1(u):
+    """
+    Returns the H1 norm of the function u
+    """
+    comm = u.function_space.mesh.comm
+    dx = ufl.Measure("dx", u.function_space.mesh)
+    seminorm = form((ufl.inner(ufl.grad(u), ufl.grad(u))) * dx)
+    seminorm = np.sqrt(comm.allreduce(
+        assemble_scalar(seminorm), op=mpi4py.MPI.SUM))
+    return seminorm
+
 
 def set_vector_to_constant(x, value):
     with x.localForm() as local:
