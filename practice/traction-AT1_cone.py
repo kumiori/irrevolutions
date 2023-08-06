@@ -73,18 +73,18 @@ with open("../test/parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
 # parameters["cone"] = ""
-parameters["stability"]["cone"]["scaling"] = .1
-parameters["stability"]["cone"]["cone_max_it"] = 5000
-parameters["stability"]["cone"]["cone_atol"] = 1e-4
+parameters["stability"]["cone"]["cone_max_it"] = 10000
+parameters["stability"]["cone"]["cone_atol"] = 1e-5
+parameters["stability"]["cone"]["scaling"] = 0.01
 
 parameters["model"]["model_dimension"] = 2
 parameters["model"]["model_type"] = '1D'
 parameters["model"]["w1"] = 1
-parameters["model"]["ell"] = .1
+parameters["model"]["ell"] = .1 
 parameters["model"]["k_res"] = 0.
-# parameters["loading"]["min"] = .0
+parameters["loading"]["min"] = .9
 parameters["loading"]["max"] = 1.5
-parameters["loading"]["steps"] = 200
+parameters["loading"]["steps"] = 100
 
 parameters["geometry"]["geom_type"] = "traction-bar"
 parameters["geometry"]["ell_lc"] = 5
@@ -108,6 +108,8 @@ prefix = os.path.join(outdir, "traction_AT1_cone")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 _lc = ell_ / parameters["geometry"]["ell_lc"] 
+
+# _lc = Lx/2
 gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
 
 # Get mesh and meshtags
@@ -242,7 +244,9 @@ history_data = {
     "total_energy": [],
     "solver_data": [],
     "cone_data": [],
+    "cone-eig": [],
     "eigs": [],
+    "uniqueness": [],
     "stable": [],
     "F": [],    
     "alphadot_norm" : [],
@@ -342,6 +346,7 @@ for i_t, t in enumerate(loads):
         assemble_scalar(form(_stress[0, 0] * dx)),
         op=MPI.SUM,
     )
+    _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
 
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
@@ -356,6 +361,11 @@ for i_t, t in enumerate(loads):
     history_data["rate_12_norm"].append(rate_12_norm)
     history_data["unscaled_rate_12_norm"].append(urate_12_norm)
     history_data["cone-stable"].append(stable)
+    history_data["cone-eig"].append(cone.data["lambda_0"])
+    # print(stability.data["stable"])
+    # __import__('pdb').set_trace()
+    logging.critical(f"Unique: {stability.data['stable']}, {_unique}")
+    history_data["uniqueness"].append(_unique)
 
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)
@@ -377,7 +387,7 @@ list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
 
 df = pd.DataFrame(history_data)
-print(df)
+print(df.drop(['solver_data', 'cone_data'], axis=1))
 
 # Viz
 
