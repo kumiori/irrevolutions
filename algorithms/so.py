@@ -22,6 +22,7 @@ import numpy as np
 from pathlib import Path
 from dolfinx.io import XDMFFile, gmshio
 import logging
+from solvers.function import vec_to_functions
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -520,142 +521,142 @@ class ConeSolver(StabilitySolver):
         self._converged = False
         self._v = dolfinx.fem.petsc.create_vector_block(self.F)
     
-    def _solve(self, alpha_old: dolfinx.fem.function.Function, x0=None):
-        """Recursively solves (until convergence) the abstract eigenproblem
-        K \ni x \perp y := Ax - \lambda B x \in K^*
-        based on the SPA recipe, cf. ...
-        """
-        _s = float(self.parameters.get("cone").get("scaling"))
-        self.iterations = 0
-        errors = []
-        self.stable = True
-        stable = self.solve(alpha_old)
-        self.data = {
-            "iterations": [],
-            "error_x_L2": [],
-            "lambda_k": [],
-            "lambda_0": [],
-            "y_norm_L2": [],
-        }
+    # def _solve(self, alpha_old: dolfinx.fem.function.Function, x0=None):
+    #     """Recursively solves (until convergence) the abstract eigenproblem
+    #     K \ni x \perp y := Ax - \lambda B x \in K^*
+    #     based on the SPA recipe, cf. ...
+    #     """
+    #     _s = float(self.parameters.get("cone").get("scaling"))
+    #     self.iterations = 0
+    #     errors = []
+    #     self.stable = True
+    #     stable = self.solve(alpha_old)
+    #     self.data = {
+    #         "iterations": [],
+    #         "error_x_L2": [],
+    #         "lambda_k": [],
+    #         "lambda_0": [],
+    #         "y_norm_L2": [],
+    #     }
         
 
-        # The cone is non-trivial, aka non-empty
-        # only if the state is irreversibly damage-critical
+    #     # The cone is non-trivial, aka non-empty
+    #     # only if the state is irreversibly damage-critical
 
-        if self._critical:
-            errors.append(1)
-            self.data["y_norm_L2"].append(1)
+    #     if self._critical:
+    #         errors.append(1)
+    #         self.data["y_norm_L2"].append(1)
 
-            # loop
+    #         # loop
 
-            _x = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _y = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _Bx = dolfinx.fem.petsc.create_vector_block(self.F)        
-            self._xold = dolfinx.fem.petsc.create_vector_block(self.F)    
+    #         _x = dolfinx.fem.petsc.create_vector_block(self.F)        
+    #         _y = dolfinx.fem.petsc.create_vector_block(self.F)        
+    #         _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
+    #         _Bx = dolfinx.fem.petsc.create_vector_block(self.F)        
+    #         self._xold = dolfinx.fem.petsc.create_vector_block(self.F)    
             
-            # Map current solution into vector _x
-            if x0 is None:
-                functions_to_vec(self.Kspectrum[0].get("xk"), _x)
-            else:
-                functions_to_vec(x0, _x)
+    #         # Map current solution into vector _x
+    #         if x0 is None:
+    #             functions_to_vec(self.Kspectrum[0].get("xk"), _x)
+    #         else:
+    #             functions_to_vec(x0, _x)
 
-            logging.critical(f"         Size of _x : {_x.size}")
-            self.data["lambda_k"].append(self.Kspectrum[0].get("lambda"))
-            logging.critical(f'         initial lambda-guess : {self.Kspectrum[0].get("lambda")}')
-            if not self.eigen.empty_B():
-                logging.debug("B = Id")
+    #         logging.critical(f"         Size of _x : {_x.size}")
+    #         self.data["lambda_k"].append(self.Kspectrum[0].get("lambda"))
+    #         logging.critical(f'         initial lambda-guess : {self.Kspectrum[0].get("lambda")}')
+    #         if not self.eigen.empty_B():
+    #             logging.debug("B = Id")
 
-            logging.critical(f"~Second Order: Cone Solver - SPA s={_s}")
+    #         logging.critical(f"~Second Order: Cone Solver - SPA s={_s}")
 
-            with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
-                assert self._xold.size == _x.size
+    #         with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
+    #             assert self._xold.size == _x.size
         
-                while not self.converged(_x):
-                    errors.append(self.error)
+    #             while not self.converged(_x):
+    #                 errors.append(self.error)
 
-                    # make it admissible: map into the cone
-                    # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
+    #                 # make it admissible: map into the cone
+    #                 # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
 
-                    # self._cone_project(_x)
-                    _x = self._cone_project_restricted(_x)
+    #                 # self._cone_project(_x)
+    #                 _x = self._cone_project_restricted(_x)
 
-                    # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
-                    # K_t spectrum:
-                    # compute {lambdat, xt, yt}
+    #                 # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
+    #                 # K_t spectrum:
+    #                 # compute {lambdat, xt, yt}
 
-                    if self.eigen.restriction is not None:
-                        _A = self.eigen.rA
-                        _B = self.eigen.rB
+    #                 if self.eigen.restriction is not None:
+    #                     _A = self.eigen.rA
+    #                     _B = self.eigen.rB
 
-                        # _x = self.eigen.restriction.restrict_vector(_x)
-                        _y = self.eigen.restriction.restrict_vector(_y)
-                        _Ax = self.eigen.restriction.restrict_vector(_Ax)
-                        _Bx = self.eigen.restriction.restrict_vector(_Bx)
+    #                     # _x = self.eigen.restriction.restrict_vector(_x)
+    #                     _y = self.eigen.restriction.restrict_vector(_y)
+    #                     _Ax = self.eigen.restriction.restrict_vector(_Ax)
+    #                     _Bx = self.eigen.restriction.restrict_vector(_Bx)
 
-                        _xold = self.eigen.restriction.restrict_vector(self._xold)
-                    else:
-                        _A = self.eigen.A
-                        _B = self.eigen.B
-                        _xold = self._xold
+    #                     _xold = self.eigen.restriction.restrict_vector(self._xold)
+    #                 else:
+    #                     _A = self.eigen.A
+    #                     _B = self.eigen.B
+    #                     _xold = self._xold
 
-                    _A.mult(_x, _Ax)
-                    xAx = _x.dot(_Ax)
+    #                 _A.mult(_x, _Ax)
+    #                 xAx = _x.dot(_Ax)
 
-                    # compute: lmbda_t
-                    if not self.eigen.empty_B():
-                        _B.mult(_x, _Bx)
-                        xBx = _x.dot(_Bx)
-                        _lmbda_t = xAx/xBx
-                    else:
-                        _Bx = _x
-                        _lmbda_t = xAx / _x.dot(_x)
+    #                 # compute: lmbda_t
+    #                 if not self.eigen.empty_B():
+    #                     _B.mult(_x, _Bx)
+    #                     xBx = _x.dot(_Bx)
+    #                     _lmbda_t = xAx/xBx
+    #                 else:
+    #                     _Bx = _x
+    #                     _lmbda_t = xAx / _x.dot(_x)
 
-                    # compute: y_t = _Ax - _lmbda_t * _Bx
-                    _y.waxpy(-_lmbda_t, _Bx, _Ax)
+    #                 # compute: y_t = _Ax - _lmbda_t * _Bx
+    #                 _y.waxpy(-_lmbda_t, _Bx, _Ax)
 
-                    # construct perturbation
-                    # _v = _x - _s*y_t
+    #                 # construct perturbation
+    #                 # _v = _x - _s*y_t
         
-                    # _x.copy(self._xold)
-                    _x.copy(_xold)
-                    _x.axpy(-_s, _y)
+    #                 # _x.copy(self._xold)
+    #                 _x.copy(_xold)
+    #                 _x.axpy(-_s, _y)
                     
-                    # project onto cone
-                    # self._cone_project(_x)
-                    _x = self._cone_project_restricted(_x)
+    #                 # project onto cone
+    #                 # self._cone_project(_x)
+    #                 _x = self._cone_project_restricted(_x)
 
-                    # assert self._xold.size == _x.size
+    #                 # assert self._xold.size == _x.size
                     
-                    _xold.copy(self._xold)
+    #                 _xold.copy(self._xold)
                     
-                    # L2-normalise
-                    n2 = _x.normalize()
-                    # _x.view()
-                    # iterate
-                    # x_i+1 = _v 
+    #                 # L2-normalise
+    #                 n2 = _x.normalize()
+    #                 # _x.view()
+    #                 # iterate
+    #                 # x_i+1 = _v 
 
-                    self.data["lambda_k"].append(_lmbda_t)
-                    self.data["y_norm_L2"].append(_y.norm())
-
-
+    #                 self.data["lambda_k"].append(_lmbda_t)
+    #                 self.data["y_norm_L2"].append(_y.norm())
 
 
-            self.data["iterations"] = self.iterations
-            self.data["error_x_L2"] = errors
-            self.data["lambda_0"] = _lmbda_t
 
-            logging.critical(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
-            logging.critical(f"Eigenfunction is in cone? {self._isin_cone(_x)}")
-            logging.critical(f"Eigenvalue {_lmbda_t}")
 
-            # if (self._isin_cone(_x)):
-                # bifurcating out of existence, not out of a numerical test
-            if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_rtol"))):
-                stable = bool(False)
-            else:
-                stable = bool(True)
-        return bool(stable)
+    #         self.data["iterations"] = self.iterations
+    #         self.data["error_x_L2"] = errors
+    #         self.data["lambda_0"] = _lmbda_t
+
+    #         logging.critical(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
+    #         logging.critical(f"Eigenfunction is in cone? {self._isin_cone(_x)}")
+    #         logging.critical(f"Eigenvalue {_lmbda_t}")
+
+    #         # if (self._isin_cone(_x)):
+    #             # bifurcating out of existence, not out of a numerical test
+    #         if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_rtol"))):
+    #             stable = bool(False)
+    #         else:
+    #             stable = bool(True)
+    #     return bool(stable)
 
     def _is_critical(self, alpha_old):
         """is this a damage-critical state?"""
@@ -665,7 +666,6 @@ class ConeSolver(StabilitySolver):
             return bool(True)
         else:
             return bool(False)
-
 
     def my_solve(self, alpha_old: dolfinx.fem.function.Function, x0=None):
         _s = float(self.parameters.get("cone").get("scaling"))
@@ -730,8 +730,8 @@ class ConeSolver(StabilitySolver):
         logging.critical(f"~Second Order: Cone Solver - SPA s={_s}")
 
         with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
-            while not self.converged(_xk):
-                errors.append(self.error)
+            while not self.converged(_xk, errors):
+                # errors.append(self.error)
 
                 _Ar.mult(_xk, _Axr)
                 xAx_r = _xk.dot(_Axr)
@@ -751,16 +751,23 @@ class ConeSolver(StabilitySolver):
                 self.data["lambda_k"].append(_lmbda_t)
                 self.data["y_norm_L2"].append(_y.norm())
 
+            __import__('pdb').set_trace()
             self._xk = _xk
-            # 
+            self._extend_vector(_xk, self._v)       
+
+            (v, β) = (Function(self.V_u, name="Displacement perturbation"), 
+                        Function(self.V_alpha, name="Damage perturbation"))
+            
+            vec_to_functions(self._v, [v, β])
+            self.perturbation = {"v": v, "beta": β}
+
         self.data["iterations"] = self.iterations
         self.data["error_x_L2"] = errors
         self.data["lambda_0"] = _lmbda_t
 
         logging.critical(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
         
-
-        # logging.critical(f"Eigenfunction is in cone? {self._isin_cone(_xk)}")
+        logging.critical(f"Eigenfunction is in cone? {self._isin_cone(self._v)}")
         logging.critical(f"Errors {errors}")
         logging.critical(f"Eigenvalue {_lmbda_t}")
 
@@ -774,26 +781,27 @@ class ConeSolver(StabilitySolver):
     
         return bool(stable)
 
-    def converged(self, x):
-        converged = self._convergenceTest(x)
+    def converged(self, x, errors):
+        converged = self._convergenceTest(x, errors)
         
         if not converged:
             self.iterations += 1
+        else:
+            self._converged = True
+            self.x_converged = x.copy()
 
         return converged
 
-    # def get_perturbation(self):
-    #     if self._converged:
-    #         self._extend_vector(self.x_converged, self._v)
-    #         return self._v
-    #     else:
-    #         return None
+    def get_perturbation(self):
+        if self._converged:
+            self._extend_vector(self.x_converged, self._v)
+            return self._v
+        else:
+            return None
         
-    def _convergenceTest(self, x):
+    def _convergenceTest(self, x, errors):
         """Test convergence of current iterate xk against 
         prior, restricted version"""
-        # _atol = self.parameters.get("eigen").get("eps_tol")
-        # _maxit = self.parameters.get("eigen").get("eps_max_it")
 
         _atol = self.parameters.get("cone").get("cone_atol")
         _maxit = self.parameters.get("cone").get("cone_max_it")
@@ -807,9 +815,11 @@ class ConeSolver(StabilitySolver):
         # xdiff = -x + x_old
         diff.waxpy(-1., self._xoldr, x)
         error_x_L2 = diff.norm()
+        # __import__('pdb').set_trace()
 
         self.error = error_x_L2
-        if not self.iterations % 100:
+        errors.append(error_x_L2)
+        if not self.iterations % 3:
             logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2}")
 
         self.data["iterations"].append(self.iterations)
@@ -822,59 +832,45 @@ class ConeSolver(StabilitySolver):
 
         return self._converged
 
-    # def converged(self, x):
-    #     converged = self.convergenceTest(x)
-        
-    #     # update xold
-    #     # x.copy(self._xold)
-    #     # x.vector.ghostUpdate(
-    #     #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-    #     # )
+    # def convergenceTest(self, x):
+    #     """Test convergence of current iterate x against 
+    #     prior"""
+    #     # _atol = self.parameters.get("eigen").get("eps_tol")
+    #     # _maxit = self.parameters.get("eigen").get("eps_max_it")
 
-    #     if not converged:
-    #         self.iterations += 1
+    #     _atol = self.parameters.get("cone").get("cone_atol")
+    #     _maxit = self.parameters.get("cone").get("cone_max_it")
 
-    #     return converged
+    #     if self.eigen.restriction is not None:
+    #         _x = self.eigen.restriction.restrict_vector(x)
+    #         _xold = self.eigen.restriction.restrict_vector(self._xold)
+    #     else:
+    #         _x = x
+    #         _xold = self._xold
 
-    def convergenceTest(self, x):
-        """Test convergence of current iterate x against 
-        prior"""
-        # _atol = self.parameters.get("eigen").get("eps_tol")
-        # _maxit = self.parameters.get("eigen").get("eps_max_it")
+    #     if self.iterations == _maxit:
+    #         raise RuntimeError(f'SPA solver did not converge within {_maxit} iterations. Aborting')
+    #         # return False        
+    #     diff = _x.duplicate()
+    #     diff.zeroEntries()
 
-        _atol = self.parameters.get("cone").get("cone_atol")
-        _maxit = self.parameters.get("cone").get("cone_max_it")
+    #     # xdiff = -x + x_old
+    #     diff.waxpy(-1., _xold, _x)
+    #     error_x_L2 = diff.norm()
 
-        if self.eigen.restriction is not None:
-            _x = self.eigen.restriction.restrict_vector(x)
-            _xold = self.eigen.restriction.restrict_vector(self._xold)
-        else:
-            _x = x
-            _xold = self._xold
+    #     self.error = error_x_L2
+    #     if not self.iterations % 100:
+    #         logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2}")
 
-        if self.iterations == _maxit:
-            raise RuntimeError(f'SPA solver did not converge within {_maxit} iterations. Aborting')
-            # return False        
-        diff = _x.duplicate()
-        diff.zeroEntries()
+    #     self.data["iterations"].append(self.iterations)
+    #     self.data["error_x_L2"].append(error_x_L2)
 
-        # xdiff = -x + x_old
-        diff.waxpy(-1., _xold, _x)
-        error_x_L2 = diff.norm()
+    #     if error_x_L2 < _atol:
+    #         self._converged = True
+    #     elif self.iterations == 0 or error_x_L2 >= _atol:
+    #         self._converged = False
 
-        self.error = error_x_L2
-        if not self.iterations % 100:
-            logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2}")
-
-        self.data["iterations"].append(self.iterations)
-        self.data["error_x_L2"].append(error_x_L2)
-
-        if error_x_L2 < _atol:
-            self._converged = True
-        elif self.iterations == 0 or error_x_L2 >= _atol:
-            self._converged = False
-
-        return self._converged
+    #     return self._converged
 
     def _isin_cone(self, x):
         """Is in the zone IFF x is in the cone"""
@@ -918,7 +914,6 @@ class ConeSolver(StabilitySolver):
         vext.restoreSubVector(_isall, _suball)
         
         return
-
         
     def _cone_project_restricted(self, v):
         """Projects vector into the relevant cone
@@ -962,7 +957,6 @@ class ConeSolver(StabilitySolver):
                 return v
         return
 
-
     def _cone_restrict_project(self, v):
         """returns the projection of a full state vector v
         (considering the restriction), onto the positive cone
@@ -981,3 +975,20 @@ class ConeSolver(StabilitySolver):
         vk.restoreSubVector(_is, _sub)
 
         return vk
+
+
+
+
+    # def converged(self, x):
+    #     converged = self.convergenceTest(x)
+        
+    #     # update xold
+    #     # x.copy(self._xold)
+    #     # x.vector.ghostUpdate(
+    #     #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    #     # )
+
+    #     if not converged:
+    #         self.iterations += 1
+
+    #     return converged
