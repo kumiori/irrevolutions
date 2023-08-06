@@ -17,12 +17,12 @@ sys.path.append("../")
 
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
-from algorithms.so import StabilitySolver, ConeSolver
+from algorithms.so import StabilitySolver, ConeSolver, BifurcationSolver
 from algorithms.ls import LineSearch
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
 from utils.plots import plot_energies
-from utils import norm_H1, norm_L2
+from utils import norm_H1, norm_L2, seminorm_H1
 
 from meshes.primitives import mesh_bar_gmshapi
 from dolfinx.common import Timer, list_timings, TimingType
@@ -198,8 +198,8 @@ def test_linsearch():
         solver_parameters=parameters.get("solvers"),
     )
 
-    bifurcation = StabilitySolver(
-        total_energy, state, bcs, stability_parameters=parameters.get("stability")
+    bifurcation = BifurcationSolver(
+        total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
     )
 
     cone = ConeSolver(
@@ -219,12 +219,14 @@ def test_linsearch():
         "solver_data": [],
         "cone_data": [],
         "eigs": [],
-        "stable": [],
+        "uniqueness": [],
         "F": [],    
         "alphadot_norm" : [],
         "rate_12_norm" : [], 
         "unscaled_rate_12_norm" : [],
         "cone-stable": [],
+        "inertia": [],
+        "homogeneous": [],
         "damage-evolves": []
     }
 
@@ -336,14 +338,17 @@ def test_linsearch():
         history_data["elastic_energy"].append(elastic_energy)
         history_data["total_energy"].append(elastic_energy+fracture_energy)
         history_data["solver_data"].append(solver.data)
+        # history_data["solver_data"].append([0])
         history_data["eigs"].append(bifurcation.data["eigs"])
-        history_data["stable"].append(bifurcation.data["stable"])
+        history_data["uniqueness"].append(bifurcation.data["stable"])
         history_data["F"].append(stress)
         history_data["cone_data"].append(cone.data)
         history_data["alphadot_norm"].append(alphadot.vector.norm())
         history_data["rate_12_norm"].append(rate_12_norm)
         history_data["unscaled_rate_12_norm"].append(urate_12_norm)
         history_data["cone-stable"].append(stable)
+        history_data["inertia"].append(inertia)
+        history_data["homogeneous"].append(not bool(np.floor(seminorm_H1(alpha))))
         history_data["damage-evolves"].append(is_critical)
 
         with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
@@ -364,7 +369,7 @@ def test_linsearch():
 
     import pandas as pd
     df = pd.DataFrame(history_data)
-    print(df)
+    print(df.drop(['solver_data', 'cone_data'], axis=1))
 
     # # Viz
     # from pyvista.utilities import xvfb

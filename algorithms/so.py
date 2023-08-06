@@ -376,10 +376,10 @@ class StabilitySolver:
         else:
             neig_out = eigen.eps.getConverged()
 
-        log(LogLevel.INFO, f"Number of requested eigenvalues: {nev}")
-        log(LogLevel.INFO, f"Number of requested column vectors: {ncv}")
-        log(LogLevel.INFO, f"Number of mpd: {mpd}")
-        log(LogLevel.INFO, f"converged {ncv:d}")
+        logging.critical(f"Number of requested eigenvalues: {nev}")
+        logging.critical(f"Number of requested column vectors: {ncv}")
+        logging.critical(f"Number of mpd: {mpd}")
+        logging.critical(f"converged {ncv:d}")
         # print(f"{rank}) mode {i}: {name} beta-norm {ur[1].vector.norm()}")
 
         # postprocess
@@ -476,6 +476,26 @@ class StabilitySolver:
                 ofile.write_function(v[i], eig)
                 ofile.write_function(beta[i], eig)
 
+
+class BifurcationSolver(StabilitySolver):
+    """Minimal implementation for the solution of the uniqueness issue"""
+
+    def __init__(
+        self,
+        energy: ufl.form.Form,
+        state: dict,
+        bcs: list,
+        nullspace=None,
+        bifurcation_parameters=None,
+    ):
+        super(BifurcationSolver, self).__init__(
+            energy,
+            state,
+            bcs,
+            nullspace,
+            stability_parameters=bifurcation_parameters,
+
+    )
 
 class ConeSolver(StabilitySolver):
     """Base class for a minimal implementation of the solution of eigenvalue
@@ -735,11 +755,10 @@ class ConeSolver(StabilitySolver):
                 # project onto cone
                 # self._cone_project(_xk)
 
-
                 # vk = self._cone_restrict_project(_xk)
                 vk = self._cone_project_restricted(_xk)
 
-                logging.debug(f"Projection vk is in cone 🍦? {self._isin_cone(vk)}")
+                # logging.debug(f"Projection vk is in cone 🍦? {self._isin_cone(vk)}")
                 logging.debug(f"Projection _xk is in cone 🍦? {self._isin_cone(_xk)}")
                 vk.copy(_xk)
                 
@@ -908,86 +927,75 @@ class ConeSolver(StabilitySolver):
     def _extend_vector(self, vres, vext):
         """extends restricted vector vr into v, in place"""
         # v = dolfinx.fem.petsc.create_vector_block(F)
+        with dolfinx.common.Timer(f"~Restriction manipulations: Extend Vector"):
+            _isall = PETSc.IS().createGeneral(self.eigen.restriction.bglobal_dofs_vec_stacked)
+            _suball = vext.getSubVector(_isall)
 
-        _isall = PETSc.IS().createGeneral(self.eigen.restriction.bglobal_dofs_vec_stacked)
-        _suball = vext.getSubVector(_isall)
-
-        vres.copy(_suball)
-        vext.restoreSubVector(_isall, _suball)
+            vres.copy(_suball)
+            vext.restoreSubVector(_isall, _suball)
         
         return
 
     def _cone_project_restricted(self, v):
         """Projects vector into the relevant cone
-            handling restrictions.
+            handling restrictions. In place.
 
             takes arguments:
             - v: vector in a mixed space
 
             returns
         """
-        with dolfinx.common.Timer(f"~Second Order: Cone Project"):
-            # logging.critical(f"num dofs {len(self.eigen.restriction.bglobal_dofs_vec[1])}")
-            # get the subvector associated to damage dofs with inactive constraints 
-            _is_restricted = False
-            logging.debug(f"rank {comm.rank}) v is                       {v.array}")
-            
-            # if is already restricted
-            if v.size != self._v.size:
-            # if v.size != len(self.eigen.restriction.bglobal_dofs_vec_stacked):
-                _is_restricted = True
-                self._extend_vector(v, self._v)
-                _v = self._v
-                # _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
-            # # else get from restriction
-            else:
-            #     # use all dofs
-                logging.debug(f"rank {comm.rank}) Vext = V")
-                _v = v
-                # v = self.eigen.restriction.restrict_vector(v)
-            #     _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
+        _is_restricted = False
+
+        # if is already restricted
+        if v.size != self._v.size:
+            _is_restricted = True
+            self._extend_vector(v, self._v)
+            _v = self._v
+        else:
+            logging.debug(f"rank {comm.rank}) Vext = V")
+            _v = v
+
+        with dolfinx.common.Timer(f"~Second Order: Cone Project"): 
 
             _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
-            logging.debug(f"rank {comm.rank}) IS _dofs                       {_dofs}")
-            # self.eigen.restriction.bglobal_dofs_vec[1]
             _is = PETSc.IS().createGeneral(_dofs)
-
-            # __import__('pdb').set_trace()
-            
-            logging.debug(f"rank {comm.rank}) IS.size from block-local dofs  {_is.size}")
-            logging.debug(f"rank {comm.rank}) v size                         {v.size}")
-            logging.debug(f"rank {comm.rank}) IS Indices from block-local dofs {_is.getIndices()}")
-            logging.debug(f"rank {comm.rank}) Restricted dofs {len(self.eigen.restriction.blocal_dofs[1])}")
-            
             _sub = _v.getSubVector(_is)
             zero = _sub.duplicate()
 
             zero.zeroEntries()
-
+    
             _sub.pointwiseMax(_sub, zero)
             _v.restoreSubVector(_is, _sub)
 
-            # if self.eigen.restriction is not None and v.size != len(self.eigen.restriction.bglobal_dofs_vec_stacked):
-            if _is_restricted:
-                return self.eigen.restriction.restrict_vector(_v)
-            else:
-                return _v
+            # logging.debug(f"rank {comm.rank}) v is                       {v.array}")
+            # logging.debug(f"rank {comm.rank}) IS _dofs                       {_dofs}")
+            # logging.debug(f"rank {comm.rank}) IS.size from block-local dofs  {_is.size}")
+            # logging.debug(f"rank {comm.rank}) v size                         {v.size}")
+            # logging.debug(f"rank {comm.rank}) IS Indices from block-local dofs {_is.getIndices()}")
+            # logging.debug(f"rank {comm.rank}) Restricted dofs {len(self.eigen.restriction.blocal_dofs[1])}")
+            
 
-    def _cone_restrict_project(self, v):
-        """returns the projection of a full state vector v
-        (considering the restriction), onto the positive cone
-        the returned vector (new) is defined on the same space as v"""
+        if _is_restricted:
+            return self.eigen.restriction.restrict_vector(_v)
+        else:
+            return _v
 
-        vk = v.copy()
-        zero = v.duplicate()
-        zero.zeroEntries()
+    # def _cone_restrict_project(self, v):
+    #     """returns the projection of a full state vector v
+    #     (considering the restriction), onto the positive cone
+    #     the returned vector (new) is defined on the same space as v"""
 
-        _is = PETSc.IS().createGeneral(self.eigen.restriction.bglobal_dofs_vec[1])
-        _sub = vk.getSubVector(_is)
-        print(f"{rank}) _sub-.array_r {_sub.array_r}")
-        _subzero = zero.getSubVector(_is)
-        _sub.pointwiseMax(_sub, _subzero)
-        print(f"{rank}) _sub+.array_r {_sub.array_r}")
-        vk.restoreSubVector(_is, _sub)
+    #     vk = v.copy()
+    #     zero = v.duplicate()
+    #     zero.zeroEntries()
 
-        return vk
+    #     _is = PETSc.IS().createGeneral(self.eigen.restriction.bglobal_dofs_vec[1])
+    #     _sub = vk.getSubVector(_is)
+    #     print(f"{rank}) _sub-.array_r {_sub.array_r}")
+    #     _subzero = zero.getSubVector(_is)
+    #     _sub.pointwiseMax(_sub, _subzero)
+    #     print(f"{rank}) _sub+.array_r {_sub.array_r}")
+    #     vk.restoreSubVector(_is, _sub)
+
+    #     return vk
