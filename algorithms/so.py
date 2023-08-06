@@ -783,7 +783,7 @@ class ConeSolver(StabilitySolver):
         # if (self._isin_cone(_x)):
         # bifurcating out of existence, not out of a numerical test
 
-        if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_rtol"))):
+        if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_atol"))):
             stable = bool(False)
         else:
             stable = bool(True)
@@ -815,12 +815,12 @@ class ConeSolver(StabilitySolver):
         # _atol = self.parameters.get("eigen").get("eps_tol")
         # _maxit = self.parameters.get("eigen").get("eps_max_it")
 
-        _atol = self.parameters.get("cone").get("cone_atol")
+        _rtol = self.parameters.get("cone").get("cone_rtol")
         _maxit = self.parameters.get("cone").get("cone_max_it")
 
         if self.iterations == _maxit:
-            raise RuntimeError(f'SPA solver did not converge within {_maxit} iterations. Aborting')
-            # return False        
+            raise RuntimeError(f'SPA solver did not converge within {_maxit} \
+                               iterations within tolerance {_rtol}. Aborting')   
         diff = x.duplicate()
         diff.zeroEntries()
 
@@ -835,52 +835,53 @@ class ConeSolver(StabilitySolver):
         self.data["iterations"].append(self.iterations)
         self.data["error_x_L2"].append(error_x_L2)
 
-        if error_x_L2 < _atol:
+        if error_x_L2 < _rtol:
             self._converged = True
-        elif self.iterations == 0 or error_x_L2 >= _atol:
+        elif self.iterations == 0 or error_x_L2 >= _rtol:
             self._converged = False
 
         return self._converged
 
-    def convergenceTest(self, x):
-        """Test convergence of current iterate x against 
-        prior"""
-        # _atol = self.parameters.get("eigen").get("eps_tol")
-        # _maxit = self.parameters.get("eigen").get("eps_max_it")
+    # def convergenceTest(self, x):
+    #     """Test convergence of current iterate x against 
+    #     prior"""
+    #     # _atol = self.parameters.get("eigen").get("eps_tol")
+    #     # _maxit = self.parameters.get("eigen").get("eps_max_it")
 
-        _atol = self.parameters.get("cone").get("cone_atol")
-        _maxit = self.parameters.get("cone").get("cone_max_it")
+    #     _rtol = self.parameters.get("cone").get("cone_rtol")
+    #     _maxit = self.parameters.get("cone").get("cone_max_it")
 
-        if self.eigen.restriction is not None:
-            _x = self.eigen.restriction.restrict_vector(x)
-            _xold = self.eigen.restriction.restrict_vector(self._xold)
-        else:
-            _x = x
-            _xold = self._xold
+    #     if self.eigen.restriction is not None:
+    #         _x = self.eigen.restriction.restrict_vector(x)
+    #         _xold = self.eigen.restriction.restrict_vector(self._xold)
+    #     else:
+    #         _x = x
+    #         _xold = self._xold
 
-        if self.iterations == _maxit:
-            raise RuntimeError(f'SPA solver did not converge within {_maxit} iterations. Aborting')
-            # return False        
-        diff = _x.duplicate()
-        diff.zeroEntries()
+    #     if self.iterations == _maxit:
+    #         raise RuntimeError(f'SPA solver did not converge within {_maxit} \
+    #                            iterations within tolerance {_rtol}. Aborting')
+    #         # return False        
+    #     diff = _x.duplicate()
+    #     diff.zeroEntries()
 
-        # xdiff = -x + x_old
-        diff.waxpy(-1., _xold, _x)
-        error_x_L2 = diff.norm()
+    #     # xdiff = -x + x_old
+    #     diff.waxpy(-1., _xold, _x)
+    #     error_x_L2 = diff.norm()
 
-        self.error = error_x_L2
-        if not self.iterations % 100:
-            logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2}")
+    #     self.error = error_x_L2
+    #     if not self.iterations % 100:
+    #         logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2}")
 
-        self.data["iterations"].append(self.iterations)
-        self.data["error_x_L2"].append(error_x_L2)
+    #     self.data["iterations"].append(self.iterations)
+    #     self.data["error_x_L2"].append(error_x_L2)
 
-        if error_x_L2 < _atol:
-            self._converged = True
-        elif self.iterations == 0 or error_x_L2 >= _atol:
-            self._converged = False
+    #     if error_x_L2 < _rtol:
+    #         self._converged = True
+    #     elif self.iterations == 0 or error_x_L2 >= _rtol:
+    #         self._converged = False
 
-        return self._converged
+    #     return self._converged
 
     def _isin_cone(self, x):
         """Is in the zone IFF x is in the cone"""

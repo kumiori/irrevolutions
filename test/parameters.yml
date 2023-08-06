@@ -119,8 +119,8 @@ stability:
         eps_max_it: 100
 
     cone:
-        cone_atol: 3.0e-05
-        cone_max_it: 3000
+        cone_atol: 1.0e-05
+        cone_max_it: 5000
         cone_rtol: 3.0e-05
         maxmodes: 3
         # smaller spa scaling seems to accelerate convergence

@@ -81,9 +81,9 @@ def test_linsearch():
     lc = ell_ / 3.0
     # lc = .5
 
-    parameters["loading"]["min"] = .9
-    parameters["loading"]["max"] = 2
-    parameters["loading"]["steps"] = 10
+    parameters["loading"]["min"] = 0
+    parameters["loading"]["max"] = 2.
+    parameters["loading"]["steps"] = 30
 
     # Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
@@ -224,6 +224,7 @@ def test_linsearch():
         "alphadot_norm" : [],
         "rate_12_norm" : [], 
         "unscaled_rate_12_norm" : [],
+        "cone-eig": [],
         "cone-stable": [],
         "inertia": [],
         "homogeneous": [],
@@ -316,6 +317,7 @@ def test_linsearch():
             logging.critical(f"line search interval is {interval}")
             logging.critical(f"perturbation energies: {energies_1d}")
             logging.critical(f"hopt: {h_opt}")
+            logging.critical(f"lambda_t: {cone.data['lambda_0']}")
 
             # solve from perturbed state
             # compute convergence criteria
@@ -349,6 +351,7 @@ def test_linsearch():
         history_data["rate_12_norm"].append(rate_12_norm)
         history_data["unscaled_rate_12_norm"].append(urate_12_norm)
         history_data["cone-stable"].append(stable)
+        history_data["cone-eig"].append(cone.data["lambda_0"])
         history_data["inertia"].append(inertia)
         history_data["homogeneous"].append(not bool(np.floor(seminorm_H1(alpha))))
         history_data["damage-evolves"].append(is_critical)
