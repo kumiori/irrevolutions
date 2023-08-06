@@ -308,12 +308,14 @@ def test_linsearch():
             perturbation = {"v": v, "beta": β}
 
             interval = linesearch.get_unilateral_interval(state, perturbation)
-            logging.debug(f"line search interval is {interval}")
 
             h_opt, energies_1d = linesearch.search(state, perturbation, interval)
 
             # logging.critical(f"state is stable: {stable} h_opt is {h_opt}")
+            logging.critical(f" *> State is unstable: {not stable}")
+            logging.critical(f"line search interval is {interval}")
             logging.critical(f"perturbation energies: {energies_1d}")
+            logging.critical(f"hopt: {h_opt}")
 
             # solve from perturbed state
             # compute convergence criteria

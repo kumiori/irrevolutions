@@ -726,10 +726,10 @@ class ConeSolver(StabilitySolver):
         _Axr = constraints.restrict_vector(_Ax)
         # _Ar = constraints.restrict_matrix(_A)
 
-        logging.debug(f"bglobal_dofs_vec {constraints.bglobal_dofs_vec}")
-        logging.debug(f"bglobal_dofs_vec stacked {constraints.bglobal_dofs_vec_stacked}")
-        logging.debug(f"blocal_dofs {constraints.blocal_dofs}")
-        logging.debug(f"boffsets_vec {constraints.boffsets_vec}")
+        # logging.debug(f"bglobal_dofs_vec {constraints.bglobal_dofs_vec}")
+        # logging.debug(f"bglobal_dofs_vec stacked {constraints.bglobal_dofs_vec_stacked}")
+        # logging.debug(f"blocal_dofs {constraints.blocal_dofs}")
+        # logging.debug(f"boffsets_vec {constraints.boffsets_vec}")
         # __import__('pdb').set_trace()
         logging.critical(f"~Second Order: Cone Solver - SPA s={_s}")
         with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
