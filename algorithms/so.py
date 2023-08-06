@@ -196,7 +196,7 @@ class StabilitySolver:
             self._critical = False
         
         logging.critical(
-            f"rank {comm.rank}) Current state is damage-critical? {self._critical}"
+            f"rank {comm.rank}) Current state is damage-critical? 🌪 {self._critical}"
         )
 
         if self._critical:
@@ -376,10 +376,10 @@ class StabilitySolver:
         else:
             neig_out = eigen.eps.getConverged()
 
-        log(LogLevel.INFO, f"Number of requested eigenvalues: {nev}")
-        log(LogLevel.INFO, f"Number of requested column vectors: {ncv}")
-        log(LogLevel.INFO, f"Number of mpd: {mpd}")
-        log(LogLevel.INFO, f"converged {ncv:d}")
+        logging.critical(f"Number of requested eigenvalues: {nev}")
+        logging.critical(f"Number of requested column vectors: {ncv}")
+        logging.critical(f"Number of mpd: {mpd}")
+        logging.critical(f"converged {ncv:d}")
         # print(f"{rank}) mode {i}: {name} beta-norm {ur[1].vector.norm()}")
 
         # postprocess
@@ -476,6 +476,25 @@ class StabilitySolver:
                 ofile.write_function(v[i], eig)
                 ofile.write_function(beta[i], eig)
 
+class BifurcationSolver(StabilitySolver):
+    """Minimal implementation for the solution of the uniqueness issue"""
+
+    def __init__(
+        self,
+        energy: ufl.form.Form,
+        state: dict,
+        bcs: list,
+        nullspace=None,
+        bifurcation_parameters=None,
+    ):
+        super(BifurcationSolver, self).__init__(
+            energy,
+            state,
+            bcs,
+            nullspace,
+            stability_parameters=bifurcation_parameters,
+
+    )
 
 class ConeSolver(StabilitySolver):
     """Base class for a minimal implementation of the solution of eigenvalue
@@ -498,7 +517,9 @@ class ConeSolver(StabilitySolver):
             stability_parameters=cone_parameters,
 
     )
-
+        self._converged = False
+        self._v = dolfinx.fem.petsc.create_vector_block(self.F)
+    
     def _solve(self, alpha_old: dolfinx.fem.function.Function, x0=None):
         """Recursively solves (until convergence) the abstract eigenproblem
         K \ni x \perp y := Ax - \lambda B x \in K^*
@@ -517,7 +538,6 @@ class ConeSolver(StabilitySolver):
             "y_norm_L2": [],
         }
         
-        self._converged = False
 
         # The cone is non-trivial, aka non-empty
         # only if the state is irreversibly damage-critical
@@ -545,6 +565,8 @@ class ConeSolver(StabilitySolver):
             logging.critical(f'         initial lambda-guess : {self.Kspectrum[0].get("lambda")}')
             if not self.eigen.empty_B():
                 logging.debug("B = Id")
+
+            logging.critical(f"~Second Order: Cone Solver - SPA s={_s}")
 
             with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
                 assert self._xold.size == _x.size
@@ -686,7 +708,7 @@ class ConeSolver(StabilitySolver):
             restriction=constraints,
             prefix="stability",
         )
-
+        self.eigen = eigen
         eigen.A.zeroEntries()
         dolfinx.fem.petsc.assemble_matrix_block(eigen.A, eigen.A_form, eigen.bcs)
         eigen.A.assemble()
@@ -704,6 +726,8 @@ class ConeSolver(StabilitySolver):
         _y = constraints.restrict_vector(_y)
         _Axr = constraints.restrict_vector(_Ax)
         # _Ar = constraints.restrict_matrix(_A)
+
+        logging.critical(f"~Second Order: Cone Solver - SPA s={_s}")
 
         with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
             while not self.converged(_xk):
@@ -727,11 +751,15 @@ class ConeSolver(StabilitySolver):
                 self.data["lambda_k"].append(_lmbda_t)
                 self.data["y_norm_L2"].append(_y.norm())
 
+            self._xk = _xk
+            # 
         self.data["iterations"] = self.iterations
         self.data["error_x_L2"] = errors
         self.data["lambda_0"] = _lmbda_t
 
         logging.critical(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
+        
+
         # logging.critical(f"Eigenfunction is in cone? {self._isin_cone(_xk)}")
         logging.critical(f"Errors {errors}")
         logging.critical(f"Eigenvalue {_lmbda_t}")
@@ -754,7 +782,13 @@ class ConeSolver(StabilitySolver):
 
         return converged
 
-
+    # def get_perturbation(self):
+    #     if self._converged:
+    #         self._extend_vector(self.x_converged, self._v)
+    #         return self._v
+    #     else:
+    #         return None
+        
     def _convergenceTest(self, x):
         """Test convergence of current iterate xk against 
         prior, restricted version"""
