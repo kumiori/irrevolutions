@@ -47,7 +47,6 @@ class LineSearch(object):
         self.u0 = Function(state['u'].function_space)
         self.alpha0 = Function(state['alpha'].function_space)
 
-
     def search(self, state, perturbation, m=3, mode=0, hmax=.1):
         dx = Measure("dx", domain=self.mesh) #-> volume measure
 
@@ -103,7 +102,6 @@ class LineSearch(object):
 
         return h_opt, (0, hmax), energies_1d
         # return arg-minimum of 1d energy-perturbations
-
     
     def admissible_interval(self, state, perturbation, alpha_lb, bifurcation):
         """Computes the admissible interval for the line search, based on 
@@ -160,3 +158,26 @@ class LineSearch(object):
         assert hmax > hmin, 'hmax > hmin'
 
         return (hmin, hmax)
+
+    def get_unilateral_interval(self, state, perturbation):
+            """Computes the admissible interval for the line search, based on
+            the positive perturbation solution to the cone-problem. This is a unilateral interval, 
+            the upper bound given by the condition 
+                h: alpha + h*perturbation <= 1."""
+            
+            alpha = state["alpha"]
+            beta = perturbation["beta"]
+            assert (beta.vector[:]>=0).all(), 'beta non-negative'
+            
+            one = max(1., max(alpha.vector[:]))
+            mask = np.int32(np.where(beta.vector[:]>0)[0])
+
+            _hmax = (one-alpha.vector[mask])/beta.vector[mask]  if len(mask)>0 else [np.inf]
+            hmax_glob = np.array(0.0,'d')
+
+            comm.Allreduce(np.min(_hmax), hmax_glob, op=mpi4py.MPI.MIN)
+
+            hmax = float(hmax_glob)
+            assert hmax > 0, 'hmax > 0'
+            
+            return (0, hmax)
