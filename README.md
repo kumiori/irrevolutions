@@ -8,7 +8,7 @@ Let $y=(\alpha, u)$ be an admissible state of a brittle system where $\alpha: \O
 
 ## The current branch
 
-We implement here the Cone-Recipe. Take it as a surprise cake, that opens upon critical conditions.
+We implement a Cone-Recipe. Take it as a surprise cake that opens upon critical conditions.
 
 ### Running the notebooks (to be tested *prior* to course start)
 
@@ -94,10 +94,14 @@ Hence the cryptic repository name.
 - 7 Defence
 
 
-### Instructors/Authors
+### Authors
+- Cf. commit messages
+  
+### Course Instructors/Authors
 
-- V Lazarus, Sorbonnes Université.
+- V Lazarus, Sorbonne Université.
 - A Leon Baldelli, CR CNRS.
+
 
 ### Acknowledgements
 
