@@ -47,7 +47,7 @@ class LineSearch(object):
         self.u0 = Function(state['u'].function_space)
         self.alpha0 = Function(state['alpha'].function_space)
 
-    def search(self, state, perturbation, m=3, mode=0, hmax=.1):
+    def search(self, state, perturbation, interval, m=3, mode=0):
         dx = Measure("dx", domain=self.mesh) #-> volume measure
 
         # self._state = state
@@ -65,10 +65,9 @@ class LineSearch(object):
 
         # get admissible interval
         # discretise interval for polynomial interpolation at order m
-
-        htest = np.linspace(0, hmax, np.int32(m+1))
+        hmin, hmax = interval
+        htest = np.linspace(hmin, hmax, np.int32(m+1))
         energies_1d = []
-
         # compute energy at discretised points
         for h in htest:
             with state["u"].vector.localForm() as u_local, \
@@ -85,6 +84,9 @@ class LineSearch(object):
             en_h = assemble_scalar(form(self.energy))
             energies_1d.append(en_h-en_0)
 
+        # restore state
+        u_0.vector.copy(state["u"].vector)
+        alpha_0.vector.copy(state["alpha"].vector)
 
         # compute polynomial coefficients
 
@@ -97,12 +99,16 @@ class LineSearch(object):
             h_opt = - z[1]/(2*z[0])
         else:
             log(LogLevel.INFO, 'Line search using polynomial interpolation (order {})'.format(m))
-            h = np.linspace(0, 10*hmax, 30)
+            h = np.linspace(0, hmax, 30)
             h_opt = h[np.argmin(p(h))]
 
-        return h_opt, (0, hmax), energies_1d
+
+        return h_opt, energies_1d
         # return arg-minimum of 1d energy-perturbations
     
+
+
+
     def admissible_interval(self, state, perturbation, alpha_lb, bifurcation):
         """Computes the admissible interval for the line search, based on 
         the solution to the rate problem"""
@@ -168,7 +174,7 @@ class LineSearch(object):
             alpha = state["alpha"]
             beta = perturbation["beta"]
             assert (beta.vector[:]>=0).all(), 'beta non-negative'
-            
+
             one = max(1., max(alpha.vector[:]))
             mask = np.int32(np.where(beta.vector[:]>0)[0])
 

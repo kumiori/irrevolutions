@@ -706,12 +706,12 @@ class ConeSolver(StabilitySolver):
         _Axr = constraints.restrict_vector(_Ax)
         # _Ar = constraints.restrict_matrix(_A)
 
-        logging.critical(f"bglobal_dofs_vec {constraints.bglobal_dofs_vec}")
-        logging.critical(f"bglobal_dofs_vec stacked {constraints.bglobal_dofs_vec_stacked}")
-        logging.critical(f"blocal_dofs {constraints.blocal_dofs}")
-        logging.critical(f"boffsets_vec {constraints.boffsets_vec}")
-        __import__('pdb').set_trace()
-
+        logging.debug(f"bglobal_dofs_vec {constraints.bglobal_dofs_vec}")
+        logging.debug(f"bglobal_dofs_vec stacked {constraints.bglobal_dofs_vec_stacked}")
+        logging.debug(f"blocal_dofs {constraints.blocal_dofs}")
+        logging.debug(f"boffsets_vec {constraints.boffsets_vec}")
+        # __import__('pdb').set_trace()
+        logging.critical(f"~Second Order: Cone Solver - SPA s={_s}")
         with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
             while not self.converged(_xk):
                 errors.append(self.error)
@@ -721,7 +721,7 @@ class ConeSolver(StabilitySolver):
                 # B=id for us
                 _lmbda_t = xAx_r / _xk.dot(_xk)
                 _y.waxpy(-_lmbda_t, _xk, _Axr)
-                logging.critical(f"_lmbda_t {_lmbda_t}")
+                logging.debug(f"_lmbda_t {_lmbda_t}")
 
                 diff = _xk.duplicate()
 
@@ -739,8 +739,8 @@ class ConeSolver(StabilitySolver):
                 # vk = self._cone_restrict_project(_xk)
                 vk = self._cone_project_restricted(_xk)
 
-                logging.critical(f"Projection vk is in cone 🍦? {self._isin_cone(vk)}")
-                logging.critical(f"Projection _xk is in cone 🍦? {self._isin_cone(_xk)}")
+                logging.debug(f"Projection vk is in cone 🍦? {self._isin_cone(vk)}")
+                logging.debug(f"Projection _xk is in cone 🍦? {self._isin_cone(_xk)}")
                 vk.copy(_xk)
                 
                 # normalise eigen
@@ -773,7 +773,7 @@ class ConeSolver(StabilitySolver):
 
     def converged(self, x):
         converged = self._convergenceTest(x)
-        logging.critical(f"Iteration {self.iterations} - Converged? {converged}")
+        # logging.critical(f"Iteration {self.iterations} - Converged? {converged}")
         
         if not converged:
             self.iterations += 1
@@ -810,7 +810,7 @@ class ConeSolver(StabilitySolver):
         error_x_L2 = diff.norm()
 
         self.error = error_x_L2
-        if not self.iterations % 10:
+        if not self.iterations % 100:
             logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2}")
 
         self.data["iterations"].append(self.iterations)
@@ -930,7 +930,7 @@ class ConeSolver(StabilitySolver):
             # logging.critical(f"num dofs {len(self.eigen.restriction.bglobal_dofs_vec[1])}")
             # get the subvector associated to damage dofs with inactive constraints 
             _is_restricted = False
-            logging.critical(f"rank {comm.rank}) v is                       {v.array}")
+            logging.debug(f"rank {comm.rank}) v is                       {v.array}")
             
             # if is already restricted
             if v.size != self._v.size:
@@ -942,22 +942,22 @@ class ConeSolver(StabilitySolver):
             # # else get from restriction
             else:
             #     # use all dofs
-                logging.critical(f"rank {comm.rank}) Vext = V")
+                logging.debug(f"rank {comm.rank}) Vext = V")
                 _v = v
                 # v = self.eigen.restriction.restrict_vector(v)
             #     _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
 
             _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
-            logging.critical(f"rank {comm.rank}) IS _dofs                       {_dofs}")
+            logging.debug(f"rank {comm.rank}) IS _dofs                       {_dofs}")
             # self.eigen.restriction.bglobal_dofs_vec[1]
             _is = PETSc.IS().createGeneral(_dofs)
 
             # __import__('pdb').set_trace()
             
-            logging.critical(f"rank {comm.rank}) IS.size from block-local dofs  {_is.size}")
-            logging.critical(f"rank {comm.rank}) v size                         {v.size}")
-            logging.critical(f"rank {comm.rank}) IS Indices from block-local dofs {_is.getIndices()}")
-            logging.critical(f"rank {comm.rank}) Restricted dofs {len(self.eigen.restriction.blocal_dofs[1])}")
+            logging.debug(f"rank {comm.rank}) IS.size from block-local dofs  {_is.size}")
+            logging.debug(f"rank {comm.rank}) v size                         {v.size}")
+            logging.debug(f"rank {comm.rank}) IS Indices from block-local dofs {_is.getIndices()}")
+            logging.debug(f"rank {comm.rank}) Restricted dofs {len(self.eigen.restriction.blocal_dofs[1])}")
             
             _sub = _v.getSubVector(_is)
             zero = _sub.duplicate()

@@ -79,7 +79,7 @@ def test_linsearch():
     _nameExp = "bar"
     ell_ = parameters["model"]["ell"]
     lc = ell_ / 3.0
-    lc = .5
+    # lc = .5
 
     parameters["loading"]["min"] = .9
     parameters["loading"]["max"] = 2
@@ -94,7 +94,7 @@ def test_linsearch():
     # Get mesh and meshtags
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
-    __import__('pdb').set_trace()
+    # __import__('pdb').set_trace()
 
     outdir = "output"
     prefix = os.path.join(outdir, "test_linsearch")
@@ -224,7 +224,8 @@ def test_linsearch():
         "alphadot_norm" : [],
         "rate_12_norm" : [], 
         "unscaled_rate_12_norm" : [],
-        "cone-stable": []
+        "cone-stable": [],
+        "damage-evolves": []
     }
 
 
@@ -295,52 +296,25 @@ def test_linsearch():
         
         stable = cone.my_solve(alpha_lb, x0=bifurcation.Kspectrum[0].get("xk"))
         # stable = cone.my_solve(alpha_lb)
-        
+        is_critical = cone._is_critical(alpha_lb)
+
         _perturbation = cone.get_perturbation()
         
-        if _perturbation is not None:
+        if _perturbation is not None and not stable:
             vec_to_functions(_perturbation, [v, β])
     
             perturbation = {"v": v, "beta": β}
-            # _, hmax = linesearch.admissible_interval(state, perturbation,
-            #                                alpha_lb = alpha_lb, 
-            #                                bifurcation = bifurcation.Kspectrum[0].get("xk"))
-    
-            # h_opt, (_, hmax), energies_1d = linesearch.search(state, perturbation, hmax=hmax)
+
+            interval = linesearch.get_unilateral_interval(state, perturbation)
+            logging.debug(f"line search interval is {interval}")
+
+            h_opt, energies_1d = linesearch.search(state, perturbation, interval)
 
             # logging.critical(f"state is stable: {stable} h_opt is {h_opt}")
-
-            __import__('pdb').set_trace()
-
-        if not stable:
-            pass
-            # gather perturbation from cone solver
-            # compute optimal step size
-            # update state
-
-                # h_opt, (hmin, hmax), energy_perturbations = linesearch.search(
-                #     {'u':u, 'alpha':alpha, 'alpha_old': alpha_old},
-                #     perturbation_v, perturbation_beta)
-
-                    # admissible
-                    # uval = u.vector()[:]     + h_opt * perturbation_v.vector()[:]
-                    # aval = alpha.vector()[:] + h_opt * perturbation_beta.vector()[:]
-
-                    # u.vector()[:] = uval
-                    # alpha.vector()[:] = aval
-
-                    # u.vector().vec().ghostUpdate()
-                    # alpha.vector().vec().ghostUpdate()
+            logging.critical(f"perturbation energies: {energies_1d}")
 
             # solve from perturbed state
             # compute convergence criteria
-
-
-
-
-
-
-
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
@@ -370,6 +344,7 @@ def test_linsearch():
         history_data["rate_12_norm"].append(rate_12_norm)
         history_data["unscaled_rate_12_norm"].append(urate_12_norm)
         history_data["cone-stable"].append(stable)
+        history_data["damage-evolves"].append(is_critical)
 
         with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
             file.write_function(u, t)
