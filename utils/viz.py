@@ -18,6 +18,8 @@ comm = MPI.COMM_WORLD
 import pyvista
 from pyvista.utilities import xvfb
 
+xvfb.start_xvfb(wait=0.05)
+
 import dolfinx.plot
 
 import matplotlib
@@ -34,7 +36,7 @@ except ImportError:
     from dolfinx.plot import create_vtk_topology as compute_topology
 
 
-def plot_vector(u, plotter, subplot=None):
+def plot_vector(u, plotter, subplot=None, scale=1.):
     if subplot:
         plotter.subplot(subplot[0], subplot[1])
     V = u.function_space
@@ -55,12 +57,13 @@ def plot_vector(u, plotter, subplot=None):
     grid.set_active_vectors("vectors")
     # geom = pyvista.Arrow()
     # glyphs = grid.glyph(orient="vectors", factor=1, geom=geom)
-    glyphs = grid.glyph(orient="vectors", factor=1.0)
+    glyphs = grid.glyph(orient="vectors", factor=scale)
     plotter.add_mesh(glyphs)
     plotter.add_mesh(
         grid, show_edges=True, color="black", style="wireframe", opacity=0.3
     )
     plotter.view_xy()
+    plotter.set_background('white')
     return plotter
     # figure = plotter.screenshot(f"./output/test_viz/test_viz_MPI{comm.size}-.png")
 
@@ -96,6 +99,7 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     grid.set_active_scalars("u")
     plotter.add_mesh(grid, **lineproperties)
     plotter.view_xy()
+    plotter.set_background('white')
     return plotter
 
 
@@ -142,3 +146,21 @@ def plot_mesh(mesh, ax=None):
     tria = tri.Triangulation(points[:, 0], points[:, 1], cells)
     ax.triplot(tria, color="k")
     return ax
+
+import scipy
+
+def plot_matrix(M):
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+    indptr, indices, data = M.getValuesCSR()
+    _M = scipy.sparse.csr_matrix((data, indices, indptr), shape=M.sizes[0])
+    ax.matshow(_M.todense(), cmap=plt.cm.Blues)
+
+    for i in range(_M.shape[0]):
+        for j in range(_M.shape[0]):
+            c = _M[j,i]
+            ax.text(i, j, f"{c:.3f}", va='center', ha='center')
+
+    return fig

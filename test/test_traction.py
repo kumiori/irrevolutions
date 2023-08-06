@@ -1,17 +1,33 @@
 #!/usr/bin/env python3
-from pyvista.utilities import xvfb
-import pyvista
+import numpy as np
+import yaml
+import json
+from pathlib import Path
 import sys
+import os
+from mpi4py import MPI
+import petsc4py
+from petsc4py import PETSc
+import dolfinx
+import dolfinx.plot
+from dolfinx import log
+import ufl
+import numpy as np
 sys.path.append("../")
-from utils.viz import plot_mesh, plot_vector, plot_scalar
-# 
+
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation
 
-from solvers import SNESSolver
-from dolfinx.mesh import CellType
-import dolfinx.mesh
+from meshes.primitives import mesh_bar_gmshapi
+from dolfinx.common import Timer, list_timings, TimingType
 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+import dolfinx
+import dolfinx.plot
+from dolfinx.io import XDMFFile, gmshio
 from dolfinx.fem import (
     Constant,
     Function,
@@ -22,43 +38,31 @@ from dolfinx.fem import (
     locate_dofs_geometrical,
     set_bc,
 )
+import dolfinx.mesh
+from dolfinx.mesh import CellType
+import ufl
 
-import dolfinx.io
-from dolfinx.common import list_timings
-
-import logging
-from meshes.primitives import mesh_bar_gmshapi
-from meshes import gmsh_model_to_mesh
-from dolfinx.io import XDMFFile
-import numpy as np
-import yaml
-import json
-from pathlib import Path
-import os
 from mpi4py import MPI
 import petsc4py
 from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-from dolfinx import log
-import ufl
-sys.path.append("../")
-
-# from damage.utils import ColorPrint
-
-
-logging.basicConfig(level=logging.INFO)
-
+import sys
+import yaml
 
 sys.path.append("../")
+from solvers import SNESSolver
+
+# ///////////
+
+
 
 
 
 petsc4py.init(sys.argv)
-log.set_log_level(log.LogLevel.WARNING)
-
-
 comm = MPI.COMM_WORLD
+
+# Mesh on node model_rank and then distribute
+model_rank = 0
+
 
 with open("parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
@@ -67,9 +71,15 @@ with open("parameters.yml") as f:
 Lx = parameters["geometry"]["Lx"]
 Ly = parameters["geometry"]["Ly"]
 tdim = parameters["geometry"]["geometric_dimension"]
+_nameExp = parameters["geometry"]["geom_type"]
+_nameExp = "bar"
 ell_ = parameters["model"]["ell"]
-lc = ell_ / 5.0
 
+
+lc = ell_ / 3.0
+
+parameters["loading"]["max"] = 3
+parameters["loading"]["steps"] = 100
 
 # Get geometry model
 geom_type = parameters["geometry"]["geom_type"]
@@ -77,22 +87,16 @@ geom_type = parameters["geometry"]["geom_type"]
 # Create the mesh of the specimen with given dimensions
 gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
 
-mesh, mts = gmsh_model_to_mesh(
-    gmsh_model, cell_data=False, facet_data=True, gdim=2)
+# Get mesh and meshtags
+mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
+
 
 outdir = "output"
-if comm.rank == 0:
-    Path(outdir).mkdir(parents=True, exist_ok=True)
 prefix = os.path.join(outdir, "traction")
+if comm.rank == 0:
+    Path(prefix).mkdir(parents=True, exist_ok=True)
 
-# check = parameters["solvers"]["damage_elasticity"]["check"]
-# if check:
-#     check_load = parameters["solvers"]["damage_elasticity"]["check_load"]
-#     out_subdir = f"{outdir}/fields_check"
-#     if comm.rank == 0:
-#         Path(out_subdir).mkdir(parents=True, exist_ok=True)
-
-with XDMFFile(comm, f"{prefix}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
     file.write_mesh(mesh)
 
 # Function spaces
@@ -146,13 +150,15 @@ bc_u_right = dirichletbc(
     u_, dofs_u_right)
 bcs_u = [bc_u_left, bc_u_right]
 
-bcs_alpha = [
-    dirichletbc(
-        np.array(0, dtype=PETSc.ScalarType),
-        np.concatenate([dofs_alpha_left, dofs_alpha_right]),
-        V_alpha,
-    )
-]
+# bcs_alpha = [
+#     dirichletbc(
+#         np.array(0, dtype=PETSc.ScalarType),
+#         np.concatenate([dofs_alpha_left, dofs_alpha_right]),
+#         V_alpha,
+#     )
+# ]
+
+bcs_alpha = []
 
 set_bc(alpha_ub.vector, bcs_alpha)
 alpha_ub.vector.ghostUpdate(
@@ -182,8 +188,9 @@ history_data = {
     "load": [],
     "elastic_energy": [],
     "total_energy": [],
-    "dissipated_energy": [],
+    "fracture_energy": [],
     "solver_data": [],
+    "F": []
 }
 
 for i_t, t in enumerate(loads):
@@ -201,37 +208,48 @@ for i_t, t in enumerate(loads):
 
     solver.solve()
 
-    dissipated_energy = comm.allreduce(
-        assemble_scalar(form(model.damage_dissipation_density(state) * dx)),
+    fracture_energy = comm.allreduce(
+        assemble_scalar(form(model.damage_energy_density(state) * dx)),
         op=MPI.SUM,
     )
     elastic_energy = comm.allreduce(
         assemble_scalar(form(model.elastic_energy_density(state) * dx)),
         op=MPI.SUM,
     )
+    _stress = model.stress(model.eps(u), alpha)
 
+    stress = comm.allreduce(
+        assemble_scalar(form(_stress[0, 0] * dx)),
+        op=MPI.SUM,
+    )
     history_data["load"].append(t)
-    history_data["dissipated_energy"].append(dissipated_energy)
+    history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
-    history_data["total_energy"].append(elastic_energy+dissipated_energy)
+    history_data["total_energy"].append(elastic_energy+fracture_energy)
     history_data["solver_data"].append(solver.data)
+    history_data["F"].append(stress)
 
-    with XDMFFile(comm, f"{prefix}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)
         file.write_function(alpha, t)
 
     if comm.rank == 0:
-        a_file = open(f"{prefix}-data.json", "w")
+        a_file = open(f"{prefix}/{_nameExp}-data.json", "w")
         json.dump(history_data, a_file)
         a_file.close()
 
-    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
 import pandas as pd
 df = pd.DataFrame(history_data)
 print(df)
 
 # Viz
+from pyvista.utilities import xvfb
+import pyvista
+import sys
+from utils.viz import plot_mesh, plot_vector, plot_scalar
+# 
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
 
@@ -243,7 +261,15 @@ plotter = pyvista.Plotter(
 )
 _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 1))
-_plt.screenshot(f"{outdir}/traction-state.png")
+_plt.screenshot(f"{prefix}/traction-state.png")
 # if comm.rank == 0:
 #     plot_energies(history_data, file=f"{prefix}_energies.pdf")
 #     plot_AMit_load(history_data, file=f"{prefix}_it_load.pdf")
+
+
+from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+
+if comm.rank == 0:
+    plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+    plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+    plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
