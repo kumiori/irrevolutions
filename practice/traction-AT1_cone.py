@@ -247,6 +247,7 @@ history_data = {
     "cone-eig": [],
     "eigs": [],
     "uniqueness": [],
+    "inertia": [],
     "stable": [],
     "F": [],    
     "alphadot_norm" : [],
@@ -329,8 +330,6 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"===================-=================")
     
     stable = cone.my_solve(alpha_lb, x0=stability.Kspectrum[0].get("xk"))
-    # stable = cone.my_solve(alpha_lb)
-    # __import__('pdb').set_trace()
     
     fracture_energy = comm.allreduce(
         assemble_scalar(form(model.damage_energy_density(state) * dx)),
@@ -366,6 +365,7 @@ for i_t, t in enumerate(loads):
     # __import__('pdb').set_trace()
     logging.critical(f"Unique: {stability.data['stable']}, {_unique}")
     history_data["uniqueness"].append(_unique)
+    history_data["inertia"].append(inertia)
 
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)
