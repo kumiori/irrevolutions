@@ -3,12 +3,14 @@
 
 From little or nothing, to experimental verification of a complex fracture experiment.
 We solve the following (difficult) problem:
+
+**Evolution of Damage (in the Cone)**
  
 Let $y=(\alpha, u)$ be an admissible state of a brittle system where $\alpha: \Omega \mapsto [0, 1]$ is a smooth damage field which identifies cracks (where $\alpha =1$) and $u$ is a displacement field. Provided a material model (an energy) $E_\ell$, given a time horizon $T$, let's find a map $t \in [0, T]\mapsto y_t$ such that: damage is non-decreasing and the observed state $y_t$ is energy-minimal, among admissible variations. 
 
 ## The current branch
 
-We implement here the Cone-Recipe. Take it as a surprise cake, that opens upon critical conditions.
+We implement a Cone-Recipe. Take it as a surprise cake that opens upon critical conditions.
 
 ### Running the notebooks (to be tested *prior* to course start)
 
@@ -94,10 +96,14 @@ Hence the cryptic repository name.
 - 7 Defence
 
 
-### Instructors/Authors
+### Authors
+- Cf. commit messages
+  
+### Course Instructors/Authors
 
-- V Lazarus, Sorbonnes Université.
+- V Lazarus, Sorbonne Université.
 - A Leon Baldelli, CR CNRS.
+
 
 ### Acknowledgements
 

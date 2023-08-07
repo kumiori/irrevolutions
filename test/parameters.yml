@@ -94,7 +94,7 @@ solvers:
 
 stability:
     order: 3
-    maxmodes: 3
+    maxmodes: 10
     checkstability: "True"
     continuation: "False"
     cont_rtol: 1.0e-10

@@ -109,7 +109,6 @@ if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 _lc = ell_ / parameters["geometry"]["ell_lc"] 
 
-# _lc = Lx/2
 gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
 
 # Get mesh and meshtags

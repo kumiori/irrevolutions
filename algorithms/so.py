@@ -497,6 +497,26 @@ class BifurcationSolver(StabilitySolver):
 
     )
 
+class BifurcationSolver(StabilitySolver):
+    """Minimal implementation for the solution of the uniqueness issue"""
+
+    def __init__(
+        self,
+        energy: ufl.form.Form,
+        state: dict,
+        bcs: list,
+        nullspace=None,
+        bifurcation_parameters=None,
+    ):
+        super(BifurcationSolver, self).__init__(
+            energy,
+            state,
+            bcs,
+            nullspace,
+            stability_parameters=bifurcation_parameters,
+
+    )
+
 class ConeSolver(StabilitySolver):
     """Base class for a minimal implementation of the solution of eigenvalue
     problems bound to a cone. Based on numerical recipe SPA and KR existence result
@@ -516,7 +536,6 @@ class ConeSolver(StabilitySolver):
             bcs,
             nullspace,
             stability_parameters=cone_parameters,
-
     )
         self._converged = False
         self._v = dolfinx.fem.petsc.create_vector_block(self.F)
@@ -525,6 +544,7 @@ class ConeSolver(StabilitySolver):
     def _is_critical(self, alpha_old):
         """is this a damage-critical state?"""
         constrained_dofs = len(self.get_inactive_dofset(alpha_old)[1])
+
 
         if constrained_dofs > 0:
             return bool(True)
@@ -551,11 +571,9 @@ class ConeSolver(StabilitySolver):
         else:
             functions_to_vec(x0, _x)
 
-        # __import__('pdb').set_trace()
         if not self._is_critical(alpha_old):
             return bool(True)
         restricted_dofs = self.get_inactive_dofset(alpha_old)
-        
         
         constraints = restriction.Restriction([self.V_u, self.V_alpha], restricted_dofs)
 
@@ -572,7 +590,9 @@ class ConeSolver(StabilitySolver):
             restriction=constraints,
             prefix="stability",
         )
+        
         self.eigen = eigen
+
         eigen.A.zeroEntries()
         dolfinx.fem.petsc.assemble_matrix_block(eigen.A, eigen.A_form, eigen.bcs)
         eigen.A.assemble()
@@ -596,7 +616,6 @@ class ConeSolver(StabilitySolver):
         with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
             while not self.converged(_xk, errors):
                 # errors.append(self.error)
-
                 _Ar.mult(_xk, _Axr)
                 xAx_r = _xk.dot(_Axr)
                 # B=id for us
@@ -692,6 +711,7 @@ class ConeSolver(StabilitySolver):
         self.data["iterations"].append(self.iterations)
         self.data["error_x_L2"].append(error_x_L2)
 
+
         if error_x_L2 < _atol:
             self._converged = True
         elif self.iterations == 0 or error_x_L2 >= _atol:
@@ -714,27 +734,6 @@ class ConeSolver(StabilitySolver):
 
         return (_sub.array >= 0).all()
         
-    # def _cone_project(self, v):
-    #     """Projection vector into the cone
-
-    #         takes arguments:
-    #         - v: vector in a mixed space
-
-    #         returns
-    #     """
-    #     with dolfinx.common.Timer(f"~Second Order: Cone Project"):
-    #         # logging.critical(f"num dofs {len(self.eigen.restriction.bglobal_dofs_vec[1])}")
-    #         # get the subvector associated to damage dofs with inactive constraints 
-    #         _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
-    #         _is = PETSc.IS().createGeneral(_dofs)
-    #         _sub = v.getSubVector(_is)
-    #         zero = _sub.duplicate()
-    #         zero.zeroEntries()
-
-    #         _sub.pointwiseMax(_sub, zero)
-    #         v.restoreSubVector(_is, _sub)
-    #     return
-
     def _extend_vector(self, vres, vext):
         """extends restricted vector vr into v, in place"""
         # v = dolfinx.fem.petsc.create_vector_block(F)
@@ -790,3 +789,4 @@ class ConeSolver(StabilitySolver):
                 _v = self.eigen.restriction.restrict_vector(_v)
 
         return _v
+
