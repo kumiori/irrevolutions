@@ -84,19 +84,28 @@ stability:
   checkstability: 'True'
   cont_rtol: 1.0e-10
   continuation: 'False'
+  is_elastic_tol: 1.0e-08
+  inactiveset_gatol: 1.0e-08
+  inactiveset_pwtol: 1.0e-08
+  maxmodes: 3
+  order: 3
+
   eigen:
     eig_rtol: 1.0e-07
     eps_max_it: 100
     eps_tol: 1.0e-07
     eps_type: krylovschur
-  inactiveset_gatol: 1.0e-08
-  inactiveset_pwtol: 1.0e-08
+
   inertia:
     ksp_type: preonly
     mat_mumps_icntl_13: 1
     mat_mumps_icntl_24: 1
     pc_factor_mat_solver_type: mumps
     pc_type: cholesky
-  is_elastic_tol: 1.0e-08
-  maxmodes: 3
-  order: 3
+
+  cone:
+    cone_atol: 1.0e-05
+    cone_max_it: 3000
+    cone_rtol: 1.0e-05
+    maxmodes: 3
+    scaling: 0.01

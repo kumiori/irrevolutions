@@ -23,6 +23,10 @@ from dolfinx.fem import (
     locate_dofs_geometrical,
     set_bc,
 )
+
+import pyvista
+from pyvista.utilities import xvfb
+# 
 from mpi4py import MPI
 import petsc4py
 from petsc4py import PETSc
@@ -51,6 +55,7 @@ from utils import norm_H1, norm_L2
 from meshes.pacman import mesh_pacman
 from utils.viz import plot_mesh, plot_vector, plot_scalar
 from utils.lib import _local_notch_asymptotic
+logging.basicConfig(level=logging.DEBUG)
 
 
 class ConvergenceError(Exception):
@@ -111,6 +116,10 @@ def pacman_cone(nest):
         pretty_parameters = json.dumps(parameters, indent=2)
         print(pretty_parameters)
 
+    parameters["stability"]["cone"]["cone_max_it"] = 15000
+    parameters["stability"]["cone"]["cone_atol"] = 1e-4
+    parameters["stability"]["cone"]["scaling"] = 0.01
+
 
     # Get mesh parameters
     _r = parameters["geometry"]["r"]
@@ -119,12 +128,13 @@ def pacman_cone(nest):
     _nameExp = parameters["geometry"]["geom_type"]
     _nameExp = 'pacman'
     ell_ = parameters["model"]["ell"]
-    lc = ell_ / 1.
+    lc = ell_ / .5
 
     parameters["geometry"]["lc"] = lc
 
     parameters["loading"]["min"] = 0.
     parameters["loading"]["max"] = .5
+    parameters["loading"]["steps"] = 30
     # Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
     # Mesh on node model_rank and then distribute
@@ -243,11 +253,11 @@ def pacman_cone(nest):
         solver_parameters=parameters.get("solvers"),
     )
 
-    stability = StabilitySolver(
+    bifurcation = StabilitySolver(
         total_energy, state, bcs, stability_parameters=parameters.get("stability")
     )
 
-    cone = ConeSolver(
+    stability = ConeSolver(
         total_energy, state, bcs,
         cone_parameters=parameters.get("stability")
     )
@@ -259,12 +269,11 @@ def pacman_cone(nest):
         "total_energy": [],
         "solver_data": [],
         "cone_data": [],
-        "cone-eig": [],
+        "cone_eig": [],
         "eigs": [],
         "uniqueness": [],
         "inertia": [],
         "stable": [],
-        "F": [],    
         "alphadot_norm" : [],
         "rate_12_norm" : [], 
         "unscaled_rate_12_norm" : [],
@@ -281,6 +290,123 @@ def pacman_cone(nest):
             par=parameters["material"]
         ))
 
+        # update the lower bound
+        alpha.vector.copy(alpha_lb.vector)
+        alpha_lb.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
+    
+        logging.critical("--  --")
+        logging.critical("")
+        logging.critical("")
+        logging.critical("")
+        
+        logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
+
+        ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
+        ColorPrint.print_bold(f"===================-=============")
+
+        hybrid.solve(alpha_lb)
+
+
+        # compute the rate
+        alpha.vector.copy(alphadot.vector)
+        alphadot.vector.axpy(-1, alpha_lb.vector)
+        alphadot.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+
+        rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
+        urate_12_norm = hybrid.unscaled_rate_norm(alpha)
+
+
+        ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
+        ColorPrint.print_bold(f"===================-=================")
+
+        is_stable = bifurcation.solve(alpha_lb)
+        is_elastic = bifurcation.is_elastic()
+        inertia = bifurcation.get_inertia()
+
+        ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
+        ColorPrint.print_bold(f"===================-=================")
+        
+        stable = stability.my_solve(alpha_lb, x0=bifurcation.Kspectrum[0].get("xk"))
+        
+        # Postprocess
+
+        fracture_energy = comm.allreduce(
+            assemble_scalar(form(model.damage_energy_density(state) * dx)),
+            op=MPI.SUM,
+        )
+        elastic_energy = comm.allreduce(
+            assemble_scalar(form(model.elastic_energy_density(state) * dx)),
+            op=MPI.SUM,
+        )
+        _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
+
+        history_data["load"].append(t)
+        history_data["fracture_energy"].append(fracture_energy)
+        history_data["elastic_energy"].append(elastic_energy)
+        history_data["total_energy"].append(elastic_energy+fracture_energy)
+        history_data["solver_data"].append(hybrid.data)
+        history_data["eigs"].append(bifurcation.data["eigs"])
+        history_data["stable"].append(bifurcation.data["stable"])
+        history_data["cone_data"].append(stability.data)
+        history_data["alphadot_norm"].append(alphadot.vector.norm())
+        history_data["rate_12_norm"].append(rate_12_norm)
+        history_data["unscaled_rate_12_norm"].append(urate_12_norm)
+        history_data["cone-stable"].append(stable)
+        history_data["cone_eig"].append(stability.data["lambda_0"])
+        history_data["uniqueness"].append(_unique)
+        history_data["inertia"].append(inertia)
+
+        # Save solution
+
+        with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+            file.write_function(u, t)
+            file.write_function(alpha, t)
+            file.write_function(alphadot, t)
+
+        if comm.rank == 0:
+            a_file = open(f"{prefix}/time_data.json", "w")
+            json.dump(history_data, a_file)
+            a_file.close()
+
+        # Viz
+
+        from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+
+        if comm.rank == 0:
+            plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+            plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+            # plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
+
+        ColorPrint.print_bold(f"   Written timely data.    ")
+        print()
+        print()
+        print()
+        print()
+
+        xvfb.start_xvfb(wait=0.05)
+        pyvista.OFF_SCREEN = True
+
+
+        plotter = pyvista.Plotter(
+            title="Pacman test",
+            window_size=[1600, 600],
+            shape=(1, 2),
+        )
+        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+        _plt = plot_vector(u, plotter, subplot=(0, 1))
+        _plt.screenshot(f"{prefix}/pacman-state.png")
+
+
+    return history_data
 
 if __name__ == "__main__":
-    pacman_cone(nest=False)
+    history_data = pacman_cone(nest=False)
+    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+    
+    df = pd.DataFrame(history_data)
+    print(df.drop(['solver_data', 'cone_data'], axis=1))
+
