@@ -562,7 +562,7 @@ class ConeSolver(StabilitySolver):
         else:
             return bool(False)
 
-    def my_solve(self, alpha_old: dolfinx.fem.function.Function, x0=None):
+    def my_solve(self, alpha_old: dolfinx.fem.function.Function, eig0=None):
         """Solves the abstract eigenvalue problem 
         .............................................
         with a Scaling & Projection-Algorithm (SPA)"""
@@ -587,11 +587,14 @@ class ConeSolver(StabilitySolver):
         
         logging.critical(f"~Second Order: Cone Solver - SPA s={_s}")
         
-        
-        if x0 is None:
+        self._rerrors = []
+        self._aerrors = []
+          
+        if eig0 is None:
             stable = self.solve(alpha_old)
             functions_to_vec(self.Kspectrum[0].get("xk"), _x)
         else:
+            x0 = eig0.get("xk")
             functions_to_vec(x0, _x)
 
         if not self._is_critical(alpha_old):
@@ -633,6 +636,7 @@ class ConeSolver(StabilitySolver):
         _Axr = constraints.restrict_vector(_Ax)
 
         _lmbda_t = np.nan
+        # logging.getLogger().setLevel(logging.DEBUG)
 
         with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
             while self.iterate(_xk, errors):
@@ -657,7 +661,7 @@ class ConeSolver(StabilitySolver):
                 self.data["lambda_k"].append(_lmbda_t)
                 self.data["y_norm_L2"].append(_y.norm())
                 
-                # logging.getLogger().setLevel(logging.DEBUG)
+                logging.debug(f"Eigenvalue _lambda_k at iteration {self.iterations} 🍦? {_lmbda_t}")
                 logging.debug(f"Vector _xk at iteration {self.iterations} is in cone 🍦? {self._isin_cone(_xk)}")
                 
                 # Projection of a restriced vector is done in-place
@@ -676,6 +680,7 @@ class ConeSolver(StabilitySolver):
             
             vec_to_functions(self._v, [v, β])
             self.perturbation = {"v": v, "beta": β}
+        # logging.getLogger().setLevel(logging.INFO)
 
         self.data["iterations"] = self.iterations
         self.data["error_x_L2"] = errors
@@ -686,21 +691,20 @@ class ConeSolver(StabilitySolver):
         logging.critical(f"Restricted Eigenvalue {_lmbda_t:.4e}")        
         logging.critical(f"Restricted Error {self.error:.4e}")        
         logging.critical(f"Eigenfunction is in cone? {self._isin_cone(self._v)}")
-        __import__('pdb').set_trace()
 
         if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_rtol"))):
             stable = bool(False)
         else:
             stable = bool(True)
     
-        return bool(stable)
+        return stable
 
     def iterate(self, x, errors):
+        """Perform convergence check and handle exceptions (NonConvergenceException)"""
         converged = False
         try:
             converged = self._convergenceTest(x, errors)
         except NonConvergenceException as e:
-            __import__('pdb').set_trace()
             logging.warning(e)
             logging.warning("Continuing")
             # return False
@@ -730,7 +734,7 @@ class ConeSolver(StabilitySolver):
 
         if self.iterations == _maxit:
             self._reason = -1
-            raise NonConvergenceException(f'SPA solver did not converge within maxit={_maxit} to atol {_atol} or rtol {_rtol} in iterations.')
+            raise NonConvergenceException(f'SPA solver did not converge to atol {_atol} or rtol {_rtol} within maxit={_maxit} iterations.')
 
         diff = x.duplicate()
         diff.zeroEntries()
@@ -741,33 +745,37 @@ class ConeSolver(StabilitySolver):
         error_x_L2 = diff.norm()
 
         self.error = error_x_L2
-        errors.append(error_x_L2)
+        self._aerror = error_x_L2 
+        self._rerror = error_x_L2 / x.norm()
 
-        if not self.iterations % 500:
-            logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2}, atol = {_atol}")
+        errors.append(error_x_L2)
+        self._aerrors.append(self._aerror) 
+        self._rerrors.append(self._rerror)
+
+        if not self.iterations % 1000:
+            logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}")
 
         self.data["iterations"].append(self.iterations)
         self.data["error_x_L2"].append(error_x_L2)
 
-        if error_x_L2 < _atol:
-            # reason: atol
-            self._converged = True
-            self._reason = 1
-        # elif error_x_L2/x_L2 < _rtol:
-        #     # reason: rtol
-            # self._reason = 2
-
-        elif self.iterations == 0 or error_x_L2 >= _atol:
+        _acrit = self._aerror < self.parameters.get("cone").get("cone_atol")
+        _rcrit = self._rerror < self.parameters.get("cone").get("cone_rtol")
+        
+        _crits = (_acrit, _rcrit)
+        
+        met_criteria = []
+        
+        for index, criterion in enumerate(_crits, start=1):
+            if criterion:
+                self._converged = True
+                met_criteria.append(index)
+        
+        if len(met_criteria) > 1: 
+            self._reason = 0
+        elif len(met_criteria) == 1:
+            self._reason = met_criteria
+        elif self.iterations == 0 or met_criteria == []:
             self._converged = False
-            # self._reason = -1
-
-
-        # if abs((solution - previous_solution) / solution) < relative_tolerance:
-        #     return solution, iteration + 1  # Solution converged, return the result and iteration count
-    
-        # if abs(solution - previous_solution) < absolute_tolerance:
-        #     return solution, iteration + 1  # Solution converged, return the result and iteration count
-    
 
         return self._converged
 
