@@ -116,9 +116,9 @@ def pacman_cone(nest):
         pretty_parameters = json.dumps(parameters, indent=2)
         print(pretty_parameters)
 
-    parameters["stability"]["cone"]["cone_max_it"] = 15000
+    parameters["stability"]["cone"]["cone_max_it"] = 30000
     parameters["stability"]["cone"]["cone_atol"] = 1e-4
-    parameters["stability"]["cone"]["scaling"] = 0.01
+    parameters["stability"]["cone"]["scaling"] = 0.1
 
 
     # Get mesh parameters
@@ -128,13 +128,13 @@ def pacman_cone(nest):
     _nameExp = parameters["geometry"]["geom_type"]
     _nameExp = 'pacman'
     ell_ = parameters["model"]["ell"]
-    lc = ell_ / .5
+    lc = ell_ / 1.
 
     parameters["geometry"]["lc"] = lc
 
     parameters["loading"]["min"] = 0.
     parameters["loading"]["max"] = .5
-    parameters["loading"]["steps"] = 30
+    parameters["loading"]["steps"] = 50
     # Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
     # Mesh on node model_rank and then distribute
