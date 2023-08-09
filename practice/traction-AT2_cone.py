@@ -86,19 +86,19 @@ model_rank = 0
 with open("../test/parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-# parameters["cone"] = ""
-parameters["stability"]["cone"]["scaling"] = .1
-parameters["stability"]["cone"]["cone_max_it"] = 5000
-parameters["stability"]["cone"]["cone_atol"] = 1e-4
+parameters["stability"]["cone"]["cone_max_it"] = 400000
+parameters["stability"]["cone"]["cone_atol"] = 1e-5
+parameters["stability"]["cone"]["cone_rtol"] = 1e-5
+parameters["stability"]["cone"]["scaling"] = 0.01
 
 parameters["model"]["model_dimension"] = 2
 parameters["model"]["model_type"] = '1D'
 parameters["model"]["w1"] = 1
-parameters["model"]["ell"] = .1
+parameters["model"]["ell"] = .1 
 parameters["model"]["k_res"] = 0.
-# parameters["loading"]["min"] = .0
+parameters["loading"]["min"] = .9
 parameters["loading"]["max"] = 1.5
-parameters["loading"]["steps"] = 200
+parameters["loading"]["steps"] = 100
 
 parameters["geometry"]["geom_type"] = "traction-bar"
 parameters["geometry"]["ell_lc"] = 5
@@ -242,7 +242,7 @@ hybrid = HybridFractureSolver(
 )
 
 
-stability = StabilitySolver(
+bifurcation = StabilitySolver(
     total_energy, state, bcs, stability_parameters=parameters.get("stability")
 )
 
@@ -259,8 +259,10 @@ history_data = {
     "total_energy": [],
     "solver_data": [],
     "cone_data": [],
+    "cone-eig": [],
     "eigs": [],
-    "stable": [],
+    "uniqueness": [],
+    "inertia": [],
     "F": [],    
     "alphadot_norm" : [],
     "rate_12_norm" : [], 
@@ -326,10 +328,10 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"===================-=================")
 
     # n_eigenvalues = 10
-    is_stable = stability.solve(alpha_lb)
-    is_elastic = stability.is_elastic()
-    inertia = stability.get_inertia()
-    # stability.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
+    is_stable = bifurcation.solve(alpha_lb)
+    is_elastic = bifurcation.is_elastic()
+    inertia = bifurcation.get_inertia()
+    # bifurcation.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
     check_stability.append(is_stable)
 
     ColorPrint.print_bold(f"State is elastic: {is_elastic}")
@@ -339,7 +341,7 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
     ColorPrint.print_bold(f"===================-=================")
     
-    stable = cone.my_solve(alpha_lb, x0=stability.Kspectrum[0].get("xk"))
+    stable = cone.my_solve(alpha_lb, eig0=bifurcation.Kspectrum[0])
     # stable = cone.my_solve(alpha_lb)
     # __import__('pdb').set_trace()
     
@@ -357,20 +359,23 @@ for i_t, t in enumerate(loads):
         assemble_scalar(form(_stress[0, 0] * dx)),
         op=MPI.SUM,
     )
+    _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
 
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
     history_data["total_energy"].append(elastic_energy+fracture_energy)
     history_data["solver_data"].append(solver.data)
-    history_data["eigs"].append(stability.data["eigs"])
-    history_data["stable"].append(stability.data["stable"])
+    history_data["eigs"].append(bifurcation.data["eigs"])
     history_data["F"].append(stress)
     history_data["cone_data"].append(cone.data)
     history_data["alphadot_norm"].append(alphadot.vector.norm())
     history_data["rate_12_norm"].append(rate_12_norm)
     history_data["unscaled_rate_12_norm"].append(urate_12_norm)
     history_data["cone-stable"].append(stable)
+    history_data["cone-eig"].append(cone.data["lambda_0"])
+    history_data["uniqueness"].append(_unique)
+    history_data["inertia"].append(inertia)
 
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)

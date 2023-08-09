@@ -666,7 +666,7 @@ class ConeSolver(StabilitySolver):
                 
                 # Projection of a restriced vector is done in-place
                 self._cone_project_restricted(_xk)
-            
+                
                 logging.debug(f"Projection _xk at k={self.iterations} is in cone 🍦? {self._isin_cone(_xk)}")
             
                 # normalise eigen
@@ -680,12 +680,14 @@ class ConeSolver(StabilitySolver):
             
             vec_to_functions(self._v, [v, β])
             self.perturbation = {"v": v, "beta": β}
+
         # logging.getLogger().setLevel(logging.INFO)
 
         self.data["iterations"] = self.iterations
         self.data["error_x_L2"] = errors
         self.data["lambda_0"] = _lmbda_t
 
+        # __import__('pdb').set_trace()
         logging.critical(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
         logging.critical(f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(_xk)}")
         logging.critical(f"Restricted Eigenvalue {_lmbda_t:.4e}")        

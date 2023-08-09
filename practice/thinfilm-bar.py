@@ -115,7 +115,6 @@ if comm.rank == 0:
 
 def thinfilm_bar(nest):
     """Testing nucleation of patterns"""
-    
 
     history_data = {
         "load": [],
