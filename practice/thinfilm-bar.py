@@ -108,14 +108,13 @@ comm = MPI.COMM_WORLD
 
 
 outdir = "output"
-prefix = os.path.join(outdir, "multiaxial-disc")
+prefix = os.path.join(outdir, "thinfilm-bar")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
 
-def multiaxial_disc(nest):
-    """Testing nucleation for for a multiaxial disc, 
-    thanks to: Camilla Zolesi"""
+def thinfilm_bar(nest):
+    """Testing nucleation of patterns"""
     
 
     history_data = {
@@ -155,7 +154,7 @@ def multiaxial_disc(nest):
     return history_data
 
 if __name__ == "__main__":
-    history_data = multiaxial_disc(nest=False)
+    history_data = thinfilm_bar(nest=False)
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
     
     df = pd.DataFrame(history_data)
