@@ -396,7 +396,7 @@ list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
 
 df = pd.DataFrame(history_data)
-print(df)
+print(df.drop(['solver_data', 'cone_data'], axis=1))
 
 
 # Viz
