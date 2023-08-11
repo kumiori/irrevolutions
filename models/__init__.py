@@ -121,6 +121,7 @@ class DamageElasticityModel(ElasticityModel):
         # Parameters
         lmbda = self.lmbda
         mu = self.mu
+        
         energy_density = (
             self.a(alpha) * 1.0 / 2.0 *
             (2 * mu * ufl.inner(eps, eps) + lmbda * ufl.tr(eps)**2))

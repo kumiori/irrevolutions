@@ -381,10 +381,10 @@ class StabilitySolver:
         else:
             neig_out = eigen.eps.getConverged()
 
-        logging.critical(f"Number of requested eigenvalues: {nev}")
-        logging.critical(f"Number of requested column vectors: {ncv}")
-        logging.critical(f"Number of mpd: {mpd}")
-        logging.critical(f"converged {ncv:d}")
+        logging.info(f"Number of requested eigenvalues: {nev}")
+        logging.info(f"Number of requested column vectors: {ncv}")
+        logging.info(f"Number of mpd: {mpd}")
+        logging.info(f"converged {ncv:d}")
         # print(f"{rank}) mode {i}: {name} beta-norm {ur[1].vector.norm()}")
 
         # postprocess
@@ -688,10 +688,10 @@ class ConeSolver(StabilitySolver):
         self.data["lambda_0"] = _lmbda_t
 
         # __import__('pdb').set_trace()
-        logging.critical(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
-        logging.critical(f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(_xk)}")
-        logging.critical(f"Restricted Eigenvalue {_lmbda_t:.4e}")        
-        logging.critical(f"Restricted Error {self.error:.4e}")        
+        logging.info(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
+        logging.info(f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(_xk)}")
+        logging.info(f"Restricted Eigenvalue {_lmbda_t:.4e}")        
+        logging.info(f"Restricted Error {self.error:.4e}")        
         logging.critical(f"Eigenfunction is in cone? {self._isin_cone(self._v)}")
 
         if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_rtol"))):
