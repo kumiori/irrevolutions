@@ -116,7 +116,14 @@ if comm.rank == 0:
 def multiaxial_disc(nest):
     """Testing nucleation for for a multiaxial disc, 
     thanks to: Camilla Zolesi"""
-    
+
+    # parameters: INPUT    
+    model_rank = 0
+
+    with open("../test/parameters.yml") as f:
+        parameters = yaml.load(f, Loader=yaml.FullLoader)
+
+    # history_data: OUTPUT    
 
     history_data = {
         "load": [],
@@ -135,7 +142,6 @@ def multiaxial_disc(nest):
         "unscaled_rate_12_norm" : [],
         "cone-stable": []
     }
-
 
     # generate mesh
 
