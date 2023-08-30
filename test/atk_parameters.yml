@@ -10,7 +10,7 @@ geometry:
     geom_type: "bar"
     Lx: 1.
     Ly: .1
-    ell_lc: 3
+    ell_lc: 10
 #  === Material === #
 material:
 #  === Model === #
@@ -20,7 +20,7 @@ model:
     sigma_D0: 1.
     k_res: 0.
     nu: 0.3
-    ell: 0.1
+    ell: 0.6
     model_dimension: 2
     model_type: "2D"
     # could be "2D"/ "3D" / "plane_stress" / "plane_strain"
