@@ -690,7 +690,8 @@ class ConeSolver(StabilitySolver):
         # __import__('pdb').set_trace()
         logging.info(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
         logging.info(f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(_xk)}")
-        logging.info(f"Restricted Eigenvalue {_lmbda_t:.4e}")        
+        logging.critical(f"Restricted Eigenvalue {_lmbda_t:.4e}")        
+        logging.critical(f"Restricted Eigenvalue is positive {_lmbda_t > 0}")        
         logging.info(f"Restricted Error {self.error:.4e}")        
         logging.critical(f"Eigenfunction is in cone? {self._isin_cone(self._v)}")
 
