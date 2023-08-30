@@ -33,25 +33,27 @@ import hashlib
 
 from dolfinx.fem.petsc import (
     set_bc,
-    )
+)
 from dolfinx.io import XDMFFile, gmshio
 import logging
 from dolfinx.common import Timer, list_timings, TimingType, timing
 
+
 sys.path.append("../")
-from models import DamageElasticityModel
-from algorithms.am import AlternateMinimisation, HybridFractureSolver
-from algorithms.so import StabilitySolver, ConeSolver
-from meshes.primitives import mesh_bar_gmshapi
-from utils import ColorPrint
-from utils.plots import plot_energies
+
 from utils import norm_H1, norm_L2
+from utils.plots import plot_energies
+from utils import ColorPrint
+from meshes.primitives import mesh_bar_gmshapi
+from algorithms.so import StabilitySolver, ConeSolver
+from algorithms.am import AlternateMinimisation, HybridFractureSolver
+from models import DamageElasticityModel
+
+
 
 logging.getLogger().setLevel(logging.ERROR)
 
 
-
-sys.path.append("../")
 
 
 """Traction damageable bar
@@ -74,9 +76,10 @@ model_rank = 0
 
 class DamageElasticityModelATJJ(DamageElasticityModel):
     """Linear softening model, quadratic damage density"""
+
     def __init__(self, model_parameters={}):
         self.k = model_parameters["k"]
-        
+
         super(DamageElasticityModelATJJ, self).__init__(model_parameters)
 
     def a(self, alpha):
@@ -96,11 +99,11 @@ class DamageElasticityModelATJJ(DamageElasticityModel):
         return 1-(1-alpha)**2
 
 
-def parameters_vs_ell(parameters = None, ell = 0.1):
-    if parameters is None:    
+def parameters_vs_ell(parameters=None, ell=0.1):
+    if parameters is None:
         with open("../test/atk_parameters.yml") as f:
             parameters = yaml.load(f, Loader=yaml.FullLoader)
-        
+
     parameters["model"]["ell"] = ell
 
     parameters["stability"]["cone"]["cone_max_it"] = 400000
@@ -123,12 +126,12 @@ def parameters_vs_ell(parameters = None, ell = 0.1):
     return parameters
 
 
-def parameters_vs_SPA_scaling(parameters = None, s = 0.01):
+def parameters_vs_SPA_scaling(parameters=None, s=0.01):
 
     if parameters is None:
         with open("../test/parameters.yml") as f:
             parameters = yaml.load(f, Loader=yaml.FullLoader)
-        
+
     parameters["stability"]["cone"]["scaling"] = s
 
     parameters["stability"]["cone"]["cone_max_it"] = 400000
@@ -142,7 +145,8 @@ def parameters_vs_SPA_scaling(parameters = None, s = 0.01):
 
     return parameters
 
-def traction_with_parameters(parameters, slug = ''):
+
+def traction_with_parameters(parameters, slug=''):
     # Get mesh parameters
     Lx = parameters["geometry"]["Lx"]
     Ly = parameters["geometry"]["Ly"]
@@ -150,7 +154,7 @@ def traction_with_parameters(parameters, slug = ''):
 
     _nameExp = parameters["geometry"]["geom_type"]
     ell_ = parameters["model"]["ell"]
-    _lc = ell_ / parameters["geometry"]["ell_lc"] 
+    _lc = ell_ / parameters["geometry"]["ell_lc"]
 
     # Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
@@ -164,7 +168,7 @@ def traction_with_parameters(parameters, slug = ''):
     outdir = os.path.join("output", slug, signature)
 
     # prefix = os.path.join(outdir, "traction_parametric_vs_ell")
-    
+
     prefix = os.path.join(outdir)
 
     if comm.rank == 0:
@@ -194,7 +198,8 @@ def traction_with_parameters(parameters, slug = ''):
 
     # Functional Setting
 
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+    element_u = ufl.VectorElement(
+        "Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
     V_u = FunctionSpace(mesh, element_u)
 
     element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
@@ -235,7 +240,7 @@ def traction_with_parameters(parameters, slug = ''):
 
     for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
         f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+                             mode=PETSc.ScatterMode.FORWARD)
 
     bc_u_left = dirichletbc(
         np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
@@ -274,7 +279,7 @@ def traction_with_parameters(parameters, slug = ''):
                         parameters["loading"]["max"], parameters["loading"]["steps"])
 
     # solver = AlternateMinimisation(
-    #     total_energy, state, bcs, parameters.get("solvers"), 
+    #     total_energy, state, bcs, parameters.get("solvers"),
     #     bounds=(alpha_lb, alpha_ub)
     # )
 
@@ -287,7 +292,8 @@ def traction_with_parameters(parameters, slug = ''):
     )
 
     bifurcation = StabilitySolver(
-        total_energy, state, bcs, stability_parameters=parameters.get("stability")
+        total_energy, state, bcs, stability_parameters=parameters.get(
+            "stability")
     )
 
     cone = ConeSolver(
@@ -303,17 +309,16 @@ def traction_with_parameters(parameters, slug = ''):
         "solver_data": [],
         "solver_HY_data": [],
         "solver_KS_data": [],
-        "cone-eig": [],
+        # "cone-eig": [],
         "eigs": [],
         "uniqueness": [],
         "inertia": [],
-        "F": [],    
-        "alphadot_norm" : [],
-        "rate_12_norm" : [], 
-        "unscaled_rate_12_norm" : [],
+        "F": [],
+        "alphadot_norm": [],
+        "rate_12_norm": [],
+        "unscaled_rate_12_norm": [],
         "cone-stable": []
     }
-
 
     check_stability = []
 
@@ -321,12 +326,16 @@ def traction_with_parameters(parameters, slug = ''):
     # logging.getLogger().setLevel(logging.ERROR)
     # logging.getLogger().setLevel(logging.INFO)
     # logging.getLogger().setLevel(logging.DEBUG)
+    
 
     for i_t, t in enumerate(loads):
-    # for i_t, t in enumerate([0., .99, 1.0, 1.01]):
-        u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
+        plotter = None
+
+        # for i_t, t in enumerate([0., .99, 1.0, 1.01]):
+        u_.interpolate(lambda x: (
+            t * np.ones_like(x[0]),  np.zeros_like(x[1])))
         u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+                              mode=PETSc.ScatterMode.FORWARD)
 
         # update the lower bound
         alpha.vector.copy(alpha_lb.vector)
@@ -338,9 +347,8 @@ def traction_with_parameters(parameters, slug = ''):
         logging.critical("")
         logging.critical("")
         logging.critical("")
-        
-        ColorPrint.print_bold(f"===================-=========")
 
+        ColorPrint.print_bold(f"===================-=========")
 
         logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
@@ -356,9 +364,8 @@ def traction_with_parameters(parameters, slug = ''):
         alpha.vector.copy(alphadot.vector)
         alphadot.vector.axpy(-1, alpha_lb.vector)
         alphadot.vector.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
-
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
         urate_12_norm = hybrid.unscaled_rate_norm(alpha)
@@ -366,9 +373,11 @@ def traction_with_parameters(parameters, slug = ''):
         logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
         logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
-        logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+        logging.critical(
+            f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
-        logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
+        logging.critical(
+            f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
         ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
@@ -382,12 +391,12 @@ def traction_with_parameters(parameters, slug = ''):
 
         logging.critical(f"State is elastic: {is_elastic}")
         logging.critical(f"State's inertia: {inertia}")
-        
+
         ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
-        
-        stable = cone.my_solve(alpha_lb, eig0=bifurcation.Kspectrum[0])
-        
+
+        stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum)
+
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
             op=MPI.SUM,
@@ -418,7 +427,7 @@ def traction_with_parameters(parameters, slug = ''):
         history_data["rate_12_norm"].append(rate_12_norm)
         history_data["unscaled_rate_12_norm"].append(urate_12_norm)
         history_data["cone-stable"].append(stable)
-        history_data["cone-eig"].append(cone.data["lambda_0"])
+        # history_data["cone-eig"].append(cone.data["lambda_0"])
         history_data["uniqueness"].append(_unique)
         history_data["inertia"].append(inertia)
 
@@ -436,11 +445,28 @@ def traction_with_parameters(parameters, slug = ''):
         print()
         print()
 
+        if hasattr(cone, 'perturbation'):
+            plotter, _plt = _plot_perturbations_profile(
+                [bifurcation.spectrum[0]["beta"], cone.perturbation['beta']], 
+                parameters, prefix, plotter=plotter, 
+                label='$\\beta(x) $\lambda$={bifurcation._spectrum[0][\'lambda\']:.2f}$',
+                idx=i_t,
+                aux = [bifurcation.spectrum, cone.data["lambda_0"]])
+            _plt.savefig(f"{prefix}/test_profile-{i_t}.png")
+
+        if hasattr(bifurcation, 'spectrum') and len(bifurcation.spectrum) > 0:
+            plotter, _plt = _plot_bif_spectrum_profile(bifurcation.spectrum, 
+                parameters, prefix, plotter=None, label='', idx=i_t)
+            _plt.savefig(f"{prefix}/test_spectrum-{i_t}.png")
+
+            # plotter, _plt = _plot_bif_spectrum_profile_fullvec(bifurcation._spectrum, 
+            #     parameters, prefix, plotter=None, label='', idx=i_t)
+            # _plt.savefig(f"{prefix}/test_spectrum_full-{i_t}.png")
+
 
 
 
     _timings = list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
-
 
     # Viz
 
@@ -450,18 +476,16 @@ def traction_with_parameters(parameters, slug = ''):
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
         plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-        plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
-
-
+        plot_force_displacement(
+            history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
     from pyvista.utilities import xvfb
     import pyvista
     import sys
     from utils.viz import plot_mesh, plot_vector, plot_scalar
-    # 
+    #
     xvfb.start_xvfb(wait=0.05)
     pyvista.OFF_SCREEN = True
-
 
     plotter = pyvista.Plotter(
         title="Traction test",
@@ -472,19 +496,16 @@ def traction_with_parameters(parameters, slug = ''):
     _plt = plot_vector(u, plotter, subplot=(0, 1))
     _plt.screenshot(f"{prefix}/traction-state.png")
 
-
-
     from utils.viz import plot_profile
 
     xvfb.start_xvfb(wait=0.05)
     pyvista.OFF_SCREEN = True
-    
+
     plotter = pyvista.Plotter(
         title="Test Profile",
         window_size=[800, 600],
         shape=(1, 1),
     )
-
 
     tol = 1e-3
     xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
@@ -507,12 +528,218 @@ def traction_with_parameters(parameters, slug = ''):
     _plt.title("Damage profile")
     _plt.savefig(f"{prefix}/test_alpha_profile.png")
 
-
-
-
-
-
     return history_data, signature, _timings
+
+
+def _plot_bif_spectrum_profile(spectrum, parameters, prefix, plotter=None, label='', idx=''):
+    """docstring for _plot_bif_spectrum_profile"""
+ 
+    from utils.viz import plot_profile
+    import matplotlib.pyplot as plt
+    # __import__('pdb').set_trace()
+    
+    # fields = spectrum["perturbations_beta"]
+    # fields = spectrum["perturbations_beta"]
+    fields = [item.get('beta') for item in spectrum]
+    n = len(fields)
+    num_cols = 1
+    num_rows = (n + num_cols - 1) // num_cols
+
+    if plotter == None:
+        import pyvista
+        # from pyvista.utilities import xvfb
+        
+        plotter = pyvista.Plotter(
+            title="Bifurcation Spectrum Profile",
+            window_size=[1600, 600],
+            shape=(num_rows, num_cols),
+        )
+
+    # figure, axes = plt.figure()
+    # figure, axes = plt.subplots(1, 1, figsize=(8, 6))
+    figure, axes = plt.subplots(num_rows, num_cols, figsize=(6, 18))
+
+    tol = 1e-3
+    xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
+    points = np.zeros((3, 101))
+    points[0] = xs
+
+    # if n==1: __import__('pdb').set_trace()
+
+    for i, field in enumerate(fields):
+        u = field
+        # u = field['xk'][1]
+        row = i // num_cols
+        col = i % num_cols
+
+        _axes = axes[row] if n > 1 else axes
+        # __import__('pdb').set_trace()
+        # if label == '':
+        label = f"$\lambda_{i}$ = {spectrum[i].get('lambda'):.1e}, |$\\beta$|={u.vector.norm():.2f}"
+
+        _plt, data = plot_profile(
+            u,
+            points,
+            plotter,
+            subplot=(row, col),
+            lineproperties={
+                "c": "k",
+                "ls": '-',
+                # "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}"
+                "label": label
+            },
+            fig=figure,
+            ax=_axes
+        )
+
+        _axes.axis('off')
+        _axes.axhline('0', lw=3, c='k')
+        # _plt = None
+
+        # axes[row].plot(xs, xs*i, label=f'mode {i}')
+        # _plt = plt.gcf()
+
+    return plotter, _plt
+
+def _plot_bif_spectrum_profile_fullvec(fields, parameters, prefix, plotter=None, label='', idx=''):
+    """docstring for _plot_bif_spectrum_profile"""
+ 
+    from utils.viz import plot_profile
+    import matplotlib.pyplot as plt
+    
+    # fields = data["perturbations_beta"]
+    # fields = data["perturbations_beta"]
+    # fields = [item.get('beta') for item in data]
+    n = len(fields)
+    num_cols = 1
+    num_rows = (n + num_cols - 1) // num_cols
+
+    if plotter == None:
+        import pyvista
+        # from pyvista.utilities import xvfb
+        
+        plotter = pyvista.Plotter(
+            title="Bifurcation Spectrum Profile",
+            window_size=[1600, 600],
+            shape=(num_rows, num_cols),
+        )
+
+    # figure, axes = plt.figure()
+    # figure, axes = plt.subplots(1, 1, figsize=(8, 6))
+    figure, axes = plt.subplots(num_rows, num_cols, figsize=(6, 18))
+
+    tol = 1e-3
+    xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
+    points = np.zeros((3, 101))
+    points[0] = xs
+
+    # if n==1: __import__('pdb').set_trace()
+
+    for i, field in enumerate(fields):
+        u = field['xk'][1]
+        # u = field['xk'][1]
+        row = i // num_cols
+        col = i % num_cols
+        print(i)
+        print(i)
+        print(i)
+
+        # __import__('pdb').set_trace()
+        _axes = axes[row] if n > 1 else axes
+
+        # if label == '':
+        label = f"mode {i} $\lambda_{i}$ = {field.get('lambda'):.2e}, ||={u.vector.norm()}"
+        
+        print(label)
+        
+        _plt, data = plot_profile(
+            u,
+            points,
+            plotter,
+            subplot=(row, col),
+            lineproperties={
+                "c": "k",
+                "ls": '-',
+                # "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}"
+                "label": label
+            },
+            fig=figure,
+            ax=_axes
+        )
+
+        _axes.axis('off')
+        _axes.axhline('0', lw=3, c='k')
+        # _plt = None
+
+        # axes[row].plot(xs, xs*i, label=f'mode {i}')
+        # _plt = plt.gcf()
+
+    return plotter, _plt
+
+def _plot_perturbations_profile(fields, parameters, prefix, plotter=None, label='', idx='', aux=None):
+
+    from utils.viz import plot_profile
+    import matplotlib.pyplot as plt
+
+    u = fields[0]
+    # u = fields[0]['xk'][1]
+    v = fields[1]
+
+    figure = plt.figure()
+
+    if plotter == None:
+        import pyvista
+        # from pyvista.utilities import xvfb
+        
+        plotter = pyvista.Plotter(
+            title="Test Profile",
+            window_size=[800, 600],
+            shape=(1, 1),
+        )
+
+    tol = 1e-3
+    xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
+    points = np.zeros((3, 101))
+    points[0] = xs
+
+    _plt, data = plot_profile(
+        u,
+        points,
+        plotter,
+        subplot=(0, 0),
+        lineproperties={
+            "c": "k",
+            "ls": '--',
+            # "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}"
+            "label": f'space, $\\lambda_0=${aux[0][0].get("lambda"):.1e}'
+        },
+        fig=figure
+    )
+
+    _plt, data = plot_profile(
+        v,
+        points,
+        plotter,
+        subplot=(0, 0),
+        lineproperties={
+            "c": "k",
+            # "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}"
+            "label": f'cone, $\\lambda_K=${aux[1]:.1e}'
+        },
+        fig=figure
+    )
+    ax = _plt.gca()
+    _plt.legend()
+    _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+
+
+
+    _plt.title(f"Profile of perturbation")
+    # _plt.savefig(f"{prefix}/test_profile{idx}.png")
+    
+    return plotter, _plt
+
+    pass
 
 def param_ell():
     # for ell in [0.1, 0.2, 0.3]:
@@ -520,7 +747,7 @@ def param_ell():
     for ell in [0.05]:
         with open("../test/atk_parameters.yml") as f:
             parameters = yaml.load(f, Loader=yaml.FullLoader)
-    
+
         parameters = parameters_vs_ell(parameters, ell)
 
         message = f'Running SPA test with ell={ell}'
@@ -528,51 +755,56 @@ def param_ell():
         pretty_parameters = json.dumps(parameters, indent=2)
         ColorPrint.print_bold(f"   {message}     ")
         ColorPrint.print_bold(f"===================-===============")
-        
+
         print(pretty_parameters)
-        
+
         ColorPrint.print_bold(f"   {message}   ")
         ColorPrint.print_bold(f"===================-===============")
 
-        history_data, signature, timings =  traction_with_parameters(parameters, slug='atk_vs_ell')
+        history_data, signature, timings = traction_with_parameters(
+            parameters, slug='atk_vs_ell')
         df = pd.DataFrame(history_data)
         ColorPrint.print_bold(f"   {message}    ")
         ColorPrint.print_bold(f"===================-===============")
         ColorPrint.print_bold(f"   signature {signature}    ")
-        print(df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
+        print(
+            df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
+
 
 def param_s():
 
     for s in [0.001, 0.01, 0.05]:
         with open("../test/atk_parameters.yml") as f:
             parameters = yaml.load(f, Loader=yaml.FullLoader)
-    
+
         message = f'Running SPA test with s={s}'
 
         parameters = parameters_vs_SPA_scaling(parameters, s)
         pretty_parameters = json.dumps(parameters, indent=2)
         ColorPrint.print_bold(f"   {message}    ")
         ColorPrint.print_bold(f"===================-===============")
-        
+
         print(pretty_parameters)
 
         ColorPrint.print_bold(f"   {message}    ")
         ColorPrint.print_bold(f"===================-===============")
 
-        history_data, signature, timings =  traction_with_parameters(parameters, slug='atk_vs_s')
+        history_data, signature, timings = traction_with_parameters(
+            parameters, slug='atk_vs_s')
         df = pd.DataFrame(history_data)
         ColorPrint.print_bold(f"   {message}    ")
         ColorPrint.print_bold(f"===================-===============")
         ColorPrint.print_bold(f"   signature {signature}    ")
-        print(df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
+        print(
+            df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
 
 
 if __name__ == "__main__":
-    
+
     from utils import ColorPrint
 
     logging.getLogger().setLevel(logging.ERROR)
-    
+
     # param_ell()
     # param_s()
 
@@ -584,5 +816,10 @@ if __name__ == "__main__":
     pretty_parameters = json.dumps(parameters, indent=2)
     ColorPrint.print_bold(pretty_parameters)
 
-    history_data, signature, timings =  traction_with_parameters(parameters, slug='atk_traction')
+    history_data, signature, timings = traction_with_parameters(
+        parameters, slug='atk_traction')
     ColorPrint.print_bold(f"   signature {signature}    ")
+    df = pd.DataFrame(history_data)
+    print(
+        df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
+

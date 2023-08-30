@@ -389,14 +389,19 @@ class StabilitySolver:
 
         # postprocess
         spectrum = []
-        Kspectrum = []
+        _spectrum = []
         
         for i in range(neig_out):
             logging.debug(f"{rank}) Postprocessing mode {i}")
             v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
             beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
+
+            _u = dolfinx.fem.petsc.create_vector_block(self.F)
             eigval, ur, _ = eigen.getEigenpair(i)
             _ = self.normalise_eigen(ur)
+
+            functions_to_vec(ur, _u)
+            
             log(LogLevel.INFO, "")
             log(LogLevel.INFO, "i        k          ")
             log(LogLevel.INFO, "--------------------")
@@ -409,9 +414,7 @@ class StabilitySolver:
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
-            with ur[
-                1
-            ].vector.localForm() as b_loc, beta_n.vector.localForm() as b_n_loc:
+            with ur[1].vector.localForm() as b_loc, beta_n.vector.localForm() as b_n_loc:
                 b_loc.copy(result=b_n_loc)
 
             beta_n.vector.ghostUpdate(
@@ -420,12 +423,14 @@ class StabilitySolver:
 
             logging.debug(f"mode {i} {ur[0].name}-norm {ur[0].vector.norm()}")
             logging.debug(f"mode {i} {ur[1].name}-norm {ur[1].vector.norm()}")
+            logging.debug(f"mode {i} beta_n-norm {beta_n.vector.norm()}")
+            logging.debug("")
 
-            Kspectrum.append(
+            _spectrum.append(
                 {
                     "n": i,
                     "lambda": eigval.real,
-                    "xk": ur
+                    "xk": _u
                 }
             )
 
@@ -439,10 +444,14 @@ class StabilitySolver:
             )
 
         spectrum.sort(key=lambda item: item.get("lambda"))
+        _spectrum.sort(key=lambda item: item.get("lambda"))
+        
         unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
+        unstable__spectrum = list(filter(lambda item: item.get("lambda") <= 0, _spectrum))
 
         self.spectrum = unstable_spectrum
-        self.Kspectrum = Kspectrum
+        # self.Kspectrum = unstable_Kspectrum
+        self._spectrum = unstable__spectrum
 
         eigs = [mode["lambda"] for mode in spectrum]
         eig0, u0, _ = eigen.getEigenpair(0)
@@ -450,8 +459,8 @@ class StabilitySolver:
         self.minmode = u0
         self.mineig = eig0
 
-        perturbations_v = [spectrum[i]["v"] for i in range(neig_out)]
-        perturbations_beta = [spectrum[i]["beta"] for i in range(neig_out)]
+        perturbations_v = [mode["v"] for mode in unstable_spectrum]
+        perturbations_beta = [mode["beta"] for mode in unstable_spectrum]
         # based on eigenvalue
         stable = np.min(eigs) > float(self.parameters.get("eigen").get("eps_tol"))
         
@@ -480,26 +489,6 @@ class StabilitySolver:
             for (i, eig) in enumerate(eigs):
                 ofile.write_function(v[i], eig)
                 ofile.write_function(beta[i], eig)
-
-class BifurcationSolver(StabilitySolver):
-    """Minimal implementation for the solution of the uniqueness issue"""
-
-    def __init__(
-        self,
-        energy: ufl.form.Form,
-        state: dict,
-        bcs: list,
-        nullspace=None,
-        bifurcation_parameters=None,
-    ):
-        super(BifurcationSolver, self).__init__(
-            energy,
-            state,
-            bcs,
-            nullspace,
-            stability_parameters=bifurcation_parameters,
-
-    )
 
 class BifurcationSolver(StabilitySolver):
     """Minimal implementation for the solution of the uniqueness issue"""
@@ -589,15 +578,17 @@ class ConeSolver(StabilitySolver):
         
         self._rerrors = []
         self._aerrors = []
-          
-        if eig0 is None:
+
+        if eig0 is None or len(eig0) == 0:
             stable = self.solve(alpha_old)
-            functions_to_vec(self.Kspectrum[0].get("xk"), _x)
+            # functions_to_vec(self.Kspectrum[0].get("xk"), _x)
         else:
-            x0 = eig0.get("xk")
-            functions_to_vec(x0, _x)
+            x0 = eig0[0].get("xk")
+            _x = x0.copy()
+            # functions_to_vec(x0, _x)
 
         if not self._is_critical(alpha_old):
+            self.data["lambda_0"] = np.nan
             return bool(True)
         
         restricted_dofs = self.get_inactive_dofset(alpha_old)
@@ -606,8 +597,6 @@ class ConeSolver(StabilitySolver):
 
         self._converged = False
         errors.append(1)
-
-        # self.data["y_norm_L2"]
 
         # initialise forms, matrices, vectors
         eigen = eigenblockproblem.SLEPcBlockProblemRestricted(

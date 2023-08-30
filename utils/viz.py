@@ -103,11 +103,9 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     return plotter
 
 
-def plot_profile(u, points, plotter, subplot=None, lineproperties={}):
+def plot_profile(u, points, plotter, subplot=None, lineproperties={}, fig=None, ax=None):
     import matplotlib.pyplot as plt
     import dolfinx.geometry
-    if subplot:
-        plotter.subplot(subplot[0], subplot[1])
     mesh = u.function_space.mesh
     bb_tree = dolfinx.geometry.BoundingBoxTree(mesh, mesh.topology.dim)
 
@@ -127,12 +125,22 @@ def plot_profile(u, points, plotter, subplot=None, lineproperties={}):
     points_on_proc = np.array(points_on_proc, dtype=np.float64)
     u_values = u.eval(points_on_proc, cells)
 
-    fig = plt.figure()
+    if fig is None:
+        fig = plt.figure()
 
-    if subplot:
-        plt.subplot(subplot[0] + 1, subplot[1] + 1, 1)
+    # if subplot:
+    #     plotter.subplot(subplot[0], subplot[1])
+    # if subplot:
+        # plt.subplot(subplot[0] + 1, subplot[1] + 1, 1)
     # plt.plot(points_on_proc[:, 0], u_values, "k", ls="-", linewidth=1, label="")
-    plt.plot(points_on_proc[:, 0], u_values, **lineproperties)
+
+    if ax is not None:
+        ax.plot(points_on_proc[:, 0], u_values, **lineproperties)
+        # ax = plt.gca()
+        ax.legend()
+
+    else:
+        plt.plot(points_on_proc[:, 0], u_values, **lineproperties)
     plt.legend()
     return plt, (points_on_proc[:, 0], u_values)
 
