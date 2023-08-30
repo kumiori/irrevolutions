@@ -76,7 +76,7 @@ with open("../test/parameters.yml") as f:
 parameters["stability"]["cone"]["cone_max_it"] = 400000
 parameters["stability"]["cone"]["cone_atol"] = 1e-6
 parameters["stability"]["cone"]["cone_rtol"] = 1e-5
-parameters["stability"]["cone"]["scaling"] = 0.3
+parameters["stability"]["cone"]["scaling"] = 0.01
 
 parameters["model"]["ell"] = .1
 parameters["model"]["model_dimension"] = 2
@@ -105,7 +105,7 @@ geom_type = parameters["geometry"]["geom_type"]
 # Create the mesh of the specimen with given dimensions
 
 outdir = "output"
-prefix = os.path.join(outdir, "traction_AT1_cone")
+prefix = os.path.join(outdir, "traction_AT1_first_order")
 
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
@@ -245,16 +245,16 @@ history_data = {
     "fracture_energy": [],
     "total_energy": [],
     "solver_data": [],
-    "cone_data": [],
-    "cone-eig": [],
-    "eigs": [],
-    "uniqueness": [],
-    "inertia": [],
+    # "cone_data": [],
+    # "cone-eig": [],
+    # "eigs": [],
+    # "uniqueness": [],
+    # "inertia": [],
     "F": [],    
-    "alphadot_norm" : [],
-    "rate_12_norm" : [], 
-    "unscaled_rate_12_norm" : [],
-    "cone-stable": []
+    # "alphadot_norm" : [],
+    # "rate_12_norm" : [], 
+    # "unscaled_rate_12_norm" : [],
+    # "cone-stable": []
 }
 
 
@@ -312,23 +312,23 @@ for i_t, t in enumerate(loads):
     logging.info(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
 
-    ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
-    ColorPrint.print_bold(f"===================-=================")
+    # ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
+    # ColorPrint.print_bold(f"===================-=================")
 
-    # n_eigenvalues = 10
-    is_stable = bifurcation.solve(alpha_lb)
-    is_elastic = bifurcation.is_elastic()
-    inertia = bifurcation.get_inertia()
-    # bifurcation.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
+    # # n_eigenvalues = 10
+    # # is_stable = bifurcation.solve(alpha_lb)
+    # is_elastic = bifurcation.is_elastic()
+    # inertia = bifurcation.get_inertia()
+    # # bifurcation.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
 
-    ColorPrint.print_bold(f"State is elastic: {is_elastic}")
-    ColorPrint.print_bold(f"State's inertia: {inertia}")
-    # ColorPrint.print_bold(f"State is stable: {is_stable}")
+    # ColorPrint.print_bold(f"State is elastic: {is_elastic}")
+    # ColorPrint.print_bold(f"State's inertia: {inertia}")
+    # # ColorPrint.print_bold(f"State is stable: {is_stable}")
     
-    ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
-    ColorPrint.print_bold(f"===================-=================")
+    # ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
+    # ColorPrint.print_bold(f"===================-=================")
     
-    stable = cone.my_solve(alpha_lb, eig0=bifurcation.Kspectrum[0])
+    # stable = cone.my_solve(alpha_lb, eig0=bifurcation.Kspectrum[0])
     
     fracture_energy = comm.allreduce(
         assemble_scalar(form(model.damage_energy_density(state) * dx)),
@@ -344,23 +344,15 @@ for i_t, t in enumerate(loads):
         assemble_scalar(form(_stress[0, 0] * dx)),
         op=MPI.SUM,
     )
-    _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
+    # _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
 
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
     history_data["total_energy"].append(elastic_energy+fracture_energy)
     history_data["solver_data"].append(solver.data)
-    history_data["eigs"].append(bifurcation.data["eigs"])
+    # history_data["eigs"].append(bifurcation.data["eigs"])
     history_data["F"].append(stress)
-    history_data["cone_data"].append(cone.data)
-    history_data["alphadot_norm"].append(alphadot.vector.norm())
-    history_data["rate_12_norm"].append(rate_12_norm)
-    history_data["unscaled_rate_12_norm"].append(urate_12_norm)
-    history_data["cone-stable"].append(stable)
-    history_data["cone-eig"].append(cone.data["lambda_0"])
-    history_data["uniqueness"].append(_unique)
-    history_data["inertia"].append(inertia)
 
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)
@@ -382,7 +374,7 @@ list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
 
 df = pd.DataFrame(history_data)
-print(df.drop(['solver_data', 'cone_data'], axis=1))
+print(df.drop(['solver_data'], axis=1))
 
 # Viz
 

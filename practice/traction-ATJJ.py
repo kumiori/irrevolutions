@@ -39,7 +39,7 @@ import logging
 from dolfinx.common import Timer, list_timings, TimingType, timing
 
 sys.path.append("../")
-from models import DamageElasticityModel as Brittle
+from models import DamageElasticityModel
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
 from algorithms.so import StabilitySolver, ConeSolver
 from meshes.primitives import mesh_bar_gmshapi
@@ -72,16 +72,40 @@ comm = MPI.COMM_WORLD
 model_rank = 0
 
 
+class DamageElasticityModelATJJ(DamageElasticityModel):
+    """Linear softening model, quadratic damage density"""
+    def __init__(self, model_parameters={}):
+        self.k = model_parameters["k"]
+        
+        super(DamageElasticityModelATJJ, self).__init__(model_parameters)
+
+    def a(self, alpha):
+        k_res = np.float(self.k_res)
+        w = self.w(alpha)
+        _k = self.k
+
+        return ((1 - w) + k_res) / (1 + (_k-1) * w)
+
+    def w(self, alpha):
+        """
+        Return the dissipated energy function as a function of the state
+        (only depends on damage).
+        """
+        # Return w(alpha) function
+
+        return 1-(1-alpha)**2
+
+
 def parameters_vs_ell(parameters = None, ell = 0.1):
     if parameters is None:    
-        with open("../test/parameters.yml") as f:
+        with open("../test/atk_parameters.yml") as f:
             parameters = yaml.load(f, Loader=yaml.FullLoader)
         
     parameters["model"]["ell"] = ell
 
     parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-5
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-5
+    parameters["stability"]["cone"]["cone_atol"] = 3e-6
+    parameters["stability"]["cone"]["cone_rtol"] = 3e-6
     parameters["stability"]["cone"]["scaling"] = 0.01
 
     # parameters["model"]["model_dimension"] = 2
@@ -89,12 +113,12 @@ def parameters_vs_ell(parameters = None, ell = 0.1):
     # parameters["model"]["w1"] = 1
     # parameters["model"]["k_res"] = 0.
 
-    parameters["loading"]["min"] = .9
-    parameters["loading"]["max"] = 2
+    parameters["loading"]["min"] = 0
+    parameters["loading"]["max"] = parameters["model"]["k"]
     parameters["loading"]["steps"] = 30
 
     # parameters["geometry"]["geom_type"] = "traction-bar"
-    parameters["geometry"]["ell_lc"] = 3
+    parameters["geometry"]["ell_lc"] = 4
 
     return parameters
 
@@ -110,9 +134,9 @@ def parameters_vs_SPA_scaling(parameters = None, s = 0.01):
     parameters["stability"]["cone"]["cone_rtol"] = 1e-5
 
     parameters["model"]["ell"] = 0.1
-    parameters["loading"]["min"] = .98
-    parameters["loading"]["max"] = 1.4
-    parameters["loading"]["steps"] = 50
+    parameters["loading"]["min"] = .9
+    parameters["loading"]["max"] = parameters["model"]["k"]
+    parameters["loading"]["steps"] = 30
 
     return parameters
 
@@ -158,8 +182,6 @@ def traction_with_parameters(parameters, slug = ''):
 
     with open(f"{prefix}/parameters.yaml") as f:
         _parameters = yaml.load(f, Loader=yaml.FullLoader)
-
-    print("dblchedk", _parameters["model"]["ell"])
 
     if comm.rank == 0:
         with open(f"{prefix}/signature.md5", 'w') as f:
@@ -234,7 +256,7 @@ def traction_with_parameters(parameters, slug = ''):
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
     # Define the model
 
-    model = Brittle(parameters["model"])
+    model = DamageElasticityModelATJJ(parameters["model"])
 
     # Pack state
     state = {"u": u, "alpha": alpha}
@@ -447,10 +469,10 @@ def traction_with_parameters(parameters, slug = ''):
     return history_data, _timings
 
 def param_ell():
-    for ell in [0.05, 
-                0.1, 0.2, 0.3
-                ]:
-        with open("../test/parameters.yml") as f:
+    # for ell in [0.1, 0.2, 0.3]:
+
+    for ell in [0.05]:
+        with open("../test/atk_parameters.yml") as f:
             parameters = yaml.load(f, Loader=yaml.FullLoader)
     
         parameters = parameters_vs_ell(parameters, ell)
@@ -459,7 +481,7 @@ def param_ell():
         print(pretty_parameters)
         print(parameters["loading"]["max"])
 
-        history_data, timings =  traction_with_parameters(parameters, slug='vs_ell')
+        history_data, timings =  traction_with_parameters(parameters, slug='atk_vs_ell')
         df = pd.DataFrame(history_data)
         print(df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
 
@@ -468,17 +490,17 @@ if __name__ == "__main__":
 
     logging.getLogger().setLevel(logging.ERROR)
     
-    # param_ell()
+    param_ell()
 
 
-    for s in [0.001, 0.005, 0.01, 0.02, 0.05, 0.1]:
-        with open("../test/parameters.yml") as f:
+    for s in [0.001, 0.01, 0.05]:
+        with open("../test/atk_parameters.yml") as f:
             parameters = yaml.load(f, Loader=yaml.FullLoader)
     
         parameters = parameters_vs_SPA_scaling(parameters, s)
         pretty_parameters = json.dumps(parameters, indent=2)
         print(pretty_parameters)
 
-        history_data, timings =  traction_with_parameters(parameters, slug='vs_s')
+        history_data, timings =  traction_with_parameters(parameters, slug='atk_vs_s')
         df = pd.DataFrame(history_data)
         print(df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
