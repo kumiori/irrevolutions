@@ -1,8 +1,8 @@
 # === Loading === #
 loading:
     min: 0
-    max: 1.001
-    steps: 10
+    max: 2
+    steps: 30
 
 #  === Geometry === #
 geometry:
@@ -19,7 +19,7 @@ model:
     E: 1.
     k: 2.
     sigma_D0: 1.
-    k_res: 1e-5
+    k_res: 0.
     nu: 0.3
     ell: 0.1
     model_dimension: 2
@@ -80,8 +80,8 @@ solvers:
 
     # Damage Elasticity Solver parameters
     damage_elasticity:
-        max_it: 300
-        alpha_rtol: 1.0e-8
+        max_it: 100
+        alpha_rtol: 1.0e-6
         criterion: "alpha_H1"
     
     newton:

@@ -114,7 +114,7 @@ def parameters_vs_ell(parameters = None, ell = 0.1):
     # parameters["model"]["k_res"] = 0.
 
     parameters["loading"]["min"] = 0
-    parameters["loading"]["max"] = parameters["model"]["k"]
+    parameters["loading"]["max"] = parameters["model"]["k"]-.1
     parameters["loading"]["steps"] = 30
 
     # parameters["geometry"]["geom_type"] = "traction-bar"
@@ -122,8 +122,10 @@ def parameters_vs_ell(parameters = None, ell = 0.1):
 
     return parameters
 
+
 def parameters_vs_SPA_scaling(parameters = None, s = 0.01):
-    if parameters is None:    
+
+    if parameters is None:
         with open("../test/parameters.yml") as f:
             parameters = yaml.load(f, Loader=yaml.FullLoader)
         
@@ -434,12 +436,16 @@ def traction_with_parameters(parameters, slug = ''):
         print()
         print()
 
+
+
+
     _timings = list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
 
     # Viz
 
     from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+    from utils.viz import plot_profile
 
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
@@ -466,7 +472,47 @@ def traction_with_parameters(parameters, slug = ''):
     _plt = plot_vector(u, plotter, subplot=(0, 1))
     _plt.screenshot(f"{prefix}/traction-state.png")
 
-    return history_data, _timings
+
+
+    from utils.viz import plot_profile
+
+    xvfb.start_xvfb(wait=0.05)
+    pyvista.OFF_SCREEN = True
+    
+    plotter = pyvista.Plotter(
+        title="Test Profile",
+        window_size=[800, 600],
+        shape=(1, 1),
+    )
+
+
+    tol = 1e-3
+    xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
+    points = np.zeros((3, 101))
+    points[0] = xs
+
+    _plt, data = plot_profile(
+        alpha,
+        points,
+        plotter,
+        subplot=(0, 0),
+        lineproperties={
+            "c": "k",
+            "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}"
+        },
+    )
+    ax = _plt.gca()
+    _plt.legend()
+    _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+    _plt.title("Damage profile")
+    _plt.savefig(f"{prefix}/test_alpha_profile.png")
+
+
+
+
+
+
+    return history_data, signature, _timings
 
 def param_ell():
     # for ell in [0.1, 0.2, 0.3]:
@@ -477,30 +523,66 @@ def param_ell():
     
         parameters = parameters_vs_ell(parameters, ell)
 
-        pretty_parameters = json.dumps(parameters, indent=2)
-        print(pretty_parameters)
-        print(parameters["loading"]["max"])
+        message = f'Running SPA test with ell={ell}'
 
-        history_data, timings =  traction_with_parameters(parameters, slug='atk_vs_ell')
+        pretty_parameters = json.dumps(parameters, indent=2)
+        ColorPrint.print_bold(f"   {message}     ")
+        ColorPrint.print_bold(f"===================-===============")
+        
+        print(pretty_parameters)
+        
+        ColorPrint.print_bold(f"   {message}   ")
+        ColorPrint.print_bold(f"===================-===============")
+
+        history_data, signature, timings =  traction_with_parameters(parameters, slug='atk_vs_ell')
         df = pd.DataFrame(history_data)
+        ColorPrint.print_bold(f"   {message}    ")
+        ColorPrint.print_bold(f"===================-===============")
+        ColorPrint.print_bold(f"   signature {signature}    ")
         print(df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
 
-if __name__ == "__main__":
-    
-
-    logging.getLogger().setLevel(logging.ERROR)
-    
-    param_ell()
-
+def param_s():
 
     for s in [0.001, 0.01, 0.05]:
         with open("../test/atk_parameters.yml") as f:
             parameters = yaml.load(f, Loader=yaml.FullLoader)
     
+        message = f'Running SPA test with s={s}'
+
         parameters = parameters_vs_SPA_scaling(parameters, s)
         pretty_parameters = json.dumps(parameters, indent=2)
+        ColorPrint.print_bold(f"   {message}    ")
+        ColorPrint.print_bold(f"===================-===============")
+        
         print(pretty_parameters)
 
-        history_data, timings =  traction_with_parameters(parameters, slug='atk_vs_s')
+        ColorPrint.print_bold(f"   {message}    ")
+        ColorPrint.print_bold(f"===================-===============")
+
+        history_data, signature, timings =  traction_with_parameters(parameters, slug='atk_vs_s')
         df = pd.DataFrame(history_data)
+        ColorPrint.print_bold(f"   {message}    ")
+        ColorPrint.print_bold(f"===================-===============")
+        ColorPrint.print_bold(f"   signature {signature}    ")
         print(df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
+
+
+if __name__ == "__main__":
+    
+    from utils import ColorPrint
+
+    logging.getLogger().setLevel(logging.ERROR)
+    
+    # param_ell()
+    # param_s()
+
+    with open("../test/atk_parameters.yml") as f:
+        parameters = yaml.load(f, Loader=yaml.FullLoader)
+
+    message = f'Running SPA test with parameters'
+
+    pretty_parameters = json.dumps(parameters, indent=2)
+    ColorPrint.print_bold(pretty_parameters)
+
+    history_data, signature, timings =  traction_with_parameters(parameters, slug='atk_traction')
+    ColorPrint.print_bold(f"   signature {signature}    ")
