@@ -74,21 +74,22 @@ with open("../test/parameters.yml") as f:
 
 # parameters["cone"] = ""
 parameters["stability"]["cone"]["cone_max_it"] = 400000
-parameters["stability"]["cone"]["cone_atol"] = 1e-5
+parameters["stability"]["cone"]["cone_atol"] = 1e-6
 parameters["stability"]["cone"]["cone_rtol"] = 1e-5
-parameters["stability"]["cone"]["scaling"] = 0.01
+parameters["stability"]["cone"]["scaling"] = 0.3
 
+parameters["model"]["ell"] = .1
 parameters["model"]["model_dimension"] = 2
 parameters["model"]["model_type"] = '1D'
 parameters["model"]["w1"] = 1
-parameters["model"]["ell"] = .1 
 parameters["model"]["k_res"] = 0.
-parameters["loading"]["min"] = .9
-parameters["loading"]["max"] = 1.5
+
+parameters["loading"]["min"] = .98
+parameters["loading"]["max"] = 1.4
 parameters["loading"]["steps"] = 100
 
 parameters["geometry"]["geom_type"] = "traction-bar"
-parameters["geometry"]["ell_lc"] = 5
+parameters["geometry"]["ell_lc"] = 3
 # Get mesh parameters
 Lx = parameters["geometry"]["Lx"]
 Ly = parameters["geometry"]["Ly"]
@@ -256,11 +257,10 @@ history_data = {
     "cone-stable": []
 }
 
-check_stability = []
 
 # logging.basicConfig(level=logging.INFO)
 # logging.getLogger().setLevel(logging.ERROR)
-logging.getLogger().setLevel(logging.INFO)
+# logging.getLogger().setLevel(logging.INFO)
 # logging.getLogger().setLevel(logging.DEBUG)
 
 for i_t, t in enumerate(loads):
@@ -301,15 +301,15 @@ for i_t, t in enumerate(loads):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-    logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
-    logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
-    logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
-    logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+    logging.info(f"alpha vector norm: {alpha.vector.norm()}")
+    logging.info(f"alpha lb norm: {alpha_lb.vector.norm()}")
+    logging.info(f"alphadot norm: {alphadot.vector.norm()}")
+    logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
 
     rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
     urate_12_norm = hybrid.unscaled_rate_norm(alpha)
-    logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
-    logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
+    logging.info(f"scaled rate state_12 norm: {rate_12_norm}")
+    logging.info(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
 
     ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
@@ -320,7 +320,6 @@ for i_t, t in enumerate(loads):
     is_elastic = bifurcation.is_elastic()
     inertia = bifurcation.get_inertia()
     # bifurcation.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
-    check_stability.append(is_stable)
 
     ColorPrint.print_bold(f"State is elastic: {is_elastic}")
     ColorPrint.print_bold(f"State's inertia: {inertia}")
@@ -360,8 +359,6 @@ for i_t, t in enumerate(loads):
     history_data["unscaled_rate_12_norm"].append(urate_12_norm)
     history_data["cone-stable"].append(stable)
     history_data["cone-eig"].append(cone.data["lambda_0"])
-    # print(stability.data["stable"])
-    # __import__('pdb').set_trace()
     history_data["uniqueness"].append(_unique)
     history_data["inertia"].append(inertia)
 

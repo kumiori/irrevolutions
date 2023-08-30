@@ -14,12 +14,11 @@ geometry:
     ell_lc: 3
 #  === Material === #
 material:
-    ell: 0.1
-    E: 1.
-    sigma_D0: 1.
-    ν: 0.3
 #  === Model === #
 model:
+    E: 1.
+    sigma_D0: 1.
+    nu: 0.3
     ell: 0.1
     model_dimension: 2
     model_type: "2D"

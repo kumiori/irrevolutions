@@ -375,7 +375,7 @@ class HybridFractureSolver(AlternateMinimisation):
         # self.newton
 
     def monitor(self, its, rnorm):
-        logging.critical("Num it, rnorm:", its, rnorm)
+        logging.info("Num it, rnorm:", its, rnorm)
         pass     
 
     def solve(self, alpha_lb, outdir=None):
