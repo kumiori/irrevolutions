@@ -1,8 +1,8 @@
 # === Loading === #
 loading:
-    min: 0
+    min: .90
     max: 2
-    steps: 30
+    steps: 10
 
 #  === Geometry === #
 geometry:
@@ -10,7 +10,6 @@ geometry:
     geom_type: "bar"
     Lx: 1.
     Ly: .1
-    lc: 0.02
     ell_lc: 3
 #  === Material === #
 material:
