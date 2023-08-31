@@ -200,13 +200,15 @@ class StabilitySolver:
         else:
             self._critical = False
         
-        logging.critical(
-            f"rank {comm.rank}) Current state is damage-critical? 🌪 {self._critical}"
+        _emoji = "💥" if self._critical else "🌪"
+        logging.debug(
+            f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
         )
 
+        _emoji = "non-trivial 🍦 (solid)" if self._critical else "trivial 🌂 (empty)"
         if self._critical:
-            logging.critical(
-                f"rank {comm.rank})     > The cone is open 🍦"
+            logging.debug(
+                f"rank {comm.rank})     > The cone is {_emoji}"
             )
 
         # F.view()
@@ -355,6 +357,16 @@ class StabilitySolver:
 
         restricted_dofs = self.get_inactive_dofset(alpha_old)
         constraints = restriction.Restriction([self.V_u, self.V_alpha], restricted_dofs)
+
+        _emoji = "💥" if self._critical else "🌪"
+        logging.critical(
+            f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
+        )
+        _emoji = "non-trivial 🍦 (solid)" if self._critical else "trivial 🌂 (empty)"
+        if self._critical:
+            logging.debug(
+                f"rank {comm.rank})     > The cone is {_emoji}"
+            )
 
         self.inertia_setup(constraints)
 
@@ -589,6 +601,7 @@ class ConeSolver(StabilitySolver):
 
         if not self._is_critical(alpha_old):
             self.data["lambda_0"] = np.nan
+            self.data["iterations"] = [0]
             return bool(True)
         
         restricted_dofs = self.get_inactive_dofset(alpha_old)

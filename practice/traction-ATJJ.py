@@ -116,8 +116,8 @@ def parameters_vs_ell(parameters=None, ell=0.1):
     # parameters["model"]["w1"] = 1
     # parameters["model"]["k_res"] = 0.
 
-    parameters["loading"]["min"] = 0
-    parameters["loading"]["max"] = parameters["model"]["k"]-.1
+    parameters["loading"]["min"] = .0
+    parameters["loading"]["max"] = parameters["model"]["k"]
     parameters["loading"]["steps"] = 30
 
     # parameters["geometry"]["geom_type"] = "traction-bar"
@@ -729,6 +729,17 @@ def _plot_perturbations_profile(fields, parameters, prefix, plotter=None, label=
         fig=figure
     )
     ax = _plt.gca()
+    ax.set_xticks([0, 1], ["0", "1"])
+    ax.set_yticks([])
+
+    for spine in ['top', 'right', 'left']:
+        ax.spines[spine].set_visible(False)
+
+    # ax.spines['top'].set_visible(False)
+    # ax.spines['right'].set_visible(False)
+    # ax.spines['bottom'].set_visible(False)
+    # ax.spines['left'].set_visible(False)
+
     _plt.legend()
     _plt.fill_between(data[0], data[1].reshape(len(data[1])))
 
@@ -744,13 +755,13 @@ def _plot_perturbations_profile(fields, parameters, prefix, plotter=None, label=
 def param_ell():
     # for ell in [0.1, 0.2, 0.3]:
 
-    for ell in [0.05]:
+    for ell in [0.1, 0.3]:
         with open("../test/atk_parameters.yml") as f:
             parameters = yaml.load(f, Loader=yaml.FullLoader)
 
         parameters = parameters_vs_ell(parameters, ell)
 
-        message = f'Running SPA test with ell={ell}'
+        message = f'Running test with ell={ell}'
 
         pretty_parameters = json.dumps(parameters, indent=2)
         ColorPrint.print_bold(f"   {message}     ")
@@ -805,21 +816,21 @@ if __name__ == "__main__":
 
     logging.getLogger().setLevel(logging.ERROR)
 
-    # param_ell()
+    param_ell()
     # param_s()
 
-    with open("../test/atk_parameters.yml") as f:
-        parameters = yaml.load(f, Loader=yaml.FullLoader)
+    # with open("../test/atk_parameters.yml") as f:
+    #     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-    message = f'Running SPA test with parameters'
+    # message = f'Running SPA test with parameters'
 
-    pretty_parameters = json.dumps(parameters, indent=2)
-    ColorPrint.print_bold(pretty_parameters)
+    # pretty_parameters = json.dumps(parameters, indent=2)
+    # ColorPrint.print_bold(pretty_parameters)
 
-    history_data, signature, timings = traction_with_parameters(
-        parameters, slug='atk_traction')
-    ColorPrint.print_bold(f"   signature {signature}    ")
-    df = pd.DataFrame(history_data)
-    print(
-        df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
+    # history_data, signature, timings = traction_with_parameters(
+    #     parameters, slug='atk_traction')
+    # ColorPrint.print_bold(f"   signature {signature}    ")
+    # df = pd.DataFrame(history_data)
+    # print(
+    #     df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
 
