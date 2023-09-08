@@ -200,13 +200,15 @@ class StabilitySolver:
         else:
             self._critical = False
         
-        logging.critical(
-            f"rank {comm.rank}) Current state is damage-critical? 🌪 {self._critical}"
+        _emoji = "💥" if self._critical else "🌪"
+        logging.debug(
+            f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
         )
 
+        _emoji = "non-trivial 🍦 (solid)" if self._critical else "trivial 🌂 (empty)"
         if self._critical:
-            logging.critical(
-                f"rank {comm.rank})     > The cone is open 🍦"
+            logging.debug(
+                f"rank {comm.rank})     > The cone is {_emoji}"
             )
 
         # F.view()
@@ -355,6 +357,16 @@ class StabilitySolver:
 
         restricted_dofs = self.get_inactive_dofset(alpha_old)
         constraints = restriction.Restriction([self.V_u, self.V_alpha], restricted_dofs)
+
+        _emoji = "💥" if self._critical else "🌪"
+        logging.critical(
+            f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
+        )
+        _emoji = "non-trivial 🍦 (solid)" if self._critical else "trivial 🌂 (empty)"
+        if self._critical:
+            logging.debug(
+                f"rank {comm.rank})     > The cone is {_emoji}"
+            )
 
         self.inertia_setup(constraints)
 
@@ -589,6 +601,8 @@ class ConeSolver(StabilitySolver):
 
         if not self._is_critical(alpha_old):
             self.data["lambda_0"] = np.nan
+            self.data["iterations"] = [0]
+            self.data["error_x_L2"] = [1]
             return bool(True)
         
         restricted_dofs = self.get_inactive_dofset(alpha_old)
@@ -719,6 +733,7 @@ class ConeSolver(StabilitySolver):
     def _convergenceTest(self, x, errors):
         """Test convergence of current iterate xk against 
         prior, restricted version"""
+        assert x.norm() > 0, "Norm of x is zero"
 
         _atol = self.parameters.get("cone").get("cone_atol")
         _rtol = self.parameters.get("cone").get("cone_rtol")
@@ -746,6 +761,7 @@ class ConeSolver(StabilitySolver):
 
         if not self.iterations % 1000:
             logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}")
+            # logging.critical(f"     [i={self.iterations}] x norm = {x.norm():.4e}, atol = {_atol}")
 
         self.data["iterations"].append(self.iterations)
         self.data["error_x_L2"].append(error_x_L2)
