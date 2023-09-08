@@ -1,8 +1,8 @@
 # === Loading === #
 loading:
-    min: .90
+    min: .0
     max: 2
-    steps: 10
+    steps: 30
 
 #  === Geometry === #
 geometry:
@@ -10,7 +10,7 @@ geometry:
     geom_type: "bar"
     Lx: 1.
     Ly: .1
-    ell_lc: 10
+    ell_lc: 3
 #  === Material === #
 material:
 #  === Model === #
@@ -20,7 +20,7 @@ model:
     sigma_D0: 1.
     k_res: 0.
     nu: 0.3
-    ell: 0.6
+    ell: 0.4
     model_dimension: 2
     model_type: "2D"
     # could be "2D"/ "3D" / "plane_stress" / "plane_strain"
@@ -119,8 +119,8 @@ stability:
         eps_max_it: 100
 
     cone:
-        cone_atol: 1.0e-05
+        cone_atol: 3.0e-06
         cone_max_it: 3000
-        cone_rtol: 1.0e-05
+        cone_rtol: 3.0e-06
         maxmodes: 3
-        scaling: 0.01
+        scaling: 0.1

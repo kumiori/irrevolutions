@@ -47,11 +47,6 @@ from utils.plots import plot_energies
 from utils import norm_H1, norm_L2
 
 
-
-
-sys.path.append("../")
-
-
 """Traction endommageable bar
 
 0|WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW|========> t
@@ -328,7 +323,7 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
     ColorPrint.print_bold(f"===================-=================")
     
-    stable = cone.my_solve(alpha_lb, eig0=bifurcation.Kspectrum[0])
+    stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum)
     
     fracture_energy = comm.allreduce(
         assemble_scalar(form(model.damage_energy_density(state) * dx)),
