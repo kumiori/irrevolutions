@@ -816,21 +816,21 @@ if __name__ == "__main__":
 
     logging.getLogger().setLevel(logging.ERROR)
 
-    param_ell()
+    # param_ell()
     # param_s()
 
-    # with open("../test/atk_parameters.yml") as f:
-    #     parameters = yaml.load(f, Loader=yaml.FullLoader)
+    with open("../test/atk_parameters.yml") as f:
+        parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-    # message = f'Running SPA test with parameters'
+    message = f'Running SPA test with parameters'
 
-    # pretty_parameters = json.dumps(parameters, indent=2)
-    # ColorPrint.print_bold(pretty_parameters)
+    pretty_parameters = json.dumps(parameters, indent=2)
+    ColorPrint.print_bold(pretty_parameters)
 
-    # history_data, signature, timings = traction_with_parameters(
-    #     parameters, slug='atk_traction')
-    # ColorPrint.print_bold(f"   signature {signature}    ")
-    # df = pd.DataFrame(history_data)
-    # print(
-    #     df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
+    history_data, signature, timings = traction_with_parameters(
+        parameters, slug='atk_traction')
+    ColorPrint.print_bold(f"   signature {signature}    ")
+    df = pd.DataFrame(history_data)
+    print(
+        df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
 

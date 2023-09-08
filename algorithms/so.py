@@ -602,6 +602,7 @@ class ConeSolver(StabilitySolver):
         if not self._is_critical(alpha_old):
             self.data["lambda_0"] = np.nan
             self.data["iterations"] = [0]
+            self.data["error_x_L2"] = [1]
             return bool(True)
         
         restricted_dofs = self.get_inactive_dofset(alpha_old)
@@ -732,6 +733,7 @@ class ConeSolver(StabilitySolver):
     def _convergenceTest(self, x, errors):
         """Test convergence of current iterate xk against 
         prior, restricted version"""
+        assert x.norm() > 0, "Norm of x is zero"
 
         _atol = self.parameters.get("cone").get("cone_atol")
         _rtol = self.parameters.get("cone").get("cone_rtol")
@@ -759,6 +761,7 @@ class ConeSolver(StabilitySolver):
 
         if not self.iterations % 1000:
             logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}")
+            # logging.critical(f"     [i={self.iterations}] x norm = {x.norm():.4e}, atol = {_atol}")
 
         self.data["iterations"].append(self.iterations)
         self.data["error_x_L2"].append(error_x_L2)
