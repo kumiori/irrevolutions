@@ -223,7 +223,7 @@ def traction_with_parameters(parameters, slug = ''):
     bcs_alpha = []
     # bcs_alpha = [
     #     dolfinx.fem.dirichletbc(zero_alpha, dofs_alpha_left),
-    #     dolfinx.fem.dirichletbc(zero_alpha, dofs_alpha_right),
+    #     dolfinx.fem.dirichletbc(zeroKalpha, dofs_alpha_right),
     # ]
 
     set_bc(alpha_ub.vector, bcs_alpha)
@@ -362,7 +362,7 @@ def traction_with_parameters(parameters, slug = ''):
         ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
         
-        stable = cone.my_solve(alpha_lb, eig0=bifurcation.Kspectrum[0])
+        stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum)
         
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
