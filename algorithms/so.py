@@ -572,14 +572,14 @@ class ConeSolver(StabilitySolver):
         self.iterations = 0
         errors = []
         self.stable = True
-        self.data = {
-            "iterations": [],
-            "error_x_L2": [],
-            "lambda_k": [],
-            "lambda_0": [],
-            "y_norm_L2": [],
+        # self.data = {
+        #     "iterations": [],
+        #     "error_x_L2": [],
+        #     "lambda_k": [],
+        #     "lambda_0": [],
+        #     "y_norm_L2": [],
 
-        }
+        # }
         # Map current solution into vector _x
         _x = dolfinx.fem.petsc.create_vector_block(self.F)        
         _y = dolfinx.fem.petsc.create_vector_block(self.F)        
@@ -590,15 +590,30 @@ class ConeSolver(StabilitySolver):
         
         self._rerrors = []
         self._aerrors = []
+        
+        stable = False
+        
+        self.data = {
+            "iterations": [],
+            "error_x_L2": [],
+            "lambda_k": [],
+            "lambda_0": [],
+            "y_norm_L2": [],
 
-        if eig0 is None or len(eig0) == 0:
+        }
+
+        if eig0 is None:
             stable = self.solve(alpha_old)
-            # functions_to_vec(self.Kspectrum[0].get("xk"), _x)
+            eig0 = self._spectrum
+        
+        if len(eig0) == 0 or stable: 
+            return bool(stable)
+
         else:
             x0 = eig0[0].get("xk")
             _x = x0.copy()
             # functions_to_vec(x0, _x)
-
+        
         if not self._is_critical(alpha_old):
             self.data["lambda_0"] = np.nan
             self.data["iterations"] = [0]
@@ -690,7 +705,6 @@ class ConeSolver(StabilitySolver):
         self.data["error_x_L2"] = errors
         self.data["lambda_0"] = _lmbda_t
 
-        # __import__('pdb').set_trace()
         logging.info(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
         logging.info(f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(_xk)}")
         logging.critical(f"Restricted Eigenvalue {_lmbda_t:.4e}")        
