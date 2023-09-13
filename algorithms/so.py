@@ -153,7 +153,7 @@ class StabilitySolver:
 
         comm.Allreduce(coef, coeff_glob, op=MPI.MAX)
 
-        elastic = not np.isclose(coeff_glob, 0.0, atol=etol)
+        elastic = np.isclose(coeff_glob, 0.0, atol=etol)
         logging.debug(f'is_elastic coeff_glob = {coeff_glob}')
         return elastic
 
@@ -403,6 +403,11 @@ class StabilitySolver:
         spectrum = []
         _spectrum = []
         
+            
+        logging.critical("")
+        logging.critical("i        k          ")
+        logging.critical("--------------------")
+
         for i in range(neig_out):
             logging.debug(f"{rank}) Postprocessing mode {i}")
             v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
@@ -413,11 +418,7 @@ class StabilitySolver:
             _ = self.normalise_eigen(ur)
 
             functions_to_vec(ur, _u)
-            
-            log(LogLevel.INFO, "")
-            log(LogLevel.INFO, "i        k          ")
-            log(LogLevel.INFO, "--------------------")
-            log(LogLevel.INFO, "%d     %6e" % (i, eigval.real))
+            logging.critical("%d     %6e" % (i, eigval.real))
 
             with ur[0].vector.localForm() as v_loc, v_n.vector.localForm() as v_n_loc:
                 v_loc.copy(result=v_n_loc)
