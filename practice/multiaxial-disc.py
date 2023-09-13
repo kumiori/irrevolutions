@@ -149,7 +149,8 @@ def multiaxial_disc(nest):
 
     # boundary conditions
 
-    # energy (model)
+    # energy (model) <--------------
+    # total_energy = ThinFilmModel(parameters...)
 
     # solvers
 

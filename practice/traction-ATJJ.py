@@ -781,7 +781,6 @@ def param_ell():
         print(
             df.drop(['solver_data', 'solver_KS_data', 'solver_HY_data'], axis=1))
 
-
 def param_s():
 
     for s in [0.001, 0.01, 0.05]:

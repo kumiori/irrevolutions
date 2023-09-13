@@ -36,6 +36,7 @@ from dolfinx import log
 import ufl
 from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
 from dolfinx.fem import locate_dofs_topological
+import hashlib
 
 from dolfinx.fem.petsc import (
     set_bc,
@@ -47,7 +48,7 @@ from dolfinx.common import Timer, list_timings, TimingType
 sys.path.append("../")
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
-from algorithms.so import StabilitySolver, ConeSolver
+from algorithms.so import BifurcationSolver, ConeSolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
 from utils.plots import plot_energies
@@ -101,44 +102,49 @@ def check_snes_convergence(snes):
 
 comm = MPI.COMM_WORLD
 
-outdir = "output"
-prefix = os.path.join(outdir, "pacman-cone")
-if comm.rank == 0:
-    Path(prefix).mkdir(parents=True, exist_ok=True)
-
-def pacman_cone(nest):
+def pacman_cone(nest, slug='pacman'):
     Lx = 1.0
     Ly = 0.1
     _nel = 30
 
+    outdir = "output"
+    prefix = os.path.join(outdir, "pacman-cone")
+    if comm.rank == 0:
+        Path(prefix).mkdir(parents=True, exist_ok=True)
+
     with open(f"{prefix}/parameters.yaml") as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
-        pretty_parameters = json.dumps(parameters, indent=2)
-        print(pretty_parameters)
+        # pretty_parameters = json.dumps(parameters, indent=2)
+        # print(pretty_parameters)
 
     parameters["stability"]["cone"]["cone_max_it"] = 30000
     parameters["stability"]["cone"]["cone_atol"] = 1e-4
     parameters["stability"]["cone"]["scaling"] = 0.1
 
-
     # Get mesh parameters
     _r = parameters["geometry"]["r"]
     _omega = parameters["geometry"]["omega"]
     tdim = parameters["geometry"]["geometric_dimension"]
+    
     _nameExp = parameters["geometry"]["geom_type"]
     _nameExp = 'pacman'
+
     ell_ = parameters["model"]["ell"]
-    lc = ell_ / 1.
+    lc = ell_ / 2.
 
     parameters["geometry"]["lc"] = lc
-
-    parameters["loading"]["min"] = 0.
-    parameters["loading"]["max"] = .5
+    parameters["loading"]["min"] = 0.35
+    parameters["loading"]["max"] = .45
     parameters["loading"]["steps"] = 50
+
     # Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
-    # Mesh on node model_rank and then distribute
+
     model_rank = 0
+    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+
+    outdir = os.path.join("output", slug, signature)
+    prefix = os.path.join(outdir)
 
     gmsh_model, tdim = mesh_pacman(geom_type, parameters["geometry"], tdim)
 
@@ -147,6 +153,15 @@ def pacman_cone(nest):
 
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
+        with open(f"{prefix}/parameters.yaml", 'w') as file:
+            yaml.dump(parameters, file)
+
+        with open(f"{prefix}/parameters.yaml") as f:
+            _parameters = yaml.load(f, Loader=yaml.FullLoader)
+
+        with open(f"{prefix}/signature.md5", 'w') as f:
+            f.write(signature)
+
 
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_mesh(mesh)
@@ -253,11 +268,13 @@ def pacman_cone(nest):
         solver_parameters=parameters.get("solvers"),
     )
 
-    bifurcation = StabilitySolver(
-        total_energy, state, bcs, stability_parameters=parameters.get("stability")
+    bifurcation = BifurcationSolver(
+        total_energy, state, bcs, 
+        bifurcation_parameters=parameters.get(
+            "stability")
     )
 
-    stability = ConeSolver(
+    cone = ConeSolver(
         total_energy, state, bcs,
         cone_parameters=parameters.get("stability")
     )
@@ -268,18 +285,18 @@ def pacman_cone(nest):
         "fracture_energy": [],
         "total_energy": [],
         "solver_data": [],
-        "cone_data": [],
-        "cone_eig": [],
+        "solver_HY_data": [],
+        "solver_KS_data": [],
+        # "cone-eig": [],
         "eigs": [],
         "uniqueness": [],
         "inertia": [],
-        "stable": [],
-        "alphadot_norm" : [],
-        "rate_12_norm" : [], 
-        "unscaled_rate_12_norm" : [],
+        "F": [],
+        "alphadot_norm": [],
+        "rate_12_norm": [],
+        "unscaled_rate_12_norm": [],
         "cone-stable": []
     }
-
 
     for i_t, t in enumerate(loads):
 
@@ -303,7 +320,7 @@ def pacman_cone(nest):
         
         logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
-        ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
+        ColorPrint.print_bold(f"   Solving first order: AM*Hybrid   ")
         ColorPrint.print_bold(f"===================-=============")
 
         hybrid.solve(alpha_lb)
@@ -322,6 +339,7 @@ def pacman_cone(nest):
 
         ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
+        # __import__('pdb').set_trace()
 
         is_stable = bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
@@ -330,8 +348,11 @@ def pacman_cone(nest):
         ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
         
-        stable = stability.my_solve(alpha_lb, x0=bifurcation.Kspectrum[0].get("xk"))
+        stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum)
         
+        logging.critical(f"State is elastic: {is_elastic}")
+        logging.critical(f"State's inertia: {inertia}")
+
         # Postprocess
 
         fracture_energy = comm.allreduce(
@@ -349,14 +370,15 @@ def pacman_cone(nest):
         history_data["elastic_energy"].append(elastic_energy)
         history_data["total_energy"].append(elastic_energy+fracture_energy)
         history_data["solver_data"].append(hybrid.data)
+        history_data["solver_HY_data"].append(hybrid.newton_data)
+        history_data["solver_KS_data"].append(cone.data)
         history_data["eigs"].append(bifurcation.data["eigs"])
-        history_data["stable"].append(bifurcation.data["stable"])
-        history_data["cone_data"].append(stability.data)
+        history_data["F"].append(0)
         history_data["alphadot_norm"].append(alphadot.vector.norm())
         history_data["rate_12_norm"].append(rate_12_norm)
         history_data["unscaled_rate_12_norm"].append(urate_12_norm)
         history_data["cone-stable"].append(stable)
-        history_data["cone_eig"].append(stability.data["lambda_0"])
+        # history_data["cone-eig"].append(cone.data["lambda_0"])
         history_data["uniqueness"].append(_unique)
         history_data["inertia"].append(inertia)
 
@@ -400,13 +422,22 @@ def pacman_cone(nest):
         _plt = plot_vector(u, plotter, subplot=(0, 1))
         _plt.screenshot(f"{prefix}/pacman-state.png")
 
+        # __import__('pdb').set_trace()
 
-    return history_data
+        # plotter = pyvista.Plotter(
+        #     title="Pacman bifurcations",
+        #     window_size=[1600, 600],
+        #     shape=(1, 2),
+        # )
+
+    _timings = list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+
+    return history_data, signature, _timings
 
 if __name__ == "__main__":
-    history_data = pacman_cone(nest=False)
-    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+    history_data, signature, timings = pacman_cone(nest=False)
+    ColorPrint.print_bold(f"   signature {signature}    ")
     
     df = pd.DataFrame(history_data)
-    print(df.drop(['solver_data', 'cone_data'], axis=1))
+    print(df.drop(['solver_data', 'solver_HY_data', 'solver_KS_data'], axis=1))
 
