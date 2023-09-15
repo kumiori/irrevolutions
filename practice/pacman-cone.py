@@ -135,8 +135,8 @@ def pacman_cone(resolution=2, slug='pacman'):
     parameters["geometry"]["lc"] = lc
 
     parameters["loading"]["min"] = 0.35
-    parameters["loading"]["max"] = .351
-    parameters["loading"]["steps"] = 1
+    parameters["loading"]["max"] = .50
+    parameters["loading"]["steps"] = 100
 
     # Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
