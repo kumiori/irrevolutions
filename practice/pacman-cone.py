@@ -48,7 +48,7 @@ from dolfinx.common import Timer, list_timings, TimingType, timing
 sys.path.append("../")
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
-from algorithms.so import BifurcationSolver, ConeSolver
+from algorithms.so import BifurcationSolver, StabilitySolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
 from utils.plots import plot_energies
@@ -58,7 +58,7 @@ from utils.viz import plot_mesh, plot_vector, plot_scalar
 from utils.lib import _local_notch_asymptotic
 logging.basicConfig(level=logging.DEBUG)
 
-
+logging.logMultiprocessing = False
 class ConvergenceError(Exception):
     """Error raised when a solver fails to converge"""
 
@@ -279,7 +279,7 @@ def pacman_cone(resolution=2, slug='pacman'):
             "stability")
     )
 
-    cone = ConeSolver(
+    cone = StabilitySolver(
         total_energy, state, bcs,
         cone_parameters=parameters.get("stability")
     )
@@ -318,12 +318,7 @@ def pacman_cone(resolution=2, slug='pacman'):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
     
-        logging.critical("--  --")
-        logging.critical("")
-        logging.critical("")
-        logging.critical("")
-        
-        logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
+        ColorPrint.print_pass(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
         ColorPrint.print_bold(f"   Solving first order: AM*Hybrid   ")
         ColorPrint.print_bold(f"===================-=============")
@@ -341,10 +336,8 @@ def pacman_cone(resolution=2, slug='pacman'):
         rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
         urate_12_norm = hybrid.unscaled_rate_norm(alpha)
 
-
         ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
-        # __import__('pdb').set_trace()
 
         is_stable = bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()

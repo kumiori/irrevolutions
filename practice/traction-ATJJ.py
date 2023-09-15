@@ -45,7 +45,7 @@ from utils import norm_H1, norm_L2
 from utils.plots import plot_energies
 from utils import ColorPrint
 from meshes.primitives import mesh_bar_gmshapi
-from algorithms.so import StabilitySolver, ConeSolver
+from algorithms.so import BifurcationSolver, StabilitySolver
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
 from models import DamageElasticityModel
 
@@ -291,12 +291,12 @@ def traction_with_parameters(parameters, slug=''):
         solver_parameters=parameters.get("solvers"),
     )
 
-    bifurcation = StabilitySolver(
+    bifurcation = BifurcationSolver(
         total_energy, state, bcs, stability_parameters=parameters.get(
             "stability")
     )
 
-    cone = ConeSolver(
+    cone = StabilitySolver(
         total_energy, state, bcs,
         cone_parameters=parameters.get("stability")
     )

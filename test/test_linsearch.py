@@ -17,7 +17,7 @@ sys.path.append("../")
 
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
-from algorithms.so import StabilitySolver, ConeSolver, BifurcationSolver
+from algorithms.so import BifurcationSolver, StabilitySolver, BifurcationSolver
 from algorithms.ls import LineSearch
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
@@ -202,7 +202,7 @@ def test_linsearch():
         total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
     )
 
-    cone = ConeSolver(
+    cone = StabilitySolver(
         total_energy, state, bcs,
         cone_parameters=parameters.get("stability")
     )

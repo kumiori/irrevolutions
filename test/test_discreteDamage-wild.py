@@ -39,13 +39,12 @@ import logging
 from dolfinx.common import Timer, list_timings, TimingType
 
 sys.path.append("../")
-from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.so import BifurcationSolver
 from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
 from utils.plots import plot_energies
 from utils import norm_H1, norm_L2
-from utils.viz import plot_matrix
 
 
 
@@ -53,7 +52,8 @@ from utils.viz import plot_matrix
 sys.path.append("../")
 
 
-"""Discrete endommageable springs in series
+"""
+Discrete endommageable springs in series
         1         2        i        k
 0|----[WWW]--*--[WWW]--*--...--*--{WWW} |========> t
 u_0         u_1       u_2     u_i      u_k
@@ -68,7 +68,185 @@ load: displacement hard-t
 from solvers.function import functions_to_vec
 logging.getLogger().setLevel(logging.CRITICAL)
 
-comm = MPI.COMM_WORLD
+class StabilitySolver(BifurcationSolver):
+    """Base class for a minimal implementation of the solution of eigenvalue
+    problems bound to a cone. Based on numerical recipe SPA and KR existence result
+    Thanks Yves and Luc."""
+
+    def __init__(
+        self,
+        energy: ufl.form.Form,
+        state: dict,
+        bcs: list,
+        nullspace=None,
+        cone_parameters=None,
+    ):
+        super(StabilitySolver, self).__init__(
+            energy,
+            state,
+            bcs,
+            nullspace,
+            stability_parameters=cone_parameters,
+
+    )
+
+    def _solve(self, alpha_old: dolfinx.fem.function.Function, neig=None):
+        """Recursively solves (until convergence) the abstract eigenproblem
+        K \ni x \perp y := Ax - \lambda B x \in K^*
+        based on the SPA recipe, cf. ...
+        """
+        _s = 0.1
+        self.iterations = 0
+        errors = []
+        stable = self.solve(alpha_old, neig)
+        
+        # The cone is non-trivial, aka non-empty
+        # only if the state is irreversibly damage-critical
+
+        if self._critical:
+
+            # loop
+            # __import__('pdb').set_trace()
+
+            _x = dolfinx.fem.petsc.create_vector_block(self.F)        
+            _y = dolfinx.fem.petsc.create_vector_block(self.F)        
+            _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
+            _Bx = dolfinx.fem.petsc.create_vector_block(self.F)        
+            self._xold = dolfinx.fem.petsc.create_vector_block(self.F)    
+            
+            # Map current solution into vector _x
+            functions_to_vec(self.Kspectrum[0].get("xk"), _x)
+    
+            while not self.loop(_x):
+                
+                errors.append(self.error)
+                # make it admissible: map into the cone
+                # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
+                
+                self._cone_project(_x)
+
+                # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
+                # K_t spectrum:
+                # compute {lambdat, xt, yt}
+
+                if self.eigen.restriction is not None:
+                    _A = self.eigen.rA
+                    _B = self.eigen.rB
+
+                    _x = self.eigen.restriction.restrict_vector(_x)
+                    _y = self.eigen.restriction.restrict_vector(_y)
+                    _Ax = self.eigen.restriction.restrict_vector(_Ax)
+                    _Bx = self.eigen.restriction.restrict_vector(_Bx)
+                else:
+                    _A = self.eigen.A
+                    _B = self.eigen.B
+
+                _A.mult(_x, _Ax)
+                xAx = _x.dot(_Ax)
+
+                # compute: lmbda_t
+                if not self.eigen.empty_B():
+                    _B.mult(_x, _Bx)
+                    xBx = _x.dot(_Bx)
+                    _lmbda_t = xAx/xBx
+                else:
+                    logging.critical("B = Id")
+                    _Bx = _x
+                    _lmbda_t = xAx / _x.dot(_x)
+
+                # compute: y_t = _Ax - _lmbda_t * _Bx
+                _y.waxpy(-_lmbda_t, _Bx, _Ax)
+
+                # construct perturbation
+                # _v = _x - _s*y_t
+
+                _x.copy(self._xold)
+                _x.axpy(-_s, _y)
+                
+                # project onto cone
+                self._cone_project(_x)
+                
+                # L2-normalise
+                n2 = _x.normalize()
+                # _x.view()
+                # iterate
+                # x_i+1 = _v 
+
+            logging.critical(f"Convergence of SPA algorithm with s={_s}")
+            print(errors)
+            logging.critical(f"eigenfunction is in cone? {self._isin_cone(_x)}")
+        
+        return stable
+    
+    def convergenceTest(self, x):
+        """Test convergence of current iterate x against 
+        prior"""
+        _atol = self.parameters.get("eigen").get("eps_tol")
+        _maxit = self.parameters.get("eigen").get("eps_max_it")
+
+        if self.iterations == _maxit:
+            raise RuntimeError(f'SPA solver did not converge within {_maxit} iterations. Aborting')
+            # return False        
+        # xdiff = -x + x_old
+        diff = x.duplicate()
+        diff.zeroEntries()
+
+        diff.waxpy(-1., self._xold, x)
+
+        error_alpha_L2 = diff.norm()
+        self.error = error_alpha_L2
+        logging.critical(f"error_alpha_L2? {error_alpha_L2}")
+
+        if error_alpha_L2 < _atol:
+            return True
+        elif self.iterations == 0 or error_alpha_L2 >= _atol:
+            return False
+
+    # v = mode[i].get("xk") for mode in self.spectrum
+    def loop(self, x):
+        # its = self.iterations
+        reason = self.convergenceTest(x)
+        
+        # update xold
+        # x.copy(self._xold)
+        # x.vector.ghostUpdate(
+        #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        # )
+
+        if not reason:
+            self.iterations += 1
+
+        return reason
+
+    def _isin_cone(self, x):
+        """Is in the zone IFF x is in the cone"""
+
+        # get the subvector associated to damage dofs with inactive constraints 
+        _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
+        _is = PETSc.IS().createGeneral(_dofs)
+        _sub = x.getSubVector(_is)
+
+        return (_sub.array >= 0).all()
+        
+    def _cone_project(self, v):
+        """Projection vector into the cone
+
+            takes arguments:
+            - v: vector in a mixed space
+
+            returns
+        """
+        
+        # get the subvector associated to damage dofs with inactive constraints 
+        _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
+        _is = PETSc.IS().createGeneral(_dofs)
+        _sub = v.getSubVector(_is)
+        zero = _sub.duplicate()
+        zero.zeroEntries()
+
+        _sub.pointwiseMax(_sub, zero)
+        v.restoreSubVector(_is, _sub)
+        return
 
 class _AlternateMinimisation:
     def __init__(self,
@@ -231,80 +409,75 @@ class _AlternateMinimisation:
 
 
 petsc4py.init(sys.argv)
+comm = MPI.COMM_WORLD
 
-def discrete_atk(arg_N=2):
-
-    # Mesh on node model_rank and then distribute
-    model_rank = 0
+# Mesh on node model_rank and then distribute
+model_rank = 0
 
 
-    with open("./parameters.yml") as f:
+def test(comm):
+    with open("parameters.yml") as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-    # parameters["stability"]["cone"] = ""
-    # parameters["cone"]["atol"] = 1e-7
+    parameters["cone"] = ""
+# parameters["cone"]["atol"] = 1e-7
 
     parameters["model"]["model_dimension"] = 1
     parameters["model"]["model_type"] = '1D'
     parameters["model"]["mu"] = 1
-    parameters["model"]["w1"] = 2
+    parameters["model"]["w1"] = 1
     parameters["model"]["k_res"] = 1e-4
-    parameters["model"]["k"] = 4
-    parameters["model"]["N"] = arg_N
-    # parameters["loading"]["max"] = 2.
-    parameters["loading"]["max"] = parameters["model"]["k"] 
-    parameters["loading"]["steps"] = 30
-
+    parameters["model"]["k"] = 3
+    parameters["model"]["N"] = 3
+    parameters["loading"]["min"] = .5
+    parameters["loading"]["max"] = 2
+    parameters["loading"]["steps"] = 50
     parameters["geometry"]["geom_type"] = "discrete-damageable"
-    # Get mesh parameters
+
+# Get mesh parameters
     Lx = parameters["geometry"]["Lx"]
     Ly = parameters["geometry"]["Ly"]
     tdim = parameters["geometry"]["geometric_dimension"]
 
     _nameExp = parameters["geometry"]["geom_type"]
     ell_ = parameters["model"]["ell"]
-    # lc = ell_ / 5.0
+# lc = ell_ / 5.0
 
-    # Get geometry model
+# Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
     _N = parameters["model"]["N"]
 
 
-    # Create the mesh of the specimen with given dimensions
+# Create the mesh of the specimen with given dimensions
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
-    import hashlib
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
-
     outdir = "output"
-    prefix = os.path.join(outdir, f"discrete-atk-N{parameters['model']['N']}-homogeneous")
+    prefix = os.path.join(outdir, "test_cone")
 
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
-    _crunchdir = os.path.join(outdir, f"discrete-atk-sigs-{signature}")
-    if comm.rank == 0:
-        Path(_crunchdir).mkdir(parents=True, exist_ok=True)
+    import hashlib
+    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
+    if comm.rank == 0:
         with open(f"{prefix}/parameters.yaml", 'w') as file:
             yaml.dump(parameters, file)
 
-        with open(f"{_crunchdir}/{signature}.md5", 'w') as f:
-            f.write('')
-
+    if comm.rank == 0:
         with open(f"{prefix}/signature.md5", 'w') as f:
             f.write(signature)
 
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_mesh(mesh)
 
-    # Functional Setting
+# Functional Setting
 
     element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                                degree=1)
+                              degree=1)
 
     element_alpha = ufl.FiniteElement("DG", mesh.ufl_cell(),
-                                    degree=0)
+                                  degree=0)
 
     V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
     V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
@@ -315,12 +488,16 @@ def discrete_atk(arg_N=2):
 
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 
-    # Pack state
+# Pack state
     state = {"u": u, "alpha": alpha}
 
-    # Bounds
+# Bounds
     alpha_ub = dolfinx.fem.Function(V_alpha, name="UpperBoundDamage")
     alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
+
+
+
+    parameters, mesh, V_u, V_alpha, state, alpha_ub, alpha_lb = test(comm)
 
     dx = ufl.Measure("dx", domain=mesh)
     ds = ufl.Measure("ds", domain=mesh)
@@ -332,7 +509,6 @@ def discrete_atk(arg_N=2):
     u = Function(V_u, name="Unknown")
     u_ = Function(V_u, name="Boundary Unknown")
     zero_u = Function(V_u, name="Boundary Unknown")
-
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
@@ -378,77 +554,12 @@ def discrete_atk(arg_N=2):
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
     # Define the model
 
-    # Material behaviour
+    bounds={"lb": alpha_lb, "ub": alpha_ub}
 
-    # mat_par = parameters.get()
-
-
-    def a(alpha):
-        k_res = parameters["model"]['k_res']
-        return (1 - alpha)**2 + k_res
-
-
-    def a_atk(alpha):
-        k_res = parameters["model"]['k_res']
-        _k = parameters["model"]['k']
-        return (1 - alpha) / ((_k-1) * alpha + 1)
-
-
-    def w(alpha):
-        """
-        Return the homogeneous damage energy term,
-        as a function of the state
-        (only depends on damage).
-        """
-        # Return w(alpha) function
-        return alpha
-
-
-    def elastic_energy_density_atk(state):
-        """
-        Returns the elastic energy density from the state.
-        """
-        # Parameters
-        _mu = parameters["model"]['mu']
-        _N = parameters["model"]['N']
-
-        alpha = state["alpha"]
-        u = state["u"]
-        eps = ufl.grad(u) 
-
-        energy_density = _mu / 2. * a_atk(alpha) * ufl.inner(eps, eps)
-        return energy_density
-
-
-    def damage_energy_density(state):
-        """
-        Return the damage dissipation density from the state.
-        """
-        # Get the material parameters
-        _mu = parameters["model"]["mu"]
-        _w1 = parameters["model"]["w1"]
-        _ell = parameters["model"]["ell"]
-        # Get the damage
-        alpha = state["alpha"]
-        # Compute the damage gradient
-        grad_alpha = ufl.grad(alpha)
-        # Compute the damage dissipation density
-        D_d = _w1 * w(alpha) + _w1 * _ell**2 * ufl.dot(
-            grad_alpha, grad_alpha)
-        return D_d
-
-
-    def stress(state):
-        """
-        Return the one-dimensional stress
-        """
-        u = state["u"]
-        alpha = state["alpha"]
-
-        return parameters["model"]['mu'] * a_atk(alpha) * u.dx() * dx
 
     total_energy = (elastic_energy_density_atk(state) +
                     damage_energy_density(state)) * dx
+
 
     # Energy functional
     # f = Constant(mesh, 0)
@@ -480,158 +591,94 @@ def discrete_atk(arg_N=2):
         "elastic_energy": [],
         "fracture_energy": [],
         "total_energy": [],
-        "cone_data": [],
+        "solver_data": [],
         "eigs": [],
-        "cone-stable": [],
-        "non-bifurcation": [],
+        "stable": [],
         "F": [],
-        "alpha_t": [],
-        "u_t": [],
     }
 
     check_stability = []
 
-    def _critical_load(matpar):
-        _mu, _k, _w1, _N = matpar["mu"], matpar["k"], matpar["w1"], matpar["N"]
-        return np.sqrt(8*_w1 / (_mu*_k)/4)
+    logging.basicConfig(level=logging.INFO)
 
-    def _homogeneous_state(state, t, matpar):
-        """docstring for _homogeneous_state"""
-        
-        _u = state["u"]
-        _alpha = state["alpha"]
-        _mu, _k, _w1, _N = matpar["mu"], matpar["k"], matpar["w1"], matpar["N"]
+    _solvers = (solver, stability, cone)
+    _ctx = (mesh, state, bounds, history_data, loads, stress, u_, damage_energy_density, elastic_energy_density, dx)
 
-        # _tc = np.sqrt(matpar/k)
-        # _a = (tau - 1) / (_k - 1)
+    return (_solvers, _ctx)
 
-        _tc = _critical_load(parameters["model"])
+    # Material behaviour
 
-        if t <= _tc:
-            # elastic
-            _alphah = [0. for i in range(0, _N)]
-            _uh = [i*t/_N for i in range(0, _N+1)]
-        else:   
-            # damaging
-            _α = (t/_tc - 1) / (_k - 1)
-            _alphah = [_α for i in range(0, _N)]
-            _e = t/_N
-            _uh = [_e * i for i in range(0, _N+1)]
-
-        _alpha.vector[:] = _alphah
-        _u.vector[:] = _uh
-
-    import scipy
-
-    for i_t, t in enumerate(loads):
-        logging.critical(f"-- Solving for t = {t:3.2f} --")
-        logging.basicConfig(level=logging.DEBUG)
-
-        # homogeneous solution
-        _homogeneous_state(state, t, parameters["model"]) 
-
-        # n_eigenvalues = 10
-        is_stable = stability.solve(alpha_lb)
-        is_elastic = stability.is_elastic()
-        inertia = stability.get_inertia()
-        # stability.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
-        check_stability.append(is_stable)
-
-        ColorPrint.print_bold(f"State is elastic: {is_elastic}")
-        ColorPrint.print_bold(f"State's inertia: {inertia}")
-        ColorPrint.print_bold(f"State is stable: {is_stable}")
-
-        stable = cone.my_solve(alpha_lb)
-
-        # indptr, indices, data = cone.eigen.rA.getValuesCSR()
-        # _rA = scipy.sparse.csr_matrix((data, indices, indptr), shape=self.eigen.rA.sizes[0])
-        # fig_rA = plot_matrix(cone.eigen.rA)
-        # fig_rArB = plot_matrix(cone.eigen.rA, cone.eigen.rB, ms=10, names=["rA", "rB"])
-        # fig_rA.savefig(f"{prefix}/mat-rA-{cone.eigen.eps.getOptionsPrefix()}-{i_t}.png")
-
-        fig_A = plot_matrix(cone.eigen.A)
-        fig_A.savefig(f"{prefix}/mat-A-{cone.eigen.eps.getOptionsPrefix()}-{i_t}.png")
-
-        _fig = plot_matrix(cone.eigen.rA)
-        # __import__('pdb').set_trace()
-        _fig.savefig(f"{prefix}/mat-rA-{cone.eigen.eps.getOptionsPrefix()}-{i_t}.png")
+def a(alpha):
+    k_res = parameters["model"]['k_res']
+    return (1 - alpha)**2 + k_res
 
 
-        fracture_energy = comm.allreduce(
-            assemble_scalar(form(damage_energy_density(state) * dx)),
-            op=MPI.SUM,
-        )
-        elastic_energy = comm.allreduce(
-            assemble_scalar(form(elastic_energy_density_atk(state) * dx)),
-            op=MPI.SUM,
-        )
-        _F = assemble_scalar( form(stress(state)) )
-        
-        history_data["load"].append(t)
-        history_data["fracture_energy"].append(fracture_energy)
-        history_data["elastic_energy"].append(elastic_energy)
-        history_data["total_energy"].append(elastic_energy+fracture_energy)
-        # history_data["solver_data"].append(solver.data)
-        history_data["cone_data"].append(cone.data)
-        history_data["eigs"].append(stability.data["eigs"])
-        history_data["non-bifurcation"].append(not stability.data["stable"])
-        history_data["cone-stable"].append(stable)
-        history_data["F"].append(_F)
-        history_data["alpha_t"].append(state["alpha"].vector.array.tolist())
-        history_data["u_t"].append(state["u"].vector.array.tolist())
-        
-        logging.critical(f"u_t {u.vector.array}")
-        logging.critical(f"u_t norm {state['u'].vector.norm()}")
-
-        with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
-            file.write_function(u, t)
-            file.write_function(alpha, t)
-
-        if comm.rank == 0:
-            a_file = open(f"{prefix}/time_data.json", "w")
-            json.dump(history_data, a_file)
-            a_file.close()
-
-    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
-    # print(history_data)
-
-    df = pd.DataFrame(history_data)
-    print(df)
+def a_atk(alpha):
+    k_res = parameters["model"]['k_res']
+    _k = parameters["model"]['k']
+    return (1 - alpha) / ((_k-1) * alpha + 1)
 
 
-    return history_data, prefix, _nameExp
+def w(alpha):
+    """
+    Return the homogeneous damage energy term,
+    as a function of the state
+    (only depends on damage).
+    """
+    # Return w(alpha) function
+    return alpha
 
-def postprocess(history_data, prefix, nameExp):
-    """docstring for postprocess"""
-    
+def stress(state):
+    """
+    Return the one-dimensional stress
+    """
+    u = state["u"]
+    alpha = state["alpha"]
 
-    from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+    return parameters["model"]['mu'] * a_atk(alpha) * u.dx() * dx
 
-    if comm.rank == 0:
-        plot_energies(history_data, file=f"{prefix}/{nameExp}_energies.pdf")
-        # plot_AMit_load(history_data, file=f"{prefix}/{nameExp}_it_load.pdf")
-        plot_force_displacement(history_data, file=f"{prefix}/{nameExp}_stress-load.pdf")
+def elastic_energy_density(state):
+    """
+    Returns the elastic energy density from the state.
+    """
+    # Parameters
+    alpha = state["alpha"]
+    u = state["u"]
+    eps = ufl.grad(u)
+
+    _mu = parameters["model"]['mu']
+    energy_density = a(alpha) * _mu * ufl.inner(eps, eps)
+    return energy_density
 
 
-    # Viz
+def elastic_energy_density_atk(state):
+    """
+    Returns the elastic energy density from the state.
+    """
+    # Parameters
+    alpha = state["alpha"]
+    u = state["u"]
+    eps = ufl.grad(u)
+
+    _mu = parameters["model"]['mu']
+    energy_density = a_atk(alpha) * _mu * ufl.inner(eps, eps)
+    return energy_density
 
 
-if __name__ == "__main__":
-    import argparse
+def damage_energy_density(state):
+    """
+    Return the damage dissipation density from the state.
+    """
+    # Get the material parameters
+    _mu = parameters["model"]["mu"]
+    _w1 = parameters["model"]["w1"]
+    _ell = parameters["model"]["ell"]
+    # Get the damage
+    alpha = state["alpha"]
+    # Compute the damage gradient
+    grad_alpha = ufl.grad(alpha)
+    # Compute the damage dissipation density
+    D_d = _w1 * w(alpha) + _w1 * _ell**2 * ufl.dot(
+        grad_alpha, grad_alpha)
+    return D_d
 
-    parser = argparse.ArgumentParser(description='Process evolution.')
-    parser.add_argument('-N', type=int, default=2,
-                        help='Number of elements')
-
-    args = parser.parse_args()
-    # print()
-
-    history_data, prefix, name = discrete_atk(args.N)
-
-    logging.info(f'Output in {prefix}')
-    __import__('pdb').set_trace()
-    postprocess(history_data, prefix, name)
-
-    logging.info(f'Output in {prefix}')
-else:
-   print("File executed when imported")

@@ -525,7 +525,7 @@ class BifurcationSolver(SecondOrderSolver):
 
     )
 
-class ConeSolver(SecondOrderSolver):
+class StabilitySolver(SecondOrderSolver):
     """Base class for a minimal implementation of the solution of eigenvalue
     problems bound to a cone. Based on numerical recipe SPA and KR existence result
     Thanks Yves and Luc."""
@@ -538,7 +538,7 @@ class ConeSolver(SecondOrderSolver):
         nullspace=None,
         cone_parameters=None,
     ):
-        super(ConeSolver, self).__init__(
+        super(StabilitySolver, self).__init__(
             energy,
             state,
             bcs,
