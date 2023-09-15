@@ -449,7 +449,7 @@ def pacman_cone(resolution=2, slug='pacman'):
     }
 
     performance["N"].append(MPI.COMM_WORLD.size)
-    performance["dofs"].append(mesh.geometry.dofmap.num_nodes)
+    performance["dofs"].append(sum([V.dofmap.bs * V.dofmap.index_map.size_global for V in [V_u, V_alpha]]))
     performance["1stOrder-AM"].append(timing("~First Order: AltMin solver"))
     performance["1stOrder-Hyb"].append(timing("~First Order: Hybrid solver"))
     performance["1stOrder-AM-Damage"].append(timing("~First Order: AltMin-Damage solver"))
@@ -461,9 +461,12 @@ def pacman_cone(resolution=2, slug='pacman'):
     except Exception as e:
         performance["2ndOrder-Stability"].append(np.nan)
 
-    print(performance)
-    
-    return history_data, signature, _timings
+    if comm.rank == 0:
+        a_file = open(f"{prefix}/performance.json", "w")
+        json.dump(performance, a_file)
+        a_file.close()
+
+    return history_data, signature, prefix, performance
 
 if __name__ == "__main__":
     import argparse
@@ -475,10 +478,8 @@ if __name__ == "__main__":
     
     ColorPrint.print_info(f"Resolution: {args.r}")
     
-    history_data, signature, timings = pacman_cone(resolution = args.r)
+    history_data, signature, prefix, timings = pacman_cone(resolution = args.r)
     ColorPrint.print_bold(f"   signature {signature}    ")
-
-    __import__('pdb').set_trace()
 
     df = pd.DataFrame(history_data)
     print(df.drop(['solver_data', 'solver_HY_data', 'solver_KS_data'], axis=1))

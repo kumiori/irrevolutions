@@ -659,7 +659,7 @@ class ConeSolver(SecondOrderSolver):
         _lmbda_t = np.nan
         # logging.getLogger().setLevel(logging.DEBUG)
 
-        with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA"):
+        with dolfinx.common.Timer(f"~Second Order: Cone Solver"):
             while self.iterate(_xk, errors):
                 # errors.append(self.error)
 
