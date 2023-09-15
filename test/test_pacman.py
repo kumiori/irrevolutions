@@ -62,7 +62,7 @@ import yaml
 
 sys.path.append("../")
 from solvers import SNESSolver
-from algorithms.so import StabilitySolver
+from algorithms.so import BifurcationSolver
 
 # ///////////
 
@@ -280,7 +280,7 @@ solver = AlternateMinimisation(
     total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
 )
 
-stability = StabilitySolver(
+stability = BifurcationSolver(
     total_energy, state, bcs, stability_parameters=parameters.get("stability")
 )
 

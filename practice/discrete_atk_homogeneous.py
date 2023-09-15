@@ -39,7 +39,7 @@ import logging
 from dolfinx.common import Timer, list_timings, TimingType
 
 sys.path.append("../")
-from algorithms.so import StabilitySolver, ConeSolver
+from algorithms.so import BifurcationSolver, StabilitySolver
 from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
@@ -282,23 +282,16 @@ def discrete_atk(arg_N=2):
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
-    _crunchdir = os.path.join(outdir, "discrete-atk-sigs")
+    _crunchdir = os.path.join(outdir, f"discrete-atk-sigs-{signature}")
     if comm.rank == 0:
         Path(_crunchdir).mkdir(parents=True, exist_ok=True)
 
-    if comm.rank == 0:
         with open(f"{prefix}/parameters.yaml", 'w') as file:
             yaml.dump(parameters, file)
 
-    if comm.rank == 0:
         with open(f"{_crunchdir}/{signature}.md5", 'w') as f:
             f.write('')
 
-    if comm.rank == 0:
-        with open(f"{prefix}/signature.md5", 'w') as f:
-            f.write(signature)
-
-    if comm.rank == 0:
         with open(f"{prefix}/signature.md5", 'w') as f:
             f.write(signature)
 
@@ -472,12 +465,12 @@ def discrete_atk(arg_N=2):
     )
 
 
-    stability = StabilitySolver(
+    stability = BifurcationSolver(
         total_energy, state, bcs, stability_parameters=parameters.get("stability")
     )
 
 
-    cone = ConeSolver(
+    cone = StabilitySolver(
         total_energy, state, bcs,
         cone_parameters=parameters.get("stability")
     )
@@ -528,6 +521,7 @@ def discrete_atk(arg_N=2):
         _alpha.vector[:] = _alphah
         _u.vector[:] = _uh
 
+    import scipy
 
     for i_t, t in enumerate(loads):
         logging.critical(f"-- Solving for t = {t:3.2f} --")
@@ -547,15 +541,16 @@ def discrete_atk(arg_N=2):
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         ColorPrint.print_bold(f"State is stable: {is_stable}")
 
-        stable = cone._solve(alpha_lb)
+        stable = cone.my_solve(alpha_lb)
 
         # indptr, indices, data = cone.eigen.rA.getValuesCSR()
         # _rA = scipy.sparse.csr_matrix((data, indices, indptr), shape=self.eigen.rA.sizes[0])
+        # fig_rA = plot_matrix(cone.eigen.rA)
         # fig_rArB = plot_matrix(cone.eigen.rA, cone.eigen.rB, ms=10, names=["rA", "rB"])
-        # fig_rArB.savefig(f"{prefix}/mat-r-{cone.eigen.eps.getOptionsPrefix()}-{i_t}.png")
+        # fig_rA.savefig(f"{prefix}/mat-rA-{cone.eigen.eps.getOptionsPrefix()}-{i_t}.png")
 
-        # fig_AB = plot_matrix(cone.eigen.A, cone.eigen.B, ms=10, names=["A", "B"])
-        # fig_AB.savefig(f"{prefix}/mat-{cone.eigen.eps.getOptionsPrefix()}-{i_t}.png")
+        fig_A = plot_matrix(cone.eigen.A)
+        fig_A.savefig(f"{prefix}/mat-A-{cone.eigen.eps.getOptionsPrefix()}-{i_t}.png")
 
         _fig = plot_matrix(cone.eigen.rA)
         # __import__('pdb').set_trace()
@@ -634,7 +629,7 @@ if __name__ == "__main__":
     history_data, prefix, name = discrete_atk(args.N)
 
     logging.info(f'Output in {prefix}')
-
+    __import__('pdb').set_trace()
     postprocess(history_data, prefix, name)
 
     logging.info(f'Output in {prefix}')

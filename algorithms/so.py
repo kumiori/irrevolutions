@@ -96,7 +96,7 @@ def info_dofmap(space, name=None):
         "rank", comm.rank, f"dofmap.index_map.num_ghosts {dofmap.index_map.num_ghosts}"
     )
 
-class StabilitySolver:
+class SecondOrderSolver:
     """Base class for stability analysis of a unilaterally constrained
     local minimisation problem of a given energy. Instantiates the
      form associated to the second derivative of the energy.
@@ -153,7 +153,7 @@ class StabilitySolver:
 
         comm.Allreduce(coef, coeff_glob, op=MPI.MAX)
 
-        elastic = not np.isclose(coeff_glob, 0.0, atol=etol)
+        elastic = np.isclose(coeff_glob, 0.0, atol=etol)
         logging.debug(f'is_elastic coeff_glob = {coeff_glob}')
         return elastic
 
@@ -368,92 +368,95 @@ class StabilitySolver:
                 f"rank {comm.rank})     > The cone is {_emoji}"
             )
 
-        self.inertia_setup(constraints)
+        with dolfinx.common.Timer(f"~Second Order: Bifurcation"):
 
-        eigen = eigenblockproblem.SLEPcBlockProblemRestricted(
-            self.F_,
-            self.state,
-            self.lmbda0,
-            bcs=self.bcs,
-            restriction=constraints,
-            prefix="stability",
-        )
-        self.setup_eigensolver(eigen)
+            self.inertia_setup(constraints)
 
-        # save an instance
-        self.eigen = eigen
+            eigen = eigenblockproblem.SLEPcBlockProblemRestricted(
+                self.F_,
+                self.state,
+                self.lmbda0,
+                bcs=self.bcs,
+                restriction=constraints,
+                prefix="stability",
+            )
+            self.setup_eigensolver(eigen)
 
-        eigen.solve()
+            # save an instance
+            self.eigen = eigen
 
-        nev, ncv, mpd = eigen.eps.getDimensions()
-        neig = self.parameters["maxmodes"]
+            eigen.solve()
 
-        if neig is not None:
-            neig_out = min(eigen.eps.getConverged(), neig)
-        else:
-            neig_out = eigen.eps.getConverged()
+            nev, ncv, mpd = eigen.eps.getDimensions()
+            neig = self.parameters["maxmodes"]
 
-        logging.info(f"Number of requested eigenvalues: {nev}")
-        logging.info(f"Number of requested column vectors: {ncv}")
-        logging.info(f"Number of mpd: {mpd}")
-        logging.info(f"converged {ncv:d}")
-        # print(f"{rank}) mode {i}: {name} beta-norm {ur[1].vector.norm()}")
+            if neig is not None:
+                neig_out = min(eigen.eps.getConverged(), neig)
+            else:
+                neig_out = eigen.eps.getConverged()
 
-        # postprocess
-        spectrum = []
-        _spectrum = []
-        
-        for i in range(neig_out):
-            logging.debug(f"{rank}) Postprocessing mode {i}")
-            v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
-            beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
+            logging.info(f"Number of requested eigenvalues: {nev}")
+            logging.info(f"Number of requested column vectors: {ncv}")
+            logging.info(f"Number of mpd: {mpd}")
+            logging.info(f"converged {ncv:d}")
+            # print(f"{rank}) mode {i}: {name} beta-norm {ur[1].vector.norm()}")
 
-            _u = dolfinx.fem.petsc.create_vector_block(self.F)
-            eigval, ur, _ = eigen.getEigenpair(i)
-            _ = self.normalise_eigen(ur)
-
-            functions_to_vec(ur, _u)
+            # postprocess
+            spectrum = []
+            _spectrum = []
             
-            log(LogLevel.INFO, "")
-            log(LogLevel.INFO, "i        k          ")
-            log(LogLevel.INFO, "--------------------")
-            log(LogLevel.INFO, "%d     %6e" % (i, eigval.real))
+                
+            logging.critical("")
+            logging.critical("i        k          ")
+            logging.critical("--------------------")
 
-            with ur[0].vector.localForm() as v_loc, v_n.vector.localForm() as v_n_loc:
-                v_loc.copy(result=v_n_loc)
+            for i in range(neig_out):
+                logging.debug(f"{rank}) Postprocessing mode {i}")
+                v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
+                beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
 
-            v_n.vector.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
+                _u = dolfinx.fem.petsc.create_vector_block(self.F)
+                eigval, ur, _ = eigen.getEigenpair(i)
+                _ = self.normalise_eigen(ur)
 
-            with ur[1].vector.localForm() as b_loc, beta_n.vector.localForm() as b_n_loc:
-                b_loc.copy(result=b_n_loc)
+                functions_to_vec(ur, _u)
+                logging.critical("%d     %6e" % (i, eigval.real))
 
-            beta_n.vector.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
+                with ur[0].vector.localForm() as v_loc, v_n.vector.localForm() as v_n_loc:
+                    v_loc.copy(result=v_n_loc)
 
-            logging.debug(f"mode {i} {ur[0].name}-norm {ur[0].vector.norm()}")
-            logging.debug(f"mode {i} {ur[1].name}-norm {ur[1].vector.norm()}")
-            logging.debug(f"mode {i} beta_n-norm {beta_n.vector.norm()}")
-            logging.debug("")
+                v_n.vector.ghostUpdate(
+                    addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+                )
 
-            _spectrum.append(
-                {
-                    "n": i,
-                    "lambda": eigval.real,
-                    "xk": _u
-                }
-            )
+                with ur[1].vector.localForm() as b_loc, beta_n.vector.localForm() as b_n_loc:
+                    b_loc.copy(result=b_n_loc)
 
-            spectrum.append(
-                {
-                    "n": i,
-                    "lambda": eigval.real,
-                    "v": v_n,
-                    "beta": beta_n,
-                }
-            )
+                beta_n.vector.ghostUpdate(
+                    addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+                )
+
+                logging.debug(f"mode {i} {ur[0].name}-norm {ur[0].vector.norm()}")
+                logging.debug(f"mode {i} {ur[1].name}-norm {ur[1].vector.norm()}")
+                logging.debug(f"mode {i} beta_n-norm {beta_n.vector.norm()}")
+                logging.debug("")
+
+                _spectrum.append(
+                    {
+                        "n": i,
+                        "lambda": eigval.real,
+                        "xk": _u
+                    }
+                )
+
+                spectrum.append(
+                    {
+                        "n": i,
+                        "lambda": eigval.real,
+                        "v": v_n,
+                        "beta": beta_n,
+                    }
+                )
 
         spectrum.sort(key=lambda item: item.get("lambda"))
         _spectrum.sort(key=lambda item: item.get("lambda"))
@@ -502,7 +505,7 @@ class StabilitySolver:
                 ofile.write_function(v[i], eig)
                 ofile.write_function(beta[i], eig)
 
-class BifurcationSolver(StabilitySolver):
+class BifurcationSolver(SecondOrderSolver):
     """Minimal implementation for the solution of the uniqueness issue"""
 
     def __init__(
@@ -522,7 +525,7 @@ class BifurcationSolver(StabilitySolver):
 
     )
 
-class ConeSolver(StabilitySolver):
+class StabilitySolver(SecondOrderSolver):
     """Base class for a minimal implementation of the solution of eigenvalue
     problems bound to a cone. Based on numerical recipe SPA and KR existence result
     Thanks Yves and Luc."""
@@ -535,7 +538,7 @@ class ConeSolver(StabilitySolver):
         nullspace=None,
         cone_parameters=None,
     ):
-        super(ConeSolver, self).__init__(
+        super(StabilitySolver, self).__init__(
             energy,
             state,
             bcs,
@@ -586,7 +589,7 @@ class ConeSolver(StabilitySolver):
         _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
         self._xold = dolfinx.fem.petsc.create_vector_block(self.F)        
         
-        logging.critical(f"~Second Order: Cone Solver - SPA s={_s}")
+        logging.critical(f"~Second Order: Cone Solver - SPA")
         
         self._rerrors = []
         self._aerrors = []
@@ -656,7 +659,7 @@ class ConeSolver(StabilitySolver):
         _lmbda_t = np.nan
         # logging.getLogger().setLevel(logging.DEBUG)
 
-        with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
+        with dolfinx.common.Timer(f"~Second Order: Cone Solver"):
             while self.iterate(_xk, errors):
                 # errors.append(self.error)
 
@@ -705,7 +708,7 @@ class ConeSolver(StabilitySolver):
         self.data["error_x_L2"] = errors
         self.data["lambda_0"] = _lmbda_t
 
-        logging.info(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
+        logging.info(f"Convergence of SPA algorithm with in {self.iterations} iterations")
         logging.info(f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(_xk)}")
         logging.critical(f"Restricted Eigenvalue {_lmbda_t:.4e}")        
         logging.critical(f"Restricted Eigenvalue is positive {_lmbda_t > 0}")        

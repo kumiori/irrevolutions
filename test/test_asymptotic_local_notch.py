@@ -61,7 +61,7 @@ import yaml
 
 sys.path.append("../")
 from solvers import SNESSolver
-from algorithms.so import StabilitySolver
+from algorithms.so import BifurcationSolver
 
 # ///////////
 
