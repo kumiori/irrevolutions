@@ -43,7 +43,7 @@ from dolfinx.fem.petsc import (
     )
 from dolfinx.io import XDMFFile, gmshio
 import logging
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import Timer, list_timings, TimingType, timing
 
 sys.path.append("../")
 from models import DamageElasticityModel as Brittle
@@ -102,7 +102,7 @@ def check_snes_convergence(snes):
 
 comm = MPI.COMM_WORLD
 
-def pacman_cone(nest, slug='pacman'):
+def pacman_cone(resolution=2, slug='pacman'):
     Lx = 1.0
     Ly = 0.1
     _nel = 30
@@ -130,12 +130,13 @@ def pacman_cone(nest, slug='pacman'):
     _nameExp = 'pacman'
 
     ell_ = parameters["model"]["ell"]
-    lc = ell_ / 2.
+    lc = ell_ / resolution
 
     parameters["geometry"]["lc"] = lc
+
     parameters["loading"]["min"] = 0.35
-    parameters["loading"]["max"] = .45
-    parameters["loading"]["steps"] = 50
+    parameters["loading"]["max"] = .351
+    parameters["loading"]["steps"] = 1
 
     # Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
@@ -150,6 +151,10 @@ def pacman_cone(nest, slug='pacman'):
 
     # Get mesh and meshtags
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
+
+    # from dolfinx.mesh import refine
+    # mesh.topology.create_entities(1)
+    # mesh2 = refine(mesh, redistribute=True)
 
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
@@ -395,32 +400,32 @@ def pacman_cone(nest, slug='pacman'):
             a_file.close()
 
         # Viz
+        if not 'SINGULARITY_CONTAINER' in os.environ:
+            from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 
-        from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+            if comm.rank == 0:
+                plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+                plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+                # plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
-        if comm.rank == 0:
-            plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
-            plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-            # plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
+            ColorPrint.print_bold(f"   Written timely data.    ")
+            print()
+            print()
+            print()
+            print()
 
-        ColorPrint.print_bold(f"   Written timely data.    ")
-        print()
-        print()
-        print()
-        print()
-
-        xvfb.start_xvfb(wait=0.05)
-        pyvista.OFF_SCREEN = True
+            xvfb.start_xvfb(wait=0.05)
+            pyvista.OFF_SCREEN = True
 
 
-        plotter = pyvista.Plotter(
-            title="Pacman test",
-            window_size=[1600, 600],
-            shape=(1, 2),
-        )
-        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-        _plt = plot_vector(u, plotter, subplot=(0, 1))
-        _plt.screenshot(f"{prefix}/pacman-state.png")
+            plotter = pyvista.Plotter(
+                title="Pacman test",
+                window_size=[1600, 600],
+                shape=(1, 2),
+            )
+            _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+            _plt = plot_vector(u, plotter, subplot=(0, 1))
+            _plt.screenshot(f"{prefix}/pacman-state.png")
 
         # __import__('pdb').set_trace()
 
@@ -432,12 +437,49 @@ def pacman_cone(nest, slug='pacman'):
 
     _timings = list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
+    performance = {
+        "N": [],
+        "dofs": [],
+        "1stOrder-AM": [],
+        "1stOrder-Hyb": [],
+        "1stOrder-AM-Damage": [],
+        "1stOrder-AM-Elastic": [],
+        "2ndOrder-Uniqueness": [],
+        "2ndOrder-Stability": [],
+    }
+
+    performance["N"].append(MPI.COMM_WORLD.size)
+    performance["dofs"].append(mesh.geometry.dofmap.num_nodes)
+    performance["1stOrder-AM"].append(timing("~First Order: AltMin solver"))
+    performance["1stOrder-Hyb"].append(timing("~First Order: Hybrid solver"))
+    performance["1stOrder-AM-Damage"].append(timing("~First Order: AltMin-Damage solver"))
+    performance["1stOrder-AM-Elastic"].append(timing("~First Order: AltMin-Elastic solver"))
+    performance["2ndOrder-Uniqueness"].append(timing("~Second Order: Bifurcation"))
+
+    try:
+        performance["2ndOrder-Stability"].append(timing("~Second Order: Cone Solver"))
+    except Exception as e:
+        performance["2ndOrder-Stability"].append(np.nan)
+
+    print(performance)
+    
     return history_data, signature, _timings
 
 if __name__ == "__main__":
-    history_data, signature, timings = pacman_cone(nest=False)
-    ColorPrint.print_bold(f"   signature {signature}    ")
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Process evolution.')
+    parser.add_argument('-r', type=int, default=3,
+                        help='resolution: ell to h ratio')
+    args = parser.parse_args()
     
+    ColorPrint.print_info(f"Resolution: {args.r}")
+    
+    history_data, signature, timings = pacman_cone(resolution = args.r)
+    ColorPrint.print_bold(f"   signature {signature}    ")
+
+    __import__('pdb').set_trace()
+
     df = pd.DataFrame(history_data)
     print(df.drop(['solver_data', 'solver_HY_data', 'solver_KS_data'], axis=1))
 
