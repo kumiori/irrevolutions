@@ -107,7 +107,7 @@ def load_parameters(file_path):
     parameters["model"]["ell"] = .1
     parameters["model"]["k_res"] = 0.
     parameters["loading"]["min"] = .8
-    parameters["loading"]["max"] = 1.5
+    parameters["loading"]["max"] = 10.5
     parameters["loading"]["steps"] = 10
 
     parameters["geometry"]["geom_type"] = "traction-bar"
@@ -177,7 +177,7 @@ def create_function_space(mesh):
 
     return V_u, V_alpha
 
-def create_state(V_u, V_alpha):
+def init_state(V_u, V_alpha):
     """
     Create the state variables u and alpha.
 
@@ -191,7 +191,9 @@ def create_state(V_u, V_alpha):
     """
     u = Function(V_u, name="Displacement")
     alpha = Function(V_alpha, name="Damage")
-    return u, alpha
+    state = {"u": u, "alpha": alpha}
+
+    return state
 
 # Boundary conditions setup function
 
@@ -227,8 +229,9 @@ def setup_boundary_conditions(V_u, V_alpha, Lx):
 
     bcs_u = [bc_u_left, bc_u_right]
     bcs_alpha = []
+    bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
-    return bcs_u, bcs_alpha
+    return bcs
 
 # Model initialization function
 
@@ -317,7 +320,7 @@ def initialize_solver(total_energy, state, bcs, parameters):
         f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                             mode=PETSc.ScatterMode.FORWARD)
 
-    set_bc(alpha_ub.vector, bcs_alpha)
+    set_bc(alpha_ub.vector, bcs['bcs_alpha'])
     alpha_ub.vector.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
@@ -349,7 +352,7 @@ class ResultsStorage:
         self.comm = comm
         self.prefix = prefix
 
-    def store_results(self, history_data):
+    def store_results(self, history_data, state):
         """
         Store simulation results in XDMF and JSON formats.
 
@@ -357,6 +360,9 @@ class ResultsStorage:
             history_data (dict): Dictionary containing simulation data.
         """
         t = history_data["load"][-1]
+
+        u = state["u"]
+        alpha = state["alpha"]
 
         with XDMFFile(self.comm, f"{self.prefix}/simulation_results.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
             # for t, data in history_data.items():
@@ -423,7 +429,7 @@ def run_time_loop(parameters, solver, model, bcs):
         "total_energy": [],
         # Add other simulation data fields here
     }
-    mesh = u.function_space.mesh
+    mesh = solver.state["u"].function_space.mesh
     map = mesh.topology.index_map(mesh.topology.dim)
     cells = np.arange(map.size_local + map.num_ghosts, dtype=np.int32)
 
@@ -440,6 +446,9 @@ def run_time_loop(parameters, solver, model, bcs):
         #                     mode=PETSc.ScatterMode.FORWARD)
         # Implement any necessary updates here
         # update the lower bound
+        alpha = state["alpha"]
+        u = state["u"]
+
         alpha.vector.copy(solver.alpha_lb.vector)
         solver.alpha_lb.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
@@ -479,15 +488,11 @@ if __name__ == "__main__":
     # Create function spaces for displacement and damage
     V_u, V_alpha = create_function_space(mesh)
 
-    u, alpha = create_state(V_u, V_alpha)
-    u_ = Function(V_u, name="Boundary Displacement")
-
-    state = {"u": u, "alpha": alpha}
+    state = init_state(V_u, V_alpha)
 
     # Set up boundary conditions
-    bcs_u, bcs_alpha = setup_boundary_conditions(V_u, V_alpha, parameters["geometry"]["Lx"])
+    bcs = setup_boundary_conditions(V_u, V_alpha, parameters["geometry"]["Lx"])
     
-    bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
     # Initialize material model
     model = initialize_model(parameters)
@@ -506,7 +511,7 @@ if __name__ == "__main__":
 
     # Store and visualize results
     storage = ResultsStorage(MPI.COMM_WORLD, "output/traction_AT2_cone")
-    storage.store_results(history_data)
+    storage.store_results(history_data, state)
 
     visualization = Visualization("output/traction_AT2_cone")
     visualization.visualize_results(history_data)
