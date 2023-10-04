@@ -1,0 +1,146 @@
+class NonConvergenceException(Exception):
+    def __init__(self, message="Non-convergence error"):
+        """
+        Exception class for non-convergence errors during computations.
+        """
+        self.message = message
+        super().__init__(self.message)
+
+def info_dofmap(space, name=None):
+    """Get information on the dofmap"""
+    logging.info("\n")
+    logging.info("rank", comm.rank, f"space {name}")
+
+    dofmap = space.dofmap
+    logging.info("rank", comm.rank, f"dofmap.bs {dofmap.bs}")
+    # ... (other logging statements)
+
+class SecondOrderSolver:
+    """Base class for stability analysis of a unilaterally constrained
+    local minimization problem of a given energy. Instantiates the
+     form associated with the second derivative of the energy.
+     Computes the inertia of the bilinear operator and solves the full
+     eigenvalue problem."""
+
+    def __init__(
+        self,
+        energy: ufl.form.Form,
+        state: dict,
+        bcs: list,
+        nullspace=None,
+        stability_parameters=None,
+    ):
+        """
+        Initialize the SecondOrderSolver.
+
+        Args:
+            energy (ufl.form.Form): The energy functional.
+            state (dict): Dictionary containing state variables 'u' and 'alpha'.
+            bcs (list): List of boundary conditions.
+            nullspace: Nullspace object for the problem.
+            stability_parameters: Parameters for the stability analysis.
+        """
+        self.state = [state["u"], state["alpha"]]
+        alpha = self.state[1]
+        self.parameters = stability_parameters
+
+        # Initialize function spaces
+        self.V_u = state["u"].function_space
+        self.V_alpha = state["alpha"].function_space
+
+        self.mesh = alpha.function_space.mesh
+
+        # Initialize L as a DG(0) function
+        L = dolfinx.fem.FunctionSpace(self.mesh, ("DG", 0))
+        self.lmbda0 = dolfinx.fem.Function(L)
+
+        # Define the forms associated with the second derivative of the energy
+        self.F_ = [
+            ufl.derivative(
+                energy, state["u"], ufl.TestFunction(state["u"].ufl_function_space())
+            ),
+            ufl.derivative(
+                energy,
+                state["alpha"],
+                ufl.TestFunction(state["alpha"].ufl_function_space()),
+            ),
+        ]
+        self.F = dolfinx.fem.form(self.F_)
+
+        # Is the current state critical?
+        self._critical = False
+
+        self.bcs = bcs["bcs_u"] + bcs["bcs_alpha"]
+        pass
+    # ... (rest of the class methods)
+
+class BifurcationSolver(SecondOrderSolver):
+    """Minimal implementation for the solution of the uniqueness issue"""
+
+    def __init__(
+        self,
+        energy: ufl.form.Form,
+        state: dict,
+        bcs: list,
+        nullspace=None,
+        bifurcation_parameters=None,
+    ):
+        """
+        Initialize the BifurcationSolver.
+
+        Args:
+            energy (ufl.form.Form): The energy functional.
+            state (dict): Dictionary containing state variables 'u' and 'alpha'.
+            bcs (list): List of boundary conditions.
+            nullspace: Nullspace object for the problem.
+            bifurcation_parameters: Parameters for the bifurcation analysis.
+        """
+        super(BifurcationSolver, self).__init__(
+            energy,
+            state,
+            bcs,
+            nullspace,
+            stability_parameters=bifurcation_parameters,
+        )
+
+class StabilitySolver(SecondOrderSolver):
+    """Base class for a minimal implementation of the solution of eigenvalue
+    problems bound to a cone. Based on numerical recipe SPA and KR existence result
+    Thanks Yves and Luc."""
+
+    def __init__(
+        self,
+        energy: ufl.form.Form,
+        state: dict,
+        bcs: list,
+        nullspace=None,
+        cone_parameters=None,
+    ):
+        """
+        Initialize the StabilitySolver.
+
+        Args:
+            energy (ufl.form.Form): The energy functional.
+            state (dict): Dictionary containing state variables 'u' and 'alpha'.
+            bcs (list): List of boundary conditions.
+            nullspace: Nullspace object for the problem.
+            cone_parameters: Parameters for the stability analysis with cones.
+        """
+        super(StabilitySolver, self).__init__(
+            energy,
+            state,
+            bcs,
+            nullspace,
+            stability_parameters=cone_parameters,
+        )
+        self._converged = False
+        self._v = dolfinx.fem.petsc.create_vector_block(self.F)
+    
+        self._reasons = {'0': 'converged',
+                         '-1': 'non-converged, check the logs',
+                         '1': 'converged atol',
+                         '2': 'converged rtol'
+                         }
+        self._reason = None
+
+    # ... (rest of the class methods)
