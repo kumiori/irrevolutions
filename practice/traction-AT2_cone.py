@@ -41,7 +41,8 @@ from dolfinx.common import Timer, list_timings, TimingType
 sys.path.append("../")
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
+# from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.so_merged import BifurcationSolver, StabilitySolver
 from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
@@ -89,16 +90,16 @@ with open("../test/parameters.yml") as f:
 parameters["stability"]["cone"]["cone_max_it"] = 400000
 parameters["stability"]["cone"]["cone_atol"] = 1e-6
 parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-parameters["stability"]["cone"]["scaling"] = 0.06
+parameters["stability"]["cone"]["scaling"] = 0.3
 
 parameters["model"]["model_dimension"] = 2
 parameters["model"]["model_type"] = '1D'
 parameters["model"]["w1"] = 1
 parameters["model"]["ell"] = .1
 parameters["model"]["k_res"] = 0.
-parameters["loading"]["min"] = .0
+parameters["loading"]["min"] = .8
 parameters["loading"]["max"] = 1.5
-parameters["loading"]["steps"] = 100
+parameters["loading"]["steps"] = 10
 
 parameters["geometry"]["geom_type"] = "traction-bar"
 parameters["geometry"]["ell_lc"] = 5
@@ -122,7 +123,14 @@ geom_type = parameters["geometry"]["geom_type"]
 # if comm.rank == 0:
 #     Path(prefix).mkdir(parents=True, exist_ok=True)
 
+# with open("../test/parameters/parameters-mert.yaml") as f:
+#     parameters = yaml.load(f, Loader=yaml.FullLoader)
+
+
+
 _lc = ell_ / parameters["geometry"]["ell_lc"] 
+
+
 gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
 
 # Get mesh and meshtags
@@ -135,7 +143,7 @@ signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
 outdir = "output"
 prefix = os.path.join(outdir, "traction_AT2_cone", signature)
-
+# __import__('pdb').set_trace()
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
@@ -286,7 +294,7 @@ for i_t, t in enumerate(loads):
     u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
     u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                           mode=PETSc.ScatterMode.FORWARD)
-
+    pdb.set_trace()
     # update the lower bound
     alpha.vector.copy(alpha_lb.vector)
     alpha_lb.vector.ghostUpdate(
@@ -343,7 +351,7 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"State is elastic: {is_elastic}")
     ColorPrint.print_bold(f"State's inertia: {inertia}")
     # ColorPrint.print_bold(f"State is stable: {is_stable}")
-    
+
     ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
     ColorPrint.print_bold(f"===================-=================")
     
@@ -432,3 +440,6 @@ plotter = pyvista.Plotter(
 _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 1))
 _plt.screenshot(f"{prefix}/traction-state.png")
+
+
+ColorPrint.print_bold(f"===================-{signature}-=================")
