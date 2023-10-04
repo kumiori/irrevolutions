@@ -92,9 +92,10 @@ def load_parameters(file_path):
     Returns:
         dict: Loaded parameters.
     """
+    import hashlib
+
     with open(file_path) as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
-
 
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
@@ -119,8 +120,10 @@ def load_parameters(file_path):
 
     _nameExp = parameters["geometry"]["geom_type"]
     ell_ = parameters["model"]["ell"]
-    
-    return parameters
+
+    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+
+    return parameters, signature
 
 # Mesh creation function
 
@@ -416,9 +419,6 @@ def run_time_loop(parameters, solver, model, bcs):
     comm = MPI.COMM_WORLD
     dx = ufl.Measure("dx", domain=state["u"].function_space.mesh)
 
-    # get loading parameter from boundary condition
-    u_ = bcs['bcs_u'][1].g
-
     loads = np.linspace(parameters["loading"]["min"],
                         parameters["loading"]["max"], parameters["loading"]["steps"])
     
@@ -436,18 +436,21 @@ def run_time_loop(parameters, solver, model, bcs):
     # Main time loop
     from dolfinx import cpp as _cpp
     _x = _cpp.fem.interpolation_coords(V_u.element, mesh, cells)
+
+    alpha = state["alpha"]
+    u = state["u"]
     
     for i_t, t in enumerate(loads):
+
+
         # Update boundary conditions or external loads if necessary
         datum = lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1]))
         bcs['bcs_u'][1].g.interpolate(datum(_x), cells)
         bcs['bcs_u'][1].g.x.scatter_forward()
-        # u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-        #                     mode=PETSc.ScatterMode.FORWARD)
+
+
         # Implement any necessary updates here
         # update the lower bound
-        alpha = state["alpha"]
-        u = state["u"]
 
         alpha.vector.copy(solver.alpha_lb.vector)
         solver.alpha_lb.vector.ghostUpdate(
@@ -466,7 +469,7 @@ def run_time_loop(parameters, solver, model, bcs):
             assemble_scalar(form(model.elastic_energy_density(state) * dx)),
             op=MPI.SUM,
         )
-        print(elastic_energy)
+
         # Add other simulation data calculations here
 
         history_data["load"].append(t)
@@ -480,7 +483,7 @@ def run_time_loop(parameters, solver, model, bcs):
 if __name__ == "__main__":
     # Main script execution
     # Load parameters from YAML file
-    parameters = load_parameters("../test/parameters.yml")
+    parameters, signature = load_parameters("../test/parameters.yml")
 
     # Create mesh
     mesh = create_mesh(parameters)
@@ -510,8 +513,10 @@ if __name__ == "__main__":
     history_data = run_time_loop(parameters, solver, model, bcs)
 
     # Store and visualize results
-    storage = ResultsStorage(MPI.COMM_WORLD, "output/traction_AT2_cone")
+    storage = ResultsStorage(MPI.COMM_WORLD, f"output/traction_AT2_cone/{signature}")
     storage.store_results(history_data, state)
 
-    visualization = Visualization("output/traction_AT2_cone")
+    visualization = Visualization(f"output/traction_AT2_cone/{signature}")
     visualization.visualize_results(history_data)
+
+    ColorPrint.print_bold(f"===================-{signature}-=================")
