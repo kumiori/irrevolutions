@@ -433,7 +433,7 @@ class SecondOrderSolver:
         # Check if the system is damage-critical and log it
         self.log_critical_state()
 
-        with dolfinx.common.Timer(f"~Second Order: Bifurcation"):
+        with dolfinx.common.Timer(f"~Second Order: Bifurcation") as timer:
             # Set up constraints
             constraints = self.setup_constraints(alpha_old)
 
@@ -453,7 +453,7 @@ class SecondOrderSolver:
             # Store the results
             stable = self.store_results(eigen, unstable_spectrum)
 
-            return stable
+        return stable
 
     def log_critical_state(self):
         """Log whether the system is damage-critical."""

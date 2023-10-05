@@ -126,18 +126,19 @@ def parameters_vs_ell(parameters=None, ell=0.1):
     return parameters
 
 
-def parameters_vs_SPA_scaling(parameters=None, s=0.01):
+def parameters_vs_SPA_scaling(file=None, s=0.01):
 
-    if parameters is None:
+    if file is None:
         with open("../test/parameters.yml") as f:
+            parameters = yaml.load(f, Loader=yaml.FullLoader)
+    else:
+        with open(file) as f:
             parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     parameters["stability"]["cone"]["scaling"] = s
-
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
     parameters["stability"]["cone"]["cone_rtol"] = 1e-5
-
     parameters["model"]["ell"] = 0.1
     parameters["loading"]["min"] = .9
     parameters["loading"]["max"] = parameters["model"]["k"]
