@@ -226,7 +226,7 @@ hybrid = HybridFractureSolver(
 )
 
 bifurcation = BifurcationSolver(
-    total_energy, state, bcs, stability_parameters=parameters.get("stability")
+    total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
 )
 
 cone = StabilitySolver(
