@@ -103,3 +103,25 @@ def set_vector_to_constant(x, value):
         local.set(value)
     x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
+
+
+def table_timing_data():
+    import pandas as pd
+    from dolfinx.common import timing
+
+    timing_data = []
+    tasks = ["~First Order: AltMin solver",
+        "~First Order: AltMin-Damage solver",
+        "~First Order: AltMin-Elastic solver",
+        "~First Order: Hybrid solver",
+        "~Second Order: Bifurcation",
+        "~Second Order: Cone Project",
+        "~Second Order: Stability",
+        ]
+
+    for task in tasks:
+        timing_data.append(timing(task))
+    
+    df = pd.DataFrame(timing_data, columns=["reps", "avg", "tot", "?"], index=tasks)
+
+    return df

@@ -45,7 +45,7 @@ from utils.plots import plot_energies
 from utils import ColorPrint
 from meshes.primitives import mesh_bar_gmshapi
 from solvers import SNESSolver
-from algorithms.so_merged import BifurcationSolver, StabilitySolver
+from algorithms.so import BifurcationSolver, StabilitySolver
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
 from models import DamageElasticityModel as Brittle
 
@@ -119,9 +119,21 @@ class Visualization:
         """
         # Implement visualization code here
 
+    def save_table(self, data, name):
+        """
+        Save pandas table results using json.
 
+        Args:
+            data (dict): Pandas table containing simulation data.
+            name (str): Filename.
+        """
 
-def main(parameters):
+        if MPI.COMM_WORLD.rank == 0:
+            a_file = open(f"{self.prefix}/{name}.json", "w")
+            json.dump(data.to_json(), a_file)
+            a_file.close()
+
+def main(parameters, storage=None):
 
     petsc4py.init(sys.argv)
     comm = MPI.COMM_WORLD
@@ -141,8 +153,11 @@ def main(parameters):
 
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
     outdir = "output"
-    prefix = os.path.join(outdir, "traction_AT2_cone", signature)
-
+    if storage is None:
+        prefix = os.path.join(outdir, "traction_AT2_cone", signature)
+    else:
+        prefix = storage
+    
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
@@ -433,21 +448,30 @@ def load_parameters(file_path):
     return parameters, signature
 
 
-
-
 if __name__ == "__main__":
 
     parameters, signature = load_parameters("../test/parameters.yml")
     
-    history_data, state = main(parameters)
+    _storage = f"output/traction_AT2_cone/vs_s/{signature}"
+    
+    history_data, state = main(parameters, _storage)
 
     # Store and visualise results
-    storage = ResultsStorage(MPI.COMM_WORLD, f"output/traction_AT2_cone/{signature}")
+    storage = ResultsStorage(MPI.COMM_WORLD, _storage)
     storage.store_results(parameters, history_data, state)
 
     visualization = Visualization(f"output/traction_AT2_cone/{signature}")
+
     visualization.visualise_results(history_data)
+    visualization.save_table(pd.DataFrame(history_data), "_history_data.json")
     
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     ColorPrint.print_bold(f"===================-{signature}-=================")
+
+    # timings
+
+    from utils import table_timing_data
+    _timings = table_timing_data()
+
+    visualization.save_table(_timings, "timing_data.json")
