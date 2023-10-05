@@ -58,7 +58,6 @@ import dolfinx.mesh
 
 sys.path.append("../")
 
-from models import DamageElasticityModel as Brittle
 # from algorithms.am import AlternateMinimisation, HybridFractureSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from meshes.primitives import mesh_bar_gmshapi
@@ -66,17 +65,6 @@ from utils import ColorPrint
 from utils.plots import plot_energies
 from utils import norm_H1, norm_L2
 
-
-class BrittleAT2(Brittle):
-    """Brittle AT_2 model, without an elastic phase. For fun only."""
-
-    def w(self, alpha):
-        """
-        Return the dissipated energy function as a function of the state
-        (only depends on damage).
-        """
-        # Return w(alpha) function
-        return self.w1 * alpha**2
 
 
 
@@ -238,24 +226,35 @@ def setup_boundary_conditions(V_u, V_alpha, Lx):
 
 # Model initialization function
 
-def initialize_model(parameters):
+def initialise_model(parameters):
     """
-    Initialize the material model based on simulation parameters.
+    Initialise the material model based on simulation parameters.
 
     Args:
         parameters (dict): Simulation parameters.
 
     Returns:
-        BrittleAT2: Initialized material model.
+        BrittleAT2: Initialised material model.
     """
     # Extract model parameters from parameters dictionary
     model_parameters = parameters["model"]
 
-    w1 = model_parameters["w1"]
-    ell = model_parameters["ell"]
+    from models import DamageElasticityModel as Brittle
+    
+    class BrittleAT2(Brittle):
+        """Brittle AT_2 model, without an elastic phase. For fun only."""
 
-    # Initialize material model
-    model = BrittleAT2(model_parameters)
+        def w(self, alpha):
+            """
+            Return the dissipated energy function as a function of the state
+            (only depends on damage).
+            """
+            # Return w(alpha) function
+            return self.w1 * alpha**2
+
+    # Initialise material model
+    # model = BrittleAT2(model_parameters)
+    model = Brittle(model_parameters)
 
     return model
 
@@ -270,7 +269,7 @@ def define_energy_functional(state, model):
         V_alpha (dolfinx.FunctionSpace): Function space for damage.
         u (dolfinx.Function): Displacement field.
         alpha (dolfinx.Function): Damage field.
-        model: Initialized material model.
+        model: Initialised material model.
 
     Returns:
         ufl.form.Form: Energy functional.
@@ -295,9 +294,9 @@ def define_energy_functional(state, model):
 
 # Solver initialization functions
 
-def initialize_solver(total_energy, state, bcs, parameters):
+def initialise_solver(total_energy, state, bcs, parameters):
     """
-    Initialize the solver for the simulation.
+    Initialise the solver for the simulation.
 
     Args:
         total_energy (ufl.form.Form): Energy functional.
@@ -306,7 +305,7 @@ def initialize_solver(total_energy, state, bcs, parameters):
         parameters (dict): Solver parameters.
 
     Returns:
-        AlternateMinimisation: Initialized solver.
+        AlternateMinimisation: Initialised solver.
     """
 
     # V_u, V_alpha, u, alpha
@@ -328,7 +327,7 @@ def initialize_solver(total_energy, state, bcs, parameters):
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
-    # Initialize solver
+    # Initialise solver
     solver = AlternateMinimisation(
         total_energy, state, bcs, solver_parameters = parameters, bounds=(alpha_lb, alpha_ub)
     )
@@ -355,7 +354,7 @@ class ResultsStorage:
         self.comm = comm
         self.prefix = prefix
 
-    def store_results(self, history_data, state):
+    def store_results(self, parameters, history_data, state):
         """
         Store simulation results in XDMF and JSON formats.
 
@@ -366,6 +365,10 @@ class ResultsStorage:
 
         u = state["u"]
         alpha = state["alpha"]
+
+        if self.comm.rank == 0:
+            with open(f"{self.prefix}/parameters.yaml", 'w') as file:
+                yaml.dump(parameters, file)
 
         with XDMFFile(self.comm, f"{self.prefix}/simulation_results.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
             # for t, data in history_data.items():
@@ -389,9 +392,9 @@ class Visualization:
     def __init__(self, prefix):
         self.prefix = prefix
 
-    def visualize_results(self, history_data):
+    def visualise_results(self, history_data):
         """
-        Visualize simulation results using appropriate visualization libraries.
+        Visualise simulation results using appropriate visualization libraries.
 
         Args:
             history_data (dict): Dictionary containing simulation data.
@@ -406,8 +409,8 @@ def run_time_loop(parameters, solver, model, bcs):
 
     Args:
         parameters (dict): Simulation parameters.
-        solver: Initialized solver.
-        model: Initialized material model.
+        solver: Initialised solver.
+        model: Initialised material model.
         V_u (dolfinx.FunctionSpace): Function space for displacement.
         V_alpha (dolfinx.FunctionSpace): Function space for damage.
         bcs_u (list of dolfinx.DirichletBC): List of displacement boundary conditions.
@@ -433,13 +436,13 @@ def run_time_loop(parameters, solver, model, bcs):
     map = mesh.topology.index_map(mesh.topology.dim)
     cells = np.arange(map.size_local + map.num_ghosts, dtype=np.int32)
 
-    # Main time loop
     from dolfinx import cpp as _cpp
     _x = _cpp.fem.interpolation_coords(V_u.element, mesh, cells)
 
     alpha = state["alpha"]
     u = state["u"]
     
+    # Main time loop
     for i_t, t in enumerate(loads):
 
 
@@ -448,6 +451,7 @@ def run_time_loop(parameters, solver, model, bcs):
         bcs['bcs_u'][1].g.interpolate(datum(_x), cells)
         bcs['bcs_u'][1].g.x.scatter_forward()
 
+        logging.critical(f"\n\n-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --\n")
 
         # Implement any necessary updates here
         # update the lower bound
@@ -497,26 +501,34 @@ if __name__ == "__main__":
     bcs = setup_boundary_conditions(V_u, V_alpha, parameters["geometry"]["Lx"])
     
 
-    # Initialize material model
-    model = initialize_model(parameters)
+    # Initialise material model
+    model = initialise_model(parameters)
 
     # Define the energy functional
     total_energy = define_energy_functional(state, model)
 
-    # Initialize the solver
-    solver = initialize_solver(total_energy, state, bcs, parameters.get("solvers"))
+    # Initialise the solver
+    solver = initialise_solver(total_energy, state, bcs, parameters.get("solvers"))
 
     # Set up logging
     setup_logging()
 
-    # Run the time loop and store results
-    history_data = run_time_loop(parameters, solver, model, bcs)
+    def postprocess(history_data, state):
+        """Postprocess simulation data at each step."""
 
-    # Store and visualize results
+        return
+
+    # Run the time loop and store results
+    history_data = run_time_loop(parameters, solver, model, bcs, postprocess)
+
+    # Store and visualise results
     storage = ResultsStorage(MPI.COMM_WORLD, f"output/traction_AT2_cone/{signature}")
-    storage.store_results(history_data, state)
+    storage.store_results(parameters, history_data, state)
 
     visualization = Visualization(f"output/traction_AT2_cone/{signature}")
-    visualization.visualize_results(history_data)
+    visualization.visualise_results(history_data)
+    
+    pdb.set_trace()
+    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     ColorPrint.print_bold(f"===================-{signature}-=================")
