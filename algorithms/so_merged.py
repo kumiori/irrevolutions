@@ -430,9 +430,34 @@ class SecondOrderSolver:
             "elastic": [],
         }
 
-        restricted_dofs = self.get_inactive_dofset(alpha_old)
-        constraints = restriction.Restriction([self.V_u, self.V_alpha], restricted_dofs)
+        # Check if the system is damage-critical and log it
+        self.log_critical_state()
 
+        with dolfinx.common.Timer(f"~Second Order: Bifurcation") as timer:
+            # Set up constraints
+            constraints = self.setup_constraints(alpha_old)
+
+            self.inertia_setup(constraints)
+
+            # Set up and solve the eigenvalue problem
+            eigen = self.setup_eigenvalue_problem(constraints)
+            eigen.solve()
+
+            # Process and analyze the eigenmodes
+            self.eigen = eigen
+            spectrum = self.process_eigenmodes(eigen)
+
+            # Sort eigenmodes by eigenvalues
+            spectrum.sort(key=lambda item: item.get("lambda"))
+            unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
+
+            # Store the results
+            stable = self.store_results(eigen, unstable_spectrum)
+
+        return stable
+
+    def log_critical_state(self):
+        """Log whether the system is damage-critical."""
         _emoji = "💥" if self._critical else "🌪"
         logging.critical(
             f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
@@ -442,106 +467,99 @@ class SecondOrderSolver:
             logging.debug(
                 f"rank {comm.rank})     > The cone is {_emoji}"
             )
+    
+    def setup_constraints(self, alpha_old: dolfinx.fem.function.Function):
+        """Set up constraints and return them."""
+        restricted_dofs = self.get_inactive_dofset(alpha_old)
+        constraints = restriction.Restriction(
+            [self.V_u, self.V_alpha], restricted_dofs)
+        return constraints
 
-        with dolfinx.common.Timer(f"~Second Order: Bifurcation"):
+    def setup_eigenvalue_problem(self, constraints):
+        """Set up the eigenvalue problem and return the solver."""
+        eigen = eigenblockproblem.SLEPcBlockProblemRestricted(
+            self.F_,
+            self.state,
+            self.lmbda0,
+            bcs=self.bcs,
+            restriction=constraints,
+            prefix="stability",
+        )
+        self.setup_eigensolver(eigen)
+        self.eigen = eigen  # Save the eigenvalue problem instance
+        return eigen
 
-            self.inertia_setup(constraints)
+    def process_eigenmodes(self, eigen):
+        """Process eigenmodes and return a list of unstable modes."""
+        spectrum = []
 
-            eigen = eigenblockproblem.SLEPcBlockProblemRestricted(
-                self.F_,
-                self.state,
-                self.lmbda0,
-                bcs=self.bcs,
-                restriction=constraints,
-                prefix="stability",
+        for i in range(self.get_number_of_process_eigenvalues(eigen)):
+            logging.debug(f"{rank}) Postprocessing mode {i}")
+            v_n, beta_n, eigval, _u = self.process_eigenmode(eigen, i)
+            logging.critical("%d     %6e" % (i, eigval.real))
+            spectrum.append(
+                {
+                    "n": i,
+                    "lambda": eigval.real,
+                    "xk": _u,
+                    "v": v_n,
+                    "beta": beta_n,
+                }
             )
-            self.setup_eigensolver(eigen)
 
-            # save an instance
-            self.eigen = eigen
+        return spectrum
 
-            eigen.solve()
+    def get_number_of_process_eigenvalues(self, eigen):
+        """Process a limited number of eigenvalues, limited by parameters or by 
+        the number of converged solutions"""
 
-            nev, ncv, mpd = eigen.eps.getDimensions()
-            neig = self.parameters["maxmodes"]
+        neig = self.parameters["maxmodes"]
 
-            if neig is not None:
-                neig_out = min(eigen.eps.getConverged(), neig)
-            else:
-                neig_out = eigen.eps.getConverged()
+        if neig is not None:
+            neig_out = min(eigen.eps.getConverged(), neig)
+        else:
+            neig_out = eigen.eps.getConverged()
+    
+        return neig_out
 
-            logging.info(f"Number of requested eigenvalues: {nev}")
-            logging.info(f"Number of requested column vectors: {ncv}")
-            logging.info(f"Number of mpd: {mpd}")
-            logging.info(f"converged {ncv:d}")
-            # print(f"{rank}) mode {i}: {name} beta-norm {ur[1].vector.norm()}")
 
-            # postprocess
-            spectrum = []
-            _spectrum = []
-            
-                
-            logging.critical("")
-            logging.critical("i        k          ")
-            logging.critical("--------------------")
+    def process_eigenmode(self, eigen, i):
+        """Process a single eigenmode and return its components."""
+        v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
+        beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
 
-            for i in range(neig_out):
-                logging.debug(f"{rank}) Postprocessing mode {i}")
-                v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
-                beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
+        _u = dolfinx.fem.petsc.create_vector_block(self.F)
+        eigval, ur, _ = eigen.getEigenpair(i)
+        _ = self.normalise_eigen(ur)
 
-                _u = dolfinx.fem.petsc.create_vector_block(self.F)
-                eigval, ur, _ = eigen.getEigenpair(i)
-                _ = self.normalise_eigen(ur)
+        functions_to_vec(ur, _u)
 
-                functions_to_vec(ur, _u)
-                logging.critical("%d     %6e" % (i, eigval.real))
+        with ur[0].vector.localForm() as v_loc, v_n.vector.localForm() as v_n_loc:
+            v_loc.copy(result=v_n_loc)
 
-                with ur[0].vector.localForm() as v_loc, v_n.vector.localForm() as v_n_loc:
-                    v_loc.copy(result=v_n_loc)
+        v_n.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
-                v_n.vector.ghostUpdate(
-                    addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-                )
+        with ur[1].vector.localForm() as b_loc, beta_n.vector.localForm() as b_n_loc:
+            b_loc.copy(result=b_n_loc)
 
-                with ur[1].vector.localForm() as b_loc, beta_n.vector.localForm() as b_n_loc:
-                    b_loc.copy(result=b_n_loc)
+        beta_n.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
-                beta_n.vector.ghostUpdate(
-                    addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-                )
+        logging.debug(f"mode {i} {ur[0].name}-norm {ur[0].vector.norm()}")
+        logging.debug(f"mode {i} {ur[1].name}-norm {ur[1].vector.norm()}")
+        logging.debug(f"mode {i} beta_n-norm {beta_n.vector.norm()}")
+        logging.debug("")
 
-                logging.debug(f"mode {i} {ur[0].name}-norm {ur[0].vector.norm()}")
-                logging.debug(f"mode {i} {ur[1].name}-norm {ur[1].vector.norm()}")
-                logging.debug(f"mode {i} beta_n-norm {beta_n.vector.norm()}")
-                logging.debug("")
+        return v_n, beta_n, eigval, _u
+    def store_results(self, eigen, unstable_spectrum):
+        """Store eigenmodes and results."""
+        spectrum = unstable_spectrum
 
-                _spectrum.append(
-                    {
-                        "n": i,
-                        "lambda": eigval.real,
-                        "xk": _u
-                    }
-                )
-
-                spectrum.append(
-                    {
-                        "n": i,
-                        "lambda": eigval.real,
-                        "v": v_n,
-                        "beta": beta_n,
-                    }
-                )
-
-        spectrum.sort(key=lambda item: item.get("lambda"))
-        _spectrum.sort(key=lambda item: item.get("lambda"))
-        
-        unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
-        unstable__spectrum = list(filter(lambda item: item.get("lambda") <= 0, _spectrum))
-
-        self.spectrum = unstable_spectrum
-        # self.Kspectrum = unstable_Kspectrum
-        self._spectrum = unstable__spectrum
+        self.spectrum = spectrum
+        self._spectrum = spectrum
 
         eigs = [mode["lambda"] for mode in spectrum]
         eig0, u0, _ = eigen.getEigenpair(0)
@@ -551,15 +569,29 @@ class SecondOrderSolver:
 
         perturbations_v = [mode["v"] for mode in unstable_spectrum]
         perturbations_beta = [mode["beta"] for mode in unstable_spectrum]
-        # based on eigenvalue
-        stable = np.min(eigs) > float(self.parameters.get("eigen").get("eps_tol"))
-        
+
+        stable = self.check_stability(eig0)
+
         self.data = {
             "eigs": eigs,
             "perturbations_beta": perturbations_beta,
             "perturbations_v": perturbations_v,
             "stable": bool(stable),
         }
+
+        return stable
+    
+    def check_stability(self, eig0):
+        """Check stability based on eigenvalues and return the result."""
+        eigs = [mode["lambda"] for mode in self.spectrum]
+        # eig0, u0, _ = eigen.getEigenpair(0)
+
+        if len(eigs) == 0:
+            # assert 
+            stable = eig0.real > 0
+        else:
+            stable = np.min(eigs) > float(
+                self.parameters.get("eigen").get("eps_tol"))
 
         return stable
 
@@ -647,10 +679,10 @@ class StabilitySolver(SecondOrderSolver):
             bcs,
             nullspace,
             stability_parameters=cone_parameters,
-    )
+        )
         self._converged = False
         self._v = dolfinx.fem.petsc.create_vector_block(self.F)
-    
+
         self._reasons = {'0': 'converged',
                          '-1': 'non-converged, check the logs',
                          '1': 'converged atol',
@@ -658,6 +690,13 @@ class StabilitySolver(SecondOrderSolver):
                          }
         self._reason = None
 
+        self.data = {
+            "iterations": [],
+            "error_x_L2": [],
+            "lambda_k": [],
+            "lambda_0": [],
+            "y_norm_L2": [],
+        }
 
     def _is_critical(self, alpha_old):
         """
@@ -670,7 +709,6 @@ class StabilitySolver(SecondOrderSolver):
             bool: True if damage-critical, False otherwise.
         """
         constrained_dofs = len(self.get_inactive_dofset(alpha_old)[1])
-
 
         if constrained_dofs > 0:
             return True
