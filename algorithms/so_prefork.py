@@ -58,9 +58,6 @@ size = comm.Get_size()
 
 class NonConvergenceException(Exception):
     def __init__(self, message="Non-convergence error"):
-        """
-        Exception class for non-convergence errors during computations.
-        """
         self.message = message
         super().__init__(self.message)
 
@@ -114,31 +111,18 @@ class SecondOrderSolver:
         nullspace=None,
         stability_parameters=None,
     ):
-        """
-        Initialize the SecondOrderSolver.
-
-        Args:
-            energy (ufl.form.Form): The energy functional.
-            state (dict): Dictionary containing state variables 'u' and 'alpha'.
-            bcs (list): List of boundary conditions.
-            nullspace: Nullspace object for the problem.
-            stability_parameters: Parameters for the stability analysis.
-        """
         self.state = [state["u"], state["alpha"]]
         alpha = self.state[1]
         self.parameters = stability_parameters
 
-        # Initialize function spaces
         self.V_u = state["u"].function_space
         self.V_alpha = state["alpha"].function_space
 
         self.mesh = alpha.function_space.mesh
 
-        # Initialize L as a DG(0) function
         L = dolfinx.fem.FunctionSpace(self.mesh, ("DG", 0))
         self.lmbda0 = dolfinx.fem.Function(L)
 
-        # Define the forms associated with the second derivative of the energy
         self.F_ = [
             ufl.derivative(
                 energy, state["u"], ufl.TestFunction(state["u"].ufl_function_space())
@@ -150,8 +134,8 @@ class SecondOrderSolver:
             ),
         ]
         self.F = dolfinx.fem.form(self.F_)
-
-        # Is the current state critical?
+        
+        # Is the current state critical? 
         self._critical = False
 
         self.bcs = bcs["bcs_u"] + bcs["bcs_alpha"]
@@ -160,11 +144,6 @@ class SecondOrderSolver:
     def is_elastic(self) -> bool:
         """Returns whether or not the current state is elastic,
         based on the strict positivity of the gradient of E
-
-        Checks if the current state is elastic based on the gradient of E.
-
-        Returns:
-            bool: True if the state is elastic, False otherwise.
         """
         etol = self.parameters.get("is_elastic_tol")
         E_alpha = dolfinx.fem.assemble_vector(self.F[1])
@@ -179,30 +158,16 @@ class SecondOrderSolver:
         return elastic
 
     def is_stable(self) -> bool:
-        """
-        Checks if the system is stable based on elasticity.
-
-        Returns:
-            bool: True if the system is stable, False otherwise.
-        """
         if self.is_elastic():
             return True
         else:
-            raise NotImplementedError("Stability check not implemented")
+            raise NotImplementedError
 
     def get_inactive_dofset(self, a_old) -> set:
         """Computes the set of dofs where damage constraints are inactive
         based on the energy gradient and the ub constraint. The global
         set of inactive constraint-dofs is the union of constrained
         alpha-dofs and u-dofs.
-
-        Computes the set of inactive dofs for damage constraints.
-
-        Args:
-            a_old: The old state vector.
-
-        Returns:
-            set: Set of inactive dofs.
         """
         gtol = self.parameters.get("inactiveset_gatol")
         pwtol = self.parameters.get("inactiveset_pwtol")
@@ -234,7 +199,7 @@ class SecondOrderSolver:
             self._critical = True
         else:
             self._critical = False
-
+        
         _emoji = "💥" if self._critical else "🌪"
         logging.debug(
             f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
@@ -245,6 +210,8 @@ class SecondOrderSolver:
             logging.debug(
                 f"rank {comm.rank})     > The cone is {_emoji}"
             )
+
+        # F.view()
 
         restricted_dofs = [dofs_u_all, dofs_alpha_inactive]
 
@@ -259,15 +226,6 @@ class SecondOrderSolver:
         return restricted_dofs
 
     def setup_eigensolver(self, eigen):
-        """
-        Set up the eigenvalue solver for stability analysis.
-
-        Args:
-            eigen: Eigenvalue problem instance.
-
-        Returns:
-            eigen: Updated eigenvalue problem instance.
-        """
         eigen.eps.setType(SLEPc.EPS.Type.KRYLOVSCHUR)
         eigen.eps.setProblemType(SLEPc.EPS.ProblemType.HEP)
 
@@ -289,15 +247,15 @@ class SecondOrderSolver:
         return eigen
 
     def inertia_setup(self, constraints):
-        """
-        Set up the inertia matrix for the system.
 
-        Args:
-            constraints: Constraint object.
+        # opts = PETSc.Options()
+        # opts.prefixPush(prefix)
 
-        Returns:
-            pc: Preconditioner object.
-        """
+        # for k, v in self.parameters.get("inertia").items():
+        #     print(f"{prefix}{k} {v}")
+        #     opts[k] = v
+        # opts.prefixPop()
+        # pc.setFromOptions()
         pc = PETSc.PC().create(comm)
         prefix = "inertia"
         opts = PETSc.Options(prefix)
@@ -339,33 +297,19 @@ class SecondOrderSolver:
         return pc
 
     def get_inertia(self) -> (int, int, int):
-        """
-        Get the inertia of the inertia matrix.
 
-        Returns:
-            Tuple[int, int, int]: Tuple containing the number of negative, zero, and positive eigenvalues.
-        """
         Fm = self.inertia.getFactorMatrix()
         (neg, zero, pos) = Fm.getInertia()
 
         return (neg, zero, pos)
 
     def normalise_eigen(self, u, mode="max-beta"):
-        """
-        Normalize the eigenmode vector.
 
-        Args:
-            u: Eigenmode vector.
-            mode (str): Mode for normalization. Only "max-beta" is supported.
-        
-        Returns:
-            float: Coefficient used for normalization.
-        """
         assert mode == "max-beta"
         v, beta = u[0], u[1]
         V_alpha_lrange = beta.function_space.dofmap.index_map.local_range
 
-        coeff = max(abs(beta.vector[V_alpha_lrange[0]: V_alpha_lrange[1]]))
+        coeff = max(abs(beta.vector[V_alpha_lrange[0] : V_alpha_lrange[1]]))
         coeff_glob = np.array(0.0, "d")
 
         comm.Allreduce(coeff, coeff_glob, op=MPI.MAX)
@@ -376,8 +320,7 @@ class SecondOrderSolver:
         if coeff_glob == 0.0:
             log(
                 LogLevel.INFO,
-                "Damage eigenvector is null i.e. |β|={}".format(
-                    beta.vector.norm()),
+                "Damage eigenvector is null i.e. |β|={}".format(beta.vector.norm()),
             )
             return 0.0
 
@@ -400,26 +343,10 @@ class SecondOrderSolver:
         return coeff_glob
 
     def postproc_eigs(self, eigs, eigen):
-        """
-        Postprocess the computed eigenvalues.
-
-        Args:
-            eigs: List of computed eigenvalues.
-            eigen: Eigenvalue problem instance.
-        """
         pass
 
     def solve(self, alpha_old: dolfinx.fem.function.Function):
-        """
-        Solve the stability analysis problem.
 
-        Args:
-            alpha_old: Old state vector.
-
-        Returns:
-            bool: True if stable, False otherwise.
-        """
-        # Initialize the data dictionary
         self.data = {
             "stable": [],
             "neg_eigs": [],
@@ -562,17 +489,10 @@ class SecondOrderSolver:
         return stable
 
     def save_eigenvectors(self, filename="output/eigvec.xdmf"):
-        """
-        Save computed eigenvectors to a file.
-
-        Args:
-            filename (str): Output filename for the XDMF file.
-        """
         eigs = self.data["eigs"]
         v = self.data["perturbations_v"]
         beta = self.data["perturbations_beta"]
-        ColorPrint.print_info(
-            "Saving the eigenvectors for the following eigenvalues")
+        ColorPrint.print_info("Saving the eigenvetors for the following eigenvalues")
         ColorPrint.print_info(eigs)
 
         if comm.rank == 0:
@@ -585,7 +505,6 @@ class SecondOrderSolver:
                 ofile.write_function(v[i], eig)
                 ofile.write_function(beta[i], eig)
 
-
 class BifurcationSolver(SecondOrderSolver):
     """Minimal implementation for the solution of the uniqueness issue"""
 
@@ -597,24 +516,14 @@ class BifurcationSolver(SecondOrderSolver):
         nullspace=None,
         bifurcation_parameters=None,
     ):
-        """
-        Initialize the BifurcationSolver.
-
-        Args:
-            energy (ufl.form.Form): The energy functional.
-            state (dict): Dictionary containing state variables 'u' and 'alpha'.
-            bcs (list): List of boundary conditions.
-            nullspace: Nullspace object for the problem.
-            bifurcation_parameters: Parameters for the bifurcation analysis.
-        """
         super(BifurcationSolver, self).__init__(
             energy,
             state,
             bcs,
             nullspace,
             stability_parameters=bifurcation_parameters,
-        )
 
+    )
 
 class StabilitySolver(SecondOrderSolver):
     """Base class for a minimal implementation of the solution of eigenvalue
@@ -629,16 +538,6 @@ class StabilitySolver(SecondOrderSolver):
         nullspace=None,
         cone_parameters=None,
     ):
-        """
-        Initialize the StabilitySolver.
-
-        Args:
-            energy (ufl.form.Form): The energy functional.
-            state (dict): Dictionary containing state variables 'u' and 'alpha'.
-            bcs (list): List of boundary conditions.
-            nullspace: Nullspace object for the problem.
-            cone_parameters: Parameters for the stability analysis with cones.
-        """
         super(StabilitySolver, self).__init__(
             energy,
             state,
