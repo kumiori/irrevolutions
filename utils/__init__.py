@@ -117,6 +117,7 @@ def table_timing_data():
         "~Second Order: Bifurcation",
         "~Second Order: Cone Project",
         "~Second Order: Stability",
+        "~Postprocessing and Vis",
         "~Computation Experiment"
         ]
 

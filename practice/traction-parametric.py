@@ -398,7 +398,7 @@ def main(parameters, model='at2', storage=None):
     # print(df.drop(['solver_data', 'cone_data'], axis=1))
     print(df.drop(['cone_data'], axis=1))
 
-    with dolfinx.common.Timer(f"~Postprocessing and Viz") as timer:
+    with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
         if comm.rank == 0:
             plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
             # plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
@@ -456,9 +456,9 @@ def load_parameters(file_path, model='at2'):
         parameters["loading"]["steps"] = 1
 
     elif model == 'at1':
-        parameters["loading"]["min"] = 0.0
-        parameters["loading"]["max"] = 2.0
-        parameters["loading"]["steps"] = 30
+        parameters["loading"]["min"] = 1.03
+        parameters["loading"]["max"] = 1.03
+        parameters["loading"]["steps"] = 1
         
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
