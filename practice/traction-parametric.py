@@ -239,21 +239,15 @@ def main(parameters, model='at2', storage=None):
     if model == 'at2':
         model = BrittleAT2(parameters["model"])
     elif model == 'at1':
-        parameters["loading"]["min"] = 1.01
-        parameters["loading"]["max"] = 1.01
-        # parameters["loading"]["steps"] = 1
         model = Brittle(parameters["model"])
     else:
         raise ValueError('Model not implemented')
     
     state = {"u": u, "alpha": alpha}
-    # z = [u, alpha]
 
     f = Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
     external_work = ufl.dot(f, state["u"]) * dx
     total_energy = model.total_energy_density(state) * dx - external_work
-    # print('ran\n\n\n')
-    # return 0, 0
 
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
@@ -404,25 +398,25 @@ def main(parameters, model='at2', storage=None):
     # print(df.drop(['solver_data', 'cone_data'], axis=1))
     print(df.drop(['cone_data'], axis=1))
 
+    with dolfinx.common.Timer(f"~Postprocessing and Viz") as timer:
+        if comm.rank == 0:
+            plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+            # plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+            plot_force_displacement(
+                history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
-    if comm.rank == 0:
-        plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
-        # plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-        plot_force_displacement(
-            history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
+        xvfb.start_xvfb(wait=0.05)
+        pyvista.OFF_SCREEN = True
 
-    xvfb.start_xvfb(wait=0.05)
-    pyvista.OFF_SCREEN = True
-
-    plotter = pyvista.Plotter(
-        title="Traction test",
-        window_size=[1600, 600],
-        shape=(1, 2),
-    )
-    _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-    _plt = plot_vector(u, plotter, subplot=(0, 1))
-    _plt.screenshot(f"{prefix}/traction-state.png")
+        plotter = pyvista.Plotter(
+            title="Traction test",
+            window_size=[1600, 600],
+            shape=(1, 2),
+        )
+        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+        _plt = plot_vector(u, plotter, subplot=(0, 1))
+        _plt.screenshot(f"{prefix}/traction-state.png")
 
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"   Done!    ")
@@ -441,7 +435,7 @@ def main(parameters, model='at2', storage=None):
 
 # Configuration handling (load parameters from YAML)
 
-def load_parameters(file_path):
+def load_parameters(file_path, model='at2'):
     """
     Load parameters from a YAML file.
 
@@ -456,30 +450,16 @@ def load_parameters(file_path):
     with open(file_path) as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-    # parameters["stability"]["cone"]["cone_max_it"] = 400000
-    # parameters["stability"]["cone"]["cone_atol"] = 1e-6
-    # parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-    # parameters["stability"]["cone"]["scaling"] = .001
+    if model == 'at2':
+        parameters["loading"]["min"] = .9
+        parameters["loading"]["max"] = .9
+        parameters["loading"]["steps"] = 1
 
-    # parameters["model"]["model_dimension"] = 2
-    # parameters["model"]["model_type"] = '2D'
-    # parameters["model"]["w1"] = 1
-    # parameters["model"]["ell"] = .1
-    # parameters["model"]["k_res"] = 0.
-    parameters["loading"]["min"] = .9
-    parameters["loading"]["max"] = .9
-    parameters["loading"]["steps"] = 1
-
-    # parameters["geometry"]["geom_type"] = "traction-bar"
-    # parameters["geometry"]["ell_lc"] = 5
-    # # Get mesh parameters
-    # Lx = parameters["geometry"]["Lx"]
-    # Ly = parameters["geometry"]["Ly"]
-    # tdim = parameters["geometry"]["geometric_dimension"]
-
-    # _nameExp = parameters["geometry"]["geom_type"]
-    # ell_ = parameters["model"]["ell"]
-
+    elif model == 'at1':
+        parameters["loading"]["min"] = 0.0
+        parameters["loading"]["max"] = 2.0
+        parameters["loading"]["steps"] = 30
+        
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
     return parameters, signature
@@ -617,7 +597,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    base_parameters, base_signature = load_parameters("../test/parameters.yml")
+    base_parameters, base_signature = load_parameters("../test/parameters.yml", model=args.model)
 
     if "-s" in sys.argv:
         parameters, signature = parameters_vs_SPA_scaling(parameters=base_parameters, s=np.float(args.s))
@@ -639,7 +619,7 @@ if __name__ == "__main__":
     print(json.dumps(parameters, indent=2))
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
-        history_data, performance, state = main(parameters, _storage)
+        history_data, performance, state = main(parameters, args.model, _storage)
 
     # Store and visualise results
     storage = ResultsStorage(MPI.COMM_WORLD, _storage)
