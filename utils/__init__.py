@@ -117,11 +117,12 @@ def table_timing_data():
         "~Second Order: Bifurcation",
         "~Second Order: Cone Project",
         "~Second Order: Stability",
+        "~Computation Experiment"
         ]
 
     for task in tasks:
         timing_data.append(timing(task))
     
-    df = pd.DataFrame(timing_data, columns=["reps", "avg", "tot", "?"], index=tasks)
+    df = pd.DataFrame(timing_data, columns=["reps", "wall tot", "usr", "sys"], index=tasks)
 
     return df
