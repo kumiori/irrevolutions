@@ -141,7 +141,8 @@ class SecondOrderSolver:
         # Define the forms associated with the second derivative of the energy
         self.F_ = [
             ufl.derivative(
-                energy, state["u"], ufl.TestFunction(state["u"].ufl_function_space())
+                energy, state["u"], ufl.TestFunction(
+                    state["u"].ufl_function_space())
             ),
             ufl.derivative(
                 energy,
@@ -211,7 +212,8 @@ class SecondOrderSolver:
         F = dolfinx.fem.petsc.assemble_vector(self.F[1])
 
         with F.localForm() as f_local:
-            idx_grad_local = np.where(np.isclose(f_local[:], 0.0, atol=gtol))[0]
+            idx_grad_local = np.where(
+                np.isclose(f_local[:], 0.0, atol=gtol))[0]
 
         with self.state[
             1
@@ -278,9 +280,9 @@ class SecondOrderSolver:
         st.setShift(-1.0e-3)
 
         eigen.eps.setTolerances(
-            self.parameters["eigen"]["eig_rtol"], 
+            self.parameters["eigen"]["eig_rtol"],
             self.parameters["eigen"]["eps_max_it"]
-            )
+        )
 
         eigen.eps.setDimensions(self.parameters["maxmodes"], PETSc.DECIDE)
         eigen.eps.setFromOptions()
@@ -658,19 +660,36 @@ class StabilitySolver(SecondOrderSolver):
 
 
     def _is_critical(self, alpha_old):
-        """is this a damage-critical state?"""
+        """
+        Determines if the current state is damage-critical.
+
+        Args:
+            alpha_old (dolfinx.fem.function.Function): The previous damage function.
+
+        Returns:
+            bool: True if damage-critical, False otherwise.
+        """
         constrained_dofs = len(self.get_inactive_dofset(alpha_old)[1])
 
 
         if constrained_dofs > 0:
-            return bool(True)
+            return True
         else:
-            return bool(False)
+            return False
 
     def my_solve(self, alpha_old: dolfinx.fem.function.Function, eig0=None):
-        """Solves the abstract eigenvalue problem 
-        .............................................
-        with a Scaling & Projection-Algorithm (SPA)"""
+        """
+        Solves an abstract eigenvalue problem using the Scaling & Projection-Algorithm (SPA).
+
+        Args:
+            alpha_old (dolfinx.fem.function.Function): The previous damage function.
+            eig0 (list): List of eigenmodes, if available.
+
+        Returns:
+            bool: True if the problem is stable, False if not.
+        """
+
+        stable = False
         
         _s = float(self.parameters.get("cone").get("scaling"))
         self.iterations = 0
@@ -760,7 +779,7 @@ class StabilitySolver(SecondOrderSolver):
         _lmbda_t = np.nan
         # logging.getLogger().setLevel(logging.DEBUG)
 
-        with dolfinx.common.Timer(f"~Second Order: Cone Solver"):
+        with dolfinx.common.Timer(f"~Second Order: Stability"):
             while self.iterate(_xk, errors):
                 # errors.append(self.error)
 
@@ -842,15 +861,29 @@ class StabilitySolver(SecondOrderSolver):
         return False if converged else True
 
     def get_perturbation(self):
+        """
+        Get the perturbation vector.
+
+        Returns:
+            Union[dolfinx.fem.function.Function, None]: Perturbation vector if converged, None otherwise.
+        """
         if self._converged:
             self._extend_vector(self.x_converged, self._v)
             return self._v
         else:
             return None
-        
+
     def _convergenceTest(self, x, errors):
-        """Test convergence of current iterate xk against 
-        prior, restricted version"""
+        """
+        Test the convergence of the current iterate xk against the prior, restricted version.
+
+        Args:
+            x: Current iterate vector.
+            errors: List to store errors.
+
+        Returns:
+            bool: True if converged, False otherwise.
+        """
         assert x.norm() > 0, "Norm of x is zero"
 
         _atol = self.parameters.get("cone").get("cone_atol")
@@ -859,26 +892,28 @@ class StabilitySolver(SecondOrderSolver):
 
         if self.iterations == _maxit:
             self._reason = -1
-            raise NonConvergenceException(f'SPA solver did not converge to atol {_atol} or rtol {_rtol} within maxit={_maxit} iterations.')
+            raise NonConvergenceException(
+                f'SPA solver did not converge to atol {_atol} or rtol {_rtol} within maxit={_maxit} iterations.')
 
         diff = x.duplicate()
         diff.zeroEntries()
 
         # xdiff = -x + x_old
         diff.waxpy(-1., self._xoldr, x)
-        
+
         error_x_L2 = diff.norm()
 
         self.error = error_x_L2
-        self._aerror = error_x_L2 
+        self._aerror = error_x_L2
         self._rerror = error_x_L2 / x.norm()
 
         errors.append(error_x_L2)
-        self._aerrors.append(self._aerror) 
+        self._aerrors.append(self._aerror)
         self._rerrors.append(self._rerror)
 
         if not self.iterations % 1000:
-            logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}")
+            logging.critical(
+                f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}")
             # logging.critical(f"     [i={self.iterations}] x norm = {x.norm():.4e}, atol = {_atol}")
 
         self.data["iterations"].append(self.iterations)
@@ -886,44 +921,59 @@ class StabilitySolver(SecondOrderSolver):
 
         _acrit = self._aerror < self.parameters.get("cone").get("cone_atol")
         _rcrit = self._rerror < self.parameters.get("cone").get("cone_rtol")
-        
+
         _crits = (_acrit, _rcrit)
-        
+
         met_criteria = []
-        
+
         for index, criterion in enumerate(_crits, start=1):
             if criterion:
                 self._converged = True
                 met_criteria.append(index)
-        
-        if len(met_criteria) > 1: 
+
+        if len(met_criteria) > 1:
             self._reason = 0
         elif len(met_criteria) == 1:
             self._reason = met_criteria
-        elif self.iterations == 0 or met_criteria == []:
+        elif self.iterations == 0 or not met_criteria:
             self._converged = False
 
         return self._converged
 
     def _isin_cone(self, x):
-        """Is in the zone IFF x is in the cone"""
+        """
+        Checks if the vector x is in the cone.
+
+        Args:
+            x: Vector to be checked.
+
+        Returns:
+            bool: True if x is in the cone, False otherwise.
+        """
         if x.size != self._v.size:
             self._extend_vector(x, self._v)
             _x = self._v
         else:
             _x = x
 
-        # get the subvector associated to damage dofs with inactive constraints 
+        # Get the subvector associated with damage degrees of freedom with inactive constraints
         _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
         _is = PETSc.IS().createGeneral(_dofs)
         _sub = _x.getSubVector(_is)
 
         return (_sub.array >= 0).all()
-        
-    def _extend_vector(self, vres, vext):
-        """extends restricted vector vr into v, in place"""
-        # v = dolfinx.fem.petsc.create_vector_block(F)
 
+    def _extend_vector(self, vres, vext):
+        """
+        Extends a restricted vector vr into v, in place.
+
+        Args:
+            vres: Restricted vector to be extended.
+            vext: Extended vector.
+
+        Returns:
+            None
+        """
         _isall = PETSc.IS().createGeneral(self.eigen.restriction.bglobal_dofs_vec_stacked)
         _suball = vext.getSubVector(_isall)
 
@@ -933,13 +983,14 @@ class StabilitySolver(SecondOrderSolver):
         return
         
     def _cone_project_restricted(self, v):
-        """Projects vector into the relevant cone
-            handling restrictions. In place
+        """
+        Projects a vector into the relevant cone, handling restrictions. In place.
 
-            takes arguments:
-            - v: vector in a mixed space
+        Args:
+            v: Vector to be projected.
 
-            returns
+        Returns:
+            Vector: The projected vector.
         """
         with dolfinx.common.Timer(f"~Second Order: Cone Project"):
             # logging.critical(f"num dofs {len(self.eigen.restriction.bglobal_dofs_vec[1])}")
