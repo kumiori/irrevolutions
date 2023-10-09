@@ -57,6 +57,7 @@ from utils.viz import plot_mesh, plot_vector, plot_scalar
 from utils.lib import _local_notch_asymptotic
 from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 from utils import table_timing_data
+from utils.parametric import parameters_vs_elle
 logging.basicConfig(level=logging.DEBUG)
 
 from default import ResultsStorage, Visualization
@@ -123,7 +124,7 @@ def main(parameters, storage=None):
 
     tdim = parameters["geometry"]["geometric_dimension"]
     ell_ = parameters["model"]["ell"]
-    lc = ell_ / parameters["geometry"]["mesh_size_factor"]
+    lc = parameters["geometry"]["lc"]
     geom_type = parameters["geometry"]["geom_type"]
     _nameExp = 'thinfilm-' + parameters["geometry"]["geom_type"]
 
@@ -288,7 +289,7 @@ def main(parameters, storage=None):
         ColorPrint.print_bold(f"   Solving second order: Stability Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
 
-        stable = stability.my_solve(alpha_lb, eig0=bifurcation._spectrum)
+        stable = stability.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
 
         fracture_energy = comm.allreduce(
@@ -374,11 +375,12 @@ def load_parameters(file_path):
     # parameters["model"]["model_dimension"] = 2
     # parameters["model"]["model_type"] = '1D'
     # parameters["model"]["w1"] = 1
+    parameters["model"]["nu"] = 0
     # parameters["model"]["ell"] = .1
     # parameters["model"]["k_res"] = 0.
-    parameters["loading"]["min"] = .8
-    parameters["loading"]["max"] = 2.
-    # parameters["loading"]["steps"] = 2
+    parameters["loading"]["min"] = 0.
+    parameters["loading"]["max"] = 2
+    parameters["loading"]["steps"] = 30
 
     # parameters["geometry"]["geom_type"] = "traction-bar"
     # parameters["geometry"]["ell_lc"] = 5
@@ -396,8 +398,26 @@ def load_parameters(file_path):
 
 
 if __name__ == "__main__":
-    parameters, signature = load_parameters("../data/thinfilm/parameters.yml")
-    _storage = f"output/thinfilm-bar/{signature}"
+    import argparse
+    base_parameters, base_signature = load_parameters("../data/thinfilm/parameters.yml")
+    # _storage = f"output/thinfilm-bar/{signature}"
+    parser = argparse.ArgumentParser(description='Process evolution.')
+    
+    parser.add_argument('--ell_e', type=float, default=.3,
+                        help='internal elastic length')
+    
+    args = parser.parse_args()
+
+    if "--ell_e" in sys.argv:
+        parameters, signature = parameters_vs_elle(parameters=base_parameters, elle=np.float(args.ell_e))
+        _storage = f"output/parametric/thinfilm-bar/vs_ell_e/{base_signature}/{signature}"
+
+    else:
+        parameters, signature = base_parameters, base_signature
+        _storage = f"output/thinfilm-bar/{signature}"
+
+    pretty_parameters = json.dumps(parameters, indent=2)
+    print(pretty_parameters)
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
         history_data, state = main(parameters, _storage)

@@ -9,11 +9,10 @@ geometry:
   Ly: 0.1
   lc: 0.02
   mesh_size_factor: 3
-material:
+model:
   E: 1
   sigma_D0: 1
-  ν: 0.3
-model:
+  nu: 0.3
   ell: 0.1
   ell_e: 0.3
   model_dimension: 2
@@ -63,7 +62,7 @@ solvers:
       pc_type: lu
       tao_monitor: ''
   damage_elasticity:
-    max_it: 100
+    max_it: 500
     alpha_rtol: 1.e-3
     criterion: alpha_H1
   newton:

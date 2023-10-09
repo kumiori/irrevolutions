@@ -204,14 +204,11 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
         self.w1 = self.model_parameters["w1"]
         self.ell = self.model_parameters["ell"]
         self.ell_e = self.model_parameters["ell_e"]
-        # self.K = self.model_parameters["K"]
         self.k_res = self.model_parameters["k_res"]
         self.eps_0 = eps_0
 
     def elastic_foundation_density(self, u):
-        # K = self.K
         K = self.ell_e**(-2.)
-        # return 0.5 * K * ufl.inner(u, u)
         return 0.5 * K * ufl.inner(u, u)
 
     def elastic_energy_density(self, state):
