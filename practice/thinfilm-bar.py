@@ -57,7 +57,7 @@ from utils.viz import plot_mesh, plot_vector, plot_scalar
 from utils.lib import _local_notch_asymptotic
 logging.basicConfig(level=logging.DEBUG)
 
-
+from default import ResultsStorage, Visualization
 
 # ------------------------------------------------------------------
 class ConvergenceError(Exception):
@@ -113,33 +113,9 @@ if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
 
-def thinfilm_bar(nest):
+def main(parameters, storage=None):
     """Testing nucleation of patterns"""
 
-    history_data = {
-        "load": [],
-        "elastic_energy": [],
-        "fracture_energy": [],
-        "total_energy": [],
-        "solver_data": [],
-        "cone_data": [],
-        "cone_eig": [],
-        "eigs": [],
-        "uniqueness": [],
-        "inertia": [],
-        "stable": [],
-        "alphadot_norm" : [],
-        "rate_12_norm" : [], 
-        "unscaled_rate_12_norm" : [],
-        "cone-stable": []
-    }
-
-    # parameters
-    geom_type = "bar"
-
-    with open("../data/thinfilm/parameters.yml") as f:
-        # default parameters
-        parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     Lx = parameters["geometry"]["Lx"]
     Ly = parameters["geometry"]["Ly"]
@@ -147,13 +123,18 @@ def thinfilm_bar(nest):
     tdim = parameters["geometry"]["geometric_dimension"]
     ell_ = parameters["model"]["ell"]
     lc = ell_ / parameters["geometry"]["mesh_size_factor"]
+    geom_type = parameters["geometry"]["geom_type"]
 
     import hashlib
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
     outdir = "output"
-    prefix = os.path.join(outdir, "thinfilm-bar", signature)
-
+    outdir = "output"
+    if storage is None:
+        prefix = os.path.join(outdir, "thinfilm-bar", signature)
+    else:
+        prefix = storage
+    
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
@@ -176,10 +157,10 @@ def thinfilm_bar(nest):
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     u = Function(V_u, name="Displacement")
-    zero_u = Function(V_u, name="   Boundary Displacement")
+    zero_u = Function(V_u, name="Boundary Displacement")
     alpha = Function(V_alpha, name="Damage")
     zero_alpha = Function(V_alpha, name="Damage Boundary Field")
-    alphadot = dolfinx.fem.Function(V_alpha, name="Damage rate")
+    alphadot = dolfinx.fem.Function(V_alpha, name="Damage_rate")
 
     state = {"u": u, "alpha": alpha}
 
@@ -226,6 +207,8 @@ def thinfilm_bar(nest):
         solver_parameters=parameters.get("solvers"),
     )
 
+    _stress = model.stress(model.eps(u), alpha)
+
     bifurcation = BifurcationSolver(
         total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
     )
@@ -234,18 +217,164 @@ def thinfilm_bar(nest):
         total_energy, state, bcs,
         cone_parameters=parameters.get("stability")
     )
-
+    history_data = {
+        "load": [],
+        "elastic_energy": [],
+        "fracture_energy": [],
+        "total_energy": [],
+        "solver_data": [],
+        "cone_data": [],
+        "cone-eig": [],
+        "eigs": [],
+        "uniqueness": [],
+        "inertia": [],
+        "F": [],
+        "alphadot_norm": [],
+        "rate_12_norm": [],
+        "unscaled_rate_12_norm": [],
+        "cone-stable": []
+    }
     # timestepping
     for i_t, t in enumerate(loads):
         tau.value = t
+
+
+        # update the lower bound
+        alpha.vector.copy(alpha_lb.vector)
+        alpha_lb.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
+
+
+        ColorPrint.print_bold(f"   Solving first order: AM   ")
+        ColorPrint.print_bold(f"===================-=========")
+
+        logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
+        ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
+        ColorPrint.print_bold(f"===================-=============")
+
+        logging.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
+        
+        equilibrium.solve(alpha_lb)
+        
+        fracture_energy = comm.allreduce(
+            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state) * dx)),
+            op=MPI.SUM,
+        )
+        elastic_energy = comm.allreduce(
+            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.elastic_energy_density(state) * dx)),
+            op=MPI.SUM,
+        )
+
+        # compute rate
+        alpha.vector.copy(alphadot.vector)
+        alphadot.vector.axpy(-1, alpha_lb.vector)
+        alphadot.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+
+        rate_12_norm = equilibrium.scaled_rate_norm(alphadot, parameters)
+        rate_12_norm_unscaled = equilibrium.unscaled_rate_norm(alphadot)
+
+        ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
+        ColorPrint.print_bold(f"===================-=================")
+
+        is_stable = bifurcation.solve(alpha_lb)
+        is_elastic = bifurcation.is_elastic()
+        inertia = bifurcation.get_inertia()
+
+        ColorPrint.print_bold(f"   Solving second order: Stability Pb.    ")
+        ColorPrint.print_bold(f"===================-=================")
+
+        stable = stability.my_solve(alpha_lb, eig0=bifurcation._spectrum)
+
+
+        fracture_energy = comm.allreduce(
+            assemble_scalar(form(model.damage_energy_density(state) * dx)),
+            op=MPI.SUM,
+        )
+        elastic_energy = comm.allreduce(
+            assemble_scalar(form(model.elastic_energy_density(state) * dx)),
+            op=MPI.SUM,
+        )
+        _stress = model.stress(model.eps(u), alpha)
+
+        stress = comm.allreduce(
+            assemble_scalar(form(_stress[0, 0] * dx)),
+            op=MPI.SUM,
+        )
+        _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
+
+
+        history_data["load"].append(t)
+        history_data["fracture_energy"].append(fracture_energy)
+        history_data["elastic_energy"].append(elastic_energy)
+        history_data["total_energy"].append(elastic_energy+fracture_energy)
+        history_data["solver_data"].append(equilibrium.data)
+        history_data["eigs"].append(bifurcation.data["eigs"])
+        history_data["F"].append(stress)
+        history_data["cone_data"].append(stability.data)
+        history_data["alphadot_norm"].append(alphadot.vector.norm())
+        history_data["rate_12_norm"].append(rate_12_norm)
+        history_data["unscaled_rate_12_norm"].append(rate_12_norm_unscaled)
+        history_data["cone-stable"].append(stable)
+        history_data["cone-eig"].append(stability.data["lambda_0"])
+        history_data["uniqueness"].append(_unique)
+        history_data["inertia"].append(inertia)
 
     # postprocessing
 
 
     return history_data
 
+
+def load_parameters(file_path):
+    """
+    Load parameters from a YAML file.
+
+    Args:
+        file_path (str): Path to the YAML parameter file.
+
+    Returns:
+        dict: Loaded parameters.
+    """
+    import hashlib
+
+    with open(file_path) as f:
+        parameters = yaml.load(f, Loader=yaml.FullLoader)
+
+    # parameters["stability"]["cone"]["cone_max_it"] = 400000
+    # parameters["stability"]["cone"]["cone_atol"] = 1e-6
+    # parameters["stability"]["cone"]["cone_rtol"] = 1e-6
+    # parameters["stability"]["cone"]["scaling"] = .001
+
+    # parameters["model"]["model_dimension"] = 2
+    # parameters["model"]["model_type"] = '1D'
+    # parameters["model"]["w1"] = 1
+    # parameters["model"]["ell"] = .1
+    # parameters["model"]["k_res"] = 0.
+    # parameters["loading"]["min"] = .8
+    # parameters["loading"]["max"] = .9
+    # parameters["loading"]["steps"] = 2
+
+    # parameters["geometry"]["geom_type"] = "traction-bar"
+    # parameters["geometry"]["ell_lc"] = 5
+    # # Get mesh parameters
+    # Lx = parameters["geometry"]["Lx"]
+    # Ly = parameters["geometry"]["Ly"]
+    # tdim = parameters["geometry"]["geometric_dimension"]
+
+    # _nameExp = parameters["geometry"]["geom_type"]
+    # ell_ = parameters["model"]["ell"]
+
+    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+
+    return parameters, signature
+
+
 if __name__ == "__main__":
-    history_data = thinfilm_bar(nest=False)
+    parameters, signature = load_parameters("../data/thinfilm/parameters.yml")
+    history_data = main(parameters= parameters)
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
     
     df = pd.DataFrame(history_data)
