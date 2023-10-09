@@ -722,7 +722,7 @@ class StabilitySolver(SecondOrderSolver):
             return False
 
 
-    def my_solve(self, alpha_old: dolfinx.fem.function.Function, eig0=None):
+    def my_solve(self, alpha_old: dolfinx.fem.function.Function, eig0 = None, inertia = None):
         """
         Solves an abstract eigenvalue problem using the Scaling & Projection-Algorithm (SPA).
 
@@ -747,14 +747,21 @@ class StabilitySolver(SecondOrderSolver):
         self._converged = False
         errors.append(1)
 
-        if eig0 == [] and not self._is_critical(alpha_old):
-            # the current state is damage-subcritical, hence elastic, hence stable
+        if not self._is_critical(alpha_old):
+            # the current state is damage-subcritical (hence elastic), the state is stable
             self.data["lambda_0"] = np.nan
             self.data["iterations"] = [0]
             self.data["error_x_L2"] = [1]
             return True
-
+        elif eig0 == [] and inertia[0]==0:
+            # the current state is damage-critical but no bifurcation can occur, the state is stable
+            self.data["lambda_0"] = np.nan
+            self.data["iterations"] = [0]
+            self.data["error_x_L2"] = [1]
+            return True
         else:
+            assert len(eig0) > 0
+            assert inertia[0] > 0
             x0 = eig0[0].get("xk")
             _x = x0.copy()
 

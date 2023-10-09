@@ -335,7 +335,7 @@ def main(parameters, model='at2', storage=None):
         ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
 
-        stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum)
+        stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
