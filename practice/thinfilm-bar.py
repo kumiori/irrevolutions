@@ -176,9 +176,22 @@ def main(parameters, storage=None):
     dx = ufl.Measure("dx", domain=mesh)
     ds = ufl.Measure("ds", domain=mesh)
 
+    dofs_u_left = locate_dofs_geometrical(
+        V_u, lambda x: np.isclose(x[0], 0.0))
+    dofs_u_right = locate_dofs_geometrical(
+        V_u, lambda x: np.isclose(x[0], Lx))
+
+    zero_u = Function(V_u)
+    u_ = Function(V_u, name="Boundary Displacement")
+
+    zero_alpha = Function(V_alpha)
+
+    bc_u_left = dirichletbc(zero_u, dofs_u_left)
+    bc_u_right = dirichletbc(u_, dofs_u_right)
+    bcs_u = [bc_u_left, bc_u_right]
 
     # boundary conditions
-    bcs_u = []
+    # bcs_u = []
     bcs_alpha = []
     set_bc(alpha_ub.vector, bcs_alpha)
     alpha_ub.vector.ghostUpdate(
@@ -367,10 +380,10 @@ def load_parameters(file_path):
     with open(file_path) as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-    # parameters["stability"]["cone"]["cone_max_it"] = 400000
-    # parameters["stability"]["cone"]["cone_atol"] = 1e-6
-    # parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-    # parameters["stability"]["cone"]["scaling"] = .001
+    parameters["stability"]["cone"]["cone_max_it"] = 400000
+    parameters["stability"]["cone"]["cone_atol"] = 1e-6
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
+    parameters["stability"]["cone"]["scaling"] = .00001
 
     # parameters["model"]["model_dimension"] = 2
     # parameters["model"]["model_type"] = '1D'
