@@ -133,7 +133,7 @@ class Visualization:
             json.dump(data.to_json(), a_file)
             a_file.close()
 
-def main(parameters, storage=None):
+def main(parameters, model='at2', storage=None):
 
     petsc4py.init(sys.argv)
     comm = MPI.COMM_WORLD
@@ -221,8 +221,14 @@ def main(parameters, storage=None):
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
-    model = BrittleAT2(parameters["model"])
 
+    if model == 'at2':
+        model = BrittleAT2(parameters["model"])
+    elif model == 'at1':
+        model = Brittle(parameters["model"])
+    else:
+        raise ValueError('Model not implemented')
+    
     state = {"u": u, "alpha": alpha}
     z = [u, alpha]
 
@@ -375,7 +381,8 @@ def main(parameters, storage=None):
         ColorPrint.print_bold(f"   Written timely data.    ")
 
     df = pd.DataFrame(history_data)
-    print(df.drop(['solver_data', 'cone_data'], axis=1))
+    # print(df.drop(['solver_data', 'cone_data'], axis=1))
+    print(df)
 
 
     if comm.rank == 0:
@@ -429,9 +436,32 @@ def load_parameters(file_path):
     parameters["model"]["w1"] = 1
     parameters["model"]["ell"] = .1
     parameters["model"]["k_res"] = 0.
-    parameters["loading"]["min"] = .8
-    parameters["loading"]["max"] = .9
-    parameters["loading"]["steps"] = 2
+
+
+def load_parameters(file_path, model='at2'):
+    """
+    Load parameters from a YAML file.
+
+    Args:
+        file_path (str): Path to the YAML parameter file.
+
+    Returns:
+        dict: Loaded parameters.
+    """
+    import hashlib
+
+    with open(file_path) as f:
+        parameters = yaml.load(f, Loader=yaml.FullLoader)
+
+    if model == 'at2':
+        parameters["loading"]["min"] = .9
+        parameters["loading"]["max"] = .9
+        parameters["loading"]["steps"] = 1
+
+    elif model == 'at1':
+        parameters["loading"]["min"] = .99
+        parameters["loading"]["max"] = 1.03
+        parameters["loading"]["steps"] = 2
 
     parameters["geometry"]["geom_type"] = "traction-bar"
     parameters["geometry"]["ell_lc"] = 5
@@ -449,18 +479,23 @@ def load_parameters(file_path):
 
 
 if __name__ == "__main__":
+    import argparse
+    admissible_models = {"at1", "at2"}
+    parser = argparse.ArgumentParser(description='Process evolution.')
+    parser.add_argument("--model", choices=admissible_models, default = 'at1', help="The model to use.")
+    args = parser.parse_args()
 
-    parameters, signature = load_parameters("../test/parameters.yml")
+    parameters, signature = load_parameters("../test/parameters.yml", model=args.model)
     
-    _storage = f"output/traction_AT2_cone/vs_s/{signature}"
+    _storage = f"output/traction-bar/{args.model}/{signature}"
     
-    history_data, state = main(parameters, _storage)
+    history_data, state = main(parameters, args.model, _storage)
 
     # Store and visualise results
     storage = ResultsStorage(MPI.COMM_WORLD, _storage)
     storage.store_results(parameters, history_data, state)
 
-    visualization = Visualization(f"output/traction_AT2_cone/{signature}")
+    visualization = Visualization(_storage)
 
     visualization.visualise_results(history_data)
     visualization.save_table(pd.DataFrame(history_data), "_history_data.json")

@@ -734,7 +734,6 @@ class StabilitySolver(SecondOrderSolver):
             bool: True if the problem is stable, False if not.
         """
 
-        stable = False
         self.initialize_spa(alpha_old, eig0)
 
         _s = float(self.parameters.get("cone").get("scaling"))
@@ -748,23 +747,17 @@ class StabilitySolver(SecondOrderSolver):
         self._converged = False
         errors.append(1)
 
-        if eig0 is None:
-            stable = self.solve(alpha_old)
-            eig0 = self._spectrum
-        
-        if len(eig0) == 0 or stable: 
-            return bool(stable)
+        if eig0 == [] and not self._is_critical(alpha_old):
+            # the current state is damage-subcritical, hence elastic, hence stable
+            self.data["lambda_0"] = np.nan
+            self.data["iterations"] = [0]
+            self.data["error_x_L2"] = [1]
+            return True
 
         else:
             x0 = eig0[0].get("xk")
             _x = x0.copy()
-            # functions_to_vec(x0, _x)
-        
-        if not self._is_critical(alpha_old):
-            self.data["lambda_0"] = np.nan
-            self.data["iterations"] = [0]
-            self.data["error_x_L2"] = [1]
-            return bool(True)
+
         
         with dolfinx.common.Timer(f"~Second Order: Stability"):
             constraints = self.setup_constraints(alpha_old)
