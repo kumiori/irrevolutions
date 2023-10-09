@@ -449,10 +449,10 @@ class SecondOrderSolver:
 
             # Sort eigenmodes by eigenvalues
             spectrum.sort(key=lambda item: item.get("lambda"))
-            unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
+            # unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
 
             # Store the results
-            stable = self.store_results(eigen, unstable_spectrum)
+            stable = self.store_results(eigen, spectrum)
 
         return stable
 
@@ -559,15 +559,20 @@ class SecondOrderSolver:
         logging.debug("")
 
         return v_n, beta_n, eigval, _u
-    def store_results(self, eigen, unstable_spectrum):
+    
+    def store_results(self, eigen, spectrum):
         """Store eigenmodes and results."""
-        spectrum = unstable_spectrum
+        unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
+        
+        # spectrum = unstable_spectrum
 
         self.spectrum = spectrum
-        self._spectrum = spectrum
+        self._spectrum = unstable_spectrum
 
         eigs = [mode["lambda"] for mode in spectrum]
-        eig0, u0, _ = eigen.getEigenpair(0)
+
+        # getEigenpair need not be ordered
+        eig0, u0, _ = eigen.getEigenpair(spectrum[0]['n'])
 
         self.minmode = u0
         self.mineig = eig0
@@ -749,19 +754,20 @@ class StabilitySolver(SecondOrderSolver):
 
         if not self._is_critical(alpha_old):
             # the current state is damage-subcritical (hence elastic), the state is stable
-            self.data["lambda_0"] = np.nan
+            self.data["lambda_0"] = [np.nan]
             self.data["iterations"] = [0]
             self.data["error_x_L2"] = [1]
             return True
         elif eig0 == [] and inertia[0]==0:
             # the current state is damage-critical but no bifurcation can occur, the state is stable
-            self.data["lambda_0"] = np.nan
+            self.data["lambda_0"] = [np.nan]
             self.data["iterations"] = [0]
             self.data["error_x_L2"] = [1]
             return True
         else:
             assert len(eig0) > 0
             assert inertia[0] > 0
+
             x0 = eig0[0].get("xk")
             _x = x0.copy()
 
