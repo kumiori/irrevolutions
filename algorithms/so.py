@@ -748,7 +748,7 @@ class StabilitySolver(SecondOrderSolver):
         errors.append(1)
 
         if not self._is_critical(alpha_old):
-            # the current state is either damage-subcritical (hence elastic), the state is stable
+            # the current state is damage-subcritical (hence elastic), the state is stable
             self.data["lambda_0"] = np.nan
             self.data["iterations"] = [0]
             self.data["error_x_L2"] = [1]
