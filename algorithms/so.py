@@ -728,7 +728,7 @@ class StabilitySolver(SecondOrderSolver):
 
         Args:
             alpha_old (dolfinx.fem.function.Function): The previous damage function.
-            eig0 (list): List of eigenmodes, if available.
+            eig0 (list): List of bifurcation eigenmodes, if available.
 
         Returns:
             bool: True if the problem is stable, False if not.
