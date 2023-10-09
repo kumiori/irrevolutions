@@ -401,6 +401,20 @@ class Visualization:
         """
         # Implement visualization code here
 
+    def save_table(self, data, name):
+        """
+        Save pandas table results using json.
+
+        Args:
+            data (dict): Pandas table containing simulation data.
+            name (str): Filename.
+        """
+
+        if MPI.COMM_WORLD.rank == 0:
+            a_file = open(f"{self.prefix}/{name}.json", "w")
+            json.dump(data.to_json(), a_file)
+            a_file.close()
+
 # Time loop function
 
 def run_time_loop(parameters, solver, model, bcs):
