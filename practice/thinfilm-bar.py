@@ -191,7 +191,7 @@ def main(parameters, storage=None):
     bcs_u = [bc_u_left, bc_u_right]
 
     # boundary conditions
-    # bcs_u = []
+    bcs_u = []
     bcs_alpha = []
     set_bc(alpha_ub.vector, bcs_alpha)
     alpha_ub.vector.ghostUpdate(
@@ -251,6 +251,10 @@ def main(parameters, storage=None):
         "cone-stable": []
     }
     # timestepping
+
+    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+        file.write_mesh(mesh)
+
     for i_t, t in enumerate(loads):
         tau.value = t
 
@@ -347,6 +351,10 @@ def main(parameters, storage=None):
                     history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
 
+        with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+            file.write_function(u, t)
+            file.write_function(alpha, t)
+
     # postprocessing
     with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
         xvfb.start_xvfb(wait=0.05)
@@ -391,9 +399,9 @@ def load_parameters(file_path):
     parameters["model"]["nu"] = 0
     # parameters["model"]["ell"] = .1
     # parameters["model"]["k_res"] = 0.
-    parameters["loading"]["min"] = 0.
-    parameters["loading"]["max"] = 2
-    parameters["loading"]["steps"] = 30
+    parameters["loading"]["min"] = 1.55
+    parameters["loading"]["max"] = 1.65
+    parameters["loading"]["steps"] = 50
 
     # parameters["geometry"]["geom_type"] = "traction-bar"
     # parameters["geometry"]["ell_lc"] = 5
@@ -429,8 +437,10 @@ if __name__ == "__main__":
         parameters, signature = base_parameters, base_signature
         _storage = f"output/thinfilm-bar/{signature}"
 
+    ColorPrint.print_bold(f"===================-{_storage}-=================")
     pretty_parameters = json.dumps(parameters, indent=2)
     print(pretty_parameters)
+    ColorPrint.print_bold(f"===================-{_storage}-=================")
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
         history_data, state = main(parameters, _storage)
