@@ -378,24 +378,25 @@ def main(parameters, storage=None):
     print(df.drop(['solver_data', 'cone_data'], axis=1))
 
 
-    if comm.rank == 0:
-        plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
-        plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-        plot_force_displacement(
-            history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
+    with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+        if comm.rank == 0:
+            plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+            plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+            plot_force_displacement(
+                history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
 
-    xvfb.start_xvfb(wait=0.05)
-    pyvista.OFF_SCREEN = True
+        xvfb.start_xvfb(wait=0.05)
+        pyvista.OFF_SCREEN = True
 
-    plotter = pyvista.Plotter(
-        title="Traction test",
-        window_size=[1600, 600],
-        shape=(1, 2),
-    )
-    _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-    _plt = plot_vector(u, plotter, subplot=(0, 1))
-    _plt.screenshot(f"{prefix}/traction-state.png")
+        plotter = pyvista.Plotter(
+            title="Traction test",
+            window_size=[1600, 600],
+            shape=(1, 2),
+        )
+        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+        _plt = plot_vector(u, plotter, subplot=(0, 1))
+        _plt.screenshot(f"{prefix}/traction-state.png")
 
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"   Done!    ")

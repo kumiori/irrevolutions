@@ -52,9 +52,11 @@ from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
 from utils.plots import plot_energies
 from utils import norm_H1, norm_L2
-from meshes.pacman import mesh_pacman
+# from meshes.pacman import mesh_pacman
 from utils.viz import plot_mesh, plot_vector, plot_scalar
 from utils.lib import _local_notch_asymptotic
+from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+from utils import table_timing_data
 logging.basicConfig(level=logging.DEBUG)
 
 from default import ResultsStorage, Visualization
@@ -116,7 +118,6 @@ if comm.rank == 0:
 def main(parameters, storage=None):
     """Testing nucleation of patterns"""
 
-
     Lx = parameters["geometry"]["Lx"]
     Ly = parameters["geometry"]["Ly"]
 
@@ -124,6 +125,7 @@ def main(parameters, storage=None):
     ell_ = parameters["model"]["ell"]
     lc = ell_ / parameters["geometry"]["mesh_size_factor"]
     geom_type = parameters["geometry"]["geom_type"]
+    _nameExp = 'thinfilm-' + parameters["geometry"]["geom_type"]
 
     import hashlib
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
@@ -323,9 +325,30 @@ def main(parameters, storage=None):
         history_data["inertia"].append(inertia)
 
     # postprocessing
+        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+            if comm.rank == 0:
+                plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+                plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+                plot_force_displacement(
+                    history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
 
-    return history_data
+    # postprocessing
+    with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+        xvfb.start_xvfb(wait=0.05)
+        pyvista.OFF_SCREEN = True
+
+        plotter = pyvista.Plotter(
+            title="Traction test",
+            window_size=[1600, 600],
+            shape=(1, 2),
+        )
+        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+        _plt = plot_vector(u, plotter, subplot=(0, 1))
+        _plt.screenshot(f"{prefix}/traction-state.png")
+
+
+    return history_data, state
 
 
 def load_parameters(file_path):
@@ -353,8 +376,8 @@ def load_parameters(file_path):
     # parameters["model"]["w1"] = 1
     # parameters["model"]["ell"] = .1
     # parameters["model"]["k_res"] = 0.
-    # parameters["loading"]["min"] = .8
-    # parameters["loading"]["max"] = .9
+    parameters["loading"]["min"] = .8
+    parameters["loading"]["max"] = 2.
     # parameters["loading"]["steps"] = 2
 
     # parameters["geometry"]["geom_type"] = "traction-bar"
@@ -374,9 +397,26 @@ def load_parameters(file_path):
 
 if __name__ == "__main__":
     parameters, signature = load_parameters("../data/thinfilm/parameters.yml")
-    history_data = main(parameters= parameters)
+    _storage = f"output/thinfilm-bar/{signature}"
+
+    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+        history_data, state = main(parameters, _storage)
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
     
     df = pd.DataFrame(history_data)
     print(df.drop(['solver_data', 'cone_data'], axis=1))
+    ColorPrint.print_bold(f"===================-{signature}-=================")
+    ColorPrint.print_bold(f"===================-{_storage}-=================")
 
+    # Store and visualise results
+    storage = ResultsStorage(MPI.COMM_WORLD, _storage)
+    storage.store_results(parameters, history_data, state)
+
+    visualization = Visualization(_storage)
+
+    visualization.visualise_results(history_data)
+    visualization.save_table(pd.DataFrame(history_data), "_history_data.json")
+
+    _timings = table_timing_data()
+
+    visualization.save_table(_timings, "timing_data.json")

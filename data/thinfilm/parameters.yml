@@ -1,0 +1,103 @@
+loading:
+  min: 0
+  max: 1.001
+  steps: 10
+geometry:
+  geometric_dimension: 2
+  geom_type: bar
+  Lx: 1
+  Ly: 0.1
+  lc: 0.02
+  mesh_size_factor: 3
+material:
+  E: 1
+  sigma_D0: 1
+  ν: 0.3
+model:
+  ell: 0.1
+  ell_e: 0.3
+  model_dimension: 2
+  model_type: 2D
+solvers:
+  elasticity:
+    prefix: elasticity
+    snes:
+      snes_type: newtontr
+      snes_stol: 1.e-8
+      snes_atol: 1.e-8
+      snes_rtol: 1.e-8
+      snes_max_it: 100
+      snes_monitor: ''
+      ksp_type: preonly
+      pc_type: lu
+      pc_factor_mat_solver_type: mumps
+  damage:
+    type: SNES
+    prefix: damage
+    snes:
+      snes_type: vinewtonrsls
+      snes_linesearch_type: basic
+      ksp_type: preonly
+      pc_type: lu
+      pc_factor_mat_solver_type: mumps
+      snes_atol: 1.e-8
+      snes_rtol: 1.e-8
+      snes_max_it: 50
+      snes_monitor: ''
+    tao:
+      tao_type: tron
+      tao_gpcg_maxpgits: 50
+      tao_max_it: 100
+      tao_steptol: 1.e-7
+      tao_gatol: 1.e-8
+      tao_grtol: 1.e-8
+      tao_gttol: 1.e-8
+      tao_catol: 0
+      tao_crtol: 0
+      tao_ls_ftol: 0.00001
+      tao_ls_gtol: 0.00001
+      tao_ls_rtol: 0.00001
+      ksp_rtol: 0.000001
+      tao_ls_stepmin: 1.e-8
+      tao_ls_stepmax: 1000000
+      pc_type: lu
+      tao_monitor: ''
+  damage_elasticity:
+    max_it: 100
+    alpha_rtol: 1.e-3
+    criterion: alpha_H1
+  newton:
+    linesearch_damping: 0.5
+    snes_atol: 1.e-8
+    snes_linesearch_type: basic
+    snes_max_it: 30
+    snes_monitor: ''
+    snes_rtol: 1.e-8
+    snes_type: vinewtonrsls
+stability:
+  order: 3
+  maxmodes: 3
+  checkstability: 'True'
+  continuation: 'False'
+  cont_rtol: 1.e-10
+  inactiveset_gatol: 0.000001
+  inactiveset_pwtol: 0.000001
+  is_elastic_tol: 0.000001
+  inertia:
+    ksp_type: preonly
+    pc_type: cholesky
+    pc_factor_mat_solver_type: mumps
+    mat_mumps_icntl_24: 1
+    mat_mumps_icntl_13: 1
+  eigen:
+    eps_type: krylovschur
+    eps_tol: 0.00001
+    eig_rtol: 1.e-8
+    eps_max_it: 100
+  cone:
+    cone_atol: 0.00001
+    cone_max_it: 3000
+    cone_rtol: 0.00001
+    cone_atol: 0.00001
+    maxmodes: 3
+    scaling: 0.01

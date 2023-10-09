@@ -200,7 +200,6 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
         if model_parameters:
             self.model_parameters.update(model_parameters)
         
-            
         # Initialize the damage parameters
         self.w1 = self.model_parameters["w1"]
         self.ell = self.model_parameters["ell"]
@@ -226,6 +225,23 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
         return self.elastic_energy_density_strain(
             eps, alpha) + self.elastic_foundation_density(u)
 
+    def stress(self, strain, alpha):
+        from numpy import ndarray
+        from dolfinx.fem import assemble_scalar, form
+        # Differentiate the elastic energy w.r.t. the strain tensor
+        eps_ = ufl.variable(strain)
+        # Derivative of energy w.r.t. the strain tensor to obtain the stress
+        # tensor
+        _sigma = ufl.diff(self.elastic_energy_density_strain(eps_, alpha), eps_)
+        dx = ufl.Measure("dx", domain = alpha.function_space.mesh)
+        sigma = ndarray(shape=(self.model_dimension, self.model_dimension))
+
+        for i in range(self.model_dimension):
+            for j in range(self.model_dimension):
+                # ompute the average value for the field sigma
+                sigma[i, j] = assemble_scalar(form(_sigma[i, j] * dx))
+        
+        return ufl.as_tensor(sigma)
 
 from dolfinx.fem.function import Function
 class VariableThickness:
