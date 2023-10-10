@@ -114,6 +114,30 @@ class LineSearch(object):
 
         return h_opt, energies_1d, p
 
+    def perturb(self, state, perturbation, h):
+        v = perturbation["v"]
+        beta = perturbation["beta"]
+
+        z0_norm = np.sum([norm_H1(func) for func in state.values()])
+
+        with state["u"].vector.localForm() as u_local, \
+            state["alpha"].vector.localForm() as alpha_local, \
+            v.vector.localForm() as v_local, \
+            beta.vector.localForm() as beta_local:
+
+            u_local.array[:] = u_local.array[:] + h * v_local.array[:]
+            alpha_local.array[:] = alpha_local.array[:] + h * beta_local.array[:]
+    
+        state["u"].vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+        state["alpha"].vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+
+        zh_norm = np.sum([norm_H1(func) for func in state.values()])
+        
+        logging.critical( f'Initial state norm: {z0_norm}')
+        logging.critical( f'Perturbation norm: {zh_norm}')
+
+        return state
+
     def admissible_interval(self, state, perturbation, alpha_lb, bifurcation):
         """Computes the admissible interval for the line search, based on 
         the solution to the rate problem"""

@@ -123,3 +123,6 @@ stability:
         cone_rtol: 1.0e-05
         maxmodes: 3
         scaling: 0.0001
+    
+    linesearch:
+        order: 2

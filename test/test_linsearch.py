@@ -244,7 +244,7 @@ def test_linsearch(parameters, storage):
         cone_parameters=parameters.get("stability")
     )
 
-    linesearch = LineSearch(total_energy, state)
+    linesearch = LineSearch(total_energy, state, linesearch_parameters=parameters.get("stability").get("linesearch"))
 
 
     history_data = {
@@ -311,6 +311,7 @@ def test_linsearch(parameters, storage):
         # n_eigenvalues = 10
         is_stable = bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
+        # is_critical = bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
         
         ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
@@ -318,27 +319,16 @@ def test_linsearch(parameters, storage):
         
         stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
-        _perturbation = cone.get_perturbation()
-        # __import__('pdb').set_trace()
+        if not stable:
+            _perturbation = cone.get_perturbation()
         
-
-        ColorPrint.print_bold(f"State is elastic: {is_elastic}")
-        ColorPrint.print_bold(f"State's inertia: {inertia}")
-        logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
-        logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
-        logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
-        logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
-        logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
-        logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
-
-        if _perturbation is not None and not stable:
             vec_to_functions(_perturbation, [v, β])
     
             perturbation = {"v": v, "beta": β}
 
             interval = linesearch.get_unilateral_interval(state, perturbation)
 
-            h_opt, energies_1d = linesearch.search(state, perturbation, interval)
+            h_opt, energies_1d, p = linesearch.search(state, perturbation, interval)
 
             # logging.critical(f"state is stable: {stable} h_opt is {h_opt}")
             logging.critical(f" *> State is unstable: {not stable}")
@@ -347,8 +337,23 @@ def test_linsearch(parameters, storage):
             logging.critical(f"hopt: {h_opt}")
             logging.critical(f"lambda_t: {cone.data['lambda_0']}")
 
-            # solve from perturbed state
+            # perturb the state
+
+            linesearch.perturb(state, perturbation, h_opt)
+
+            __import__('pdb').set_trace()
             # compute convergence criteria
+
+        ColorPrint.print_bold(f"State is elastic: {is_elastic}")
+        # ColorPrint.print_bold(f"State is critical: {is_critical}")
+        ColorPrint.print_bold(f"State's inertia: {inertia}")
+        logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
+        logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
+        logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
+        logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+        logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
+        logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
+
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
