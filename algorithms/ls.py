@@ -1,6 +1,7 @@
 import logging
 from pydoc import cli
 from time import clock_settime
+from utils import norm_H1, norm_L2
 
 import dolfinx
 from dolfinx.fem import (
@@ -31,7 +32,7 @@ size = comm.Get_size()
 # create a class naled linesearch
 
 class LineSearch(object):
-    def __init__(self, energy, state):
+    def __init__(self, energy, state, linesearch_parameters = {}):
         super(LineSearch, self).__init__()
         # self.u_0 = dolfin.Vector(state['u'].vector())
         # self.alpha_0 = dolfin.Vector(state['alpha'].vector())
@@ -39,6 +40,7 @@ class LineSearch(object):
         self.energy = energy
         self.state = state
         # initial state
+        self.parameters = linesearch_parameters
 
         self.V_u = state["u"].function_space
         self.V_alpha = state["alpha"].function_space
@@ -47,10 +49,8 @@ class LineSearch(object):
         self.u0 = Function(state['u'].function_space)
         self.alpha0 = Function(state['alpha'].function_space)
 
-    def search(self, state, perturbation, interval, m=3, mode=0):
-        dx = Measure("dx", domain=self.mesh) #-> volume measure
-
-        # self._state = state
+    def search(self, state, perturbation, interval, m=2, mode=0):
+        # m = self.parameters["order"]
 
         v = perturbation["v"]
         beta = perturbation["beta"]
@@ -64,23 +64,33 @@ class LineSearch(object):
         en_0 = assemble_scalar(form(self.energy))
 
         # get admissible interval
-        # discretise interval for polynomial interpolation at order m
         hmin, hmax = interval
+
+        # discretise interval for polynomial interpolation at order m
         htest = np.linspace(hmin, hmax, np.int32(m+1))
         energies_1d = []
+        perturbation_norms = []
+
         # compute energy at discretised points
+        
         for h in htest:
             with state["u"].vector.localForm() as u_local, \
                 state["alpha"].vector.localForm() as alpha_local, \
+                alpha_0.vector.localForm() as alpha0_local, \
+                u_0.vector.localForm() as u0_local, \
                 v.vector.localForm() as v_local, \
                 beta.vector.localForm() as beta_local:
 
-                u_local.array[:] = u_local.array[:] + h*v_local.array[:]
-                alpha_local.array[:] = alpha_local.array[:] + h*beta_local.array[:]
+                u_local.array[:] = u0_local.array[:] + h*v_local.array[:]
+                alpha_local.array[:] = alpha0_local.array[:] + h*beta_local.array[:]
         
-            state["alpha"].vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
             state["u"].vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+            state["alpha"].vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
 
+
+            yh_norm = np.sum([norm_H1(func) for func in state.values()])
+            perturbation_norms.append(yh_norm)
+            
             en_h = assemble_scalar(form(self.energy))
             energies_1d.append(en_h-en_0)
 
@@ -102,12 +112,7 @@ class LineSearch(object):
             h = np.linspace(0, hmax, 30)
             h_opt = h[np.argmin(p(h))]
 
-
-        return h_opt, energies_1d
-        # return arg-minimum of 1d energy-perturbations
-    
-
-
+        return h_opt, energies_1d, p
 
     def admissible_interval(self, state, perturbation, alpha_lb, bifurcation):
         """Computes the admissible interval for the line search, based on 
