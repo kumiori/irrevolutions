@@ -251,8 +251,8 @@ class SNESBlockProblem:
         self.compute_norms_block(snes)
         self.print_norms(it)
 
-        logging.critical(f'Residual reduced norms {self.norm_r}')
-        logging.critical(f'Residual reduced norm {np.sqrt(np.array([x**2 for x in self.norm_r[0]]).sum())}')
+        logging.debug(f'Residual reduced norms {self.norm_r}')
+        logging.debug(f'Residual reduced norm {np.sqrt(np.array([x**2 for x in self.norm_r[0]]).sum())}')
         
         # if logging.root.level <= logging.DEBUG:
         #     self._plot_solution(it)

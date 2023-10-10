@@ -22,6 +22,7 @@ import numpy as np
 from pathlib import Path
 from dolfinx.io import XDMFFile, gmshio
 import logging
+from solvers.function import vec_to_functions
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -54,6 +55,14 @@ from solvers.function import functions_to_vec
 
 rank = comm.Get_rank()
 size = comm.Get_size()
+
+class NonConvergenceException(Exception):
+    def __init__(self, message="Non-convergence error"):
+        """
+        Exception class for non-convergence errors during computations.
+        """
+        self.message = message
+        super().__init__(self.message)
 
 
 def info_dofmap(space, name=None):
@@ -90,8 +99,7 @@ def info_dofmap(space, name=None):
         "rank", comm.rank, f"dofmap.index_map.num_ghosts {dofmap.index_map.num_ghosts}"
     )
 
-
-class StabilitySolver:
+class SecondOrderSolver:
     """Base class for stability analysis of a unilaterally constrained
     local minimisation problem of a given energy. Instantiates the
      form associated to the second derivative of the energy.
@@ -106,21 +114,35 @@ class StabilitySolver:
         nullspace=None,
         stability_parameters=None,
     ):
+        """
+        Initialize the SecondOrderSolver.
+
+        Args:
+            energy (ufl.form.Form): The energy functional.
+            state (dict): Dictionary containing state variables 'u' and 'alpha'.
+            bcs (list): List of boundary conditions.
+            nullspace: Nullspace object for the problem.
+            stability_parameters: Parameters for the stability analysis.
+        """
         self.state = [state["u"], state["alpha"]]
         alpha = self.state[1]
         self.parameters = stability_parameters
 
+        # Initialize function spaces
         self.V_u = state["u"].function_space
         self.V_alpha = state["alpha"].function_space
 
         self.mesh = alpha.function_space.mesh
 
+        # Initialize L as a DG(0) function
         L = dolfinx.fem.FunctionSpace(self.mesh, ("DG", 0))
         self.lmbda0 = dolfinx.fem.Function(L)
 
+        # Define the forms associated with the second derivative of the energy
         self.F_ = [
             ufl.derivative(
-                energy, state["u"], ufl.TestFunction(state["u"].ufl_function_space())
+                energy, state["u"], ufl.TestFunction(
+                    state["u"].ufl_function_space())
             ),
             ufl.derivative(
                 energy,
@@ -129,8 +151,8 @@ class StabilitySolver:
             ),
         ]
         self.F = dolfinx.fem.form(self.F_)
-        
-        # Is the current state critical? 
+
+        # Is the current state critical?
         self._critical = False
 
         self.bcs = bcs["bcs_u"] + bcs["bcs_alpha"]
@@ -139,6 +161,11 @@ class StabilitySolver:
     def is_elastic(self) -> bool:
         """Returns whether or not the current state is elastic,
         based on the strict positivity of the gradient of E
+
+        Checks if the current state is elastic based on the gradient of E.
+
+        Returns:
+            bool: True if the state is elastic, False otherwise.
         """
         etol = self.parameters.get("is_elastic_tol")
         E_alpha = dolfinx.fem.assemble_vector(self.F[1])
@@ -148,21 +175,35 @@ class StabilitySolver:
 
         comm.Allreduce(coef, coeff_glob, op=MPI.MAX)
 
-        elastic = not np.isclose(coeff_glob, 0.0, atol=etol)
+        elastic = np.isclose(coeff_glob, 0.0, atol=etol)
         logging.debug(f'is_elastic coeff_glob = {coeff_glob}')
         return elastic
 
     def is_stable(self) -> bool:
+        """
+        Checks if the system is stable based on elasticity.
+
+        Returns:
+            bool: True if the system is stable, False otherwise.
+        """
         if self.is_elastic():
             return True
         else:
-            raise NotImplementedError
+            raise NotImplementedError("Stability check not implemented")
 
     def get_inactive_dofset(self, a_old) -> set:
         """Computes the set of dofs where damage constraints are inactive
         based on the energy gradient and the ub constraint. The global
         set of inactive constraint-dofs is the union of constrained
         alpha-dofs and u-dofs.
+
+        Computes the set of inactive dofs for damage constraints.
+
+        Args:
+            a_old: The old state vector.
+
+        Returns:
+            set: Set of inactive dofs.
         """
         gtol = self.parameters.get("inactiveset_gatol")
         pwtol = self.parameters.get("inactiveset_pwtol")
@@ -171,7 +212,8 @@ class StabilitySolver:
         F = dolfinx.fem.petsc.assemble_vector(self.F[1])
 
         with F.localForm() as f_local:
-            idx_grad_local = np.where(np.isclose(f_local[:], 0.0, atol=gtol))[0]
+            idx_grad_local = np.where(
+                np.isclose(f_local[:], 0.0, atol=gtol))[0]
 
         with self.state[
             1
@@ -194,17 +236,17 @@ class StabilitySolver:
             self._critical = True
         else:
             self._critical = False
-        
-        logging.critical(
-            f"rank {comm.rank}) Current state is damage-critical? 🌪 {self._critical}"
+
+        _emoji = "💥" if self._critical else "🌪"
+        logging.debug(
+            f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
         )
 
+        _emoji = "non-trivial 🍦 (solid)" if self._critical else "trivial 🌂 (empty)"
         if self._critical:
-            logging.critical(
-                f"rank {comm.rank})     > The cone is open 🍦"
+            logging.debug(
+                f"rank {comm.rank})     > The cone is {_emoji}"
             )
-
-        # F.view()
 
         restricted_dofs = [dofs_u_all, dofs_alpha_inactive]
 
@@ -219,6 +261,15 @@ class StabilitySolver:
         return restricted_dofs
 
     def setup_eigensolver(self, eigen):
+        """
+        Set up the eigenvalue solver for stability analysis.
+
+        Args:
+            eigen: Eigenvalue problem instance.
+
+        Returns:
+            eigen: Updated eigenvalue problem instance.
+        """
         eigen.eps.setType(SLEPc.EPS.Type.KRYLOVSCHUR)
         eigen.eps.setProblemType(SLEPc.EPS.ProblemType.HEP)
 
@@ -229,9 +280,9 @@ class StabilitySolver:
         st.setShift(-1.0e-3)
 
         eigen.eps.setTolerances(
-            self.parameters["eigen"]["eig_rtol"], 
+            self.parameters["eigen"]["eig_rtol"],
             self.parameters["eigen"]["eps_max_it"]
-            )
+        )
 
         eigen.eps.setDimensions(self.parameters["maxmodes"], PETSc.DECIDE)
         eigen.eps.setFromOptions()
@@ -240,15 +291,15 @@ class StabilitySolver:
         return eigen
 
     def inertia_setup(self, constraints):
+        """
+        Set up the inertia matrix for the system.
 
-        # opts = PETSc.Options()
-        # opts.prefixPush(prefix)
+        Args:
+            constraints: Constraint object.
 
-        # for k, v in self.parameters.get("inertia").items():
-        #     print(f"{prefix}{k} {v}")
-        #     opts[k] = v
-        # opts.prefixPop()
-        # pc.setFromOptions()
+        Returns:
+            pc: Preconditioner object.
+        """
         pc = PETSc.PC().create(comm)
         prefix = "inertia"
         opts = PETSc.Options(prefix)
@@ -290,19 +341,33 @@ class StabilitySolver:
         return pc
 
     def get_inertia(self) -> (int, int, int):
+        """
+        Get the inertia of the inertia matrix.
 
+        Returns:
+            Tuple[int, int, int]: Tuple containing the number of negative, zero, and positive eigenvalues.
+        """
         Fm = self.inertia.getFactorMatrix()
         (neg, zero, pos) = Fm.getInertia()
 
         return (neg, zero, pos)
 
     def normalise_eigen(self, u, mode="max-beta"):
+        """
+        Normalize the eigenmode vector.
 
+        Args:
+            u: Eigenmode vector.
+            mode (str): Mode for normalization. Only "max-beta" is supported.
+        
+        Returns:
+            float: Coefficient used for normalization.
+        """
         assert mode == "max-beta"
         v, beta = u[0], u[1]
         V_alpha_lrange = beta.function_space.dofmap.index_map.local_range
 
-        coeff = max(abs(beta.vector[V_alpha_lrange[0] : V_alpha_lrange[1]]))
+        coeff = max(abs(beta.vector[V_alpha_lrange[0]: V_alpha_lrange[1]]))
         coeff_glob = np.array(0.0, "d")
 
         comm.Allreduce(coeff, coeff_glob, op=MPI.MAX)
@@ -313,7 +378,8 @@ class StabilitySolver:
         if coeff_glob == 0.0:
             log(
                 LogLevel.INFO,
-                "Damage eigenvector is null i.e. |β|={}".format(beta.vector.norm()),
+                "Damage eigenvector is null i.e. |β|={}".format(
+                    beta.vector.norm()),
             )
             return 0.0
 
@@ -336,10 +402,26 @@ class StabilitySolver:
         return coeff_glob
 
     def postproc_eigs(self, eigs, eigen):
+        """
+        Postprocess the computed eigenvalues.
+
+        Args:
+            eigs: List of computed eigenvalues.
+            eigen: Eigenvalue problem instance.
+        """
         pass
 
     def solve(self, alpha_old: dolfinx.fem.function.Function):
+        """
+        Solve the stability analysis problem.
 
+        Args:
+            alpha_old: Old state vector.
+
+        Returns:
+            bool: True if stable, False otherwise.
+        """
+        # Initialize the data dictionary
         self.data = {
             "stable": [],
             "neg_eigs": [],
@@ -348,11 +430,53 @@ class StabilitySolver:
             "elastic": [],
         }
 
+        # Check if the system is damage-critical and log it
+        self.log_critical_state()
+
+        with dolfinx.common.Timer(f"~Second Order: Bifurcation") as timer:
+            # Set up constraints
+            constraints = self.setup_constraints(alpha_old)
+
+            self.inertia_setup(constraints)
+
+            # Set up and solve the eigenvalue problem
+            eigen = self.setup_eigenvalue_problem(constraints)
+            eigen.solve()
+
+            # Process and analyze the eigenmodes
+            self.eigen = eigen
+            spectrum = self.process_eigenmodes(eigen)
+
+            # Sort eigenmodes by eigenvalues
+            spectrum.sort(key=lambda item: item.get("lambda"))
+            # unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
+
+            # Store the results
+            stable = self.store_results(eigen, spectrum)
+
+        return stable
+
+    def log_critical_state(self):
+        """Log whether the system is damage-critical."""
+        _emoji = "💥" if self._critical else "🌪"
+        logging.critical(
+            f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
+        )
+        _emoji = "non-trivial 🍦 (solid)" if self._critical else "trivial 🌂 (empty)"
+        if self._critical:
+            logging.debug(
+                f"rank {comm.rank})     > The cone is {_emoji}"
+            )
+    
+    def setup_constraints(self, alpha_old: dolfinx.fem.function.Function):
+        """Set up constraints and return them."""
         restricted_dofs = self.get_inactive_dofset(alpha_old)
-        constraints = restriction.Restriction([self.V_u, self.V_alpha], restricted_dofs)
+        constraints = restriction.Restriction(
+            [self.V_u, self.V_alpha], restricted_dofs)
+        return constraints
 
-        self.inertia_setup(constraints)
-
+    def setup_eigenvalue_problem(self, constraints):
+        """Set up the eigenvalue problem and return the solver."""
         eigen = eigenblockproblem.SLEPcBlockProblemRestricted(
             self.F_,
             self.state,
@@ -362,94 +486,102 @@ class StabilitySolver:
             prefix="stability",
         )
         self.setup_eigensolver(eigen)
+        self.eigen = eigen  # Save the eigenvalue problem instance
+        
+        eigen.A.zeroEntries()
+        dolfinx.fem.petsc.assemble_matrix_block(eigen.A, eigen.A_form, eigen.bcs)
+        eigen.A.assemble()
+        
+        return eigen
 
-        # save an instance
-        self.eigen = eigen
+    def process_eigenmodes(self, eigen):
+        """Process eigenmodes and return a list of unstable modes."""
+        spectrum = []
 
-        eigen.solve()
+        for i in range(self.get_number_of_process_eigenvalues(eigen)):
+            logging.debug(f"{rank}) Postprocessing mode {i}")
+            v_n, beta_n, eigval, _u = self.process_eigenmode(eigen, i)
+            logging.critical("%d     %6e" % (i, eigval.real))
+            spectrum.append(
+                {
+                    "n": i,
+                    "lambda": eigval.real,
+                    "xk": _u,
+                    "v": v_n,
+                    "beta": beta_n,
+                }
+            )
 
-        nev, ncv, mpd = eigen.eps.getDimensions()
+        return spectrum
+
+    def get_number_of_process_eigenvalues(self, eigen):
+        """Process a limited number of eigenvalues, limited by parameters or by 
+        the number of converged solutions"""
+
         neig = self.parameters["maxmodes"]
 
         if neig is not None:
             neig_out = min(eigen.eps.getConverged(), neig)
         else:
             neig_out = eigen.eps.getConverged()
+    
+        return neig_out
 
-        logging.critical(f"Number of requested eigenvalues: {nev}")
-        logging.critical(f"Number of requested column vectors: {ncv}")
-        logging.critical(f"Number of mpd: {mpd}")
-        logging.critical(f"converged {ncv:d}")
-        # print(f"{rank}) mode {i}: {name} beta-norm {ur[1].vector.norm()}")
 
-        # postprocess
-        spectrum = []
-        Kspectrum = []
-        
-        for i in range(neig_out):
-            logging.debug(f"{rank}) Postprocessing mode {i}")
-            v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
-            beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
-            eigval, ur, _ = eigen.getEigenpair(i)
-            _ = self.normalise_eigen(ur)
-            log(LogLevel.INFO, "")
-            log(LogLevel.INFO, "i        k          ")
-            log(LogLevel.INFO, "--------------------")
-            log(LogLevel.INFO, "%d     %6e" % (i, eigval.real))
+    def process_eigenmode(self, eigen, i):
+        """Process a single eigenmode and return its components."""
+        v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
+        beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
 
-            with ur[0].vector.localForm() as v_loc, v_n.vector.localForm() as v_n_loc:
-                v_loc.copy(result=v_n_loc)
+        _u = dolfinx.fem.petsc.create_vector_block(self.F)
+        eigval, ur, _ = eigen.getEigenpair(i)
+        _ = self.normalise_eigen(ur)
 
-            v_n.vector.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
+        functions_to_vec(ur, _u)
 
-            with ur[
-                1
-            ].vector.localForm() as b_loc, beta_n.vector.localForm() as b_n_loc:
-                b_loc.copy(result=b_n_loc)
+        with ur[0].vector.localForm() as v_loc, v_n.vector.localForm() as v_n_loc:
+            v_loc.copy(result=v_n_loc)
 
-            beta_n.vector.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
+        v_n.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
-            logging.debug(f"mode {i} {ur[0].name}-norm {ur[0].vector.norm()}")
-            logging.debug(f"mode {i} {ur[1].name}-norm {ur[1].vector.norm()}")
+        with ur[1].vector.localForm() as b_loc, beta_n.vector.localForm() as b_n_loc:
+            b_loc.copy(result=b_n_loc)
 
-            Kspectrum.append(
-                {
-                    "n": i,
-                    "lambda": eigval.real,
-                    "xk": ur
-                }
-            )
+        beta_n.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
-            spectrum.append(
-                {
-                    "n": i,
-                    "lambda": eigval.real,
-                    "v": v_n,
-                    "beta": beta_n,
-                }
-            )
+        logging.debug(f"mode {i} {ur[0].name}-norm {ur[0].vector.norm()}")
+        logging.debug(f"mode {i} {ur[1].name}-norm {ur[1].vector.norm()}")
+        logging.debug(f"mode {i} beta_n-norm {beta_n.vector.norm()}")
+        logging.debug("")
 
-        spectrum.sort(key=lambda item: item.get("lambda"))
+        return v_n, beta_n, eigval, _u
+    
+    def store_results(self, eigen, spectrum):
+        """Store eigenmodes and results."""
         unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
+        
+        # spectrum = unstable_spectrum
 
-        self.spectrum = unstable_spectrum
-        self.Kspectrum = Kspectrum
+        self.spectrum = spectrum
+        self._spectrum = unstable_spectrum
 
         eigs = [mode["lambda"] for mode in spectrum]
-        eig0, u0, _ = eigen.getEigenpair(0)
+
+        # getEigenpair need not be ordered
+        eig0, u0, _ = eigen.getEigenpair(spectrum[0]['n'])
 
         self.minmode = u0
         self.mineig = eig0
 
-        perturbations_v = [spectrum[i]["v"] for i in range(neig_out)]
-        perturbations_beta = [spectrum[i]["beta"] for i in range(neig_out)]
-        # based on eigenvalue
-        stable = np.min(eigs) > float(self.parameters.get("eigen").get("eps_tol"))
-        
+        perturbations_v = [mode["v"] for mode in unstable_spectrum]
+        perturbations_beta = [mode["beta"] for mode in unstable_spectrum]
+
+        stable = self.check_stability(eig0)
+
         self.data = {
             "eigs": eigs,
             "perturbations_beta": perturbations_beta,
@@ -458,12 +590,33 @@ class StabilitySolver:
         }
 
         return stable
+    
+    def check_stability(self, eig0):
+        """Check stability based on eigenvalues and return the result."""
+        eigs = [mode["lambda"] for mode in self.spectrum]
+        # eig0, u0, _ = eigen.getEigenpair(0)
+
+        if len(eigs) == 0:
+            # assert 
+            stable = eig0.real > 0
+        else:
+            stable = np.min(eigs) > float(
+                self.parameters.get("eigen").get("eps_tol"))
+
+        return stable
 
     def save_eigenvectors(self, filename="output/eigvec.xdmf"):
+        """
+        Save computed eigenvectors to a file.
+
+        Args:
+            filename (str): Output filename for the XDMF file.
+        """
         eigs = self.data["eigs"]
         v = self.data["perturbations_v"]
         beta = self.data["perturbations_beta"]
-        ColorPrint.print_info("Saving the eigenvetors for the following eigenvalues")
+        ColorPrint.print_info(
+            "Saving the eigenvectors for the following eigenvalues")
         ColorPrint.print_info(eigs)
 
         if comm.rank == 0:
@@ -477,7 +630,7 @@ class StabilitySolver:
                 ofile.write_function(beta[i], eig)
 
 
-class BifurcationSolver(StabilitySolver):
+class BifurcationSolver(SecondOrderSolver):
     """Minimal implementation for the solution of the uniqueness issue"""
 
     def __init__(
@@ -488,16 +641,26 @@ class BifurcationSolver(StabilitySolver):
         nullspace=None,
         bifurcation_parameters=None,
     ):
+        """
+        Initialize the BifurcationSolver.
+
+        Args:
+            energy (ufl.form.Form): The energy functional.
+            state (dict): Dictionary containing state variables 'u' and 'alpha'.
+            bcs (list): List of boundary conditions.
+            nullspace: Nullspace object for the problem.
+            bifurcation_parameters: Parameters for the bifurcation analysis.
+        """
         super(BifurcationSolver, self).__init__(
             energy,
             state,
             bcs,
             nullspace,
             stability_parameters=bifurcation_parameters,
+        )
 
-    )
 
-class ConeSolver(StabilitySolver):
+class StabilitySolver(SecondOrderSolver):
     """Base class for a minimal implementation of the solution of eigenvalue
     problems bound to a cone. Based on numerical recipe SPA and KR existence result
     Thanks Yves and Luc."""
@@ -510,493 +673,446 @@ class ConeSolver(StabilitySolver):
         nullspace=None,
         cone_parameters=None,
     ):
-        super(ConeSolver, self).__init__(
+        """
+        Initialize the StabilitySolver.
+
+        Args:
+            energy (ufl.form.Form): The energy functional.
+            state (dict): Dictionary containing state variables 'u' and 'alpha'.
+            bcs (list): List of boundary conditions.
+            nullspace: Nullspace object for the problem.
+            cone_parameters: Parameters for the stability analysis with cones.
+        """
+        super(StabilitySolver, self).__init__(
             energy,
             state,
             bcs,
             nullspace,
             stability_parameters=cone_parameters,
-
-    )
+        )
         self._converged = False
         self._v = dolfinx.fem.petsc.create_vector_block(self.F)
 
-    def _solve(self, alpha_old: dolfinx.fem.function.Function, x0=None):
-        """Recursively solves (until convergence) the abstract eigenproblem
-        K \ni x \perp y := Ax - \lambda B x \in K^*
-        based on the SPA recipe, cf. ...
-        """
-        _s = float(self.parameters.get("cone").get("scaling"))
-        self.iterations = 0
-        errors = []
-        self.stable = True
-        stable = self.solve(alpha_old)
+        self._reasons = {'0': 'converged',
+                         '-1': 'non-converged, check the logs',
+                         '1': 'converged atol',
+                         '2': 'converged rtol'
+                         }
+        self._reason = None
+
         self.data = {
             "iterations": [],
             "error_x_L2": [],
             "lambda_k": [],
             "lambda_0": [],
             "y_norm_L2": [],
+            "x_norm_L2": [],
         }
-        
-        self._converged = False
-
-        # The cone is non-trivial, aka non-empty
-        # only if the state is irreversibly damage-critical
-
-        if self._critical:
-            errors.append(1)
-            self.data["y_norm_L2"].append(1)
-
-            # loop
-
-            _x = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _y = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _Bx = dolfinx.fem.petsc.create_vector_block(self.F)        
-            self._xold = dolfinx.fem.petsc.create_vector_block(self.F)    
-            
-            # Map current solution into vector _x
-            if x0 is None:
-                functions_to_vec(self.Kspectrum[0].get("xk"), _x)
-            else:
-                functions_to_vec(x0, _x)
-
-            logging.critical(f"         Size of _x : {_x.size}")
-            self.data["lambda_k"].append(self.Kspectrum[0].get("lambda"))
-            logging.critical(f'         initial lambda-guess : {self.Kspectrum[0].get("lambda")}')
-            if not self.eigen.empty_B():
-                logging.debug("B = Id")
-
-            with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
-                assert self._xold.size == _x.size
-        
-                while not self.converged(_x):
-                    errors.append(self.error)
-
-                    # make it admissible: map into the cone
-                    # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
-
-                    # self._cone_project(_x)
-                    _x = self._cone_project_restricted(_x)
-
-                    # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
-                    # K_t spectrum:
-                    # compute {lambdat, xt, yt}
-
-                    if self.eigen.restriction is not None:
-                        _A = self.eigen.rA
-                        _B = self.eigen.rB
-
-                        # _x = self.eigen.restriction.restrict_vector(_x)
-                        _y = self.eigen.restriction.restrict_vector(_y)
-                        _Ax = self.eigen.restriction.restrict_vector(_Ax)
-                        _Bx = self.eigen.restriction.restrict_vector(_Bx)
-
-                        _xold = self.eigen.restriction.restrict_vector(self._xold)
-                    else:
-                        _A = self.eigen.A
-                        _B = self.eigen.B
-                        _xold = self._xold
-
-                    _A.mult(_x, _Ax)
-                    xAx = _x.dot(_Ax)
-
-                    # compute: lmbda_t
-                    if not self.eigen.empty_B():
-                        _B.mult(_x, _Bx)
-                        xBx = _x.dot(_Bx)
-                        _lmbda_t = xAx/xBx
-                    else:
-                        _Bx = _x
-                        _lmbda_t = xAx / _x.dot(_x)
-
-                    # compute: y_t = _Ax - _lmbda_t * _Bx
-                    _y.waxpy(-_lmbda_t, _Bx, _Ax)
-
-                    # construct perturbation
-                    # _v = _x - _s*y_t
-        
-                    # _x.copy(self._xold)
-                    _x.copy(_xold)
-                    _x.axpy(-_s, _y)
-                    
-                    # project onto cone
-                    # self._cone_project(_x)
-                    _x = self._cone_project_restricted(_x)
-
-                    # assert self._xold.size == _x.size
-                    
-                    _xold.copy(self._xold)
-                    
-                    # L2-normalise
-                    n2 = _x.normalize()
-                    # _x.view()
-                    # iterate
-                    # x_i+1 = _v 
-
-                    self.data["lambda_k"].append(_lmbda_t)
-                    self.data["y_norm_L2"].append(_y.norm())
-
-
-
-
-            self.data["iterations"] = self.iterations
-            self.data["error_x_L2"] = errors
-            self.data["lambda_0"] = _lmbda_t
-
-            logging.critical(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
-            logging.critical(f"Eigenfunction is in cone? {self._isin_cone(_x)}")
-            logging.critical(f"Eigenvalue {_lmbda_t}")
-
-            # if (self._isin_cone(_x)):
-                # bifurcating out of existence, not out of a numerical test
-            if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_rtol"))):
-                stable = bool(False)
-            else:
-                stable = bool(True)
-        return bool(stable)
 
     def _is_critical(self, alpha_old):
-        """is this a damage-critical state?"""
+        """
+        Determines if the current state is damage-critical.
+
+        Args:
+            alpha_old (dolfinx.fem.function.Function): The previous damage function.
+
+        Returns:
+            bool: True if damage-critical, False otherwise.
+        """
         constrained_dofs = len(self.get_inactive_dofset(alpha_old)[1])
 
         if constrained_dofs > 0:
-            return bool(True)
+            return True
         else:
-            return bool(False)
+            return False
 
-    def my_solve(self, alpha_old: dolfinx.fem.function.Function, x0=None):
+
+    def my_solve(self, alpha_old: dolfinx.fem.function.Function, eig0 = None, inertia = None):
+        """
+        Solves an abstract eigenvalue problem using the Scaling & Projection-Algorithm (SPA).
+
+        Args:
+            alpha_old (dolfinx.fem.function.Function): The previous damage function.
+            eig0 (list): List of bifurcation eigenmodes, if available.
+
+        Returns:
+            bool: True if the problem is stable, False if not.
+        """
+
+        self.initialize_spa(alpha_old, eig0)
+
         _s = float(self.parameters.get("cone").get("scaling"))
         self.iterations = 0
         errors = []
         self.stable = True
+
+        _x, _y, _Ax, self._xold = self.initialize_full_vectors()
+
+        stable = False
+        self._converged = False
+        errors.append(1)
+
+        if not self._is_critical(alpha_old):
+            # the current state is damage-subcritical (hence elastic), the state is stable
+            self.data["lambda_0"] = [np.nan]
+            self.data["iterations"] = [0]
+            self.data["error_x_L2"] = [1]
+            return True
+        elif eig0 == [] and inertia[0]==0:
+            # the current state is damage-critical but no bifurcation can occur, the state is stable
+            self.data["lambda_0"] = [np.nan]
+            self.data["iterations"] = [0]
+            self.data["error_x_L2"] = [1]
+            return True
+        else:
+            assert len(eig0) > 0
+            assert inertia[0] > 0
+
+            x0 = eig0[0].get("xk")
+            _x = x0.copy()
+
+        
+        with dolfinx.common.Timer(f"~Second Order: Stability"):
+            constraints = self.setup_constraints(alpha_old)
+            eigen = self.setup_eigenvalue_problem(constraints)
+
+            self.eigen = eigen
+
+            _Ar = constraints.restrict_matrix(eigen.A)
+            _xk = constraints.restrict_vector(_x)
+            _y = constraints.restrict_vector(_y)
+            self._Axr = constraints.restrict_vector(_Ax)
+            self._xoldr = constraints.restrict_vector(self._xold)
+
+            _lmbda_t = np.nan
+            
+            while self.iterate(_xk, errors):
+                _lmbda_t, _y = self.update_lambda_and_y(_xk, _Ar, _y)
+
+                self.update_xk(_xk, _y, self._s)
+                self.update_data(_xk, _lmbda_t, _y)
+
+                logging.debug(f"Eigenvalue _lambda_k at iteration {self.iterations} 🍦? {_lmbda_t}")
+                logging.debug(f"Vector _xk at iteration {self.iterations} is in cone 🍦? {self._isin_cone(_xk)}")
+                logging.debug(f"Projection _xk at k={self.iterations} is in cone 🍦? {self._isin_cone(_xk)}")
+
+            perturbation = self.finalize_eigenmode(_xk)
+            
+            self.store_results(_lmbda_t)
+            stable = self.check_stability(_lmbda_t)
+
+        return stable
+
+    def update_lambda_and_y(self, xk, Ar, y):
+        # Update _lmbda_t and _y based on _xk, _Axr, and y
+        Ar.mult(xk, self._Axr)
+        
+        xAx_r = xk.dot(self._Axr)
+
+        _lmbda_t = xAx_r / xk.dot(xk)
+        y.waxpy(-_lmbda_t, xk, self._Axr)
+
+        return _lmbda_t, y
+
+    def update_xk(self, xk, y, s):
+        # Update _xk based on the scaling and projection algorithm
+        xk.copy(self._xoldr)
+        self._xoldr.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
+
+        xk.axpy(-s, y)
+
+        self._cone_project_restricted(xk)
+        n2 = xk.normalize()
+
+
+    def update_data(self, xk, lmbda_t, y):
+        # Update SPA data during each iteration
+        self.iterations += 1
+        self.data["iterations"].append(self.iterations)
+        self.data["lambda_k"].append(lmbda_t)
+        self.data["y_norm_L2"].append(y.norm())
+        self.data["x_norm_L2"].append(xk.norm())
+
+    def initialize_spa(self, alpha_old: dolfinx.fem.function.Function, eig0=None):
+        # Initialization of SPA parameters and data
+        self.iterations = 0
+        self.stable = True
+        
         self.data = {
             "iterations": [],
             "error_x_L2": [],
             "lambda_k": [],
             "lambda_0": [],
             "y_norm_L2": [],
+            "x_norm_L2": [],
         }
-        # Map current solution into vector _x
-        _x = dolfinx.fem.petsc.create_vector_block(self.F)        
-        if x0 is None:
-            stable = self.solve(alpha_old)
-            functions_to_vec(self.Kspectrum[0].get("xk"), _x)
-        else:
-            functions_to_vec(x0, _x)
 
-        if not self._is_critical(alpha_old):
-            return bool(True)
-        restricted_dofs = self.get_inactive_dofset(alpha_old)
-        
-        constraints = restriction.Restriction([self.V_u, self.V_alpha], restricted_dofs)
+        _s = float(self.parameters.get("cone").get("scaling"))
+        self._s = _s
+        self.errors = []
+        self._rerrors = []
+        self._aerrors = []
 
-        self._converged = False
-        errors.append(1)
-        self.data["y_norm_L2"].append(1)
+        if eig0 is None:
+            self.stable = self.solve(alpha_old)
+            eig0 = self._spectrum
 
-        # initialise forms, matrices, vectors
-        eigen = eigenblockproblem.SLEPcBlockProblemRestricted(
-            self.F_,
-            self.state,
-            self.lmbda0,
-            bcs=self.bcs,
-            restriction=constraints,
-            prefix="stability",
-        )
-        
-        self.eigen = eigen
+        if len(eig0) == 0 or self.stable:
+            return self.stable
 
-        eigen.A.zeroEntries()
-        dolfinx.fem.petsc.assemble_matrix_block(eigen.A, eigen.A_form, eigen.bcs)
-        eigen.A.assemble()
-        _Ar = constraints.restrict_matrix(eigen.A)
+        x0 = eig0[0].get("xk")
+        _x = x0.copy()
+        self.data["iterations"].append(0)
+        self.data["error_x_L2"].append(1)
 
-        _y = dolfinx.fem.petsc.create_vector_block(self.F)        
-        _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
-        
-        self._xold = dolfinx.fem.petsc.create_vector_block(self.F)        
-         
+        return None
+
+    def initialize_full_vectors(self):
+        _x = dolfinx.fem.petsc.create_vector_block(self.F)
+        _y = dolfinx.fem.petsc.create_vector_block(self.F)
+        _Ax = dolfinx.fem.petsc.create_vector_block(self.F)
+        _xold = dolfinx.fem.petsc.create_vector_block(self.F)
+
+        return _x, _y, _Ax, _xold
+
+    def initialize_restricted_vectors(self, constraints):
+        # Create and initialize SPA vectors 
+        _x = dolfinx.fem.petsc.create_vector_block(self.F)
+        _y = dolfinx.fem.petsc.create_vector_block(self.F)
+        _Ax = dolfinx.fem.petsc.create_vector_block(self.F)
+        _xold = dolfinx.fem.petsc.create_vector_block(self.F)
+
         _xk = constraints.restrict_vector(_x)
-        self._xoldr = constraints.restrict_vector(self._xold)
-    
-        # _x = constraints.restrict_vector(_x)
         _y = constraints.restrict_vector(_y)
+        _xoldr = constraints.restrict_vector(_xold)
         _Axr = constraints.restrict_vector(_Ax)
-        # _Ar = constraints.restrict_matrix(_A)
 
-        # logging.debug(f"bglobal_dofs_vec {constraints.bglobal_dofs_vec}")
-        # logging.debug(f"bglobal_dofs_vec stacked {constraints.bglobal_dofs_vec_stacked}")
-        # logging.debug(f"blocal_dofs {constraints.blocal_dofs}")
-        # logging.debug(f"boffsets_vec {constraints.boffsets_vec}")
-        # __import__('pdb').set_trace()
-        logging.critical(f"~Second Order: Cone Solver - SPA s={_s}")
-        with dolfinx.common.Timer(f"~Second Order: Cone Solver - SPA s={_s}"):
-            while not self.converged(_xk):
-                errors.append(self.error)
-
-                _Ar.mult(_xk, _Axr)
-                xAx_r = _xk.dot(_Axr)
-                # B=id for us
-                _lmbda_t = xAx_r / _xk.dot(_xk)
-                _y.waxpy(-_lmbda_t, _xk, _Axr)
-                logging.debug(f"_lmbda_t {_lmbda_t}")
-
-                diff = _xk.duplicate()
-
-                _xk.copy(self._xoldr)
-
-                _xk.ghostUpdate(
-                    addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-                )
-                # update current iterate
-                _xk.axpy(-_s, _y)
-                # project onto cone
-                # self._cone_project(_xk)
-
-                # vk = self._cone_restrict_project(_xk)
-                vk = self._cone_project_restricted(_xk)
-
-                # logging.debug(f"Projection vk is in cone 🍦? {self._isin_cone(vk)}")
-                logging.debug(f"Projection _xk is in cone 🍦? {self._isin_cone(_xk)}")
-                vk.copy(_xk)
-                
-                # normalise eigen
-
-                n2 = _xk.normalize()
-        
-                diff.waxpy(-1, self._xoldr, _xk)
-
-                self.data["lambda_k"].append(_lmbda_t)
-                self.data["y_norm_L2"].append(_y.norm())
+        return _xk, _y, _xoldr, _Axr
 
 
-        self.data["iterations"] = self.iterations
-        self.data["error_x_L2"] = errors
-        self.data["lambda_0"] = _lmbda_t
+    def finalize_eigenmode(self, xk):
+        # Extract, extend, and finalize the converged eigenmode
+        self._xk = xk
+        self._extend_vector(xk, self._v)
 
-        logging.critical(f"Convergence of SPA algorithm with s={_s} in {self.iterations} iterations")
-        logging.critical(f"Eigenfunction is in cone 🍦? {self._isin_cone(_xk)}")
-        # logging.critical(f"Errors {errors}")
-        logging.critical(f"Eigenvalue {_lmbda_t}")
-        # if (self._isin_cone(_x)):
-        # bifurcating out of existence, not out of a numerical test
+        (v, β) = (Function(self.V_u, name="Displacement perturbation"),
+                Function(self.V_alpha, name="Damage perturbation"))
 
-        if (self._converged and _lmbda_t < float(self.parameters.get("cone").get("cone_atol"))):
-            stable = bool(False)
-        else:
-            stable = bool(True)
-    
-        return bool(stable)
+        vec_to_functions(self._v, [v, β])
+        self.perturbation = {"v": v, "beta": β}
 
-    def converged(self, x):
-        converged = self._convergenceTest(x)
-        # logging.critical(f"Iteration {self.iterations} - Converged? {converged}")
-        
+        return self.perturbation
+
+
+
+    def iterate(self, x, errors):
+        """
+        Perform convergence check and handle exceptions (NonConvergenceException).
+
+        Args:
+            x: Current vector.
+            errors: List to store errors.
+
+        Returns:
+            bool: True if converged, False otherwise.
+        """
+        converged = False
+        try:
+            converged = self._convergenceTest(x, errors)
+        except NonConvergenceException as e:
+            logging.warning(e)
+            logging.warning("Continuing")
+            # return False
+
         if not converged:
             self.iterations += 1
         else:
             self._converged = True
             self.x_converged = x.copy()
 
-        return converged
+        # should we iterate?
+        return False if converged else True
 
     def get_perturbation(self):
+        """
+        Get the perturbation vector.
+
+        Returns:
+            Union[dolfinx.fem.function.Function, None]: Perturbation vector if converged, None otherwise.
+        """
         if self._converged:
             self._extend_vector(self.x_converged, self._v)
             return self._v
         else:
             return None
 
-    def _convergenceTest(self, x):
-        """Test convergence of current iterate xk against 
-        prior, restricted version"""
-        # _atol = self.parameters.get("eigen").get("eps_tol")
-        # _maxit = self.parameters.get("eigen").get("eps_max_it")
+    def _convergenceTest(self, x, errors):
+        """
+        Test the convergence of the current iterate xk against the prior, restricted version.
 
+        Args:
+            x: Current iterate vector.
+            errors: List to store errors.
+
+        Returns:
+            bool: True if converged, False otherwise.
+        """
+        assert x.norm() > 0, "Norm of x is zero"
+
+        _atol = self.parameters.get("cone").get("cone_atol")
         _rtol = self.parameters.get("cone").get("cone_rtol")
         _maxit = self.parameters.get("cone").get("cone_max_it")
 
         if self.iterations == _maxit:
-            raise RuntimeError(f'SPA solver did not converge within {_maxit} \
-                               iterations within tolerance {_rtol}. Aborting')   
+            self._reason = -1
+            raise NonConvergenceException(
+                f'SPA solver did not converge to atol {_atol} or rtol {_rtol} within maxit={_maxit} iterations.')
+
         diff = x.duplicate()
         diff.zeroEntries()
 
         # xdiff = -x + x_old
         diff.waxpy(-1., self._xoldr, x)
+
         error_x_L2 = diff.norm()
 
         self.error = error_x_L2
-        if not self.iterations % 100:
-            logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2}")
+        self._aerror = error_x_L2
+        self._rerror = error_x_L2 / x.norm()
 
-        self.data["iterations"].append(self.iterations)
+        errors.append(error_x_L2)
+        self._aerrors.append(self._aerror)
+        self._rerrors.append(self._rerror)
+
+        if not self.iterations % 1000:
+            logging.critical(
+                f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}")
+
+        # self.data["iterations"].append(self.iterations)
         self.data["error_x_L2"].append(error_x_L2)
 
-        if error_x_L2 < _rtol:
-            self._converged = True
-        elif self.iterations == 0 or error_x_L2 >= _rtol:
+        _acrit = self._aerror < self.parameters.get("cone").get("cone_atol")
+        _rcrit = self._rerror < self.parameters.get("cone").get("cone_rtol")
+
+        _crits = (_acrit, _rcrit)
+
+        met_criteria = []
+
+        for index, criterion in enumerate(_crits, start=1):
+            if criterion:
+                self._converged = True
+                met_criteria.append(index)
+
+        if len(met_criteria) > 1:
+            self._reason = 0
+        elif len(met_criteria) == 1:
+            self._reason = met_criteria
+        elif self.iterations == 0 or not met_criteria:
             self._converged = False
-
-        return self._converged
-
-    # def convergenceTest(self, x):
-    #     """Test convergence of current iterate x against 
-    #     prior"""
-    #     # _atol = self.parameters.get("eigen").get("eps_tol")
-    #     # _maxit = self.parameters.get("eigen").get("eps_max_it")
-
-    #     _rtol = self.parameters.get("cone").get("cone_rtol")
-    #     _maxit = self.parameters.get("cone").get("cone_max_it")
-
-    #     if self.eigen.restriction is not None:
-    #         _x = self.eigen.restriction.restrict_vector(x)
-    #         _xold = self.eigen.restriction.restrict_vector(self._xold)
-    #     else:
-    #         _x = x
-    #         _xold = self._xold
-
-    #     if self.iterations == _maxit:
-    #         raise RuntimeError(f'SPA solver did not converge within {_maxit} \
-    #                            iterations within tolerance {_rtol}. Aborting')
-    #         # return False        
-    #     diff = _x.duplicate()
-    #     diff.zeroEntries()
-
-    #     # xdiff = -x + x_old
-    #     diff.waxpy(-1., _xold, _x)
-    #     error_x_L2 = diff.norm()
-
-    #     self.error = error_x_L2
-    #     if not self.iterations % 100:
-    #         logging.critical(f"     [i={self.iterations}] error_x_L2 = {error_x_L2}")
-
-    #     self.data["iterations"].append(self.iterations)
-    #     self.data["error_x_L2"].append(error_x_L2)
-
-    #     if error_x_L2 < _rtol:
-    #         self._converged = True
-    #     elif self.iterations == 0 or error_x_L2 >= _rtol:
-    #         self._converged = False
 
     #     return self._converged
 
     def _isin_cone(self, x):
-        """Is in the zone IFF x is in the cone"""
+        """
+        Checks if the vector x is in the cone.
 
-        # if is already restricted
+        Args:
+            x: Vector to be checked.
+
+        Returns:
+            bool: True if x is in the cone, False otherwise.
+        """
         if x.size != self._v.size:
             self._extend_vector(x, self._v)
             _x = self._v
         else:
             _x = x
 
-        # get the subvector associated to damage dofs with inactive constraints 
+        # Get the subvector associated with damage degrees of freedom with inactive constraints
         _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
         _is = PETSc.IS().createGeneral(_dofs)
         _sub = _x.getSubVector(_is)
-        
+
         return (_sub.array >= 0).all()
-        
-    def _cone_project(self, v):
-        """Projection vector into the cone
-
-            takes arguments:
-            - v: vector in a mixed space
-
-            returns
-        """
-        with dolfinx.common.Timer(f"~Second Order: Cone Project"):
-            # logging.critical(f"num dofs {len(self.eigen.restriction.bglobal_dofs_vec[1])}")
-            # get the subvector associated to damage dofs with inactive constraints 
-            _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
-            _is = PETSc.IS().createGeneral(_dofs)
-            logging.critical(f"IS is {_is} bglobal_dofs_vec: {_dofs}")
-            # logging.critical(f"xk is {v.array}")
-            logging.critical(f"len(xk) is {len(v.array)}")
-            
-            _sub = v.getSubVector(_is)
-            zero = _sub.duplicate()
-            zero.zeroEntries()
-
-            _sub.pointwiseMax(_sub, zero)
-            v.restoreSubVector(_is, _sub)
-        return
 
     def _extend_vector(self, vres, vext):
-        """extends restricted vector vr into v, in place"""
-        # v = dolfinx.fem.petsc.create_vector_block(F)
-        with dolfinx.common.Timer(f"~Restriction manipulations: Extend Vector"):
-            _isall = PETSc.IS().createGeneral(self.eigen.restriction.bglobal_dofs_vec_stacked)
-            _suball = vext.getSubVector(_isall)
+        """
+        Extends a restricted vector vr into v, in place.
 
-            vres.copy(_suball)
-            vext.restoreSubVector(_isall, _suball)
+        Args:
+            vres: Restricted vector to be extended.
+            vext: Extended vector.
+
+        Returns:
+            None
+        """
+        _isall = PETSc.IS().createGeneral(self.eigen.restriction.bglobal_dofs_vec_stacked)
+        _suball = vext.getSubVector(_isall)
+
+        vres.copy(_suball)
+        vext.restoreSubVector(_isall, _suball)
         
         return
-
+        
     def _cone_project_restricted(self, v):
-        """Projects vector into the relevant cone
-            handling restrictions. In place.
-
-            takes arguments:
-            - v: vector in a mixed space
-
-            returns
         """
-        _is_restricted = False
+        Projects a vector into the relevant cone, handling restrictions. In place.
 
-        # if is already restricted
-        if v.size != self._v.size:
-            _is_restricted = True
-            self._extend_vector(v, self._v)
-            _v = self._v
-        else:
-            logging.debug(f"rank {comm.rank}) Vext = V")
-            _v = v
+        Args:
+            v: Vector to be projected.
 
-        with dolfinx.common.Timer(f"~Second Order: Cone Project"): 
+        Returns:
+            Vector: The projected vector.
+        """
+        with dolfinx.common.Timer(f"~Second Order: Cone Project"):
+            # get the subvector associated with damage degrees of freedom with inactive constraints
+
+            if v.size != self._v.size:
+                self._extend_vector(v, self._v)
+                _v = self._v
+            else:
+                _v = v
 
             _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
             _is = PETSc.IS().createGeneral(_dofs)
+
             _sub = _v.getSubVector(_is)
             zero = _sub.duplicate()
 
             zero.zeroEntries()
-    
+
             _sub.pointwiseMax(_sub, zero)
             _v.restoreSubVector(_is, _sub)
 
-            # logging.debug(f"rank {comm.rank}) v is                       {v.array}")
-            # logging.debug(f"rank {comm.rank}) IS _dofs                       {_dofs}")
-            # logging.debug(f"rank {comm.rank}) IS.size from block-local dofs  {_is.size}")
-            # logging.debug(f"rank {comm.rank}) v size                         {v.size}")
-            # logging.debug(f"rank {comm.rank}) IS Indices from block-local dofs {_is.getIndices()}")
-            # logging.debug(f"rank {comm.rank}) Restricted dofs {len(self.eigen.restriction.blocal_dofs[1])}")
-            
+            # if self.eigen.restriction is not None and v.size != len(self.eigen.restriction.bglobal_dofs_vec_stacked):
+            if self.eigen.restriction is not None and v.size != self._v.size:
+                _v = self.eigen.restriction.restrict_vector(_v)
 
-        if _is_restricted:
-            return self.eigen.restriction.restrict_vector(_v)
+        return _v
+
+
+    def check_stability(self, lmbda_t):
+        # Check for stability based on SPA algorithm's convergence
+        if self._converged and lmbda_t < float(self.parameters.get("cone").get("cone_rtol")):
+            return False
         else:
-            return _v
+            return True
 
-    # def _cone_restrict_project(self, v):
-    #     """returns the projection of a full state vector v
-    #     (considering the restriction), onto the positive cone
-    #     the returned vector (new) is defined on the same space as v"""
 
-    #     vk = v.copy()
-    #     zero = v.duplicate()
-    #     zero.zeroEntries()
+    def store_results(self, lmbda_t):
+        # Store SPA results and log convergence information
+        self.data["iterations"] = self.iterations
+        self.data["error_x_L2"].append(self.error)
+        self.data["lambda_0"].append(lmbda_t)
+        logging.info(
+            f"Convergence of SPA algorithm within {self.iterations} iterations")
+        logging.info(
+            f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(self._xk)}")
+        logging.critical(f"Restricted Eigenvalue {lmbda_t:.4e}")
+        logging.critical(f"Restricted Eigenvalue is positive {lmbda_t > 0}")
+        logging.info(f"Restricted Error {self.error:.4e}")
+        logging.critical(
+            f"Eigenfunction is in cone? {self._isin_cone(self._v)}")
 
-    #     _is = PETSc.IS().createGeneral(self.eigen.restriction.bglobal_dofs_vec[1])
-    #     _sub = vk.getSubVector(_is)
-    #     print(f"{rank}) _sub-.array_r {_sub.array_r}")
-    #     _subzero = zero.getSubVector(_is)
-    #     _sub.pointwiseMax(_sub, _subzero)
-    #     print(f"{rank}) _sub+.array_r {_sub.array_r}")
-    #     vk.restoreSubVector(_is, _sub)
-
-    #     return vk

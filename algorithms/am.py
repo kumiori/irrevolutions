@@ -142,9 +142,9 @@ class AlternateMinimisation:
         for iteration in range(1,
             self.solver_parameters.get("damage_elasticity").get("max_it")
         ):
-            with dolfinx.common.Timer("~Alternate Minimization: Elastic solver"):
+            with dolfinx.common.Timer("~First Order: AltMin-Elastic solver"):
                 (solver_u_it, solver_u_reason) = self.elasticity.solve()
-            with dolfinx.common.Timer("~Alternate Minimization: Damage solver"):
+            with dolfinx.common.Timer("~First Order: AltMin-Damage solver"):
                 (solver_alpha_it, solver_alpha_reason) = self.damage.solve()
 
             # Define error function
@@ -375,12 +375,12 @@ class HybridFractureSolver(AlternateMinimisation):
         # self.newton
 
     def monitor(self, its, rnorm):
-        logging.critical("Num it, rnorm:", its, rnorm)
+        logging.info("Num it, rnorm:", its, rnorm)
         pass     
 
     def solve(self, alpha_lb, outdir=None):
         # Perform AM as customary
-        with dolfinx.common.Timer("~Alternate Minimization : AM solver"):
+        with dolfinx.common.Timer("~First Order: AltMin solver"):
             super().solve(outdir)
 
         self.newton_data = {
@@ -391,7 +391,7 @@ class HybridFractureSolver(AlternateMinimisation):
         # update bounds and perform Newton step
         # lb, ub = self.compute_bounds(self.newton.F_form, self.alpha)
         
-        with dolfinx.common.Timer("~Alternate Minimization : Hybrid solver"):
+        with dolfinx.common.Timer("~First Order: Hybrid solver"):
             functions_to_vec([self.u_lb, self.alpha_lb], self.lb)
             # logging.critical(f"max alpha.vector lb: {max(self.alpha_lb.vector.array)}")
 

@@ -39,7 +39,7 @@ import logging
 from dolfinx.common import Timer, list_timings, TimingType
 
 sys.path.append("../")
-from algorithms.so import StabilitySolver, ConeSolver
+from algorithms.so import BifurcationSolver, StabilitySolver
 from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
@@ -451,12 +451,12 @@ solver = _AlternateMinimisation(
 )
 
 
-stability = StabilitySolver(
+stability = BifurcationSolver(
     total_energy, state, bcs, stability_parameters=parameters.get("stability")
 )
 
 
-cone = ConeSolver(
+cone = StabilitySolver(
     total_energy, state, bcs,
     cone_parameters=parameters.get("stability")
 )
