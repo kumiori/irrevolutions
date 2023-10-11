@@ -334,7 +334,7 @@ class HybridFractureSolver(AlternateMinimisation):
         self.newton.snes.setFromOptions()
 
     def compute_bounds(self, v, alpha_lb):
-        __import__('pdb').set_trace()
+
         lb = dolfinx.fem.create_vector_nest(v)
         ub = dolfinx.fem.create_vector_nest(v)
 

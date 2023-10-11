@@ -30,11 +30,6 @@ from meshes.primitives import mesh_bar_gmshapi
 from dolfinx.common import Timer, list_timings, TimingType
 
 from solvers.function import vec_to_functions
-# Viz
-from pyvista.utilities import xvfb
-import pyvista
-import sys
-from utils.viz import plot_vector, plot_scalar, plot_profile
 
 
 import logging
@@ -73,6 +68,17 @@ size = comm.Get_size()
 
 # Mesh on node model_rank and then distribute
 model_rank = 0
+
+
+# # Viz
+
+from pyvista.utilities import xvfb
+import pyvista
+import sys
+from utils.viz import plot_mesh, plot_vector, plot_scalar
+# 
+xvfb.start_xvfb(wait=0.05)
+pyvista.OFF_SCREEN = True
 
 def test_linsearch(parameters, storage):
 
@@ -325,16 +331,48 @@ def test_linsearch(parameters, storage):
         
         stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
-        if not stable:
+        # if not stable:
+        max_continuation_iterations = 3
+        _continuation_iterations = 0
+
+        while not stable and _continuation_iterations < max_continuation_iterations:
+            _continuation_iterations = 0
+            with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+            # # if size == 1:
+                if comm.rank == 0:
+                    plotter = pyvista.Plotter(
+                        title="Displacement",
+                        window_size=[1600, 600],
+                        shape=(1, 2),
+                    )
+                    _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+                    _plt = plot_vector(u, plotter, subplot=(0, 1))
+                    _plt.screenshot(f"{prefix}/traction-state-stable-{str(stable)}.png")
+
             _perturbation = cone.get_perturbation()
         
             vec_to_functions(_perturbation, [v, β])
     
             perturbation = {"v": v, "beta": β}
 
+
+
+            with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+            # # if size == 1:
+                if comm.rank == 0:
+                    plotter = pyvista.Plotter(
+                        title="Perturbations",
+                        window_size=[1600, 600],
+                        shape=(1, 2),
+                    )
+                    _plt = plot_scalar(β, plotter, subplot=(0, 0))
+                    _plt = plot_vector(v, plotter, subplot=(0, 1))
+                    _plt.screenshot(f"{prefix}/traction-state-perturbation.png")
+
+
             interval = linesearch.get_unilateral_interval(state, perturbation)
 
-            order = 3
+            order = 4
             h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
             # logging.critical(f"state is stable: {stable} h_opt is {h_opt}")
             logging.critical(f" *> State is unstable: {not stable}")
@@ -342,9 +380,14 @@ def test_linsearch(parameters, storage):
             logging.critical(f"perturbation energies: {energies_1d}")
             logging.critical(f"hopt: {h_opt}")
             logging.critical(f"lambda_t: {cone.data['lambda_0']}")
+
+
+            h_rnd, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order, method = 'random')
+
             x_plot = np.linspace(interval[0], interval[1], order+1)
             fig, axes = plt.subplots(1, 1)
             plt.scatter(x_plot, energies_1d)
+            plt.scatter(h_rnd, 0, c='k', s=60,  label=f'$h^{{ rnd }}={h_rnd:.2f}$')
             plt.scatter(h_opt, 0, c='k', s=40, marker='|', label=f'$h^*={h_opt:.2f}$')
             plt.scatter(h_opt, p(h_opt), c='k', s=40, alpha=.5)
             xs = np.linspace(interval[0], interval[1], 30)
@@ -359,74 +402,52 @@ def test_linsearch(parameters, storage):
             axes.spines['bottom'].set_visible(False)
             axes.set_yticks([0])
             axes.axhline(0, c='k')
-            fig.savefig(f"{prefix}/energy_interpolation-{order}.png")
+            fig.savefig(f"{prefix}/energy_interpolation-{order}-rnd.png")
             plt.close()
             
-            orders = [2, 3, 4, 10, 30]
-
-            fig, axes = plt.subplots(1, 1, figsize = (5, 8))
-
-            for order in orders:
-                x_plot = np.linspace(interval[0], interval[1], order+1)
-                h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
-                xs = np.linspace(interval[0], interval[1], 30)
-    
-                plt.scatter(x_plot, energies_1d)
-                axes.plot(xs, p(xs), label=f'Energy slice order {order}')
-                plt.scatter(h_opt, 0, s=60, label=f'$h^*-{ order }={h_opt:.2f}$', alpha=.5)
-                plt.scatter(h_opt, p(h_opt), c='k', s=40, alpha=.5)
-    
-            axes.legend()
-            axes.spines['top'].set_visible(False)
-            axes.spines['right'].set_visible(False)
-            axes.spines['left'].set_visible(False)
-            axes.spines['bottom'].set_visible(False)
-            axes.set_yticks([0])
-            axes.set_xlabel('h')
-            axes.set_ylabel('$E_h - E_0$')
-            axes.axhline(0, c='k')
-            fig.savefig(f"{prefix}/energy_interpolation-orders.png")
-    
-            plt.close()
-
-
-            tol = 1e-3
-            xs = np.linspace(0 + tol, Lx - tol, 101)
-            points = np.zeros((3, 101))
-            points[0] = xs
-            plotter = pyvista.Plotter(
-                title="Perturbation profile",
-                window_size=[800, 600],
-                shape=(1, 1),
-            )
-            _plt, data = plot_profile(
-                β,
-                points,
-                plotter,
-                subplot=(0, 0),
-                lineproperties={
-                    "c": "k",
-                    "label": f"$\\beta$"
-                },
-            )
-            ax = _plt.gca()
-            _plt.legend()
-            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-            _plt.title("Perurbation")
-            _plt.savefig(f"{prefix}/perturbation-profile.png")
-            _plt.close()
             # perturb the state
             linesearch.perturb(state, perturbation, h_opt)
-            # i -= 1
-            # t = t 
-            # compute convergence criteria
+
+            with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+            # # if size == 1:
+                if comm.rank == 0:
+                    plotter = pyvista.Plotter(
+                        title="Perturbed state",
+                        window_size=[1600, 600],
+                        shape=(1, 2),
+                    )
+                    _plt = plot_scalar(β, plotter, subplot=(0, 0))
+                    _plt = plot_vector(v, plotter, subplot=(0, 1))
+                    _plt.screenshot(f"{prefix}/traction-perturbed-state-rnd.png")
+
+            hybrid.solve(alpha_lb)
+            is_path = bifurcation.solve(alpha_lb)
+            inertia = bifurcation.get_inertia()
+            stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
+    
+            with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+            # # if size == 1:
+                if comm.rank == 0:
+                    plotter = pyvista.Plotter(
+                        title="Displacement",
+                        window_size=[1600, 600],
+                        shape=(1, 2),
+                    )
+                    _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+                    _plt = plot_vector(u, plotter, subplot=(0, 1))
+                    _plt.screenshot(f"{prefix}/traction-new-state-stable-{str(stable)}.png")
+
+            _continuation_iterations += 1
+            
+            __import__('pdb').set_trace()
+
 
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
         logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
-        # logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+        logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
         logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
@@ -493,7 +514,8 @@ def test_linsearch(parameters, storage):
     # xvfb.start_xvfb(wait=0.05)
     # pyvista.OFF_SCREEN = True
 
-    # # if size == 1:
+    # with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+    # # # if size == 1:
     # if comm.rank == 0:
     #     plotter = pyvista.Plotter(
     #         title="Displacement",
@@ -532,9 +554,9 @@ def load_parameters(file_path):
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     # parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-7
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-7
-    parameters["stability"]["cone"]["scaling"] = .00001
+    parameters["stability"]["cone"]["cone_atol"] = 1e-6
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
+    parameters["stability"]["cone"]["scaling"] = .0001
 
     parameters["model"]["model_dimension"] = 2
     parameters["model"]["model_type"] = '2D'

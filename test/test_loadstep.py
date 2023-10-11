@@ -30,10 +30,6 @@ from meshes.primitives import mesh_bar_gmshapi
 from dolfinx.common import Timer, list_timings, TimingType
 
 from solvers.function import vec_to_functions
-# Viz
-from pyvista.utilities import xvfb
-import pyvista
-import sys
 from utils.viz import plot_vector, plot_scalar, plot_profile
 
 
@@ -74,7 +70,18 @@ size = comm.Get_size()
 # Mesh on node model_rank and then distribute
 model_rank = 0
 
-def test_linsearch(parameters, storage):
+
+# # Viz
+
+from pyvista.utilities import xvfb
+import pyvista
+import sys
+from utils.viz import plot_mesh, plot_vector, plot_scalar
+# 
+xvfb.start_xvfb(wait=0.05)
+pyvista.OFF_SCREEN = True
+
+def test_loadstep(parameters, storage):
 
     petsc4py.init(sys.argv)
     comm = MPI.COMM_WORLD
@@ -314,10 +321,8 @@ def test_linsearch(parameters, storage):
         ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
 
-        # n_eigenvalues = 10
         is_stable = bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
-        # is_critical = bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
         
         ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
@@ -325,69 +330,19 @@ def test_linsearch(parameters, storage):
         
         stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
-        if not stable:
+        # if not stable:
+        max_continuation_iterations = 3
+        _continuation_iterations = 0
+
+        while not stable and _continuation_iterations < max_continuation_iterations:
+            _continuation_iterations = 0
+
             _perturbation = cone.get_perturbation()
         
             vec_to_functions(_perturbation, [v, β])
     
             perturbation = {"v": v, "beta": β}
-
             interval = linesearch.get_unilateral_interval(state, perturbation)
-
-            order = 3
-            h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
-            # logging.critical(f"state is stable: {stable} h_opt is {h_opt}")
-            logging.critical(f" *> State is unstable: {not stable}")
-            logging.critical(f"line search interval is {interval}")
-            logging.critical(f"perturbation energies: {energies_1d}")
-            logging.critical(f"hopt: {h_opt}")
-            logging.critical(f"lambda_t: {cone.data['lambda_0']}")
-            x_plot = np.linspace(interval[0], interval[1], order+1)
-            fig, axes = plt.subplots(1, 1)
-            plt.scatter(x_plot, energies_1d)
-            plt.scatter(h_opt, 0, c='k', s=40, marker='|', label=f'$h^*={h_opt:.2f}$')
-            plt.scatter(h_opt, p(h_opt), c='k', s=40, alpha=.5)
-            xs = np.linspace(interval[0], interval[1], 30)
-            axes.plot(xs, p(xs), label='Energy slice along perturbation')
-            axes.set_xlabel('h')
-            axes.set_ylabel('$E_h - E_0$')
-            axes.set_title(f'Polynomial Interpolation - order {order}')
-            axes.legend()
-            axes.spines['top'].set_visible(False)
-            axes.spines['right'].set_visible(False)
-            axes.spines['left'].set_visible(False)
-            axes.spines['bottom'].set_visible(False)
-            axes.set_yticks([0])
-            axes.axhline(0, c='k')
-            fig.savefig(f"{prefix}/energy_interpolation-{order}.png")
-            plt.close()
-            
-            orders = [2, 3, 4, 10, 30]
-
-            fig, axes = plt.subplots(1, 1, figsize = (5, 8))
-
-            for order in orders:
-                x_plot = np.linspace(interval[0], interval[1], order+1)
-                h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
-                xs = np.linspace(interval[0], interval[1], 30)
-    
-                plt.scatter(x_plot, energies_1d)
-                axes.plot(xs, p(xs), label=f'Energy slice order {order}')
-                plt.scatter(h_opt, 0, s=60, label=f'$h^*-{ order }={h_opt:.2f}$', alpha=.5)
-                plt.scatter(h_opt, p(h_opt), c='k', s=40, alpha=.5)
-    
-            axes.legend()
-            axes.spines['top'].set_visible(False)
-            axes.spines['right'].set_visible(False)
-            axes.spines['left'].set_visible(False)
-            axes.spines['bottom'].set_visible(False)
-            axes.set_yticks([0])
-            axes.set_xlabel('h')
-            axes.set_ylabel('$E_h - E_0$')
-            axes.axhline(0, c='k')
-            fig.savefig(f"{prefix}/energy_interpolation-orders.png")
-    
-            plt.close()
 
 
             tol = 1e-3
@@ -415,18 +370,29 @@ def test_linsearch(parameters, storage):
             _plt.title("Perurbation")
             _plt.savefig(f"{prefix}/perturbation-profile.png")
             _plt.close()
+
+            order = 4
+            h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
+            h_rnd, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order, method = 'random')
+            
             # perturb the state
-            linesearch.perturb(state, perturbation, h_opt)
-            # i -= 1
-            # t = t 
-            # compute convergence criteria
+            linesearch.perturb(state, perturbation, h_rnd)
+
+            hybrid.solve(alpha_lb)
+            is_path = bifurcation.solve(alpha_lb)
+            inertia = bifurcation.get_inertia()
+            stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
+    
+            _continuation_iterations += 1
+        else:
+            ColorPrint.print_bold(f"We found, or lost something? State is stable: {stable}")
 
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
         logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
-        # logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+        logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
         logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
@@ -484,25 +450,6 @@ def test_linsearch(parameters, storage):
     df = pd.DataFrame(history_data)
     print(df.drop(['solver_data', 'cone_data'], axis=1))
 
-    # # Viz
-    # from pyvista.utilities import xvfb
-    # import pyvista
-    # import sys
-    # from utils.viz import plot_mesh, plot_vector, plot_scalar
-    # # 
-    # xvfb.start_xvfb(wait=0.05)
-    # pyvista.OFF_SCREEN = True
-
-    # # if size == 1:
-    # if comm.rank == 0:
-    #     plotter = pyvista.Plotter(
-    #         title="Displacement",
-    #         window_size=[1600, 600],
-    #         shape=(1, 2),
-    #     )
-    #     _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-    #     _plt = plot_vector(u, plotter, subplot=(0, 1))
-    #     _plt.screenshot(f"{prefix}/traction-state.png")
 
 
     from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
@@ -511,8 +458,6 @@ def test_linsearch(parameters, storage):
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
         plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
         plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
-
-
 
 
 
@@ -532,9 +477,9 @@ def load_parameters(file_path):
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     # parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-7
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-7
-    parameters["stability"]["cone"]["scaling"] = .00001
+    parameters["stability"]["cone"]["cone_atol"] = 1e-6
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
+    parameters["stability"]["cone"]["scaling"] = .0001
 
     parameters["model"]["model_dimension"] = 2
     parameters["model"]["model_type"] = '2D'
@@ -557,6 +502,6 @@ if __name__ == "__main__":
     _storage = f"output/test_linesearch/{signature}"
     ColorPrint.print_bold(f"===================-{_storage}-=================")
     # __import__('pdb').set_trace()
-    test_linsearch(parameters, _storage)
+    test_loadstep(parameters, _storage)
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"===================-{_storage}-=================")

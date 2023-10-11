@@ -170,11 +170,10 @@ class SecondOrderSolver:
         etol = self.parameters.get("is_elastic_tol")
         E_alpha = dolfinx.fem.assemble_vector(self.F[1])
 
-        coef = max(abs(E_alpha.array))
+        coef = min(abs(E_alpha.array))
         coeff_glob = np.array(0.0, dtype=PETSc.ScalarType)
 
-        comm.Allreduce(coef, coeff_glob, op=MPI.MAX)
-
+        comm.Allreduce(coef, coeff_glob, op=MPI.MIN)
         elastic = np.isclose(coeff_glob, 0.0, atol=etol)
         logging.debug(f'is_elastic coeff_glob = {coeff_glob}')
         return elastic
@@ -526,7 +525,6 @@ class SecondOrderSolver:
             neig_out = eigen.eps.getConverged()
     
         return neig_out
-
 
     def process_eigenmode(self, eigen, i):
         """Process a single eigenmode and return its components."""
