@@ -23,6 +23,7 @@ from pathlib import Path
 import mpi4py
 import numpy as np
 from ufl import Measure
+import random
 
 
 comm = mpi4py.MPI.COMM_WORLD
@@ -49,7 +50,7 @@ class LineSearch(object):
         self.u0 = Function(state['u'].function_space)
         self.alpha0 = Function(state['alpha'].function_space)
 
-    def search(self, state, perturbation, interval, m=2, mode=0):
+    def search(self, state, perturbation, interval, m=2, method = 'min'):
         # m = self.parameters["order"]
 
         v = perturbation["v"]
@@ -105,14 +106,18 @@ class LineSearch(object):
 
         # compute minimum of polynomial
         if m==2:
-            log(LogLevel.INFO, 'Line search using quadratic interpolation')
+            logging.info('Line search using quadratic interpolation')
             h_opt = - z[1]/(2*z[0])
         else:
-            log(LogLevel.INFO, 'Line search using polynomial interpolation (order {})'.format(m))
+            logging.info('Line search using polynomial interpolation (order {})'.format(m))
             h = np.linspace(0, hmax, 30)
             h_opt = h[np.argmin(p(h))]
 
-        return h_opt, energies_1d, p
+
+        if method = 'random':
+            h_opt, random.uniform(hmin, hmax)
+
+        return h_opt, energies_1d, p, z
 
     def perturb(self, state, perturbation, h):
         v = perturbation["v"]
