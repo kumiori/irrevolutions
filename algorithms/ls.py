@@ -139,7 +139,8 @@ class LineSearch(object):
         zh_norm = np.sum([norm_H1(func) for func in state.values()])
         
         logging.critical( f'Initial state norm: {z0_norm}')
-        logging.critical( f'Perturbation norm: {zh_norm}')
+        logging.critical( f'Perturbation norm: {np.sum([norm_H1(func) for func in perturbation.values()])}')
+        logging.critical( f'Perturbed norm: {zh_norm}')
 
         return state
 

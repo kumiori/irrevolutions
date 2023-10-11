@@ -261,6 +261,7 @@ def test_linsearch(parameters, storage):
     history_data = {
         "load": [],
         "elastic_energy": [],
+        "jump_energy": [],
         "fracture_energy": [],
         "total_energy": [],
         "solver_data": [],
@@ -274,7 +275,8 @@ def test_linsearch(parameters, storage):
         "rate_12_norm": [],
         "unscaled_rate_12_norm": [],
         "cone-stable": [],
-        "s": []
+        "s": [],
+        "s-t": []
     }
 
     s = load_par["min"]
@@ -315,8 +317,8 @@ def test_linsearch(parameters, storage):
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
-        rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
-        urate_12_norm = hybrid.unscaled_rate_norm(alpha)
+        rate_12_norm = hybrid.scaled_rate_norm(alphadot, parameters)
+        urate_12_norm = hybrid.unscaled_rate_norm(alphadot)
 
         # Compute time
         # s + \int_0^t ||\dot \alpha||_H^1 ds
@@ -325,7 +327,6 @@ def test_linsearch(parameters, storage):
         times = np.array(history_data["load"])
         s_i = rate_12_norm * dt
         s = t + np.trapz(rates, times) + s_i
-        __import__('pdb').set_trace()
 
         ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
@@ -340,85 +341,41 @@ def test_linsearch(parameters, storage):
         ColorPrint.print_bold(f"===================-=================")
         
         stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
+        max_continuation_iterations = 10
+        _continuation_iterations = 0
 
-        if not stable:
+        while not stable and _continuation_iterations < max_continuation_iterations:
+            _continuation_iterations = 0
             _perturbation = cone.get_perturbation()
         
             vec_to_functions(_perturbation, [v, β])
     
             perturbation = {"v": v, "beta": β}
-
             interval = linesearch.get_unilateral_interval(state, perturbation)
 
-            order = 3
+            order = 4
             h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
-            # logging.critical(f"state is stable: {stable} h_opt is {h_opt}")
-            logging.critical(f" *> State is unstable: {not stable}")
-            logging.critical(f"line search interval is {interval}")
-            logging.critical(f"perturbation energies: {energies_1d}")
-            logging.critical(f"hopt: {h_opt}")
-            logging.critical(f"lambda_t: {cone.data['lambda_0']}")
-            x_plot = np.linspace(interval[0], interval[1], order+1)
-            fig, axes = plt.subplots(1, 1)
-            plt.scatter(x_plot, energies_1d)
-            plt.scatter(h_opt, 0, c='k', s=40, marker='|', label=f'$h^*={h_opt:.2f}$')
-            plt.scatter(h_opt, p(h_opt), c='k', s=40, alpha=.5)
-            xs = np.linspace(interval[0], interval[1], 30)
-            axes.plot(xs, p(xs), label='Energy slice along perturbation')
-            axes.set_xlabel('h')
-            axes.set_ylabel('$E_h - E_0$')
-            axes.set_title(f'Polynomial Interpolation - order {order}')
-            axes.legend()
-            axes.spines['top'].set_visible(False)
-            axes.spines['right'].set_visible(False)
-            axes.spines['left'].set_visible(False)
-            axes.spines['bottom'].set_visible(False)
-            axes.set_yticks([0])
-            axes.axhline(0, c='k')
-            fig.savefig(f"{prefix}/energy_interpolation-{order}.png")
-            plt.close()
+            # h_rnd, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order, method = 'random')
             
-            orders = [2, 3, 4, 10, 30]
-
-            fig, axes = plt.subplots(1, 1, figsize = (5, 8))
-
-            for order in orders:
-                x_plot = np.linspace(interval[0], interval[1], order+1)
-                h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
-                xs = np.linspace(interval[0], interval[1], 30)
-    
-                plt.scatter(x_plot, energies_1d)
-                axes.plot(xs, p(xs), label=f'Energy slice order {order}')
-                plt.scatter(h_opt, 0, s=60, label=f'$h^*-{ order }={h_opt:.2f}$', alpha=.5)
-                plt.scatter(h_opt, p(h_opt), c='k', s=40, alpha=.5)
-    
-            axes.legend()
-            axes.spines['top'].set_visible(False)
-            axes.spines['right'].set_visible(False)
-            axes.spines['left'].set_visible(False)
-            axes.spines['bottom'].set_visible(False)
-            axes.set_yticks([0])
-            axes.set_xlabel('h')
-            axes.set_ylabel('$E_h - E_0$')
-            axes.axhline(0, c='k')
-            fig.savefig(f"{prefix}/energy_interpolation-orders.png")
-    
-            plt.close()
-
-
             # perturb the state
             linesearch.perturb(state, perturbation, h_opt)
-            # i -= 1
-            # t = t 
-            # compute convergence criteria
-            __import__('pdb').set_trace()
+
+            hybrid.solve(alpha_lb)
+            is_path = bifurcation.solve(alpha_lb)
+            inertia = bifurcation.get_inertia()
+            stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
+    
+            _continuation_iterations += 1
+        else:
+            ColorPrint.print_bold(f"We found, or lost something? State is stable: {stable}")
+
 
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
         logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
-        # logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+        logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
         logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
@@ -443,6 +400,7 @@ def test_linsearch(parameters, storage):
         history_data["load"].append(t)
         history_data["fracture_energy"].append(fracture_energy)
         history_data["elastic_energy"].append(elastic_energy)
+        history_data["jump_energy"].append(-1)
         history_data["total_energy"].append(elastic_energy+fracture_energy)
         history_data["solver_data"].append(solver.data)
         history_data["eigs"].append(bifurcation.data["eigs"])
@@ -456,6 +414,7 @@ def test_linsearch(parameters, storage):
         history_data["uniqueness"].append(_unique)
         history_data["inertia"].append(inertia)
         history_data["s"].append(s)
+        history_data["s-t"].append(s-t)
 
         with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
             file.write_function(u, t)
@@ -477,26 +436,6 @@ def test_linsearch(parameters, storage):
     df = pd.DataFrame(history_data)
     print(df.drop(['solver_data', 'cone_data'], axis=1))
 
-    # # Viz
-    # from pyvista.utilities import xvfb
-    # import pyvista
-    # import sys
-    # from utils.viz import plot_mesh, plot_vector, plot_scalar
-    # # 
-    # xvfb.start_xvfb(wait=0.05)
-    # pyvista.OFF_SCREEN = True
-
-    # # if size == 1:
-    # if comm.rank == 0:
-    #     plotter = pyvista.Plotter(
-    #         title="Displacement",
-    #         window_size=[1600, 600],
-    #         shape=(1, 2),
-    #     )
-    #     _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-    #     _plt = plot_vector(u, plotter, subplot=(0, 1))
-    #     _plt.screenshot(f"{prefix}/traction-state.png")
-
 
     from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 
@@ -504,9 +443,66 @@ def test_linsearch(parameters, storage):
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
         plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
         plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
+        my_plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies-rescaled.pdf", times = history_data["s"])
+        
+        import matplotlib
+        fig, ax1 = matplotlib.pyplot.subplots()
+        fig.tight_layout()
+        ax1.set_xlabel(r"time", fontsize=12)
+        ax1.set_ylabel(r"Time", fontsize=12)
+
+        ax1.plot(history_data["load"], history_data["s"], color="tab:blue", linestyle="-", linewidth=1.0, markersize=4.0, marker="o", label=r"Time")
+        ax1.plot(history_data["load"], history_data["load"], color="tab:blue", linestyle="-", linewidth=1.0, markersize=4.0, marker="o", label=r"time")
+        fig.savefig(f"{prefix}/{_nameExp}_times-rescaled.pdf")
 
 
+def my_plot_energies(history_data, title="Evolution", file=None, times=None):
+    import matplotlib
 
+    fig, ax1 = matplotlib.pyplot.subplots()
+
+    if title is not None:
+        ax1.set_title(title, fontsize=12)
+
+    ax1.set_xlabel(r"Load", fontsize=12)
+    ax1.set_ylabel(r"Energies", fontsize=12)
+    ax1.grid(linewidth=0.25)
+    fig.tight_layout()
+
+    if times is None:
+        t = np.array(history_data["load"])
+    else:
+        t = times
+    e_e = np.array(history_data["elastic_energy"])
+    e_d = np.array(history_data["fracture_energy"])
+
+    # stress-strain curve
+    ax1.plot(
+        t,
+        e_e,
+        color="tab:blue",
+        linestyle="-",
+        linewidth=1.0,
+        markersize=4.0,
+        marker="o",
+        label=r"Elastic",
+    )
+    ax1.plot(
+        t,
+        e_d,
+        color="tab:red",
+        linestyle="-",
+        linewidth=1.0,
+        markersize=4.0,
+        marker="^",
+        label=r"Fracture",
+    )
+    ax1.plot(t, e_d + e_e, color="black", linestyle="-", linewidth=1.0, label=r"Total")
+
+    ax1.legend(loc="upper left")
+    if file is not None:
+        fig.savefig(file)
+    return fig, ax1
 
 
 def load_parameters(file_path):
@@ -535,8 +531,10 @@ def load_parameters(file_path):
     parameters["model"]["ell"] = .1
     parameters["model"]["k_res"] = 0.
     parameters["loading"]["min"] = .99
-    parameters["loading"]["max"] = 1.1
-    parameters["loading"]["steps"] = 3
+    parameters["loading"]["max"] = 1.5
+    parameters["loading"]["steps"] = 50
+
+    parameters["model"]["viscous_eps"] = 5.e-6
 
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
