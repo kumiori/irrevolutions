@@ -30,6 +30,11 @@ from meshes.primitives import mesh_bar_gmshapi
 from dolfinx.common import Timer, list_timings, TimingType
 
 from solvers.function import vec_to_functions
+# Viz
+from pyvista.utilities import xvfb
+import pyvista
+import sys
+from utils.viz import plot_vector, plot_scalar, plot_profile
 
 
 import logging
@@ -385,12 +390,36 @@ def test_linsearch(parameters, storage):
             plt.close()
 
 
+            tol = 1e-3
+            xs = np.linspace(0 + tol, Lx - tol, 101)
+            points = np.zeros((3, 101))
+            points[0] = xs
+            plotter = pyvista.Plotter(
+                title="Perturbation profile",
+                window_size=[800, 600],
+                shape=(1, 1),
+            )
+            _plt, data = plot_profile(
+                β,
+                points,
+                plotter,
+                subplot=(0, 0),
+                lineproperties={
+                    "c": "k",
+                    "label": f"$\\beta$"
+                },
+            )
+            ax = _plt.gca()
+            _plt.legend()
+            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+            _plt.title("Perurbation")
+            _plt.savefig(f"{prefix}/perturbation-profile.png")
+            _plt.close()
             # perturb the state
             linesearch.perturb(state, perturbation, h_opt)
             # i -= 1
             # t = t 
             # compute convergence criteria
-            __import__('pdb').set_trace()
 
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
@@ -503,9 +532,9 @@ def load_parameters(file_path):
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     # parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-6
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-    parameters["stability"]["cone"]["scaling"] = .0001
+    parameters["stability"]["cone"]["cone_atol"] = 1e-7
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-7
+    parameters["stability"]["cone"]["scaling"] = .00001
 
     parameters["model"]["model_dimension"] = 2
     parameters["model"]["model_type"] = '2D'

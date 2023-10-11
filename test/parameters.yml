@@ -125,4 +125,5 @@ stability:
         scaling: 0.0001
     
     linesearch:
-        order: 2
+        order: 4
+        method: 'min'

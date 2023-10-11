@@ -30,6 +30,7 @@ from meshes.primitives import mesh_bar_gmshapi
 from dolfinx.common import Timer, list_timings, TimingType
 
 from solvers.function import vec_to_functions
+from utils.viz import plot_vector, plot_scalar, plot_profile
 
 
 import logging
@@ -343,6 +344,33 @@ def test_loadstep(parameters, storage):
             perturbation = {"v": v, "beta": β}
             interval = linesearch.get_unilateral_interval(state, perturbation)
 
+
+            tol = 1e-3
+            xs = np.linspace(0 + tol, Lx - tol, 101)
+            points = np.zeros((3, 101))
+            points[0] = xs
+            plotter = pyvista.Plotter(
+                title="Perturbation profile",
+                window_size=[800, 600],
+                shape=(1, 1),
+            )
+            _plt, data = plot_profile(
+                β,
+                points,
+                plotter,
+                subplot=(0, 0),
+                lineproperties={
+                    "c": "k",
+                    "label": f"$\\beta$"
+                },
+            )
+            ax = _plt.gca()
+            _plt.legend()
+            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+            _plt.title("Perurbation")
+            _plt.savefig(f"{prefix}/perturbation-profile.png")
+            _plt.close()
+
             order = 4
             h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
             h_rnd, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order, method = 'random')
@@ -422,26 +450,6 @@ def test_loadstep(parameters, storage):
     df = pd.DataFrame(history_data)
     print(df.drop(['solver_data', 'cone_data'], axis=1))
 
-    # # Viz
-    # from pyvista.utilities import xvfb
-    # import pyvista
-    # import sys
-    # from utils.viz import plot_mesh, plot_vector, plot_scalar
-    # # 
-    # xvfb.start_xvfb(wait=0.05)
-    # pyvista.OFF_SCREEN = True
-
-    # with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
-    # # # if size == 1:
-    # if comm.rank == 0:
-    #     plotter = pyvista.Plotter(
-    #         title="Displacement",
-    #         window_size=[1600, 600],
-    #         shape=(1, 2),
-    #     )
-    #     _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-    #     _plt = plot_vector(u, plotter, subplot=(0, 1))
-    #     _plt.screenshot(f"{prefix}/traction-state.png")
 
 
     from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
