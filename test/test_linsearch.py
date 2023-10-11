@@ -15,6 +15,7 @@ from dolfinx import log
 import ufl
 import numpy as np
 sys.path.append("../")
+import matplotlib.pyplot as plt
 
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
@@ -328,29 +329,75 @@ def test_linsearch(parameters, storage):
 
             interval = linesearch.get_unilateral_interval(state, perturbation)
 
-            h_opt, energies_1d, p = linesearch.search(state, perturbation, interval)
-
+            order = 3
+            h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
             # logging.critical(f"state is stable: {stable} h_opt is {h_opt}")
             logging.critical(f" *> State is unstable: {not stable}")
             logging.critical(f"line search interval is {interval}")
             logging.critical(f"perturbation energies: {energies_1d}")
             logging.critical(f"hopt: {h_opt}")
             logging.critical(f"lambda_t: {cone.data['lambda_0']}")
+            x_plot = np.linspace(interval[0], interval[1], order+1)
+            fig, axes = plt.subplots(1, 1)
+            plt.scatter(x_plot, energies_1d)
+            plt.scatter(h_opt, 0, c='k', s=40, marker='|', label=f'$h^*={h_opt:.2f}$')
+            plt.scatter(h_opt, p(h_opt), c='k', s=40, alpha=.5)
+            xs = np.linspace(interval[0], interval[1], 30)
+            axes.plot(xs, p(xs), label='Energy slice along perturbation')
+            axes.set_xlabel('h')
+            axes.set_ylabel('$E_h - E_0$')
+            axes.set_title(f'Polynomial Interpolation - order {order}')
+            axes.legend()
+            axes.spines['top'].set_visible(False)
+            axes.spines['right'].set_visible(False)
+            axes.spines['left'].set_visible(False)
+            axes.spines['bottom'].set_visible(False)
+            axes.set_yticks([0])
+            axes.axhline(0, c='k')
+            fig.savefig(f"{prefix}/energy_interpolation-{order}.png")
+            plt.close()
+            
+            orders = [2, 3, 4, 10, 30]
+
+            fig, axes = plt.subplots(1, 1, figsize = (5, 8))
+
+            for order in orders:
+                x_plot = np.linspace(interval[0], interval[1], order+1)
+                h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
+                xs = np.linspace(interval[0], interval[1], 30)
+    
+                plt.scatter(x_plot, energies_1d)
+                axes.plot(xs, p(xs), label=f'Energy slice order {order}')
+                plt.scatter(h_opt, 0, s=60, label=f'$h^*-{ order }={h_opt:.2f}$', alpha=.5)
+                plt.scatter(h_opt, p(h_opt), c='k', s=40, alpha=.5)
+    
+            axes.legend()
+            axes.spines['top'].set_visible(False)
+            axes.spines['right'].set_visible(False)
+            axes.spines['left'].set_visible(False)
+            axes.spines['bottom'].set_visible(False)
+            axes.set_yticks([0])
+            axes.set_xlabel('h')
+            axes.set_ylabel('$E_h - E_0$')
+            axes.axhline(0, c='k')
+            fig.savefig(f"{prefix}/energy_interpolation-orders.png")
+    
+            plt.close()
+
 
             # perturb the state
-
             linesearch.perturb(state, perturbation, h_opt)
-
-            __import__('pdb').set_trace()
+            # i -= 1
+            # t = t 
             # compute convergence criteria
+            __import__('pdb').set_trace()
 
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
-        # ColorPrint.print_bold(f"State is critical: {is_critical}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
         logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
-        logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+        # logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
         logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
@@ -477,6 +524,10 @@ if __name__ == "__main__":
     # test_NLB(nest=False)
 
     parameters, signature = load_parameters("../test/parameters.yml")
+    ColorPrint.print_bold(f"===================-{signature}-=================")
     _storage = f"output/test_linesearch/{signature}"
+    ColorPrint.print_bold(f"===================-{_storage}-=================")
     # __import__('pdb').set_trace()
     test_linsearch(parameters, _storage)
+    ColorPrint.print_bold(f"===================-{signature}-=================")
+    ColorPrint.print_bold(f"===================-{_storage}-=================")
