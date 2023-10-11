@@ -114,8 +114,8 @@ class LineSearch(object):
             h_opt = h[np.argmin(p(h))]
 
 
-        if method = 'random':
-            h_opt, random.uniform(hmin, hmax)
+        if method == 'random':
+            h_opt = random.uniform(hmin, hmax)
 
         return h_opt, energies_1d, p, z
 
