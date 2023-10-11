@@ -22,6 +22,7 @@ model:
     ell: 0.1
     model_dimension: 2
     model_type: "2D"
+    viscous_eps: 1.e-1
     # could be "2D"/ "3D" / "plane_stress" / "plane_strain"
 # === Solver === #
 solvers:

@@ -175,6 +175,7 @@ def test_linsearch(parameters, storage):
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
     ds = ufl.Measure("ds", domain=mesh)
+    _Omega = assemble_scalar(dolfinx.fem.form(1*dx))
 
     dofs_alpha_left = locate_dofs_geometrical(
         V_alpha, lambda x: np.isclose(x[0], 0.0))
@@ -214,7 +215,6 @@ def test_linsearch(parameters, storage):
     alpha_ub.vector.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
-
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
     # Define the model
@@ -317,8 +317,8 @@ def test_linsearch(parameters, storage):
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
-        rate_12_norm = hybrid.scaled_rate_norm(alphadot, parameters)
-        urate_12_norm = hybrid.unscaled_rate_norm(alphadot)
+        rate_12_norm = 1/_Omega * hybrid.scaled_rate_norm(alphadot, parameters)
+        urate_12_norm = 1/_Omega * hybrid.unscaled_rate_norm(alphadot)
 
         # Compute time
         # s + \int_0^t ||\dot \alpha||_H^1 ds
@@ -362,6 +362,25 @@ def test_linsearch(parameters, storage):
 
             hybrid.solve(alpha_lb)
             is_path = bifurcation.solve(alpha_lb)
+
+            # compute the rate
+            alpha.vector.copy(alphadot.vector)
+            alphadot.vector.axpy(-1, alpha_lb.vector)
+            alphadot.vector.ghostUpdate(
+                    addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+                )
+
+            rate_12_norm = 1/_Omega * hybrid.scaled_rate_norm(alphadot, parameters)
+            urate_12_norm = 1/_Omega * hybrid.unscaled_rate_norm(alphadot)
+
+            # Compute time
+            # s + \int_0^t ||\dot \alpha||_H^1 ds
+            # s += ||\dot \alpha||_H^1 dt
+            rates = np.array(history_data["rate_12_norm"])
+            times = np.array(history_data["load"])
+            s_i = rate_12_norm * dt
+            s = t + np.trapz(rates, times) + s_i
+
             inertia = bifurcation.get_inertia()
             stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
     

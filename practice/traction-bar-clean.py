@@ -278,7 +278,6 @@ def main(parameters, model='at2', storage=None):
         "cone-stable": []
     }
 
-    check_stability = []
 
     logging.getLogger().setLevel(logging.INFO)
 
@@ -326,8 +325,6 @@ def main(parameters, model='at2', storage=None):
         is_stable = bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
         inertia = bifurcation.get_inertia()
-
-        check_stability.append(is_stable)
 
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
