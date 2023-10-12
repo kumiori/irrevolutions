@@ -1,0 +1,216 @@
+
+
+%
+%  untitled
+%
+%  Created by Andrés Alessandro León Baldelli.
+%  Copyright (c) 2015  All rights reserved.
+%
+\documentclass[]{article}
+
+\usepackage[T1]{fontenc}    
+\usepackage[lined]{algorithm2e}
+
+% pygments
+\usepackage{fancyvrb}
+\usepackage{color}
+\usepackage[inline]{enumitem}
+
+\usepackage{datetime}
+% end pygments
+\usepackage{geometry}
+
+\usepackage[english]{babel}
+\usepackage[backend=biber,style=numeric,natbib=true,firstinits=true,url=false,doi=false,isbn=false,maxnames=5]{biblatex}
+%\addbibresource{biblio.bib}
+%\AtEveryBibitem{  \clearfield{day}  \clearfield{month}  \clearfield{endday}  \clearfield{endmonth}}
+
+\usepackage[pdftex,pdfauthor={Andres A Leon Baldelli},pdftitle={},pdfsubject={},pdfkeywords={},pdfproducer={Latex with hyperref},pdfcreator={pdflatex}]{hyperref}
+
+
+% Running Headers and footers
+%\usepackage{fancyhdr}
+
+% Multipart figures
+%\usepackage{subfigure}
+
+% More symbols
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{latexsym}
+
+% Surround parts of graphics with box
+\usepackage{boxedminipage}
+
+% Package for including code in the document
+\usepackage{listings}
+
+% If you want to generate a toc for each chapter (use with book)
+\usepackage{minitoc}
+
+% This is now the recommended way for checking for PDFLaTeX:
+\usepackage{ifpdf}
+
+% 
+\newenvironment{system}% 
+{\left\lbrace\begin{array}{@{}l@{}}}% 
+{\end{array}\right.} 
+
+
+
+\ifpdf
+\usepackage[pdftex]{graphicx}
+\else
+\usepackage{graphicx}
+\fi
+
+% 
+\input{/Users/kumiori/Documents/WIP/tex_macros/incl_macro_gen.tex}
+
+
+\newtheorem{prop}{Proposition}
+\newtheorem{proof}{Proof}
+\newtheorem{lemma}{Lemma}
+\newtheorem{definition}{Definition}
+
+\title{
+Discretely \\
+}
+\author{Andrés A León Baldelli}
+
+\newenvironment{inumerate}[1][]{\begin{enumerate*}[before=\vspace{6pt},
+    itemjoin=\hspace{50pt},#1]}{\end{enumerate*}}
+
+
+
+    \begin{document}
+
+    \ifpdf
+    \DeclareGraphicsExtensions{.pdf, .jpg, .tif}
+    \else
+    \DeclareGraphicsExtensions{.eps, .jpg}
+    \fi
+    
+    \maketitle
+    
+    
+    \begin{abstract}
+        Discrete bar
+    \end{abstract}
+    
+    setup
+a series of damageable bars of given length $L$, with variable stiffness $E_0a(\alpha)$ depending on the local damage level $0\leq \alpha_i \leq 1$.
+
+
+Total energy of the bar
+
+$$
+\begin{aligned}
+\mathcal E_N (e, \alpha) &=  \sum_{i=0}^N \frac{1}{2} E_0   a(\alpha_i)  e_i^2  + \sum_{i=0}^N {w_1}w(\alpha_i) \\
+\tilde {\mathcal E}_N (u, \alpha) = \frac{1}{N} {\mathcal E}_N (u, \alpha) &=  E_0 N\sum_{i=0}^N \frac{1}{2}  a(\alpha_i)  (u_i-u_{i-1})^2  + \frac{w_1}{N} \sum_{i=0}^N w(\alpha_i) 
+\end{aligned}
+$$
+Non-dimensionalisation
+
+The evolution problem
+
+\begin{itemize}
+    \item[IRR] $\alpha \in [0,1] : \dot \alpha \geq 0$
+    % \item[KST] $E_N(\alpha) \leq E_N(\alpha + \beta) \quad \forall \beta \geq 0$ stability in the cone
+    \item[KST] $E_N(y) \leq E_N(y + z) \quad \forall z = (v, \beta): \beta \geq 0, v \in \{ .. \}$ stability in the cone
+    \item[PWB] power balance? 
+\end{itemize}
+the quantities $\alpha, \beta$ are vectors of $R^N$.
+
+\begin{prop}[criticality] existence of critical load tc. Independent of N that is $e$. pointwise condition. Remarking that optimal displacement at the nodes $u_i \sim 1/N$ hence amounts to a rescaling of the load $t\mapsto t/N$
+\end{prop}
+
+\begin{prop}[existence of bifurcations] existence of bifurcation load $t_b$ ....
+\end{prop}
+
+\begin{prop}[stability] 
+        
+\end{prop}
+
+Constitutive assumptions
+
+\paragraph{Boundary conditions}
+
+imposed displacement:
+\begin{equation}
+    \label{eqn:}
+    u_0 = 0, \qquad u_N = N\frac{t}{L}
+\end{equation}
+
+First variation
+
+equilibrium solution
+
+\begin{equation}
+    \label{eqn:}
+    e_i = N \frac{t}{L} \frac{s(\alpha_i)}{S}, \qquad S:=\sum_i s(\alpha_i)
+\end{equation}
+
+homogeneous damage
+
+bifurcations
+
+
+$m$ out of $N$ springs bifurcate simultaneously, $N-m$ springs remain at given damage $\alpha^*$. 
+
+the energy of the bifurcating system is
+
+\begin{equation}
+    \label{eqn:}
+    \frac{E_{0}}{2}\frac{N^{2} t^{2}}{L^{2}}
+    \frac{1}{m s{\left(\alpha_{t} \right)} + \left(N - m\right) s{\left(\alpha^{*} \right)}} + (N-m) w_{1} w{\left(\alpha^{*} \right)} + m w_{1} w{\left(\alpha_{t} \right)}
+\end{equation}
+
+evolution for the $m$ springs $\alpha_t$ solves first order optimality condition
+\begin{equation}
+    \label{eqn:bifurcations}
+    - \frac{1}{2}\frac{E_{0} N^{2} t^{2} m  s'{\left(\alpha_{t} \right)}}{L^{2} \left(m s{\left(\alpha_{t} \right)} + \left(N - m\right) s{\left(\alpha^{*} \right)}\right)^{2}} 
+    + m w_{1} w'{\left(\alpha_{t} \right)} =0
+\end{equation}
+
+
+\begin{equation}
+    \label{eqn:bifurcations}
+    -\frac{E_{0}}{2}\frac{N^{2} t^{2}}{L^{2}} \frac{s'{\left(\alpha_{t} \right)}}{\left(m s{\left(\alpha_{t} \right)} + \left(N - m\right) s{\left(\alpha^{*} \right)}\right)^{2}} 
+    + w_{1} w'{\left(\alpha_{t} \right)} =0
+\end{equation}
+
+also reading 
+\begin{equation}
+    \label{eqn:}
+    \frac{1}{2}\frac{E_{0} N^{2} t^{2} \gamma }{L^{2} \left(- N \alpha_{t} + N + m \alpha_{t} \gamma \right)^{2}} =  w_{1}
+\end{equation}
+also reading 
+\begin{equation}
+    \label{eqn:}
+    \frac{E_{0} N^{2} t^{2}}{L^2}\frac{ \gamma }{\left(N + \alpha_{t} \left(- N + m \gamma\right)\right)^{2}} =  2w_{1}
+\end{equation}
+
+which solves to
+
+\begin{equation}
+    \label{eqn:bifurcations}
+    \alpha_t^m = \frac{1}{2}\frac{N \left(2 L w_{1} \pm  t \sqrt{2E_{0} w_{1} \gamma }\right)}{L w_{1} \left(N - m \gamma \right)}
+\end{equation}
+
+assume $L=E_0=w_1=1$ and $\gamma=2$
+
+\begin{equation}
+    \label{eqn:bifurcations}
+    \alpha_t^m=\frac{3}{2}\frac{ \left(\pm 2t + 2\right)}{3 - 2 m}
+\end{equation}
+The bifurcation load is given by the following eigenvalue problem 
+$$
+E' = 0
+$$
+stability
+
+Material model
+
+
+\end{document}
