@@ -83,27 +83,38 @@ class BrittleJump(DamageElasticityModel):
         f_plus = Function(L2)
         f = Function(L2)
         
-        alphadot_norm = norm_H1(alphadot)
+        alphadot_norm = norm_L2(alphadot)
         
         _F = ufl.derivative(
                 energy,
                 state["alpha"],
                 ufl.TestFunction(state["alpha"].ufl_function_space())
         )
-        F = assemble_vector(form(_F))
-        F_plus, _ = self._get_signed_components(F)
-
-        f.interpolate(F)
+        
+        assemble_vector(f.vector, form(_F))
+        F_plus, F_minus = self._get_signed_components(f.vector)
         f_plus.interpolate(F_plus)
         
-        __import__('pdb').set_trace()
+        # __import__('pdb').set_trace()
+        psi = ufl.dot(f_plus, f) / norm_L2(f)
+        
+        return assemble_scalar(form(alphadot_norm * psi * dx))
+
+        # assemble_vector(f_plus.vector, form(_F))
+
+        # vec_to_functions(F, [f])
+        # *** ValueError: could not broadcast input array from shape (155,) into shape (242,)
+        
+        # f.interpolate(F)
+        # f_plus.interpolate(F_plus)
+        
         
         # psi(f) = sup <-f, β>, β ∈ {β ∈ H^1(Ω), β ≤ 0 : ||β||_{L^2(Ω)} ≤ 1}
         
-        psi = F_plus.dot(F) / np.sqrt(F.dot(F))
+        # psi = F_plus.dot(F) / np.sqrt(F.dot(F))
         
-        return alphadot_norm * psi
-        # return assemble_scalar(alphadot_norm * psi * dx)
+        # return alphadot_norm * psi
+
 
     def _get_signed_components(self, f: PETSc.Vec):
         """
