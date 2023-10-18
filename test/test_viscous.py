@@ -71,10 +71,10 @@ from dolfinx.fem import form
 from solvers.function import vec_to_functions
 
 class BrittleJump(DamageElasticityModel):
-    """This model comprises the jump energy across...jumps"""
+    """This model accounts for the jump energy across...jumps"""
 
     def jump_energy_density(self, state, alphadot):
-        # dx = 1.
+
         mesh = state['u'].function_space.mesh
         dx = ufl.Measure("dx", domain=mesh)
         energy = self.total_energy_density(state) * dx
@@ -95,26 +95,12 @@ class BrittleJump(DamageElasticityModel):
         F_plus, F_minus = self._get_signed_components(f.vector)
         f_plus.interpolate(F_plus)
         
-        # __import__('pdb').set_trace()
-        psi = ufl.dot(f_plus, f) / norm_L2(f)
-        
-        return assemble_scalar(form(alphadot_norm * psi * dx))
-
-        # assemble_vector(f_plus.vector, form(_F))
-
-        # vec_to_functions(F, [f])
-        # *** ValueError: could not broadcast input array from shape (155,) into shape (242,)
-        
-        # f.interpolate(F)
-        # f_plus.interpolate(F_plus)
-        
-        
         # psi(f) = sup <-f, β>, β ∈ {β ∈ H^1(Ω), β ≤ 0 : ||β||_{L^2(Ω)} ≤ 1}
+        # a good candidate is β = f^+/||f||_{L^2(Ω)}
         
-        # psi = F_plus.dot(F) / np.sqrt(F.dot(F))
-        
-        # return alphadot_norm * psi
+        psi = ufl.dot(f_plus, f) / norm_L2(f)
 
+        return alphadot_norm * psi
 
     def _get_signed_components(self, f: PETSc.Vec):
         """
@@ -347,6 +333,7 @@ def test_linsearch(parameters, storage):
     }
 
     s = load_par["min"]
+    jump_energy = 0
 
     for i_t, t in enumerate(loads):
         u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
@@ -442,7 +429,6 @@ def test_linsearch(parameters, storage):
 
             # Compute jump energy
             
-            model.jump_energy_density(state, alphadot) * dx
             
             
             # Compute time
@@ -471,6 +457,13 @@ def test_linsearch(parameters, storage):
         logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
 
+        jump_energy_t = comm.allreduce(
+            assemble_scalar(form(model.jump_energy_density(state, alphadot) * dx)),
+            op=MPI.SUM,
+        )
+
+        jump_energy += jump_energy_t * dt    
+        
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
             op=MPI.SUM,
@@ -491,7 +484,7 @@ def test_linsearch(parameters, storage):
         history_data["load"].append(t)
         history_data["fracture_energy"].append(fracture_energy)
         history_data["elastic_energy"].append(elastic_energy)
-        history_data["jump_energy"].append(-1)
+        history_data["jump_energy"].append(jump_energy)
         history_data["total_energy"].append(elastic_energy+fracture_energy)
         history_data["solver_data"].append(solver.data)
         history_data["eigs"].append(bifurcation.data["eigs"])
@@ -636,7 +629,7 @@ if __name__ == "__main__":
 
     parameters, signature = load_parameters("../test/parameters.yml")
     ColorPrint.print_bold(f"===================-{signature}-=================")
-    _storage = f"output/test_linesearch/{signature}"
+    _storage = f"output/test_viscous_relaxation/{signature}"
     ColorPrint.print_bold(f"===================-{_storage}-=================")
     # __import__('pdb').set_trace()
     test_linsearch(parameters, _storage)
