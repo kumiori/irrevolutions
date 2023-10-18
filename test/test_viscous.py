@@ -17,7 +17,7 @@ import numpy as np
 sys.path.append("../")
 import matplotlib.pyplot as plt
 
-from models import DamageElasticityModel as Brittle
+from models import DamageElasticityModel
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
 from algorithms.so import BifurcationSolver, StabilitySolver, BifurcationSolver
 from algorithms.ls import LineSearch
@@ -66,7 +66,63 @@ petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
 size = comm.Get_size()
 
+from dolfinx.fem.petsc import assemble_vector
+from dolfinx.fem import form
+from solvers.function import vec_to_functions
 
+class BrittleJump(DamageElasticityModel):
+    """This model comprises the jump energy across...jumps"""
+
+    def jump_energy_density(self, state, alphadot):
+        # dx = 1.
+        mesh = state['u'].function_space.mesh
+        dx = ufl.Measure("dx", domain=mesh)
+        energy = self.total_energy_density(state) * dx
+        L2 = dolfinx.fem.FunctionSpace(mesh, ("DG", 0))
+        
+        f_plus = Function(L2)
+        f = Function(L2)
+        
+        alphadot_norm = norm_H1(alphadot)
+        
+        _F = ufl.derivative(
+                energy,
+                state["alpha"],
+                ufl.TestFunction(state["alpha"].ufl_function_space())
+        )
+        F = assemble_vector(form(_F))
+        F_plus, _ = self._get_signed_components(F)
+
+        f.interpolate(F)
+        f_plus.interpolate(F_plus)
+        
+        __import__('pdb').set_trace()
+        
+        # psi(f) = sup <-f, β>, β ∈ {β ∈ H^1(Ω), β ≤ 0 : ||β||_{L^2(Ω)} ≤ 1}
+        
+        psi = F_plus.dot(F) / np.sqrt(F.dot(F))
+        
+        return alphadot_norm * psi
+        # return assemble_scalar(alphadot_norm * psi * dx)
+
+    def _get_signed_components(self, f: PETSc.Vec):
+        """
+        Returns signed components of a vector field
+        """
+        f_plus = f.copy()
+        f_minus = f.copy()
+        
+        with f.localForm() as f_local \
+                , f_plus.localForm() as f_plus_local \
+                , f_minus.localForm() as f_minus_local:
+            f_plus_local.array = np.maximum(f_local.array, 0)
+            f_minus_local.array = np.minimum(f_local.array, 0)
+            
+        for field in [f_plus, f_minus]:
+            field.ghostUpdate(addv=PETSc.InsertMode.INSERT,
+                            mode=PETSc.ScatterMode.FORWARD)
+        
+        return f_plus, f_minus
 
 
 # Mesh on node model_rank and then distribute
@@ -163,7 +219,7 @@ def test_linsearch(parameters, storage):
     alpha = Function(V_alpha, name="Damage")
     β = Function(V_alpha, name="Damage perturbation")
     zero_alpha = Function(V_alpha, name="Damage Boundary Field")
-    alphadot = dolfinx.fem.Function(V_alpha, name="Damage rate")
+    alphadot = dolfinx.fem.Function(V_alpha, name="DamageRate")
 
     state = {"u": u, "alpha": alpha}
     z = [u, alpha]
@@ -219,7 +275,7 @@ def test_linsearch(parameters, storage):
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
     # Define the model
 
-    model = Brittle(parameters["model"])
+    model = BrittleJump(parameters["model"])
     load_par = parameters["loading"]
 
     # Energy functional
@@ -373,6 +429,11 @@ def test_linsearch(parameters, storage):
             rate_12_norm = 1/_Omega * hybrid.scaled_rate_norm(alphadot, parameters)
             urate_12_norm = 1/_Omega * hybrid.unscaled_rate_norm(alphadot)
 
+            # Compute jump energy
+            
+            model.jump_energy_density(state, alphadot) * dx
+            
+            
             # Compute time
             # s + \int_0^t ||\dot \alpha||_H^1 ds
             # s += ||\dot \alpha||_H^1 dt
