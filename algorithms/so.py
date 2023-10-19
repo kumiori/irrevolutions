@@ -458,7 +458,7 @@ class SecondOrderSolver:
     def log_critical_state(self):
         """Log whether the system is damage-critical."""
         _emoji = "💥" if self._critical else "🌪"
-        logging.critical(
+        logging.info(
             f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
         )
         _emoji = "non-trivial 🍦 (solid)" if self._critical else "trivial 🌂 (empty)"
@@ -500,7 +500,7 @@ class SecondOrderSolver:
         for i in range(self.get_number_of_process_eigenvalues(eigen)):
             logging.debug(f"{rank}) Postprocessing mode {i}")
             v_n, beta_n, eigval, _u = self.process_eigenmode(eigen, i)
-            logging.critical("%d     %6e" % (i, eigval.real))
+            logging.debug("%d     %6e" % (i, eigval.real))
             spectrum.append(
                 {
                     "n": i,
