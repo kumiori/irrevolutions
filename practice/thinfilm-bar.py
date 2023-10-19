@@ -58,7 +58,11 @@ from utils.lib import _local_notch_asymptotic
 from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 from utils import table_timing_data
 from utils.parametric import parameters_vs_elle
-logging.basicConfig(level=logging.DEBUG)
+
+# logging.basicConfig(level=logging.DEBUG)
+
+from utils import setup_logger_mpi
+
 
 from default import ResultsStorage, Visualization
 
@@ -109,6 +113,7 @@ def check_snes_convergence(snes):
 
 comm = MPI.COMM_WORLD
 
+logger = setup_logger_mpi(logging.INFO)
 
 outdir = "output"
 prefix = os.path.join(outdir, "thinfilm-bar")
@@ -269,11 +274,11 @@ def main(parameters, storage=None):
         ColorPrint.print_bold(f"   Solving first order: AM   ")
         ColorPrint.print_bold(f"===================-=========")
 
-        logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
+        logger.critical(f"{i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
         ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
         ColorPrint.print_bold(f"===================-=============")
 
-        logging.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
+        logger.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
         
         equilibrium.solve(alpha_lb)
         
@@ -458,8 +463,8 @@ if __name__ == "__main__":
     visualization = Visualization(_storage)
 
     visualization.visualise_results(history_data)
-    visualization.save_table(pd.DataFrame(history_data), "_history_data.json")
+    visualization.save_table(pd.DataFrame(history_data), "_history_data")
 
     _timings = table_timing_data()
 
-    visualization.save_table(_timings, "timing_data.json")
+    visualization.save_table(_timings, "timing_data")

@@ -212,7 +212,7 @@ class AlternateMinimisation:
                     "damage_elasticity").get("criterion")
                 == "residual_u"
             ):
-                logging.critical(
+                logging.debug(
                     f"AM - Iteration: {iteration:3d}, Error:  ||Du E||_L2 {error_residual_u:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
                 )
                 if error_residual_u <= self.solver_parameters.get(
@@ -225,7 +225,7 @@ class AlternateMinimisation:
                     "damage_elasticity").get("criterion")
                 == "alpha_H1"
             ):
-                logging.critical(
+                logging.debug(
                     f"AM - Iteration: {iteration:3d}, Error ||Δα_i||_H1: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
                 )
                 if error_alpha_H1 <= self.solver_parameters.get(
