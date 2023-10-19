@@ -4,6 +4,7 @@ import numpy as np
 import mpi4py
 import sys
 from petsc4py import PETSc
+import logging
 
 comm = mpi4py.MPI.COMM_WORLD
 
@@ -61,6 +62,45 @@ class ColorPrint:
             sys.stdout.write("\x1b[1;37m" + message.strip() + "\x1b[0m" + end)
             sys.stdout.flush()
 
+def setup_logger_mpi(root_priority: int = logging.INFO):
+    from mpi4py import MPI
+    import dolfinx
+    
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+
+    # Desired log level for the root process (rank 0)
+    root_process_log_level = logging.INFO  # Adjust as needed
+
+    logger = logging.getLogger('E•volver')
+    logger.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
+
+    # StreamHandler to log messages to the console (or you can use other handlers)
+    console_handler = logging.StreamHandler()
+    file_handler = logging.FileHandler('evolution.log')
+
+    # file_handler.setLevel(logging.INFO)
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    
+    file_handler.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
+    console_handler.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
+    
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+
+    # Log messages, and only the root process will log.
+    logger.info("The root process spawning an evolution computation (rank 0)")
+    logger.info(f"This is process {rank} reporting")
+    logger.critical(
+    f"DOLFINx version: {dolfinx.__version__} based on GIT commit: {dolfinx.git_commit_hash} of https://github.com/FEniCS/dolfinx/")
+
+    return logger
+
 
 def norm_L2(u):
     """
@@ -72,7 +112,6 @@ def norm_L2(u):
     norm = np.sqrt(comm.allreduce(
         assemble_scalar(norm_form), op=mpi4py.MPI.SUM))
     return norm
-
 
 def norm_H1(u):
     """
@@ -97,13 +136,10 @@ def seminorm_H1(u):
         assemble_scalar(seminorm), op=mpi4py.MPI.SUM))
     return seminorm
 
-
 def set_vector_to_constant(x, value):
     with x.localForm() as local:
         local.set(value)
     x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-
-
 
 def table_timing_data():
     import pandas as pd
