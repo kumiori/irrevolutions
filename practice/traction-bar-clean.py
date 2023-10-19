@@ -35,7 +35,7 @@ from petsc4py import PETSc
 
 
 sys.path.append("../")
-from utils.viz import plot_mesh, plot_vector, plot_scalar
+from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
 import pyvista
 from pyvista.utilities import xvfb
 from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
@@ -48,6 +48,7 @@ from solvers import SNESSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
 from models import DamageElasticityModel as Brittle
+from solvers.function import vec_to_functions
 
 
 class BrittleAT2(Brittle):
@@ -205,7 +206,12 @@ def main(parameters, model='at2', storage=None):
     u_.interpolate(lambda x: (np.ones_like(x[0]), 0 * np.ones_like(x[1])))
     alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
-
+    
+    # Perturbation
+    β = Function(V_alpha, name="DamagePerturbation")
+    v = Function(V_u, name="DisplacementPerturbation")
+    perturbation = {"v": v, "beta": β}
+    
     for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
         f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                             mode=PETSc.ScatterMode.FORWARD)
@@ -256,7 +262,7 @@ def main(parameters, model='at2', storage=None):
             "stability")
     )
 
-    cone = StabilitySolver(
+    stability = StabilitySolver(
         total_energy, state, bcs, cone_parameters=parameters.get("stability")
     )
 
@@ -335,8 +341,64 @@ def main(parameters, model='at2', storage=None):
         ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
 
-        stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
+        stable = stability.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
+        if bifurcation._spectrum:
+            vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
+            
+            tol = 1e-3
+            xs = np.linspace(0 + tol, Lx - tol, 101)
+            points = np.zeros((3, 101))
+            points[0] = xs
+            
+            plotter = pyvista.Plotter(
+                title="Perturbation profile",
+                window_size=[800, 600],
+                shape=(1, 1),
+            )
+            _plt, data = plot_profile(
+                β,
+                points,
+                plotter,
+                subplot=(0, 0),
+                lineproperties={
+                    "c": "k",
+                    "label": f"$\\beta$"
+                },
+            )
+            ax = _plt.gca()
+            _plt.legend()
+            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+            _plt.title("Perurbation")
+            _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
+            _plt.close()
+
+
+            plotter = pyvista.Plotter(
+                title="Cone-Perturbation profile",
+                window_size=[800, 600],
+                shape=(1, 1),
+            )
+
+            _plt, data = plot_profile(
+                stability.perturbation['beta'],
+                points,
+                plotter,
+                subplot=(0, 0),
+                lineproperties={
+                    "c": "k",
+                    "label": f"$\\beta$"
+                },
+            )
+            ax = _plt.gca()
+            _plt.legend()
+            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+            _plt.title("Perurbation from the Cone")
+            _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
+            _plt.close()
+
+            __import__('pdb').set_trace()
+            
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
             op=MPI.SUM,
@@ -360,12 +422,12 @@ def main(parameters, model='at2', storage=None):
         history_data["solver_data"].append(solver.data)
         history_data["eigs"].append(bifurcation.data["eigs"])
         history_data["F"].append(stress)
-        history_data["cone_data"].append(cone.data)
+        history_data["cone_data"].append(stability.data)
         history_data["alphadot_norm"].append(alphadot.vector.norm())
         history_data["rate_12_norm"].append(rate_12_norm)
         history_data["unscaled_rate_12_norm"].append(urate_12_norm)
         history_data["cone-stable"].append(stable)
-        history_data["cone-eig"].append(cone.data["lambda_0"])
+        history_data["cone-eig"].append(stability.data["lambda_0"])
         history_data["uniqueness"].append(_unique)
         history_data["inertia"].append(inertia)
 
