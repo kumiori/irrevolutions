@@ -122,4 +122,8 @@ stability:
         cone_max_it: 3000
         cone_rtol: 1.0e-06
         maxmodes: 3
-        scaling: 1e-4
+        scaling: 1.e-4
+    
+    linesearch:
+        order: 4
+        method: 'min'
