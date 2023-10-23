@@ -698,14 +698,18 @@ class StabilitySolver(SecondOrderSolver):
                          }
         self._reason = None
 
-        self.data = {
-            "iterations": [],
-            "error_x_L2": [],
-            "lambda_k": [],
-            "lambda_0": [],
-            "y_norm_L2": [],
-            "x_norm_L2": [],
-        }
+        with dolfinx.common.Timer(f"~Second Order: Stability"):
+            with dolfinx.common.Timer(f"~Second Order: Cone Project"):
+
+                self.data = {
+                    "iterations": [],
+                    "error_x_L2": [],
+                    "lambda_k": [],
+                    "lambda_0": [],
+                    "y_norm_L2": [],
+                    "x_norm_L2": [],
+                }
+                
 
     def _is_critical(self, alpha_old):
         """

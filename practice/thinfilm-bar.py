@@ -371,7 +371,6 @@ def main(parameters, storage=None):
             _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
             _plt.close()
 
-            __import__('pdb').set_trace()
             
         # if stability.perturbation:
             # pass
@@ -424,17 +423,19 @@ def main(parameters, storage=None):
 
     # postprocessing
     with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
-        xvfb.start_xvfb(wait=0.05)
-        pyvista.OFF_SCREEN = True
+        
+        if comm.Get_rank == 1:
+            xvfb.start_xvfb(wait=0.05)
+            pyvista.OFF_SCREEN = True
 
-        plotter = pyvista.Plotter(
-            title="Traction test",
-            window_size=[1600, 600],
-            shape=(1, 2),
-        )
-        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-        _plt = plot_vector(u, plotter, subplot=(0, 1))
-        _plt.screenshot(f"{prefix}/traction-state.png")
+            plotter = pyvista.Plotter(
+                title="Traction test",
+                window_size=[1600, 600],
+                shape=(1, 2),
+            )
+            _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+            _plt = plot_vector(u, plotter, subplot=(0, 1))
+            _plt.screenshot(f"{prefix}/traction-state.png")
 
 
     return history_data, state
@@ -460,20 +461,22 @@ def load_parameters(file_path):
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
     parameters["stability"]["cone"]["scaling"] = 1.e-5
 
-    parameters["geometry"]["Lx"] = 3
-    parameters["geometry"]["Ly"] = 5e-2
+    parameters["geometry"]["Lx"] = 5
+    parameters["geometry"]["Ly"] = 5e-1
     # parameters["model"]["model_dimension"] = 2
     # parameters["model"]["model_type"] = '1D'
     # parameters["model"]["w1"] = 1
     parameters["model"]["nu"] = 0
-    parameters["model"]["ell"] = .1
+    parameters["model"]["ell_e"] = .2
+    parameters["model"]["ell"] = parameters["model"]["ell_e"]/3
+    # parameters["model"]["ell"] = .05
     # parameters["model"]["k_res"] = 0.
     parameters["loading"]["min"] = 0.99
     parameters["loading"]["max"] = 1.1
     parameters["loading"]["steps"] = 3
 
     # parameters["geometry"]["geom_type"] = "traction-bar"
-    parameters["geometry"]["mesh_size_factor"] = 4
+    parameters["geometry"]["mesh_size_factor"] = 3
     # # Get mesh parameters
     # Lx = parameters["geometry"]["Lx"]
     # Ly = parameters["geometry"]["Ly"]
@@ -495,7 +498,6 @@ if __name__ == "__main__":
     
     parser.add_argument('--ell_e', type=float, default=.3,
                         help='internal elastic length')
-    
     args = parser.parse_args()
 
     if "--ell_e" in sys.argv:
@@ -516,6 +518,7 @@ if __name__ == "__main__":
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
     
     df = pd.DataFrame(history_data)
+    
     print(df.drop(['solver_data', 'cone_data'], axis=1))
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"===================-{_storage}-=================")
