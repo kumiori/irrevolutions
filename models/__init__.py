@@ -40,6 +40,8 @@ class ElasticityModel:
         self.mu = self.E / (2 * (1 + self.nu))
 
     def eps(self, u):
+        if self.model_type == "1D":
+            return u.dx()
         if self.model_type == "2D":
             return ufl.sym(ufl.grad(u))
         if self.model_type == "plane-strain":
@@ -101,7 +103,8 @@ class DamageElasticityModel(ElasticityModel):
         self.w1 = self.model_parameters["w1"]
         self.ell = self.model_parameters["ell"]
         self.k_res = self.model_parameters["k_res"]
-
+        self.model_type = self.model_parameters["model_type"]
+        
     def a(self, alpha):
         k_res = self.k_res
         return (1 - alpha)**2 + k_res

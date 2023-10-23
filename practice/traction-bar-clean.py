@@ -32,13 +32,14 @@ from dolfinx.common import Timer, list_timings, TimingType
 from mpi4py import MPI
 import petsc4py
 from petsc4py import PETSc
+import pyvista
+from pyvista.utilities import xvfb
+import hashlib
 
 sys.path.append("../")
 from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
-import pyvista
-from pyvista.utilities import xvfb
+
 from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
-import hashlib
 from utils import norm_H1, norm_L2
 from utils.plots import plot_energies
 from utils import ColorPrint

@@ -53,13 +53,15 @@ import dolfinx.mesh
 from dolfinx.mesh import CellType
 import ufl
 
+comm = MPI.COMM_WORLD
+
 size = comm.Get_size()
 
 from dolfinx.fem.petsc import assemble_vector
 from dolfinx.fem import form
 from solvers.function import vec_to_functions
 
-class BrittleJump(DamageElasticityModel):
+class BrittleJump1D(DamageElasticityModel):
     """This model accounts for the jump energy across...jumps"""
 
     def jump_energy_density(self, state, alphadot):
@@ -110,11 +112,19 @@ class BrittleJump(DamageElasticityModel):
         
         return f_plus, f_minus
 
+    def elastic_energy_density_strain(self, eps, alpha):
+        mu = self.mu
+
+        energy_density = (
+            self.a(alpha) * 1.0 / 2.0 *
+            (2 * mu * ufl.inner(eps, eps) ))
+        return energy_density
+
 
 # Mesh on node model_rank and then distribute
 model_rank = 0
 
-def test_linsearch(parameters, storage):
+def test_viscous_firstorder(parameters, storage):
     # Adapting
     # Calc. Var. (2016) 55:17
     # DOI 10.1007/s00526-015-0947-6
@@ -125,15 +135,19 @@ def test_linsearch(parameters, storage):
     model_rank = 0
 
     Lx = parameters["geometry"]["Lx"]
-    Ly = parameters["geometry"]["Ly"]
+    # Ly = parameters["geometry"]["Ly"]
     tdim = parameters["geometry"]["geometric_dimension"]
     _nameExp = parameters["geometry"]["geom_type"]
     ell_ = parameters["model"]["ell"]
-    _lc = ell_ / parameters["geometry"]["ell_lc"]
+    lc = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]  
+    Ly = lc/2
     geom_type = parameters["geometry"]["geom_type"]
+    parameters["model"]["model_type"] = '1D'
+    
+    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, 30)
 
-    gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
-    mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
+    # gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
+    # mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
     outdir = "output"
@@ -253,7 +267,7 @@ def test_linsearch(parameters, storage):
             V_alpha,
         )
     ]
-    bcs_alpha = []
+    # bcs_alpha = []
 
     set_bc(alpha_ub.vector, bcs_alpha)
     alpha_ub.vector.ghostUpdate(
@@ -263,7 +277,7 @@ def test_linsearch(parameters, storage):
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
     # Define the model
 
-    model = BrittleJump(parameters["model"])
+    model = BrittleJump1D(parameters["model"])
     load_par = parameters["loading"]
 
     # Energy functional
@@ -306,6 +320,8 @@ def test_linsearch(parameters, storage):
         "load": [],
         "elastic_energy": [],
         "jump_energy": [],
+        "eps_jump_energy": [],
+        "eps_jump_energy_scaled": [],
         "fracture_energy": [],
         "total_energy": [],
         "solver_data": [],
@@ -325,6 +341,9 @@ def test_linsearch(parameters, storage):
 
     s = load_par["min"]
     jump_energy = 0
+    eps_jump_energy = 0
+    eps_jump_energy_scaled = 0
+    np.set_printoptions(precision=3,suppress=True)
 
     for i_t, t in enumerate(loads):
         u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
@@ -337,11 +356,6 @@ def test_linsearch(parameters, storage):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        logging.critical("--  --")
-        logging.critical("")
-        logging.critical("")
-        logging.critical("")
-        
         ColorPrint.print_bold(f"   Solving first order: AM   ")
         ColorPrint.print_bold(f"===================-=========")
 
@@ -361,7 +375,7 @@ def test_linsearch(parameters, storage):
         alphadot.vector.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
-
+        
         rate_12_norm = 1/_Omega * hybrid.scaled_rate_norm(alphadot, parameters)
         urate_12_norm = 1/_Omega * hybrid.unscaled_rate_norm(alphadot)
 
@@ -377,7 +391,7 @@ def test_linsearch(parameters, storage):
         ColorPrint.print_bold(f"===================-=================")
 
         # n_eigenvalues = 10
-        is_stable = bifurcation.solve(alpha_lb)
+        is_unique = bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
         # is_critical = bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
@@ -389,12 +403,13 @@ def test_linsearch(parameters, storage):
         max_continuation_iterations = 10
         _continuation_iterations = 0
 
-        while not stable and _continuation_iterations < max_continuation_iterations:
-            _continuation_iterations = 0
-            _perturbation = cone.get_perturbation()
-        
+        # while not stable and _continuation_iterations < max_continuation_iterations:
+        _continuation_iterations = 0
+        _perturbation = cone.get_perturbation()
+
+        if _perturbation is not None:
             vec_to_functions(_perturbation, [v, β])
-    
+
             perturbation = {"v": v, "beta": β}
             interval = linesearch.get_unilateral_interval(state, perturbation)
 
@@ -403,40 +418,39 @@ def test_linsearch(parameters, storage):
             # h_rnd, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order, method = 'random')
             
             # perturb the state
-            linesearch.perturb(state, perturbation, h_opt)
+            # linesearch.perturb(state, perturbation, h_opt)
 
-            hybrid.solve(alpha_lb)
-            is_path = bifurcation.solve(alpha_lb)
+        # hybrid.solve(alpha_lb)
+        # is_path = bifurcation.solve(alpha_lb)
 
-            # compute the rate
-            alpha.vector.copy(alphadot.vector)
-            alphadot.vector.axpy(-1, alpha_lb.vector)
-            alphadot.vector.ghostUpdate(
-                    addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-                )
+        # compute the rate
+        alpha.vector.copy(alphadot.vector)
+        alphadot.vector.axpy(-1, alpha_lb.vector)
+        alphadot.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
 
-            rate_12_norm = 1/_Omega * hybrid.scaled_rate_norm(alphadot, parameters)
-            urate_12_norm = 1/_Omega * hybrid.unscaled_rate_norm(alphadot)
+        rate_12_norm = 1/_Omega * hybrid.scaled_rate_norm(alphadot, parameters)
+        urate_12_norm = 1/_Omega * hybrid.unscaled_rate_norm(alphadot)
 
-            # Compute jump energy
-            
-            
-            
-            # Compute time
-            # s + \int_0^t ||\dot \alpha||_H^1 ds
-            # s += ||\dot \alpha||_H^1 dt
-            rates = np.array(history_data["rate_12_norm"])
-            times = np.array(history_data["load"])
-            s_i = rate_12_norm * dt
-            s = t + np.trapz(rates, times) + s_i
+        # Compute jump energy
+        eps_jump_energy_t = parameters["model"]["viscous_eps"] * hybrid.unscaled_rate_norm(alphadot)**2
+        eps_jump_energy_scaled_t = parameters["model"]["viscous_eps"] * hybrid.scaled_rate_norm(alphadot, parameters)**2
+        
+        # Compute time
+        # s + \int_0^t ||\dot \alpha||_H^1 ds
+        # s += ||\dot \alpha||_H^1 dt
+        rates = np.array(history_data["rate_12_norm"])
+        times = np.array(history_data["load"])
+        s_i = rate_12_norm * dt
+        s = t + np.trapz(rates, times) + s_i
 
-            inertia = bifurcation.get_inertia()
-            stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
-    
-            _continuation_iterations += 1
-        else:
-            ColorPrint.print_bold(f"We found, or lost something? State is stable: {stable}")
+        inertia = bifurcation.get_inertia()
+        stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
+        _continuation_iterations += 1
+        # else:
+        #     ColorPrint.print_bold(f"We found, or lost something? State is stable: {stable}")
 
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
@@ -447,14 +461,15 @@ def test_linsearch(parameters, storage):
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
         logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
-
         jump_energy_t = comm.allreduce(
             assemble_scalar(form(model.jump_energy_density(state, alphadot) * dx)),
             op=MPI.SUM,
         )
 
         jump_energy += jump_energy_t * dt    
-        
+        eps_jump_energy +=  eps_jump_energy_t * dt    
+        eps_jump_energy_scaled += eps_jump_energy_scaled_t * dt
+                
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
             op=MPI.SUM,
@@ -466,9 +481,12 @@ def test_linsearch(parameters, storage):
         _stress = model.stress(model.eps(u), alpha)
 
         stress = comm.allreduce(
-            assemble_scalar(form(_stress[0, 0] * dx)),
+            assemble_scalar(form(_stress[0] * dx)),
             op=MPI.SUM,
         )
+
+        Fform = form(hybrid.F[1])
+        Fv = assemble_vector(Fform)
 
         _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
 
@@ -476,6 +494,8 @@ def test_linsearch(parameters, storage):
         history_data["fracture_energy"].append(fracture_energy)
         history_data["elastic_energy"].append(elastic_energy)
         history_data["jump_energy"].append(jump_energy)
+        history_data["eps_jump_energy"].append(eps_jump_energy)
+        history_data["eps_jump_energy_scaled"].append(eps_jump_energy_scaled)
         history_data["total_energy"].append(elastic_energy+fracture_energy)
         history_data["solver_data"].append(solver.data)
         history_data["eigs"].append(bifurcation.data["eigs"])
@@ -605,11 +625,13 @@ def load_parameters(file_path):
     parameters["model"]["w1"] = 1
     parameters["model"]["ell"] = .1
     parameters["model"]["k_res"] = 0.
-    parameters["loading"]["min"] = .9
-    parameters["loading"]["max"] = 1.5
-    parameters["loading"]["steps"] = 50
+    parameters["loading"]["min"] = .99
+    parameters["loading"]["max"] = 1.01
+    parameters["loading"]["steps"] = 2
 
-    parameters["model"]["viscous_eps"] = 5.e-6
+    parameters["geometry"]["mesh_size_factor"] = 4
+
+    parameters["model"]["viscous_eps"] = 5.e-3
 
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
@@ -623,6 +645,6 @@ if __name__ == "__main__":
     _storage = f"output/test_viscous_relaxation/{signature}"
     ColorPrint.print_bold(f"===================-{_storage}-=================")
     # __import__('pdb').set_trace()
-    test_linsearch(parameters, _storage)
+    test_viscous_firstorder(parameters, _storage)
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"===================-{_storage}-=================")
