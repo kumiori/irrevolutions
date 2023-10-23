@@ -53,11 +53,12 @@ from utils import ColorPrint
 from utils.plots import plot_energies
 from utils import norm_H1, norm_L2
 # from meshes.pacman import mesh_pacman
-from utils.viz import plot_mesh, plot_vector, plot_scalar
+from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
 from utils.lib import _local_notch_asymptotic
 from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 from utils import table_timing_data
 from utils.parametric import parameters_vs_elle
+from solvers.function import vec_to_functions
 
 # logging.basicConfig(level=logging.DEBUG)
 
@@ -128,15 +129,13 @@ def main(parameters, storage=None):
     Ly = parameters["geometry"]["Ly"]
 
     tdim = parameters["geometry"]["geometric_dimension"]
-    ell_ = parameters["model"]["ell"]
-    lc = parameters["geometry"]["lc"]
+    lc = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]    
     geom_type = parameters["geometry"]["geom_type"]
     _nameExp = 'thinfilm-' + parameters["geometry"]["geom_type"]
 
     import hashlib
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
-    outdir = "output"
     outdir = "output"
     if storage is None:
         prefix = os.path.join(outdir, "thinfilm-bar", signature)
@@ -172,6 +171,11 @@ def main(parameters, storage=None):
 
     state = {"u": u, "alpha": alpha}
 
+    # Perturbation
+    β = Function(V_alpha, name="DamagePerturbation")
+    v = Function(V_u, name="DisplacementPerturbation")
+    perturbation = {"v": v, "beta": β}
+    
     z = [u, alpha]
     # need upper/lower bound for the damage field
     alpha_lb = Function(V_alpha, name="Lower bound")
@@ -313,6 +317,63 @@ def main(parameters, storage=None):
 
         stable = stability.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
+        if bifurcation._spectrum:
+            vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
+            
+            tol = 1e-3
+            xs = np.linspace(0 + tol, Lx - tol, 101)
+            points = np.zeros((3, 101))
+            points[0] = xs
+            
+            plotter = pyvista.Plotter(
+                title="Perturbation profile",
+                window_size=[800, 600],
+                shape=(1, 1),
+            )
+            _plt, data = plot_profile(
+                β,
+                points,
+                plotter,
+                subplot=(0, 0),
+                lineproperties={
+                    "c": "k",
+                    "label": f"$\\beta$"
+                },
+            )
+            ax = _plt.gca()
+            _plt.legend()
+            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+            _plt.title("Perurbation")
+            _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
+            _plt.close()
+
+
+            plotter = pyvista.Plotter(
+                title="Cone-Perturbation profile",
+                window_size=[800, 600],
+                shape=(1, 1),
+            )
+
+            _plt, data = plot_profile(
+                stability.perturbation['beta'],
+                points,
+                plotter,
+                subplot=(0, 0),
+                lineproperties={
+                    "c": "k",
+                    "label": f"$\\beta$"
+                },
+            )
+            ax = _plt.gca()
+            _plt.legend()
+            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+            _plt.title("Perurbation from the Cone")
+            _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
+            _plt.close()
+
+            
+        # if stability.perturbation:
+            # pass
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
@@ -362,17 +423,19 @@ def main(parameters, storage=None):
 
     # postprocessing
     with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
-        xvfb.start_xvfb(wait=0.05)
-        pyvista.OFF_SCREEN = True
+        
+        if comm.Get_rank == 1:
+            xvfb.start_xvfb(wait=0.05)
+            pyvista.OFF_SCREEN = True
 
-        plotter = pyvista.Plotter(
-            title="Traction test",
-            window_size=[1600, 600],
-            shape=(1, 2),
-        )
-        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-        _plt = plot_vector(u, plotter, subplot=(0, 1))
-        _plt.screenshot(f"{prefix}/traction-state.png")
+            plotter = pyvista.Plotter(
+                title="Traction test",
+                window_size=[1600, 600],
+                shape=(1, 2),
+            )
+            _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+            _plt = plot_vector(u, plotter, subplot=(0, 1))
+            _plt.screenshot(f"{prefix}/traction-state.png")
 
 
     return history_data, state
@@ -396,20 +459,24 @@ def load_parameters(file_path):
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-    parameters["stability"]["cone"]["scaling"] = .00001
+    parameters["stability"]["cone"]["scaling"] = 1.e-5
 
+    parameters["geometry"]["Lx"] = 5
+    parameters["geometry"]["Ly"] = 5e-1
     # parameters["model"]["model_dimension"] = 2
     # parameters["model"]["model_type"] = '1D'
     # parameters["model"]["w1"] = 1
     parameters["model"]["nu"] = 0
-    # parameters["model"]["ell"] = .1
+    parameters["model"]["ell_e"] = .2
+    parameters["model"]["ell"] = parameters["model"]["ell_e"]/3
+    # parameters["model"]["ell"] = .05
     # parameters["model"]["k_res"] = 0.
-    parameters["loading"]["min"] = 1.55
-    parameters["loading"]["max"] = 1.65
-    parameters["loading"]["steps"] = 50
+    parameters["loading"]["min"] = 0.99
+    parameters["loading"]["max"] = 1.1
+    parameters["loading"]["steps"] = 3
 
     # parameters["geometry"]["geom_type"] = "traction-bar"
-    # parameters["geometry"]["ell_lc"] = 5
+    parameters["geometry"]["mesh_size_factor"] = 3
     # # Get mesh parameters
     # Lx = parameters["geometry"]["Lx"]
     # Ly = parameters["geometry"]["Ly"]
@@ -431,7 +498,6 @@ if __name__ == "__main__":
     
     parser.add_argument('--ell_e', type=float, default=.3,
                         help='internal elastic length')
-    
     args = parser.parse_args()
 
     if "--ell_e" in sys.argv:
@@ -452,6 +518,7 @@ if __name__ == "__main__":
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
     
     df = pd.DataFrame(history_data)
+    
     print(df.drop(['solver_data', 'cone_data'], axis=1))
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"===================-{_storage}-=================")

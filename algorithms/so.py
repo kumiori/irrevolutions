@@ -698,14 +698,18 @@ class StabilitySolver(SecondOrderSolver):
                          }
         self._reason = None
 
-        self.data = {
-            "iterations": [],
-            "error_x_L2": [],
-            "lambda_k": [],
-            "lambda_0": [],
-            "y_norm_L2": [],
-            "x_norm_L2": [],
-        }
+        with dolfinx.common.Timer(f"~Second Order: Stability"):
+            with dolfinx.common.Timer(f"~Second Order: Cone Project"):
+
+                self.data = {
+                    "iterations": [],
+                    "error_x_L2": [],
+                    "lambda_k": [],
+                    "lambda_0": [],
+                    "y_norm_L2": [],
+                    "x_norm_L2": [],
+                }
+                
 
     def _is_critical(self, alpha_old):
         """
@@ -790,9 +794,9 @@ class StabilitySolver(SecondOrderSolver):
                 self.update_xk(_xk, _y, self._s)
                 self.update_data(_xk, _lmbda_t, _y)
 
-                logging.debug(f"Eigenvalue _lambda_k at iteration {self.iterations} 🍦? {_lmbda_t}")
-                logging.debug(f"Vector _xk at iteration {self.iterations} is in cone 🍦? {self._isin_cone(_xk)}")
-                logging.debug(f"Projection _xk at k={self.iterations} is in cone 🍦? {self._isin_cone(_xk)}")
+                # logging.debug(f"Eigenvalue _lambda_k at iteration {self.iterations} 🍦? {_lmbda_t}")
+                # logging.critical(f"Vector _xk at iteration {self.iterations} is in cone 🍦? {self._isin_cone(_xk)}")
+                # logging.critical(f"Projection _xk at k={self.iterations} is in cone 🍦? {self._isin_cone(_xk)}")
 
             perturbation = self.finalize_eigenmode(_xk)
             
@@ -902,7 +906,6 @@ class StabilitySolver(SecondOrderSolver):
         self.perturbation = {"v": v, "beta": β}
 
         return self.perturbation
-
 
 
     def iterate(self, x, errors):
@@ -1087,7 +1090,10 @@ class StabilitySolver(SecondOrderSolver):
             # if self.eigen.restriction is not None and v.size != len(self.eigen.restriction.bglobal_dofs_vec_stacked):
             if self.eigen.restriction is not None and v.size != self._v.size:
                 _v = self.eigen.restriction.restrict_vector(_v)
-
+            
+            # the operation is performed in-place, ghosts are dealt with
+            _v.copy(v)
+            
         return _v
 
 
