@@ -5,8 +5,37 @@ import mpi4py
 import sys
 from petsc4py import PETSc
 import logging
+import slepc4py
+import petsc4py
+import dolfinx
+import subprocess
 
 comm = mpi4py.MPI.COMM_WORLD
+
+
+
+# Get the current Git branch
+branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode("utf-8")
+
+# Get the current Git commit hash
+commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
+
+code_info = {
+    "branch": branch,
+    "commit_hash": commit_hash,
+}
+
+
+library_info = {
+    "dolfinx_version": dolfinx.__version__,
+    "petsc4py_version": petsc4py.__version__,
+    "slepc4py_version": slepc4py.__version__,
+}
+
+simulation_info = {
+    **library_info,
+    **code_info,
+}
 
 class ColorPrint:
     """
