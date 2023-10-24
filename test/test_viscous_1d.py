@@ -25,6 +25,7 @@ from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
 from utils.plots import plot_energies
 from utils import norm_H1, norm_L2, seminorm_H1
+from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
 
 from meshes.primitives import mesh_bar_gmshapi
 from dolfinx.common import Timer, list_timings, TimingType
@@ -56,7 +57,8 @@ import ufl
 comm = MPI.COMM_WORLD
 
 size = comm.Get_size()
-
+import pyvista
+from pyvista.utilities import xvfb
 from dolfinx.fem.petsc import assemble_vector
 from dolfinx.fem import form
 from solvers.function import vec_to_functions
@@ -132,8 +134,6 @@ def test_viscous_firstorder(parameters, storage):
     petsc4py.init(sys.argv)
     comm = MPI.COMM_WORLD
 
-    model_rank = 0
-
     Lx = parameters["geometry"]["Lx"]
     # Ly = parameters["geometry"]["Ly"]
     tdim = parameters["geometry"]["geometric_dimension"]
@@ -144,7 +144,7 @@ def test_viscous_firstorder(parameters, storage):
     geom_type = parameters["geometry"]["geom_type"]
     parameters["model"]["model_type"] = '1D'
     
-    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, 30)
+    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, int(Lx/lc))
 
     # gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
     # mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
@@ -152,7 +152,7 @@ def test_viscous_firstorder(parameters, storage):
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
     outdir = "output"
     if storage is None:
-        prefix = os.path.join(outdir, "traction_AT2_cone", signature)
+        prefix = os.path.join(outdir, "traction_1d", signature)
     else:
         prefix = storage
     
@@ -174,11 +174,9 @@ def test_viscous_firstorder(parameters, storage):
 
     # Get mesh parameters
     Lx = parameters["geometry"]["Lx"]
-    Ly = parameters["geometry"]["Ly"]
     tdim = parameters["geometry"]["geometric_dimension"]
     _nameExp = parameters["geometry"]["geom_type"]
     _nameExp = "bar"
-    ell_ = parameters["model"]["ell"]
     lc = parameters["geometry"]["lc"]
 
     # Get geometry model
@@ -267,8 +265,8 @@ def test_viscous_firstorder(parameters, storage):
             V_alpha,
         )
     ]
-    # bcs_alpha = []
-
+    bcs_alpha = []
+    
     set_bc(alpha_ub.vector, bcs_alpha)
     alpha_ub.vector.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
@@ -527,6 +525,32 @@ def test_viscous_firstorder(parameters, storage):
         print()
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
+    tol = 1e-3
+    xs = np.linspace(0 + tol, Lx - tol, 101)
+    points = np.zeros((3, 101))
+    points[0] = xs
+    
+    plotter = pyvista.Plotter(
+        title="Displacement profile",
+        window_size=[800, 600],
+        shape=(1, 2),
+    )
+    _plt, data = plot_profile(
+        u,
+        points,
+        plotter,
+        subplot=(0, 0),
+        lineproperties={
+            "c": "k",
+            "label": f"$u$"
+        },
+    )
+    ax = _plt.gca()
+    _plt.legend()
+    _plt.title("Displacement")
+    _plt.savefig(f"{prefix}/displacement-profile-{i_t}.png")
+    _plt.close()
+
     import pandas as pd
     df = pd.DataFrame(history_data)
     print(df.drop(['solver_data', 'cone_data'], axis=1))
@@ -621,13 +645,13 @@ def load_parameters(file_path):
     parameters["stability"]["cone"]["scaling"] = .0001
 
     parameters["model"]["model_dimension"] = 2
-    parameters["model"]["model_type"] = '2D'
+    parameters["model"]["model_type"] = '1D'
     parameters["model"]["w1"] = 1
     parameters["model"]["ell"] = .1
     parameters["model"]["k_res"] = 0.
-    parameters["loading"]["min"] = .99
-    parameters["loading"]["max"] = 1.01
-    parameters["loading"]["steps"] = 2
+    parameters["loading"]["min"] = .0
+    parameters["loading"]["max"] = 1.2
+    parameters["loading"]["steps"] = 10
 
     parameters["geometry"]["mesh_size_factor"] = 4
 
@@ -642,7 +666,7 @@ if __name__ == "__main__":
 
     parameters, signature = load_parameters("../test/parameters.yml")
     ColorPrint.print_bold(f"===================-{signature}-=================")
-    _storage = f"output/test_viscous_relaxation/{signature}"
+    _storage = f"output/test_viscous_relaxation_1d/{signature}"
     ColorPrint.print_bold(f"===================-{_storage}-=================")
     # __import__('pdb').set_trace()
     test_viscous_firstorder(parameters, _storage)
