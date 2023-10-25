@@ -141,7 +141,7 @@ def test_viscous_firstorder(parameters, storage):
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
     outdir = "output"
     if storage is None:
-        prefix = os.path.join(outdir, "traction_AT2_cone", signature)
+        prefix = os.path.join(outdir, "traction_viscous_criticality", signature)
     else:
         prefix = storage
     
@@ -419,8 +419,10 @@ def test_viscous_firstorder(parameters, storage):
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
-        rate_12_norm = 1/_Omega * hybrid.scaled_rate_norm(alphadot, parameters)
-        urate_12_norm = 1/_Omega * hybrid.unscaled_rate_norm(alphadot)
+        # 1/_Omega *
+        # 1/_Omega *
+        rate_12_norm = hybrid.scaled_rate_norm(alphadot, parameters)
+        urate_12_norm = hybrid.unscaled_rate_norm(alphadot)
 
         # Compute jump energy
         eps_jump_energy_t = parameters["model"]["viscous_eps"] * hybrid.unscaled_rate_norm(alphadot)**2
@@ -437,7 +439,7 @@ def test_viscous_firstorder(parameters, storage):
         inertia = bifurcation.get_inertia()
         stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
-        _continuation_iterations += 1
+        # _continuation_iterations += 1
         # else:
         #     ColorPrint.print_bold(f"We found, or lost something? State is stable: {stable}")
 
@@ -476,7 +478,8 @@ def test_viscous_firstorder(parameters, storage):
 
         Fform = form(hybrid.F[1])
         Fv = assemble_vector(Fform)
-        __import__('pdb').set_trace()
+        # __import__('pdb').set_trace()
+        
         _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
 
         history_data["load"].append(t)
@@ -614,8 +617,8 @@ def load_parameters(file_path):
     parameters["model"]["w1"] = 1
     parameters["model"]["ell"] = .1
     parameters["model"]["k_res"] = 0.
-    parameters["loading"]["min"] = .99
-    parameters["loading"]["max"] = 1.01
+    parameters["loading"]["min"] = .0
+    parameters["loading"]["max"] = 1.2
     parameters["loading"]["steps"] = 2
 
     parameters["geometry"]["mesh_size_factor"] = 4

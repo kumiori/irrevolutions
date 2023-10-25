@@ -53,6 +53,7 @@ import dolfinx.mesh
 from dolfinx.mesh import CellType
 import ufl
 
+comm = MPI.COMM_WORLD
 size = comm.Get_size()
 
 from dolfinx.fem.petsc import assemble_vector
@@ -531,7 +532,7 @@ def test_linsearch(parameters, storage):
         fig.savefig(f"{prefix}/{_nameExp}_times-rescaled.pdf")
 
 
-def my_plot_energies(history_data, title="Evolution", file=None, times=None):
+def my_plot_energies(history_data, title="Evolution Rescaled?", file=None, times=None):
     import matplotlib
 
     fig, ax1 = matplotlib.pyplot.subplots()
@@ -605,11 +606,11 @@ def load_parameters(file_path):
     parameters["model"]["w1"] = 1
     parameters["model"]["ell"] = .1
     parameters["model"]["k_res"] = 0.
-    parameters["loading"]["min"] = .9
-    parameters["loading"]["max"] = 1.5
-    parameters["loading"]["steps"] = 50
+    parameters["loading"]["min"] = .99
+    parameters["loading"]["max"] = 1.3
+    parameters["loading"]["steps"] = 100
 
-    parameters["model"]["viscous_eps"] = 5.e-6
+    parameters["model"]["viscous_eps"] = 1.e-1
 
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
