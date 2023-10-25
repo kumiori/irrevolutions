@@ -33,8 +33,10 @@ library_info = {
 }
 
 simulation_info = {
-    **library_info,
-    **code_info,
+    "simulation_info": {
+        **library_info,
+        **code_info
+    }
 }
 
 class ColorPrint:
