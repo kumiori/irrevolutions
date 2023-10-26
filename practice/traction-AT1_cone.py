@@ -64,7 +64,7 @@ comm = MPI.COMM_WORLD
 # Mesh on node model_rank and then distribute
 model_rank = 0
 
-with open("../test/parameters.yml") as f:
+with open("parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
 # parameters["cone"] = ""
@@ -383,9 +383,12 @@ print(df.drop(['solver_data', 'cone_data'], axis=1))
 
 from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 
+ell_plot = parameters["model"]["ell"]
+
+
 if comm.rank == 0:
     plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
-    plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+    plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load_%s.pdf" %ell_plot)
     plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
 

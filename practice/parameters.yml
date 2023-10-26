@@ -14,12 +14,11 @@ geometry:
     ell_lc: 3
 #  === Material === #
 material:
-    ell: 0.1
-    E: 1.
-    sigma_D0: 1.
-    ν: 0.3
 #  === Model === #
 model:
+    E: 1.
+    sigma_D0: 1.
+    nu: 0.3
     ell: 0.1
     model_dimension: 2
     model_type: "2D"
@@ -82,10 +81,19 @@ solvers:
         max_it: 100
         alpha_rtol: 1.0e-8
         criterion: "alpha_H1"
+    
+    newton:
+        snes_type: "vinewtonrsls"
+        snes_linesearch_type: "basic"
+        snes_rtol: 1.0e-8
+        snes_atol: 1.0e-8
+        snes_max_it: 30
+        snes_monitor: ""
+        linesearch_damping: 0.5
 
 stability:
     order: 3
-    maxmodes: 3
+    maxmodes: 10
     checkstability: "True"
     continuation: "False"
     cont_rtol: 1.0e-10
@@ -113,6 +121,5 @@ stability:
         cone_atol: 1.0e-05
         cone_max_it: 3000
         cone_rtol: 1.0e-05
-        cone_atol: 1.0e-05
         maxmodes: 3
         scaling: 0.01

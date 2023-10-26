@@ -32,7 +32,6 @@ import ufl
 
 from dolfinx.fem.petsc import (
     set_bc,
-    assemble_vector
     )
 from dolfinx.io import XDMFFile, gmshio
 import logging
@@ -42,7 +41,6 @@ sys.path.append("../")
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
 from algorithms.so import StabilitySolver, ConeSolver
-from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
 from utils.plots import plot_energies
@@ -64,18 +62,6 @@ load: displacement hard-t
 
 """
 
-class BrittleAT2(Brittle):
-    """Brittle AT_2 model, without an elastic phase. For fun only."""
-
-    def w(self, alpha):
-        """
-        Return the dissipated energy function as a function of the state
-        (only depends on damage).
-        """
-        # Return w(alpha) function
-        return alpha**2
-
-from solvers.function import functions_to_vec
 
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
@@ -86,19 +72,18 @@ model_rank = 0
 with open("../test/parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-parameters["stability"]["cone"]["cone_max_it"] = 400000
-parameters["stability"]["cone"]["cone_atol"] = 1e-5
-parameters["stability"]["cone"]["cone_rtol"] = 1e-5
-parameters["stability"]["cone"]["scaling"] = 0.01
+# parameters["cone"] = ""
+parameters["stability"]["cone"]["scaling"] = .1
+parameters["stability"]["cone"]["cone_max_it"] = 5000
+parameters["stability"]["cone"]["cone_atol"] = 1e-4
 
 parameters["model"]["model_dimension"] = 2
 parameters["model"]["model_type"] = '1D'
 parameters["model"]["w1"] = 1
-parameters["model"]["ell"] = .1 
-parameters["model"]["k_res"] = 1.0
-
-parameters["loading"]["min"] = .0
-parameters["loading"]["max"] = 1.9
+parameters["model"]["ell"] = .1
+parameters["model"]["k_res"] = 0.
+# parameters["loading"]["min"] = .0
+parameters["loading"]["max"] = 1.5
 parameters["loading"]["steps"] = 200
 
 parameters["geometry"]["geom_type"] = "traction-bar"
@@ -115,13 +100,10 @@ ell_ = parameters["model"]["ell"]
 # Get geometry model
 geom_type = parameters["geometry"]["geom_type"]
 
-# Get geometry model
-geom_type = parameters["geometry"]["geom_type"]
-
 # Create the mesh of the specimen with given dimensions
 
 outdir = "output"
-prefix = os.path.join(outdir, "traction_AT2_cone")
+prefix = os.path.join(outdir, "traction_AT1_cone_mert")
 
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
@@ -165,6 +147,7 @@ alphadot = dolfinx.fem.Function(V_alpha, name="Damage rate")
 
 state = {"u": u, "alpha": alpha}
 
+z = [u, alpha]
 # need upper/lower bound for the damage field
 alpha_lb = Function(V_alpha, name="Lower bound")
 alpha_ub = Function(V_alpha, name="Upper bound")
@@ -201,6 +184,10 @@ bc_u_right = dirichletbc(
 bcs_u = [bc_u_left, bc_u_right]
 
 bcs_alpha = []
+# bcs_alpha = [
+#     dolfinx.fem.dirichletbc(zero_alpha, dofs_alpha_left),
+#     dolfinx.fem.dirichletbc(zero_alpha, dofs_alpha_right),
+# ]
 
 set_bc(alpha_ub.vector, bcs_alpha)
 alpha_ub.vector.ghostUpdate(
@@ -210,16 +197,12 @@ alpha_ub.vector.ghostUpdate(
 bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 # Define the model
 
-model = BrittleAT2(parameters["model"])
+model = Brittle(parameters["model"])
 
 # Pack state
 state = {"u": u, "alpha": alpha}
-z = [u, alpha]
 
 # Material behaviour
-# 01 42 79 5050 Adil
-# 01 55 78 20 56 13eme
-# else rappel deb sem prochaine
 
 # Energy functional
 f = Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
@@ -231,7 +214,8 @@ loads = np.linspace(load_par["min"],
                     load_par["max"], load_par["steps"])
 
 solver = AlternateMinimisation(
-    total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
+    total_energy, state, bcs, parameters.get("solvers"), 
+    bounds=(alpha_lb, alpha_ub)
 )
 
 hybrid = HybridFractureSolver(
@@ -242,11 +226,9 @@ hybrid = HybridFractureSolver(
     solver_parameters=parameters.get("solvers"),
 )
 
-
-bifurcation = StabilitySolver(
+stability = StabilitySolver(
     total_energy, state, bcs, stability_parameters=parameters.get("stability")
 )
-
 
 cone = ConeSolver(
     total_energy, state, bcs,
@@ -260,10 +242,8 @@ history_data = {
     "total_energy": [],
     "solver_data": [],
     "cone_data": [],
-    "cone-eig": [],
     "eigs": [],
-    "uniqueness": [],
-    "inertia": [],
+    "stable": [],
     "F": [],    
     "alphadot_norm" : [],
     "rate_12_norm" : [], 
@@ -274,7 +254,9 @@ history_data = {
 check_stability = []
 
 # logging.basicConfig(level=logging.INFO)
+# logging.getLogger().setLevel(logging.ERROR)
 logging.getLogger().setLevel(logging.INFO)
+# logging.getLogger().setLevel(logging.DEBUG)
 
 for i_t, t in enumerate(loads):
 # for i_t, t in enumerate([0., .99, 1.0, 1.01]):
@@ -329,10 +311,10 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"===================-=================")
 
     # n_eigenvalues = 10
-    is_stable = bifurcation.solve(alpha_lb)
-    is_elastic = bifurcation.is_elastic()
-    inertia = bifurcation.get_inertia()
-    # bifurcation.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
+    is_stable = stability.solve(alpha_lb)
+    is_elastic = stability.is_elastic()
+    inertia = stability.get_inertia()
+    # stability.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
     check_stability.append(is_stable)
 
     ColorPrint.print_bold(f"State is elastic: {is_elastic}")
@@ -342,9 +324,15 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
     ColorPrint.print_bold(f"===================-=================")
     
-        
-    stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum)
-    # stable = cone.my_solve(alpha_lb, eig0=bifurcation.Kspectrum[0])
+    # print('\n')
+    # print(dir(cone.my_solve))
+    # print(dir(stability))
+    # print(stability._spectrum)
+    # print(stability.spectrum)
+    # print('\n')
+    
+    stable = cone.my_solve(alpha_lb, eig0=stability._spectrum)
+    #stable = cone.my_solve(alpha_lb, x0=stability.Kspectrum[0].get("xk"))
     # stable = cone.my_solve(alpha_lb)
     # __import__('pdb').set_trace()
     
@@ -362,70 +350,70 @@ for i_t, t in enumerate(loads):
         assemble_scalar(form(_stress[0, 0] * dx)),
         op=MPI.SUM,
     )
-    _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
 
-    history_data["load"].append(t)
-    history_data["fracture_energy"].append(fracture_energy)
-    history_data["elastic_energy"].append(elastic_energy)
-    history_data["total_energy"].append(elastic_energy+fracture_energy)
-    history_data["solver_data"].append(solver.data)
-    history_data["eigs"].append(bifurcation.data["eigs"])
-    history_data["F"].append(stress)
-    history_data["cone_data"].append(cone.data)
-    history_data["alphadot_norm"].append(alphadot.vector.norm())
-    history_data["rate_12_norm"].append(rate_12_norm)
-    history_data["unscaled_rate_12_norm"].append(urate_12_norm)
-    history_data["cone-stable"].append(stable)
-    history_data["cone-eig"].append(cone.data["lambda_0"])
-    history_data["uniqueness"].append(_unique)
-    history_data["inertia"].append(inertia)
+    # history_data["load"].append(t)
+    # history_data["fracture_energy"].append(fracture_energy)
+    # history_data["elastic_energy"].append(elastic_energy)
+    # history_data["total_energy"].append(elastic_energy+fracture_energy)
+    # history_data["solver_data"].append(solver.data)
+    # history_data["eigs"].append(stability.data["eigs"])
+    # history_data["stable"].append(stability.data["stable"])
+    # history_data["F"].append(stress)
+    # history_data["cone_data"].append(cone.data)
+    # history_data["alphadot_norm"].append(alphadot.vector.norm())
+    # history_data["rate_12_norm"].append(rate_12_norm)
+    # history_data["unscaled_rate_12_norm"].append(urate_12_norm)
+    # history_data["cone-stable"].append(stable)
 
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
-        file.write_function(u, t)
-        file.write_function(alpha, t)
+    # with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+    #     file.write_function(u, t)
+    #     file.write_function(alpha, t)
 
-    if comm.rank == 0:
-        a_file = open(f"{prefix}/time_data.json", "w")
-        json.dump(history_data, a_file)
-        a_file.close()
+    # if comm.rank == 0:
+    #     a_file = open(f"{prefix}/time_data.json", "w")
+    #     json.dump(history_data, a_file)
+    #     a_file.close()
 
-    ColorPrint.print_bold(f"   Written timely data.    ")
-    print()
-    print()
-    print()
-    print()
+    # ColorPrint.print_bold(f"   Written timely data.    ")
+    # print()
+    # print()
+    # print()
+    # print()
 list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 # print(history_data)
 
 
-df = pd.DataFrame(history_data)
-print(df.drop(['solver_data', 'cone_data'], axis=1))
+
+# df = pd.DataFrame(history_data)
+# print(df)
+
+# # Viz
+
+# from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+
+# if comm.rank == 0:
+#     plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+#     plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+#     plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
 
-# Viz
+
+# from pyvista.utilities import xvfb
+# import pyvista
+# import sys
+# from utils.viz import plot_mesh, plot_vector, plot_scalar
+# # 
+# xvfb.start_xvfb(wait=0.05)
+# pyvista.OFF_SCREEN = True
 
 
-from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
-
-if comm.rank == 0:
-    plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
-    plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-    plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
-
-from pyvista.utilities import xvfb
-import pyvista
-import sys
-from utils.viz import plot_mesh, plot_vector, plot_scalar
-# 
-xvfb.start_xvfb(wait=0.05)
-pyvista.OFF_SCREEN = True
+# plotter = pyvista.Plotter(
+#     title="Traction test",
+#     window_size=[1600, 600],
+#     shape=(1, 2),
+# )
+# _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+# _plt = plot_vector(u, plotter, subplot=(0, 1))
+# _plt.screenshot(f"{prefix}/traction-state.png")
 
 
-plotter = pyvista.Plotter(
-    title="Traction test",
-    window_size=[1600, 600],
-    shape=(1, 2),
-)
-_plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-_plt = plot_vector(u, plotter, subplot=(0, 1))
-_plt.screenshot(f"{prefix}/traction-state.png")
