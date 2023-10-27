@@ -11,10 +11,9 @@ geometry:
     Lx: 1.
     Ly: .1
     lc: 0.02
-    ell_lc: 3
+    mesh_size_factor: 3
+
 #  === Material === #
-material:
-#  === Model === #
 model:
     E: 1.
     sigma_D0: 1.
