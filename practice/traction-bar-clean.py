@@ -42,38 +42,13 @@ import hashlib
 from utils import norm_H1, norm_L2
 from utils.plots import plot_energies
 from utils import ColorPrint
+from utils import _logger, simulation_info
 from meshes.primitives import mesh_bar_gmshapi
 from solvers import SNESSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
 from models import DamageElasticityModel as Brittle
 from solvers.function import vec_to_functions
-
-import subprocess
-
-# Get the current Git branch
-branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode("utf-8")
-
-# Get the current Git commit hash
-commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
-
-code_info = {
-    "branch": branch,
-    "commit_hash": commit_hash,
-}
-
-import slepc4py
-
-library_info = {
-    "dolfinx_version": dolfinx.__version__,
-    "petsc4py_version": petsc4py.__version__,
-    "slepc4py_version": slepc4py.__version__,
-}
-
-simulation_info = {
-    **library_info,
-    **code_info,
-}
 
 class BrittleAT2(Brittle):
     """Brittle AT_2 model, without an elastic phase. For fun only."""
@@ -85,7 +60,6 @@ class BrittleAT2(Brittle):
         """
         # Return w(alpha) function
         return self.w1 * alpha**2
-
 
 
 class ResultsStorage:
@@ -126,7 +100,6 @@ class ResultsStorage:
                 json.dump(history_data, file)
 
 # Visualization functions/classes
-
 class Visualization:
     """
     Class for visualizing simulation results.
@@ -373,57 +346,57 @@ def main(parameters, model='at2', storage=None):
 
         if bifurcation._spectrum:
             vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
-            
-            tol = 1e-3
-            xs = np.linspace(0 + tol, Lx - tol, 101)
-            points = np.zeros((3, 101))
-            points[0] = xs
-            
-            plotter = pyvista.Plotter(
-                title="Perturbation profile",
-                window_size=[800, 600],
-                shape=(1, 1),
-            )
-            _plt, data = plot_profile(
-                β,
-                points,
-                plotter,
-                subplot=(0, 0),
-                lineproperties={
-                    "c": "k",
-                    "label": f"$\\beta$"
-                },
-            )
-            ax = _plt.gca()
-            _plt.legend()
-            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-            _plt.title("Perurbation")
-            _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
-            _plt.close()
+            if comm.Get_size() == 1:
+                tol = 1e-3
+                xs = np.linspace(0 + tol, Lx - tol, 101)
+                points = np.zeros((3, 101))
+                points[0] = xs
+                
+                plotter = pyvista.Plotter(
+                    title="Perturbation profile",
+                    window_size=[800, 600],
+                    shape=(1, 1),
+                )
+                _plt, data = plot_profile(
+                    β,
+                    points,
+                    plotter,
+                    subplot=(0, 0),
+                    lineproperties={
+                        "c": "k",
+                        "label": f"$\\beta$"
+                    },
+                )
+                ax = _plt.gca()
+                _plt.legend()
+                _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+                _plt.title("Perurbation")
+                _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
+                _plt.close()
 
 
-            plotter = pyvista.Plotter(
-                title="Cone-Perturbation profile",
-                window_size=[800, 600],
-                shape=(1, 1),
-            )
+                plotter = pyvista.Plotter(
+                    title="Cone-Perturbation profile",
+                    window_size=[800, 600],
+                    shape=(1, 1),
+                )
 
-            _plt, data = plot_profile(
-                stability.perturbation['beta'],
-                points,
-                plotter,
-                subplot=(0, 0),
-                lineproperties={
-                    "c": "k",
-                    "label": f"$\\beta$"
-                },
-            )
-            ax = _plt.gca()
-            _plt.legend()
-            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-            _plt.title("Perurbation from the Cone")
-            _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
-            _plt.close()
+                _plt, data = plot_profile(
+                    stability.perturbation['beta'],
+                    points,
+                    plotter,
+                    subplot=(0, 0),
+                    lineproperties={
+                        "c": "k",
+                        "label": f"$\\beta$"
+                    },
+                )
+                ax = _plt.gca()
+                _plt.legend()
+                _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+                _plt.title("Perurbation from the Cone")
+                _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
+                _plt.close()
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
@@ -471,24 +444,25 @@ def main(parameters, model='at2', storage=None):
     df = pd.DataFrame(history_data)
 
     with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
-        if comm.rank == 0:
+        if comm.Get_size() == 1:
+        # if comm.rank == 0 and comm.Get_size() == 1:
             plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
             plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
             plot_force_displacement(
                 history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
 
-        xvfb.start_xvfb(wait=0.05)
-        pyvista.OFF_SCREEN = True
+            xvfb.start_xvfb(wait=0.05)
+            pyvista.OFF_SCREEN = True
 
-        plotter = pyvista.Plotter(
-            title="Traction test",
-            window_size=[1600, 600],
-            shape=(1, 2),
-        )
-        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-        _plt = plot_vector(u, plotter, subplot=(0, 1))
-        _plt.screenshot(f"{prefix}/traction-state.png")
+            plotter = pyvista.Plotter(
+                title="Traction test",
+                window_size=[1600, 600],
+                shape=(1, 2),
+            )
+            _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+            _plt = plot_vector(u, plotter, subplot=(0, 1))
+            _plt.screenshot(f"{prefix}/traction-state.png")
 
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"   Done!    ")
@@ -519,17 +493,17 @@ def load_parameters(file_path, model='at2'):
         parameters["loading"]["steps"] = 1
 
     elif model == 'at1':
-        parameters["loading"]["min"] = .99
-        parameters["loading"]["max"] = 1.1
-        parameters["loading"]["steps"] = 2
+        parameters["loading"]["min"] = .0
+        parameters["loading"]["max"] = 2.
+        parameters["loading"]["steps"] = 50
 
     parameters["geometry"]["geom_type"] = "traction-bar"
-    parameters["geometry"]["mesh_size_factor"] = 4
+    parameters["geometry"]["mesh_size_factor"] = 5
 
 
     parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-6
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
+    parameters["stability"]["cone"]["cone_atol"] = 1e-7
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-7
     parameters["stability"]["cone"]["scaling"] = 1e-5
 
     parameters["model"]["model_dimension"] = 2
@@ -550,9 +524,9 @@ if __name__ == "__main__":
 
     parameters, signature = load_parameters("../test/parameters.yml", model=args.model)
     pretty_parameters = json.dumps(parameters, indent=2)
-    print(pretty_parameters)
-
-    _storage = f"output/traction-bar/{args.model}/{signature}"
+    _logger.info(pretty_parameters)
+    
+    _storage = f"output/traction-bar/{args.model}/{signature}-MPI{MPI.COMM_WORLD.size}"
     ColorPrint.print_bold(f"===================-{_storage}-=================")
     
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
@@ -561,7 +535,8 @@ if __name__ == "__main__":
     # Store and visualise results
     storage = ResultsStorage(MPI.COMM_WORLD, _storage)
     storage.store_results(parameters, history_data, state)
-
+    print(history_data["cone-eig"])
+    # [[nan], [-0.0021062360599051365]]
     visualization = Visualization(_storage)
 
     visualization.visualise_results(pd.DataFrame(history_data), drop = ["solver_data", "cone_data"])

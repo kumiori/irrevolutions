@@ -987,7 +987,7 @@ class StabilitySolver(SecondOrderSolver):
         self._aerrors.append(self._aerror)
         self._rerrors.append(self._rerror)
 
-        if not self.iterations % 1000:
+        if not self.iterations % 10000:
             _logger.critical(
                 f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}")
 
