@@ -101,6 +101,35 @@ def setup_logger_mpi(root_priority: int = logging.INFO):
 
     return logger
 
+import subprocess
+
+# Get the current Git branch
+branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode("utf-8")
+
+# Get the current Git commit hash
+commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
+
+code_info = {
+    "branch": branch,
+    "commit_hash": commit_hash,
+}
+
+from slepc4py import __version__ as slepc_version
+from dolfinx import __version__ as dolfinx_version
+from petsc4py import __version__ as petsc_version
+
+
+library_info = {
+    "dolfinx_version": dolfinx_version,
+    "petsc4py_version": petsc_version,
+    "slepc4py_version": slepc_version,
+}
+
+simulation_info = {
+    **library_info,
+    **code_info,
+}
+
 
 def norm_L2(u):
     """
