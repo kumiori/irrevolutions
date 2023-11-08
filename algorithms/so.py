@@ -52,6 +52,7 @@ sys.path.append("../")
 import solvers.restriction as restriction
 import solvers.slepcblockproblem as eigenblockproblem
 from solvers.function import functions_to_vec
+from utils import _logger
 
 rank = comm.Get_rank()
 size = comm.Get_size()
@@ -627,7 +628,6 @@ class SecondOrderSolver:
                 ofile.write_function(v[i], eig)
                 ofile.write_function(beta[i], eig)
 
-
 class BifurcationSolver(SecondOrderSolver):
     """Minimal implementation for the solution of the uniqueness issue"""
 
@@ -709,7 +709,6 @@ class StabilitySolver(SecondOrderSolver):
                     "y_norm_L2": [],
                     "x_norm_L2": [],
                 }
-                
 
     def _is_critical(self, alpha_old):
         """
@@ -795,7 +794,7 @@ class StabilitySolver(SecondOrderSolver):
                 self.update_data(_xk, _lmbda_t, _y)
 
                 # logging.debug(f"Eigenvalue _lambda_k at iteration {self.iterations} 🍦? {_lmbda_t}")
-                # logging.critical(f"Vector _xk at iteration {self.iterations} is in cone 🍦? {self._isin_cone(_xk)}")
+                # _logger.critical(f"{rank} Vector _xk at iteration {self.iterations} is in cone 🍦? {self._isin_cone(_xk)}")
                 # logging.critical(f"Projection _xk at k={self.iterations} is in cone 🍦? {self._isin_cone(_xk)}")
 
             perturbation = self.finalize_eigenmode(_xk)
@@ -819,9 +818,10 @@ class StabilitySolver(SecondOrderSolver):
     def update_xk(self, xk, y, s):
         # Update _xk based on the scaling and projection algorithm
         xk.copy(self._xoldr)
-        self._xoldr.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        )
+        
+        # self._xoldr.ghostUpdate(
+        #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        # )
 
         xk.axpy(-s, y)
 
@@ -988,7 +988,7 @@ class StabilitySolver(SecondOrderSolver):
         self._rerrors.append(self._rerror)
 
         if not self.iterations % 1000:
-            logging.critical(
+            _logger.critical(
                 f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}")
 
         # self.data["iterations"].append(self.iterations)
@@ -1035,6 +1035,11 @@ class StabilitySolver(SecondOrderSolver):
         _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
         _is = PETSc.IS().createGeneral(_dofs)
         _sub = _x.getSubVector(_is)
+
+        if not self.iterations % 1000:
+            _logger.critical(f"ITER {self.iterations} rank {rank} is in the cone: {(_sub.array >= 0).all()}")
+        # _logger.critical(f"rank {rank} is in the cone: {(_sub.array >= 0)}")
+        # _logger.critical(f"rank {rank} is in the cone: {(_sub.array)}")
 
         return (_sub.array >= 0).all()
 
@@ -1110,13 +1115,10 @@ class StabilitySolver(SecondOrderSolver):
         self.data["iterations"] = self.iterations
         self.data["error_x_L2"].append(self.error)
         self.data["lambda_0"].append(lmbda_t)
-        logging.info(
+        _logger.info(
             f"Convergence of SPA algorithm within {self.iterations} iterations")
-        logging.info(
+        _logger.info(
             f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(self._xk)}")
-        logging.critical(f"Restricted Eigenvalue {lmbda_t:.4e}")
-        logging.critical(f"Restricted Eigenvalue is positive {lmbda_t > 0}")
-        logging.info(f"Restricted Error {self.error:.4e}")
-        logging.critical(
-            f"Eigenfunction is in cone? {self._isin_cone(self._v)}")
-
+        _logger.critical(f"Restricted Eigenvalue {lmbda_t:.4e}")
+        _logger.info(f"Restricted Eigenvalue is positive {lmbda_t > 0}")
+        _logger.info(f"Restricted Error {self.error:.4e}")
