@@ -514,14 +514,14 @@ def load_parameters(file_path, model='at2'):
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     if model == 'at2':
-        parameters["loading"]["min"] = .9
-        parameters["loading"]["max"] = .9
-        parameters["loading"]["steps"] = 1
+        parameters["loading"]["min"] = .0
+        parameters["loading"]["max"] = 1.3
+        parameters["loading"]["steps"] = 30
 
     elif model == 'at1':
         parameters["loading"]["min"] = .99
         parameters["loading"]["max"] = 1.1
-        parameters["loading"]["steps"] = 2
+        parameters["loading"]["steps"] = 10
 
     parameters["geometry"]["geom_type"] = "traction-bar"
     parameters["geometry"]["mesh_size_factor"] = 4
@@ -534,7 +534,7 @@ def load_parameters(file_path, model='at2'):
 
     parameters["model"]["model_dimension"] = 2
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = .05
+    parameters["model"]["ell"] = .1
     parameters["model"]["k_res"] = 0.
 
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
