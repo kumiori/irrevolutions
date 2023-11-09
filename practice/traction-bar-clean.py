@@ -249,6 +249,13 @@ def main(parameters, model='at2', storage=None):
     bc_u_right = dirichletbc(u_, dofs_u_right)
     bcs_u = [bc_u_left, bc_u_right]
     bcs_alpha = []
+    bcs_alpha = [
+        dirichletbc(
+            np.array(0, dtype=PETSc.ScalarType),
+            np.concatenate([dofs_alpha_left, dofs_alpha_right]),
+            V_alpha,
+        )
+    ]
 
     set_bc(alpha_ub.vector, bcs_alpha)
     alpha_ub.vector.ghostUpdate(
@@ -521,7 +528,7 @@ def load_parameters(file_path, model='at2'):
     elif model == 'at1':
         parameters["loading"]["min"] = .99
         parameters["loading"]["max"] = 1.1
-        parameters["loading"]["steps"] = 2
+        parameters["loading"]["steps"] = 10
 
     parameters["geometry"]["geom_type"] = "traction-bar"
     parameters["geometry"]["mesh_size_factor"] = 4
@@ -534,7 +541,7 @@ def load_parameters(file_path, model='at2'):
 
     parameters["model"]["model_dimension"] = 2
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = .05
+    parameters["model"]["ell"] = .2
     parameters["model"]["k_res"] = 0.
 
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
