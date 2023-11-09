@@ -461,6 +461,7 @@ def main(parameters, storage=None):
         "eigs": [],
         "cone-stable": [],
         "F": [],
+        "cone-eig": [],
         "alpha_t": [],
         "u_t": [],
         "inertia": [],
@@ -522,6 +523,7 @@ def main(parameters, storage=None):
         history_data["uniqueness"].append(_unique)
         history_data["cone-stable"].append(stable)
         history_data["F"].append(_F)
+        history_data["cone-eig"].append(stability.data["lambda_0"])
         history_data["alpha_t"].append(state["alpha"].vector.array.tolist())
         history_data["u_t"].append(state["u"].vector.array.tolist())
         history_data["inertia"].append(inertia)
@@ -609,7 +611,7 @@ def load_parameters(file_path, ndofs, model='at1'):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Process evolution.')
-    parser.add_argument("-N", help="The number of dofs.")
+    parser.add_argument("-N", help="The number of dofs.", type=int, default=10)
     args = parser.parse_args()
     parameters, signature = load_parameters("parameters.yml", ndofs=args.N)
     pretty_parameters = json.dumps(parameters, indent=2)

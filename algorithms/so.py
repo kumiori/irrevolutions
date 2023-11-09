@@ -756,13 +756,13 @@ class StabilitySolver(SecondOrderSolver):
 
         if not self._is_critical(alpha_old):
             # the current state is damage-subcritical (hence elastic), the state is stable
-            self.data["lambda_0"] = [np.nan]
+            self.data["lambda_0"] = np.nan
             self.data["iterations"] = [0]
             self.data["error_x_L2"] = [1]
             return True
         elif eig0 == [] and inertia[0]==0:
             # the current state is damage-critical but no bifurcation can occur, the state is stable
-            self.data["lambda_0"] = [np.nan]
+            self.data["lambda_0"] = np.nan
             self.data["iterations"] = [0]
             self.data["error_x_L2"] = [1]
             return True
@@ -798,7 +798,7 @@ class StabilitySolver(SecondOrderSolver):
                 # logging.critical(f"Vector _xk at iteration {self.iterations} is in cone 🍦? {self._isin_cone(_xk)}")
                 # logging.critical(f"Projection _xk at k={self.iterations} is in cone 🍦? {self._isin_cone(_xk)}")
 
-            perturbation = self.finalize_eigenmode(_xk)
+            perturbation = self.finalise_eigenmode(_xk)
             
             self.store_results(_lmbda_t)
             stable = self.check_stability(_lmbda_t)
@@ -829,7 +829,6 @@ class StabilitySolver(SecondOrderSolver):
         self._cone_project_restricted(xk)
         n2 = xk.normalize()
 
-
     def update_data(self, xk, lmbda_t, y):
         # Update SPA data during each iteration
         self.iterations += 1
@@ -840,18 +839,10 @@ class StabilitySolver(SecondOrderSolver):
 
     def initialize_spa(self, alpha_old: dolfinx.fem.function.Function, eig0=None):
         # Initialization of SPA parameters and data
+        # this is done at each solve
         self.iterations = 0
         self.stable = True
         
-        self.data = {
-            "iterations": [],
-            "error_x_L2": [],
-            "lambda_k": [],
-            "lambda_0": [],
-            "y_norm_L2": [],
-            "x_norm_L2": [],
-        }
-
         _s = float(self.parameters.get("cone").get("scaling"))
         self._s = _s
         self.errors = []
@@ -894,8 +885,7 @@ class StabilitySolver(SecondOrderSolver):
 
         return _xk, _y, _xoldr, _Axr
 
-
-    def finalize_eigenmode(self, xk):
+    def finalise_eigenmode(self, xk):
         # Extract, extend, and finalize the converged eigenmode
         self._xk = xk
         self._extend_vector(xk, self._v)
@@ -907,7 +897,6 @@ class StabilitySolver(SecondOrderSolver):
         self.perturbation = {"v": v, "beta": β}
 
         return self.perturbation
-
 
     def iterate(self, x, errors):
         """
@@ -1097,7 +1086,6 @@ class StabilitySolver(SecondOrderSolver):
             
         return _v
 
-
     def check_stability(self, lmbda_t):
         # Check for stability based on SPA algorithm's convergence
         if self._converged and lmbda_t < float(self.parameters.get("cone").get("cone_rtol")):
@@ -1109,6 +1097,8 @@ class StabilitySolver(SecondOrderSolver):
         # Store SPA results and log convergence information
         self.data["iterations"] = self.iterations
         self.data["error_x_L2"].append(self.error)
+        if lmbda_t is not np.nan:
+            __import__('pdb').set_trace()
         self.data["lambda_0"].append(lmbda_t)
         logging.info(
             f"Convergence of SPA algorithm within {self.iterations} iterations")

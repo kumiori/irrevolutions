@@ -329,3 +329,26 @@ def format_params(params):
     return '$$\ell = {:.2f}, \\nu = {:.1f}, \\sigma_c = {:.1f}, ' \
            'E = {:.1f}$$'.format(params['material']['ell'], params['material']['nu'],
                 params['material']['sigma_D0'], params['material']['E'])
+
+def _plot_spectrum(data):
+    _stab_cnd = lambda data: [0 if data["cone-stable"][i]==True else 1 for i in range(len(data))]
+    # _uniq_cnd = [.3 if d[0]>0 else .7 for d in data['eigs']]
+    """docstring for plotSpaceVsCone"""
+    figure, axis = plt.subplots(1, 1)
+    _lambda_0 = [np.nan if type(a) is list else a for a in data["cone-eig"] ]
+    
+    # __lambda_0 = [e[0] for e in data['eigs']]
+    __lambda_0 = [e[0] if len(e)>0 else np.nan for e in data['eigs']]
+    scale = __lambda_0[0]
+    _colormap=_stab_cnd(data)
+    axis.scatter(data.load, np.array(_lambda_0)/scale, c=_colormap, cmap='RdYlGn_r', alpha=.8, s=200, label='cone')
+    # axis.scatter(data.load, np.array(__lambda_0)/scale, c=_uniq_cnd, cmap = 'seismic', alpha=.8, label='space')
+    axis.scatter(data.load, np.array(__lambda_0)/scale, cmap = 'seismic', alpha=.8, label='space')
+    axis.axhline(0., c='k')
+    axis.set_xlabel('load')
+    axis.set_yticks([0, 1, -3])
+    axis.set_ylabel('$min \lambda / \Lambda_0$')
+    axis.set_title('Min eig in cone vs. space')
+    axis.legend()
+    
+    return figure, axis
