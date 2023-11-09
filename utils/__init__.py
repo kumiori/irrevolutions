@@ -1,3 +1,6 @@
+import json
+import yaml
+
 import ufl
 from dolfinx.fem import assemble_scalar, form
 import numpy as np
@@ -5,8 +8,9 @@ import mpi4py
 import sys
 from petsc4py import PETSc
 import logging
+from mpi4py import MPI
 
-comm = mpi4py.MPI.COMM_WORLD
+comm = MPI.COMM_WORLD
 
 class ColorPrint:
     """
@@ -163,3 +167,76 @@ def table_timing_data():
     df = pd.DataFrame(timing_data, columns=["reps", "wall tot", "usr", "sys"], index=tasks)
 
     return df
+
+from dolfinx.io import XDMFFile
+
+class ResultsStorage:
+    """
+    Class for storing and saving simulation results.
+    """
+
+    def __init__(self, comm, prefix):
+        self.comm = comm
+        self.prefix = prefix
+
+    def store_results(self, parameters, history_data, state):
+        """
+        Store simulation results in XDMF and JSON formats.
+
+        Args:
+            history_data (dict): Dictionary containing simulation data.
+        """
+        t = history_data["load"][-1]
+
+        u = state["u"]
+        alpha = state["alpha"]
+
+        if self.comm.rank == 0:
+            with open(f"{self.prefix}/parameters.yaml", 'w') as file:
+                yaml.dump(parameters, file)
+
+        with XDMFFile(self.comm, f"{self.prefix}/simulation_results.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+            # for t, data in history_data.items():
+                # file.write_scalar(data, t)
+            file.write_mesh(u.function_space.mesh)
+
+            file.write_function(u, t)
+            file.write_function(alpha, t)
+
+        if self.comm.rank == 0:
+            with open(f"{self.prefix}/time_data.json", "w") as file:
+                json.dump(history_data, file)
+
+# Visualization functions/classes
+
+class Visualization:
+    """
+    Class for visualizing simulation results.
+    """
+
+    def __init__(self, prefix):
+        self.prefix = prefix
+
+    def visualise_results(self, df, drop=[]):
+        """
+        Visualise simulation results using appropriate visualization libraries.
+
+        Args:
+            df (dict): Pandas dataframe containing simulation data.
+        """
+        # Implement visualization code here
+        print(df.drop(drop, axis=1))
+
+    def save_table(self, data, name):
+        """
+        Save pandas table results using json.
+
+        Args:
+            data (dict): Pandas table containing simulation data.
+            name (str): Filename.
+        """
+
+        if MPI.COMM_WORLD.rank == 0:
+            a_file = open(f"{self.prefix}/{name}.json", "w")
+            json.dump(data.to_json(), a_file)
+            a_file.close()

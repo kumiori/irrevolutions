@@ -293,12 +293,14 @@ def main(parameters, model='at2', storage=None):
     )
 
     bifurcation = BifurcationSolver(
-        total_energy, state, bcs, bifurcation_parameters=parameters.get(
+        total_energy, state, bcs, 
+        bifurcation_parameters=parameters.get(
             "stability")
     )
 
     stability = StabilitySolver(
-        total_energy, state, bcs, cone_parameters=parameters.get("stability")
+        total_energy, state, bcs,
+        cone_parameters=parameters.get("stability")
     )
 
     history_data = {

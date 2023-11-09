@@ -679,7 +679,7 @@ class StabilitySolver(SecondOrderSolver):
             state (dict): Dictionary containing state variables 'u' and 'alpha'.
             bcs (list): List of boundary conditions.
             nullspace: Nullspace object for the problem.
-            cone_parameters: Parameters for the stability analysis with cones.
+            cone_parameters: Parameters for the  cone-stability analysis.
         """
         super(StabilitySolver, self).__init__(
             energy,
@@ -819,9 +819,10 @@ class StabilitySolver(SecondOrderSolver):
     def update_xk(self, xk, y, s):
         # Update _xk based on the scaling and projection algorithm
         xk.copy(self._xoldr)
-        self._xoldr.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        )
+        # should the vector be ghosted? (it is not)
+        # self._xoldr.ghostUpdate(
+        #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        # )
 
         xk.axpy(-s, y)
 
@@ -965,7 +966,7 @@ class StabilitySolver(SecondOrderSolver):
         _atol = self.parameters.get("cone").get("cone_atol")
         _rtol = self.parameters.get("cone").get("cone_rtol")
         _maxit = self.parameters.get("cone").get("cone_max_it")
-
+        _scaling = self.parameters.get("cone").get("scaling")
         if self.iterations == _maxit:
             self._reason = -1
             raise NonConvergenceException(
@@ -989,7 +990,7 @@ class StabilitySolver(SecondOrderSolver):
 
         if not self.iterations % 1000:
             logging.critical(
-                f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}")
+                f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}, scaling {_scaling}")
 
         # self.data["iterations"].append(self.iterations)
         self.data["error_x_L2"].append(error_x_L2)
@@ -1103,7 +1104,6 @@ class StabilitySolver(SecondOrderSolver):
             return False
         else:
             return True
-
 
     def store_results(self, lmbda_t):
         # Store SPA results and log convergence information
