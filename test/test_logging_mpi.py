@@ -12,7 +12,7 @@ def setup_logger_mpi():
 
     # Create a logger
     logger = logging.getLogger('my_logger')
-    logger.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
+    logger.setLevel(root_process_log_level if rank == 0 else logging.WARNING)
 
     # Configure the logger (e.g., add handlers, formatters)
     # ...
@@ -28,11 +28,12 @@ def setup_logger_mpi():
     if rank == 0:
     # Configure additional handlers or custom settings for the root process
     # ...
-        print(rank)
+        print('rank', rank)
 
     # Now, you can use the 'logger' object to log messages, and only the root process will log.
-    logger.info("This message will be logged only on the root process (rank 0)")
-    logger.info(f"This is process {rank} reporting")
+    logger.info("This info message will be logged only on the root process (rank 0)")
+    logger.debug("This debug message will be logged only on the root process (rank 0)")
+    logger.warning(f"This is warning process {rank} reporting")
 
     return logger
 

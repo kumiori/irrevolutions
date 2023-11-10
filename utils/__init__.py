@@ -78,33 +78,61 @@ def setup_logger_mpi(root_priority: int = logging.INFO):
     root_process_log_level = logging.INFO  # Adjust as needed
 
     logger = logging.getLogger('E•volver')
-    logger.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
+    logger.setLevel(root_process_log_level if rank == 0 else logging.WARNING)
 
-    # StreamHandler to log messages to the console (or you can use other handlers)
+    # StreamHandler to log messages to the console
     console_handler = logging.StreamHandler()
     file_handler = logging.FileHandler('evolution.log')
 
-    # file_handler.setLevel(logging.INFO)
-
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] - %(message)s')
 
     file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
     
+    # file_handler.setLevel(logging.INFO)
     file_handler.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
-    console_handler.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
+    # console_handler.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
     
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
 
     # Log messages, and only the root process will log.
     logger.info("The root process spawning an evolution computation (rank 0)")
-    logger.info(f"This is process {rank} reporting")
-    logger.critical(
+    logger.info(
     f"DOLFINx version: {dolfinx.__version__} based on GIT commit: {dolfinx.git_commit_hash} of https://github.com/FEniCS/dolfinx/")
 
     return logger
 
+_logger = setup_logger_mpi()
+
+import subprocess
+
+# Get the current Git branch
+branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode("utf-8")
+
+# Get the current Git commit hash
+commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
+
+code_info = {
+    "branch": branch,
+    "commit_hash": commit_hash,
+}
+
+from slepc4py import __version__ as slepc_version
+from dolfinx import __version__ as dolfinx_version
+from petsc4py import __version__ as petsc_version
+
+
+library_info = {
+    "dolfinx_version": dolfinx_version,
+    "petsc4py_version": petsc_version,
+    "slepc4py_version": slepc_version,
+}
+
+simulation_info = {
+    **library_info,
+    **code_info,
+}
 
 def norm_L2(u):
     """
