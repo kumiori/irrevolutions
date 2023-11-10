@@ -585,9 +585,9 @@ def load_parameters(file_path, ndofs, model='at1'):
         parameters["loading"]["steps"] = 1
 
     elif model == 'at1':
-        parameters["loading"]["min"] = .0
-        parameters["loading"]["max"] = 1.5
-        parameters["loading"]["steps"] = 30
+        parameters["loading"]["min"] = .9
+        parameters["loading"]["max"] = 1.1
+        parameters["loading"]["steps"] = 3
 
     parameters["geometry"]["geom_type"] = "traction-bar"
     parameters["geometry"]["mesh_size_factor"] = 4
