@@ -354,58 +354,7 @@ def main(parameters, model='at2', storage=None):
         stable = stability.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
         if bifurcation._spectrum:
-            vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
-            if comm.Get_size() == 1:
-                tol = 1e-3
-                xs = np.linspace(0 + tol, Lx - tol, 101)
-                points = np.zeros((3, 101))
-                points[0] = xs
-                
-                plotter = pyvista.Plotter(
-                    title="Perturbation profile",
-                    window_size=[800, 600],
-                    shape=(1, 1),
-                )
-                _plt, data = plot_profile(
-                    β,
-                    points,
-                    plotter,
-                    subplot=(0, 0),
-                    lineproperties={
-                        "c": "k",
-                        "label": f"$\\beta$"
-                    },
-                )
-                ax = _plt.gca()
-                _plt.legend()
-                _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-                _plt.title("Perurbation")
-                _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
-                _plt.close()
-
-
-                plotter = pyvista.Plotter(
-                    title="Cone-Perturbation profile",
-                    window_size=[800, 600],
-                    shape=(1, 1),
-                )
-
-                _plt, data = plot_profile(
-                    stability.perturbation['beta'],
-                    points,
-                    plotter,
-                    subplot=(0, 0),
-                    lineproperties={
-                        "c": "k",
-                        "label": f"$\\beta$"
-                    },
-                )
-                ax = _plt.gca()
-                _plt.legend()
-                _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-                _plt.title("Perurbation from the Cone")
-                _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
-                _plt.close()
+            plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t)
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
@@ -477,6 +426,61 @@ def main(parameters, model='at2', storage=None):
     ColorPrint.print_bold(f"   Done!    ")
 
     return history_data, state
+
+def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
+    
+    vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
+    if comm.Get_size() == 1:
+        tol = 1e-3
+        xs = np.linspace(0 + tol, Lx - tol, 101)
+        points = np.zeros((3, 101))
+        points[0] = xs
+                
+        plotter = pyvista.Plotter(
+                    title="Perturbation profile",
+                    window_size=[800, 600],
+                    shape=(1, 1),
+                )
+        _plt, data = plot_profile(
+                    β,
+                    points,
+                    plotter,
+                    subplot=(0, 0),
+                    lineproperties={
+                        "c": "k",
+                        "label": f"$\\beta$"
+                    },
+                )
+        ax = _plt.gca()
+        _plt.legend()
+        _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+        _plt.title("Perurbation")
+        _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
+        _plt.close()
+
+
+        plotter = pyvista.Plotter(
+                    title="Cone-Perturbation profile",
+                    window_size=[800, 600],
+                    shape=(1, 1),
+                )
+
+        _plt, data = plot_profile(
+                    stability.perturbation['beta'],
+                    points,
+                    plotter,
+                    subplot=(0, 0),
+                    lineproperties={
+                        "c": "k",
+                        "label": f"$\\beta$"
+                    },
+                )
+        ax = _plt.gca()
+        _plt.legend()
+        _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+        _plt.title("Perurbation from the Cone")
+        _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
+        _plt.close()
 
 # Configuration handling (load parameters from YAML)
 
