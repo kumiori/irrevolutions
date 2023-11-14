@@ -69,7 +69,12 @@ class ColorPrint:
 def setup_logger_mpi(root_priority: int = logging.INFO):
     from mpi4py import MPI
     import dolfinx
-    
+    class MPIFormatter(logging.Formatter):
+        def format(self, record):
+            record.rank = MPI.COMM_WORLD.Get_rank()
+            record.size = MPI.COMM_WORLD.Get_size()
+            return super(MPIFormatter, self).format(record)
+
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -84,7 +89,8 @@ def setup_logger_mpi(root_priority: int = logging.INFO):
     console_handler = logging.StreamHandler()
     file_handler = logging.FileHandler('evolution.log')
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] - %(message)s')
+    # formatter = logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] - %(message)s')
+    formatter = MPIFormatter('%(asctime)s  [Rank %(rank)d, Size %(size)d]  - %(name)s - [%(levelname)s] - %(message)s')
 
     file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)

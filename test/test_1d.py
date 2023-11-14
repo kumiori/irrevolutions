@@ -304,7 +304,6 @@ def main(parameters, storage=None):
     u = Function(V_u, name="Unknown")
     u_ = Function(V_u, name="Boundary Unknown")
     zero_u = Function(V_u, name="Boundary Unknown")
-
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
     ds = ufl.Measure("ds", domain=mesh)
@@ -502,85 +501,87 @@ def main(parameters, storage=None):
         hybrid.solve(alpha_lb)
 
         # n_eigenvalues = 10
-        is_stable = bifurcation.solve(alpha_lb)
+        is_unique = bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
         inertia = bifurcation.get_inertia()
         # stability.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
-        check_stability.append(is_stable)
 
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
-        ColorPrint.print_bold(f"State is stable: {is_stable}")
+        ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
 
-        stable = stability.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
+        stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
-        if bifurcation._spectrum:
-            vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
-            
-            tol = 1e-3
-            xs = np.linspace(0 + tol, Lx - tol, 101)
-            points = np.zeros((3, 101))
-            points[0] = xs
-            
-            plotter = pyvista.Plotter(
-                title="Perturbation profile",
-                window_size=[800, 600],
-                shape=(1, 2),
-            )
-            _plt, data = plot_profile(
-                β,
-                points,
-                plotter,
-                subplot=(1, 2),
-                lineproperties={
-                    "c": "k",
-                    "label": f"$\\beta$"
-                },
-                subplotnumber=1
-            )
-            ax = _plt.gca()
-            ax.set_xlabel('x')
-            ax.set_yticks([-1, 0, 1])
-            ax.set_ylabel('$\\beta$')
-            _plt.legend()
-            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-            _plt.title("Perurbation in Vector Space")
-            _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
-            _plt.close()
+        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+            if comm.Get_size() == 1:
 
-            # plotter = pyvista.Plotter(
-            #     title="Cone-Perturbation profile",
-            #     window_size=[800, 600],
-            #     shape=(1, 1),
-            # )
+                if bifurcation._spectrum:
+                    vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
+                    
+                    tol = 1e-3
+                    xs = np.linspace(0 + tol, Lx - tol, 101)
+                    points = np.zeros((3, 101))
+                    points[0] = xs
+                    
+                    plotter = pyvista.Plotter(
+                        title="Perturbation profile",
+                        window_size=[800, 600],
+                        shape=(1, 2),
+                    )
+                    _plt, data = plot_profile(
+                        β,
+                        points,
+                        plotter,
+                        subplot=(1, 2),
+                        lineproperties={
+                            "c": "k",
+                            "label": f"$\\beta$"
+                        },
+                        subplotnumber=1
+                    )
+                    ax = _plt.gca()
+                    ax.set_xlabel('x')
+                    ax.set_yticks([-1, 0, 1])
+                    ax.set_ylabel('$\\beta$')
+                    _plt.legend()
+                    _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+                    _plt.title("Perurbation in Vector Space")
+                    _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
+                    _plt.close()
 
-            _plt, data = plot_profile(
-                stability.perturbation['beta'],
-                points,
-                plotter,
-                subplot=(1, 2),
-                lineproperties={
-                    "c": "k",
-                    "label": f"$\\beta$"
-                },
-                subplotnumber=2,
-                ax = ax
-            )
+                    # plotter = pyvista.Plotter(
+                    #     title="Cone-Perturbation profile",
+                    #     window_size=[800, 600],
+                    #     shape=(1, 1),
+                    # )
 
-            # # Set custom ticks and tick locations
-            # plotter.x_tick_labels = np.arange(0, 11, 2)  # Set X-axis tick labels
-            # plotter.y_tick_locations = np.arange(-5, 6, 1)  # Set Y-axis tick locations
+                    _plt, data = plot_profile(
+                        stability.perturbation['beta'],
+                        points,
+                        plotter,
+                        subplot=(1, 2),
+                        lineproperties={
+                            "c": "k",
+                            "label": f"$\\beta$"
+                        },
+                        subplotnumber=2,
+                        ax = ax
+                    )
 
-            ax = _plt.gca()
-            ax.set_xlabel('x')
-            ax.set_yticks([0, 1])
-            ax.set_ylabel('$\\beta$')
-            _plt.legend()
-            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-            _plt.title("Perurbation in the Cone")
-            # _plt.screenshot(f"{prefix}/perturbations-{i_t}.png")
-            _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
-            _plt.close()
+                    # # Set custom ticks and tick locations
+                    # plotter.x_tick_labels = np.arange(0, 11, 2)  # Set X-axis tick labels
+                    # plotter.y_tick_locations = np.arange(-5, 6, 1)  # Set Y-axis tick locations
+
+                    ax = _plt.gca()
+                    ax.set_xlabel('x')
+                    ax.set_yticks([0, 1])
+                    ax.set_ylabel('$\\beta$')
+                    _plt.legend()
+                    _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+                    _plt.title("Perurbation in the Cone")
+                    # _plt.screenshot(f"{prefix}/perturbations-{i_t}.png")
+                    _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
+                    _plt.close()
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(damage_energy_density(state) * dx)),
@@ -593,7 +594,9 @@ def main(parameters, storage=None):
         _F = assemble_scalar( form(stress(state)) )
         
         _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
-
+        
+        ColorPrint.print_bold(stability.data['lambda_0'])
+        
         history_data["load"].append(t)
         history_data["fracture_energy"].append(fracture_energy)
         history_data["elastic_energy"].append(elastic_energy)
@@ -691,29 +694,32 @@ def load_parameters(file_path, ndofs, model='at1'):
 
 if __name__ == "__main__":
     import argparse
+    from mpi4py import MPI
+    
     parser = argparse.ArgumentParser(description='Process evolution.')
     parser.add_argument("-N", help="The number of dofs.", type=int, default=10)
     args = parser.parse_args()
     parameters, signature = load_parameters("parameters.yml", ndofs=args.N)
     pretty_parameters = json.dumps(parameters, indent=2)
-    print(pretty_parameters)
+    # print(pretty_parameters)
 
-    _storage = f"output/one-dimensional-bar/{args.N}/{signature}"
+    _storage = f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{args.N}/{signature}"
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
         history_data, state = main(parameters, _storage)
 
+    ColorPrint.print_bold(history_data["cone-eig"])
     from utils import ResultsStorage, Visualization
     storage = ResultsStorage(MPI.COMM_WORLD, _storage)
     storage.store_results(parameters, history_data, state)
     visualization = Visualization(_storage)
-    visualization.visualise_results(pd.DataFrame(history_data), drop = ["solver_data", "cone_data"])
+    # visualization.visualise_results(pd.DataFrame(history_data), drop = ["solver_data", "cone_data"])
     visualization.save_table(pd.DataFrame(history_data), "history_data")
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+    # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     # from utils import table_timing_data
     # _timings = table_timing_data()

@@ -52,7 +52,6 @@ dofs_alpha_right = locate_dofs_geometrical(
 dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.))
 dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 1.))
 
-
 def get_inactive_dofset():
     """docstring for get_inactive_dofset"""
     V_u_size = V_u.dofmap.index_map_bs * (V_u.dofmap.index_map.size_local)
@@ -141,10 +140,10 @@ for i, space in enumerate([V_u, V_alpha]):
 
     size_local = space.dofmap.index_map.size_local
     num_ghosts = space.dofmap.index_map.num_ghosts
-
-    print(f"{rank}) ", i, space, "bs", bs)
-    print(f"{rank}) ", i, space, "size_local", size_local)
-    print(f"{rank}) ", i, space, "num_ghosts", num_ghosts)
+    print(space)
+    print(f"{rank}) ", i, "bs", bs)
+    print(f"{rank}) ", i, "size_local", size_local)
+    print(f"{rank}) ", i, "num_ghosts", num_ghosts)
 
 
 v_r = restriction.restrict_vector(v)

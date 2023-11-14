@@ -67,7 +67,6 @@ def plot_vector(u, plotter, subplot=None, scale=1.):
     return plotter
     # figure = plotter.screenshot(f"./output/test_viz/test_viz_MPI{comm.size}-.png")
 
-
 def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     """Plots a scalar function using pyvista
 
@@ -102,8 +101,7 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     plotter.set_background('white')
     return plotter
 
-
-def plot_profile(u, points, plotter, subplot=None, lineproperties={}, fig=None, ax=None):
+def plot_profile(u, points, plotter, subplot=None, lineproperties={}, fig=None, ax=None, subplotnumber = 1):
     import matplotlib.pyplot as plt
     import dolfinx.geometry
     mesh = u.function_space.mesh
@@ -128,10 +126,10 @@ def plot_profile(u, points, plotter, subplot=None, lineproperties={}, fig=None, 
     if fig is None:
         fig = plt.figure()
 
+    if subplot:
+        # plotter.subplot(subplot[0], subplot[1])
     # if subplot:
-    #     plotter.subplot(subplot[0], subplot[1])
-    # if subplot:
-        # plt.subplot(subplot[0] + 1, subplot[1] + 1, 1)
+        plt.subplot(subplot[0], subplot[1], subplotnumber)
     # plt.plot(points_on_proc[:, 0], u_values, "k", ls="-", linewidth=1, label="")
 
     if ax is not None:
@@ -144,7 +142,6 @@ def plot_profile(u, points, plotter, subplot=None, lineproperties={}, fig=None, 
     plt.legend()
     return plt, (points_on_proc[:, 0], u_values)
 
-
 def plot_mesh(mesh, ax=None):
     if ax is None:
         ax = plt.gca()
@@ -154,6 +151,65 @@ def plot_mesh(mesh, ax=None):
     tria = tri.Triangulation(points[:, 0], points[:, 1], cells)
     ax.triplot(tria, color="k")
     return ax
+
+
+def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
+    from solvers.function import vec_to_functions
+    
+    vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
+    if comm.Get_size() == 1:
+        tol = 1e-3
+        xs = np.linspace(0 + tol, Lx - tol, 101)
+        points = np.zeros((3, 101))
+        points[0] = xs
+                
+        plotter = pyvista.Plotter(
+                    title="Perturbation profile",
+                    window_size=[800, 600],
+                    shape=(1, 1),
+                )
+        _plt, data = plot_profile(
+                    β,
+                    points,
+                    plotter,
+                    subplot=(0, 0),
+                    lineproperties={
+                        "c": "k",
+                        "label": f"$\\beta$"
+                    },
+                )
+        ax = _plt.gca()
+        _plt.legend()
+        _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+        _plt.title("Perurbation")
+        _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
+        _plt.close()
+
+
+        plotter = pyvista.Plotter(
+                    title="Cone-Perturbation profile",
+                    window_size=[800, 600],
+                    shape=(1, 1),
+                )
+
+        _plt, data = plot_profile(
+                    stability.perturbation['beta'],
+                    points,
+                    plotter,
+                    subplot=(0, 0),
+                    lineproperties={
+                        "c": "k",
+                        "label": f"$\\beta$"
+                    },
+                )
+        ax = _plt.gca()
+        _plt.legend()
+        _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+        _plt.title("Perurbation from the Cone")
+        _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
+        _plt.close()
+        
+    return plotter
 
 import scipy
 
