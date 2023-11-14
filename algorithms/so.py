@@ -687,27 +687,19 @@ class StabilitySolver(SecondOrderSolver):
             nullspace,
             stability_parameters=cone_parameters,
         )
-        self._converged = False
-        self._v = dolfinx.fem.petsc.create_vector_block(self.F)
-
-        self._reasons = {'0': 'converged',
-                         '-1': 'non-converged, check the logs',
-                         '1': 'converged atol',
-                         '2': 'converged rtol'
-                         }
-        self._reason = None
-
         with dolfinx.common.Timer(f"~Second Order: Stability"):
             with dolfinx.common.Timer(f"~Second Order: Cone Project"):
+                # self._converged = False
+                self._v = dolfinx.fem.petsc.create_vector_block(self.F)
 
-                self.data = {
-                    "iterations": [],
-                    "error_x_L2": [],
-                    "lambda_k": [],
-                    "lambda_0": [],
-                    "y_norm_L2": [],
-                    "x_norm_L2": [],
-                }
+                self._reasons = {'0': 'converged',
+                                '-1': 'non-converged, check the logs',
+                                '1': 'converged atol',
+                                '2': 'converged rtol'
+                                }
+                self._reason = None
+
+
 
     def _is_critical(self, alpha_old):
         """
@@ -741,17 +733,28 @@ class StabilitySolver(SecondOrderSolver):
         self.sanity_check(eig0, inertia)
         self.iterations = 0
 
+        self.data = {
+            "iterations": [],
+            "error_x_L2": [],
+            "lambda_k": [],
+            "lambda_0": [],
+            "y_norm_L2": [],
+            "x_norm_L2": [],
+        }
+        
         if not self._is_critical(alpha_old):
             # the current state is damage-subcritical (hence elastic), the state is thus stable
-            self.data["lambda_0"] = [np.nan]
-            self.data["iterations"] = [self.iterations]
+            _logger.info("the current state is damage-subcritical (hence elastic), the state is thus stable")
+            self.data["lambda_0"] = np.nan
+            self.data["iterations"] = self.iterations
             self.data["error_x_L2"] = [1]
             return True
         
         elif not eig0 and inertia[0]==0 and inertia[1]==0:
             # the current state is damage-critical and the evolution path is unique, the state is thus stable
-            self.data["lambda_0"] = [np.nan]
-            self.data["iterations"] = [self.iterations]
+            _logger.info("the current state is damage-critical and the evolution path is unique, the state is thus stable")
+            self.data["lambda_0"] = np.nan
+            self.data["iterations"] = self.iterations
             self.data["error_x_L2"] = [np.nan]
             return True
         else:
@@ -762,7 +765,7 @@ class StabilitySolver(SecondOrderSolver):
 
             x0 = eig0[0].get("xk")
             _x = x0.copy()
-
+        
         _s = float(self.parameters.get("cone").get("scaling"))
         errors = []
         self.stable = True
@@ -784,7 +787,8 @@ class StabilitySolver(SecondOrderSolver):
             self._xoldr = constraints.restrict_vector(self._xold)
 
             # _lmbda_t = np.nan
-            __import__('pdb').set_trace()
+            # __import__('pdb').set_trace()
+            
             while self.iterate(_xk, errors):
                 _lmbda_t, _y = self.update_lambda_and_y(_xk, _Ar, _y)
 
@@ -829,7 +833,7 @@ class StabilitySolver(SecondOrderSolver):
     def update_data(self, xk, lmbda_t, y):
         # Update SPA data during each iteration
         self.iterations += 1
-        self.data["iterations"].append(self.iterations)
+        self.data["iterations"] = self.iterations
         self.data["lambda_k"].append(lmbda_t)
         self.data["y_norm_L2"].append(y.norm())
         self.data["x_norm_L2"].append(xk.norm())
@@ -1092,8 +1096,8 @@ class StabilitySolver(SecondOrderSolver):
         self.data["iterations"] = self.iterations
         self.data["error_x_L2"].append(self.error)
         # if lmbda_t is not np.nan:
-        __import__('pdb').set_trace()
-        self.data["lambda_0"].append(lmbda_t)
+        # __import__('pdb').set_trace()
+        self.data["lambda_0"] = lmbda_t
         _logger.info(
             f"Convergence of SPA algorithm within {self.iterations} iterations")
         _logger.info(

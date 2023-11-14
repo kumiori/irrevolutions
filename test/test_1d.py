@@ -46,6 +46,7 @@ from utils import ColorPrint
 from utils.plots import plot_energies
 from utils import norm_H1, norm_L2
 from solvers import SNESSolver
+from utils import _logger
 
 
 """The fundamental problem of a 1d bar in traction.
@@ -428,6 +429,8 @@ def main(parameters, storage=None):
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
 
+    # loads = [0., 0.1, .99, 1.00, 1.1]
+    
     equilibrium = _AlternateMinimisation1D(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
@@ -483,7 +486,7 @@ def main(parameters, storage=None):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        logging.critical(f"-- Solving for t = {t:3.2f} --")
+        _logger.critical(f"-- Solving for t = {t:3.2f} --")
 
         equilibrium.solve()
         hybrid.solve(alpha_lb)
@@ -528,9 +531,11 @@ def main(parameters, storage=None):
         history_data["u_t"].append(state["u"].vector.array.tolist())
         history_data["inertia"].append(inertia)
         
-        logging.critical(f"u_t {u.vector.array}")
-        logging.critical(f"alpha {alpha.vector.array}")
-        logging.critical(f"u_t norm {state['u'].vector.norm()}")
+        _logger.critical(f"u_t {state['u'].vector.array}")
+        _logger.critical(f"alpha_t {state['alpha'].vector.array}")
+        # _logger.critical(f"u_t {u.vector.array}")
+        # _logger.critical(f"alpha {alpha.vector.array}")
+        # _logger.critical(f"u_t norm {state['u'].vector.norm()}")
 
         with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
             file.write_function(u, t)
@@ -554,7 +559,6 @@ def main(parameters, storage=None):
     return history_data, state
 
 # Viz
-
 
 def load_parameters(file_path, ndofs, model='at1'):
     """
@@ -585,9 +589,9 @@ def load_parameters(file_path, ndofs, model='at1'):
         parameters["loading"]["steps"] = 1
 
     elif model == 'at1':
-        parameters["loading"]["min"] = .9
-        parameters["loading"]["max"] = 1.1
-        parameters["loading"]["steps"] = 3
+        parameters["loading"]["min"] = .0
+        parameters["loading"]["max"] = 1.5
+        parameters["loading"]["steps"] = 20
 
     parameters["geometry"]["geom_type"] = "traction-bar"
     parameters["geometry"]["mesh_size_factor"] = 4
@@ -606,7 +610,6 @@ def load_parameters(file_path, ndofs, model='at1'):
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
     return parameters, signature
-
 
 if __name__ == "__main__":
     import argparse
