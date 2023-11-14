@@ -1095,8 +1095,6 @@ class StabilitySolver(SecondOrderSolver):
         # Store SPA results and log convergence information
         self.data["iterations"] = self.iterations
         self.data["error_x_L2"].append(self.error)
-        # if lmbda_t is not np.nan:
-        # __import__('pdb').set_trace()
         self.data["lambda_0"] = lmbda_t
         _logger.info(
             f"Convergence of SPA algorithm within {self.iterations} iterations")

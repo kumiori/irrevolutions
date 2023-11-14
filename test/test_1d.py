@@ -47,6 +47,11 @@ from utils.plots import plot_energies
 from utils import norm_H1, norm_L2
 from solvers import SNESSolver
 from utils import _logger
+import pyvista
+from pyvista.utilities import xvfb
+# 
+from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
+from solvers.function import vec_to_functions
 
 
 """The fundamental problem of a 1d bar in traction.
@@ -276,6 +281,11 @@ def main(parameters, storage=None):
     u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
 
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
+    
+    # Perturbations
+    β = Function(V_alpha, name="DamagePerturbation")
+    v = Function(V_u, name="DisplacementPerturbation")
+    perturbation = {"v": v, "beta": β}
 
     # Pack state
     state = {"u": u, "alpha": alpha}
@@ -429,7 +439,7 @@ def main(parameters, storage=None):
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
 
-    # loads = [0., 0.1, .99, 1.00, 1.1]
+    loads = [0., 0.5, .99, 1.01, 1.3]
     
     equilibrium = _AlternateMinimisation1D(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
@@ -503,6 +513,74 @@ def main(parameters, storage=None):
         ColorPrint.print_bold(f"State is stable: {is_stable}")
 
         stable = stability.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
+
+        if bifurcation._spectrum:
+            vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
+            
+            tol = 1e-3
+            xs = np.linspace(0 + tol, Lx - tol, 101)
+            points = np.zeros((3, 101))
+            points[0] = xs
+            
+            plotter = pyvista.Plotter(
+                title="Perturbation profile",
+                window_size=[800, 600],
+                shape=(1, 2),
+            )
+            _plt, data = plot_profile(
+                β,
+                points,
+                plotter,
+                subplot=(1, 2),
+                lineproperties={
+                    "c": "k",
+                    "label": f"$\\beta$"
+                },
+                subplotnumber=1
+            )
+            ax = _plt.gca()
+            ax.set_xlabel('x')
+            ax.set_yticks([-1, 0, 1])
+            ax.set_ylabel('$\\beta$')
+            _plt.legend()
+            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+            _plt.title("Perurbation in Vector Space")
+            _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
+            _plt.close()
+
+            # plotter = pyvista.Plotter(
+            #     title="Cone-Perturbation profile",
+            #     window_size=[800, 600],
+            #     shape=(1, 1),
+            # )
+
+            _plt, data = plot_profile(
+                stability.perturbation['beta'],
+                points,
+                plotter,
+                subplot=(1, 2),
+                lineproperties={
+                    "c": "k",
+                    "label": f"$\\beta$"
+                },
+                subplotnumber=2,
+                ax = ax
+            )
+
+            # # Set custom ticks and tick locations
+            # plotter.x_tick_labels = np.arange(0, 11, 2)  # Set X-axis tick labels
+            # plotter.y_tick_locations = np.arange(-5, 6, 1)  # Set Y-axis tick locations
+
+            ax = _plt.gca()
+            ax.set_xlabel('x')
+            ax.set_yticks([0, 1])
+            ax.set_ylabel('$\\beta$')
+            _plt.legend()
+            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+            _plt.title("Perurbation in the Cone")
+            # _plt.screenshot(f"{prefix}/perturbations-{i_t}.png")
+            _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
+            _plt.close()
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(damage_energy_density(state) * dx)),
