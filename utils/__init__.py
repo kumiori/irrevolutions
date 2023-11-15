@@ -82,9 +82,11 @@ def setup_logger_mpi(root_priority: int = logging.INFO):
     # Desired log level for the root process (rank 0)
     root_process_log_level = logging.INFO  # Adjust as needed
 
-    logger = logging.getLogger('E•volver')
+    # logger = logging.getLogger('E•volver')
+    logger = logging.getLogger()
     logger.setLevel(root_process_log_level if rank == 0 else logging.WARNING)
-
+    # Disable propagation to root logger for your logger
+    logger.propagate = False
     # StreamHandler to log messages to the console
     console_handler = logging.StreamHandler()
     file_handler = logging.FileHandler('evolution.log')
@@ -97,7 +99,13 @@ def setup_logger_mpi(root_priority: int = logging.INFO):
     
     # file_handler.setLevel(logging.INFO)
     file_handler.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
-    # console_handler.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
+    console_handler.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
+
+
+    # Disable propagation to root logger for both handlers
+    console_handler.propagate = False
+    file_handler.propagate = False
+    
     
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
