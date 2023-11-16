@@ -45,7 +45,7 @@ def get_inactive_dofset(v, V_u = V_u, V_alpha = V_alpha):
     V_u_size = V_u.dofmap.index_map_bs * (V_u.dofmap.index_map.size_local)
     V_alpha_size = V_alpha.dofmap.index_map_bs * (V_alpha.dofmap.index_map.size_local)
     # simil to: admissibility
-    idx_alpha_local = np.array(np.where(alpha<1)[0], dtype=np.int32)
+    idx_alpha_local = np.array(np.where(alpha<=1)[0], dtype=np.int32)
     idx_u_local = np.arange(V_u_size, dtype=np.int32)
     dofs_u_all = idx_u_local
 

@@ -68,7 +68,7 @@ def test_extension(v, vr, constraints):
     _subvector.view()
     # now I want to scatter the values from _subvector into x
     # scatter(_islocal, _subvector, x)
-    scatter = PETSc.Scatter().create(_subvector, is_from = None, vec_to = x, is_to = _islocal)
+    scatter = PETSc.Scatter().create(vr, is_from = None, vec_to = x, is_to = _islocal)
     scatter.view()
     scatter.scatter(vr, x, False, PETSc.ScatterMode.FORWARD)
     _logger.info(f"we have scattered the \"good\" values into x")
