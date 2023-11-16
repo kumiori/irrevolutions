@@ -54,11 +54,11 @@ def get_inactive_dofset(v, V_u = V_u, V_alpha = V_alpha):
     restricted_dofs = [dofs_u_all, idx_alpha_local]
 
     # Print information about the vector
-    _logger.critical(f"{__log_incipit} restricted_dofs: {restricted_dofs}")
-    _logger.critical(f"{__log_incipit} Local data of the subvector u: {u}")
     _logger.critical(f"{__log_incipit} Len of subvector u: {len(u)}")
-    _logger.critical(f"{__log_incipit} Local data of the subvector alpha: {alpha}")
     _logger.critical(f"{__log_incipit} Len of subvector alpha: {len(alpha)}")
+    _logger.critical(f"{__log_incipit} Local data of the subvector u: {u}")
+    _logger.critical(f"{__log_incipit} Local data of the subvector alpha: {alpha}")
+    _logger.critical(f"{__log_incipit} restricted_dofs: {restricted_dofs}")
     _logger.critical(f"{__log_incipit} idx_alpha_local: {idx_alpha_local}")
     _logger.critical(f"{__log_incipit} idx_u_local: {idx_u_local}")
     _logger.critical(f"{__log_incipit} Size of the vector: {v.getSize()}")
@@ -66,12 +66,9 @@ def get_inactive_dofset(v, V_u = V_u, V_alpha = V_alpha):
     _logger.critical(f"{__log_incipit} Nonzero entries in the local data: {len(local_data.nonzero()[0])}")
     _logger.critical(f"{__log_incipit} Global indices of nonzero entries: {v.getOwnershipRange()}")
     _logger.critical(f"{__log_incipit} Global indices of nonzero entries: {v.getOwnershipRanges()}")
-
-    
     
     return restricted_dofs
     
-
 def test_restriction():
     V_u_size = V_u.dofmap.index_map_bs * (V_u.dofmap.index_map.size_local)
     V_alpha_size = V_alpha.dofmap.index_map_bs * (V_alpha.dofmap.index_map.size_local)
@@ -93,7 +90,6 @@ def test_restriction():
     v.array = [np.around(random.uniform(0.1, 1.5), decimals=1) for r in range(v.local_size)]
     
     restricted_dofs = get_inactive_dofset(v)
-    _logger.critical(f"{__log_incipit} restricted_dofs {restricted_dofs}")
 
     constraints = restriction.Restriction([V_u, V_alpha], restricted_dofs)
     vr = constraints.restrict_vector(v)
@@ -108,7 +104,8 @@ def test_restriction():
     _logger.info(f"vr")
     vr.view()
     
-    return
+    # return v, vr, constraints, restricted_dofs, F, x
+    return v, vr, constraints
 
 if __name__ == '__main__':
     test_restriction()
