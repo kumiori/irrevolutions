@@ -2,8 +2,6 @@ from test_scatter_MPI import (
     mesh,
     element_alpha,
     element_u,
-    V_alpha,
-    V_u,
     alpha,
     u,
     dofs_alpha_left,
@@ -33,9 +31,24 @@ __log_incipit = f"rank {rank}#{size}/"
 
 from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
 
-def get_inactive_dofset(v, V_u = V_u, V_alpha = V_alpha):
+def get_inactive_dofset(v, F):
     """docstring for get_inactive_dofset"""
     _logger.info(f"inactive dofset")
+    V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
+
+    __names = ["u", "alpha"]
+    
+    for i, space in enumerate([V_u, V_alpha]):
+
+        bs = space.dofmap.index_map_bs
+
+        size_local = space.dofmap.index_map.size_local
+        num_ghosts = space.dofmap.index_map.num_ghosts
+
+        _logger.critical(f"{__log_incipit} space {__names[i]}, bs {bs}")
+        _logger.critical(f"{__log_incipit} space {__names[i]}, size_local {size_local}")
+        _logger.critical(f"{__log_incipit} space {__names[i]}, num_ghosts {num_ghosts}")
+        comm.Barrier()
 
     V_u_size = V_u.dofmap.index_map_bs * (V_u.dofmap.index_map.size_local)
     V_alpha_size = V_alpha.dofmap.index_map_bs * (V_alpha.dofmap.index_map.size_local)
@@ -51,25 +64,38 @@ def get_inactive_dofset(v, V_u = V_u, V_alpha = V_alpha):
     local_data = v.array
     
     restricted_dofs = [dofs_u_all, idx_alpha_local]
-
+    # if len(idx_alpha_local)==0: 
+    #     _logger.critical(f"{__log_incipit} no inactive constraints found")
+    #     raise RuntimeWarning("no inactive constraints found")
+    
     # Print information about the vector
+    _logger.critical(f"{__log_incipit} Size of local V_u_size: {V_u_size}")
+    _logger.critical(f"{__log_incipit} Size of local V_alpha_size: {V_alpha_size}")
+    comm.Barrier()
+    
     _logger.critical(f"{__log_incipit} Len of subvector u: {len(u)}")
     _logger.critical(f"{__log_incipit} Len of subvector alpha: {len(alpha)}")
+    comm.Barrier()
     _logger.critical(f"{__log_incipit} Local data of the subvector u: {u}")
     _logger.critical(f"{__log_incipit} Local data of the subvector alpha: {alpha}")
+    comm.Barrier()
     _logger.critical(f"{__log_incipit} restricted_dofs: {restricted_dofs}")
+    comm.Barrier()
     _logger.critical(f"{__log_incipit} idx_alpha_local: {idx_alpha_local}")
     _logger.critical(f"{__log_incipit} idx_u_local: {idx_u_local}")
-    _logger.critical(f"{__log_incipit} Size of the vector: {v.getSize()}")
+    comm.Barrier()
+    _logger.critical(f"{__log_incipit} Size of the v vector: {v.getSize()}")
     _logger.critical(f"{__log_incipit} Local data of the vector: {local_data}")
-    _logger.critical(f"{__log_incipit} Nonzero entries in the local data: {len(local_data.nonzero()[0])}")
-    _logger.critical(f"{__log_incipit} Global indices of nonzero entries: {v.getOwnershipRange()}")
-    _logger.critical(f"{__log_incipit} Global indices of nonzero entries: {v.getOwnershipRanges()}")
+    comm.Barrier()
+    # _logger.critical(f"{__log_incipit} Nonzero entries in the local data: {len(local_data.nonzero()[0])}")
+    # _logger.critical(f"{__log_incipit} Global indices of nonzero entries: {v.getOwnershipRange()}")
+    # _logger.critical(f"{__log_incipit} Global indices of nonzero entries: {v.getOwnershipRanges()}")
     
     return restricted_dofs
     
 def test_restriction():
-    F, v = init_data(3)
+    F, v = init_data(5)
+    V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
 
     x = dolfinx.fem.petsc.create_vector_block(F)
     

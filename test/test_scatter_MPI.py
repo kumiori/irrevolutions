@@ -13,7 +13,7 @@ import random
 
 sys.path.append("../")
 import solvers.restriction as restriction
-_N = 10
+_N = 3
 
 mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 

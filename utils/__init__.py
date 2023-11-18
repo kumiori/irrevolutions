@@ -107,7 +107,7 @@ def setup_logger_mpi(root_priority: int = logging.INFO):
     file_handler.propagate = False
     
     
-    logger.addHandler(console_handler)
+    # logger.addHandler(console_handler)
     logger.addHandler(file_handler)
 
     # Log messages, and only the root process will log.

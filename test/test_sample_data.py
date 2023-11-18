@@ -18,10 +18,7 @@ size = comm.Get_size()
 from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
 
 def init_data(N):
-    _N = 3
-
-    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, N)
-
+    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, N-1)
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
@@ -56,12 +53,11 @@ def init_data(N):
     maps = [(V.dofmap.index_map, V.dofmap.index_map_bs) for V in [V_u, V_alpha]]
     u, alpha = get_local_vectors(v, maps)
     # for visibility
-    u *= 10
+    u *= 100
     scatter_local_vectors(v, [u, alpha], maps)
     v.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     return F, v
-
 
 if __name__ == "__main__":
     F, v = init_data(10)
