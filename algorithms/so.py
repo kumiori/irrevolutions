@@ -787,16 +787,16 @@ class StabilitySolver(SecondOrderSolver):
             _y = constraints.restrict_vector(_y)
             self._Axr = constraints.restrict_vector(_Ax)
             self._xoldr = constraints.restrict_vector(self._xold)
-            # __import__('pdb').set_trace()
 
             # mock computation
             _lmbda_t = _xk.norm()
             self.error = 0
 
             # TODO: FIX BUG HERE, computation is not correct in parallel
-            # while self.iterate(_xk, errors):
-            #     _lmbda_t, _y = self.update_lambda_and_y(_xk, _Ar, _y)
-            #     self.update_xk(_xk, _y, _s)
+            while self.iterate(_xk, errors):
+                _lmbda_t, _y = self.update_lambda_and_y(_xk, _Ar, _y)
+                # self.update_xk(_xk, _y, _s)
+                
             #     self.update_data(_xk, _lmbda_t, _y)
 
             perturbation = self.finalise_eigenmode(_xk)
@@ -807,7 +807,9 @@ class StabilitySolver(SecondOrderSolver):
         return stable
 
     def update_lambda_and_y(self, xk, Ar, y):
-        # Update _lmbda_t and _y based on _xk, _Axr, and y
+        # Update λ_t and y computing:
+        # λ_k = <x_k, A x_k> / <x_k, x_k>
+        # y_k = A x_k - λ_k x_k
         Ar.mult(xk, self._Axr)
         
         xAx_r = xk.dot(self._Axr)
