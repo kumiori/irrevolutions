@@ -215,6 +215,5 @@ if __name__ == "__main__":
     _logger.critical(f"{__log_incipit} constraints.bglobal_dofs_vec_stacked {constraints.bglobal_dofs_vec_stacked}")
     
     vr = constraints.restrict_vector(v)
-    # test_extension(vr, x, constraints)
     test_cone_project_restricted(vr, constraints, x)
     
