@@ -49,6 +49,10 @@ def test_cone_project_restricted(v, constraints, x):
     _logger.critical(f"{__log_incipit} Local data of the subvector x_u: {x_u}")
     _logger.critical(f"{__log_incipit} Local data of the subvector x_alpha: {x_alpha}")
 
+    constraints.restrict_vector(x)
+    
+    x.view()
+    
 def sandbox():
 
 
@@ -216,4 +220,10 @@ if __name__ == "__main__":
     
     vr = constraints.restrict_vector(v)
     test_cone_project_restricted(vr, constraints, x)
+    
+    _logger.info(f"The vr vector")
+    vr.view()
+    
+    _logger.info(f"The x vector")
+    x.view()
     
