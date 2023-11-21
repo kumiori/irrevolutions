@@ -792,20 +792,19 @@ class StabilitySolver(SecondOrderSolver):
             self._xoldr = constraints.restrict_vector(self._xold)
 
             # mock computation
-            _lmbda_t = _xk.norm()
+            _lmbda_k = _xk.norm()
             self.error = 0
 
             # TODO: FIX BUG HERE, computation is not correct in parallel
             while self.iterate(_xk, errors):
-                _lmbda_t, _y = self.update_lambda_and_y(_xk, _Ar, _y)
+                _lmbda_k, _y = self.update_lambda_and_y(_xk, _Ar, _y)
                 self.update_xk(_xk, _y, _s)
+                self.update_data(_xk, _lmbda_k, _y)
                 
-            #     self.update_data(_xk, _lmbda_t, _y)
-
             perturbation = self.finalise_eigenmode(_xk)
             
-            self.store_results(_lmbda_t)
-            stable = self.check_stability(_lmbda_t)
+            self.store_results(_lmbda_k)
+            stable = self.check_stability(_lmbda_k)
 
         return stable
 
@@ -824,18 +823,14 @@ class StabilitySolver(SecondOrderSolver):
 
     def update_xk(self, xk, y, s):
         # Update _xk based on the scaling and projection algorithm
-        xk.copy(self._xoldr)
-        # should the vector be ghosted? (it is not)
-        # self._xoldr.ghostUpdate(
-        #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        # )
-
+        xk.copy(result=self._xoldr)
+        # x_k = x_k + (-s * y) 
+        # x_k += (-s * y) 
         xk.axpy(-s, y)
 
         self._cone_project_restricted(xk)
         n2 = xk.normalize()
-        _logger.critical(f"normalisation: {n2}")
-        __import__('pdb').set_trace()
+        _logger.critical(f"Cone project update: normalisation {n2}")
 
     def update_data(self, xk, lmbda_t, y):
         # Update SPA data during each iteration
@@ -1075,12 +1070,12 @@ class StabilitySolver(SecondOrderSolver):
 
             with _x.localForm() as x_local:
                 _dofs = self.constraints.bglobal_dofs_vec[1]
-                _logger.info(f"x_local")
-                x_local.view()
-                _logger.critical(f"Local dofs: {_dofs}")
+                # _logger.info(f"x_local")
+                # x_local.view()
+                # _logger.critical(f"Local dofs: {_dofs}")
                 x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
-                _logger.info(f"x_local truncated")
-                x_local.view()
+                # _logger.info(f"x_local truncated")
+                # x_local.view()
 
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
