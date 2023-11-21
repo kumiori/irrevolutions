@@ -698,7 +698,7 @@ class StabilitySolver(SecondOrderSolver):
                                 '1': 'converged atol',
                                 '2': 'converged residual'
                                 }
-                self._reason = None
+                _reason = None
 
     def _is_critical(self, alpha_old):
         """
@@ -743,7 +743,6 @@ class StabilitySolver(SecondOrderSolver):
         }
         
         if not self._is_critical(alpha_old):
-            # the current state is damage-subcritical (hence elastic), the state is thus stable
             _logger.info("the current state is damage-subcritical (hence elastic), the state is thus stable")
             self.data["lambda_0"] = np.nan
             self.data["iterations"] = self.iterations
@@ -751,7 +750,6 @@ class StabilitySolver(SecondOrderSolver):
             return True
         
         elif not eig0 and inertia[0]==0 and inertia[1]==0:
-            # the current state is damage-critical and the evolution path is unique, the state is thus stable
             _logger.info("the current state is damage-critical and the evolution path is unique, the state is thus *Stable")
             self.data["lambda_0"] = np.nan
             self.data["iterations"] = self.iterations
@@ -768,7 +766,7 @@ class StabilitySolver(SecondOrderSolver):
             x0.copy(result=_x).normalize()
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
             
-            _logger.warning(f"x0: {x0.array}")
+            _logger.info(f"initial guess x0: {x0.array}")
         
         _s = float(self.parameters.get("cone").get("scaling"))
         errors = []
@@ -815,7 +813,9 @@ class StabilitySolver(SecondOrderSolver):
         Ar.mult(xk, self._Axr)
         
         xAx_r = xk.dot(self._Axr)
-
+        _logger.info(f'xk view in update at iteration {self.iterations}')
+        
+        xk.view()
         _lmbda_t = xAx_r / xk.dot(xk)
         y.waxpy(-_lmbda_t, xk, self._Axr)
 
@@ -828,14 +828,18 @@ class StabilitySolver(SecondOrderSolver):
         # x_k += (-s * y) 
         xk.axpy(-s, y)
 
-        self._cone_project_restricted(xk)
+        _logger.info(f'xk view before cone-project at iteration {self.iterations}')
+        xk.view()
+        xk = self._cone_project_restricted(xk)
+        _logger.info(f'xk view after cone-project at iteration {self.iterations}')
+        xk.view()
         self._residual_norm = y.norm()
         n2 = xk.normalize()
-        _logger.critical(f"Cone project update: normalisation {n2}")
+        _logger.info(f"Cone project update: normalisation {n2}")
 
     def update_data(self, xk, lmbda_t, y):
         # Update SPA data during each iteration
-        self.iterations += 1
+        # self.iterations += 1
         self.data["iterations"] = self.iterations
         self.data["lambda_k"].append(lmbda_t)
         self.data["y_norm_L2"].append(y.norm())
@@ -905,9 +909,7 @@ class StabilitySolver(SecondOrderSolver):
         Returns:
             bool: True if converged, False otherwise.
         """
-        x.view()
-        
-        # converged = False
+
         try:
             converged = self._convergenceTest(x, errors)
         except NonConvergenceException as e:
@@ -919,7 +921,6 @@ class StabilitySolver(SecondOrderSolver):
             self.iterations += 1
         else:
             self._converged = True
-            self.x_converged = x.copy()
 
         # should we iterate?
         return False if converged else True
@@ -1072,50 +1073,27 @@ class StabilitySolver(SecondOrderSolver):
 
             with _x.localForm() as x_local:
                 _dofs = self.constraints.bglobal_dofs_vec[1]
-                # _logger.info(f"x_local")
-                # x_local.view()
-                # _logger.critical(f"Local dofs: {_dofs}")
+                _logger.info(f"Local dofs: {_dofs}")
+
+                _logger.info(f"x_local")
+                x_local.view()
+                comm.Barrier()
+
                 x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
-                # _logger.info(f"x_local truncated")
-                # x_local.view()
+                _logger.info(f"x_local truncated")
+                x_local.view()
+                comm.Barrier()
 
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             x_u, x_alpha = get_local_vectors(_x, maps)
-            
-            _logger.debug(f"Cone Project: Local data of the subvector x_u: {x_u}")
-            _logger.debug(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
+            _logger.critical(f"Cone Project: Local data of the subvector x_u: {x_u}")
+            _logger.critical(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
             
             x = self.constraints.restrict_vector(_x)
             _x.destroy()
-
-            x.copy(result=v)
-
-            # if v.size != self._v.size:
-            #     self._extend_vector(v, self._v)
-            #     _v = self._v
-            # else:
-            #     _v = v
-
-            # _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
-            # _is = PETSc.IS().createGeneral(_dofs)
-
-            # _sub = _v.getSubVector(_is)
-            # zero = _sub.duplicate()
-
-            # zero.zeroEntries()
-
-            # _sub.pointwiseMax(_sub, zero)
-            # _v.restoreSubVector(_is, _sub)
-
-            # # if self.eigen.restriction is not None and v.size != len(self.eigen.restriction.bglobal_dofs_vec_stacked):
-            # if self.eigen.restriction is not None and v.size != self._v.size:
-            #     _v = self.eigen.restriction.restrict_vector(_v)
-            
-            # # the operation is performed in-place, ghosts are dealt with
-            # _v.copy(v)
-            
-        return v
+                        
+        return x
 
     def check_stability(self, lmbda_t):
         # Check for stability based on SPA algorithm's convergence

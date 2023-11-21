@@ -39,7 +39,7 @@ def test_cone_project_restricted(v, constraints, x):
         x_local.view()
         _logger.critical(f"{__log_incipit} Local dofs: {_dofs}")
         x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
-        _logger.info(f"x_local truncated")
+        _logger.info(f"x_local projected")
         x_local.view()
 
     x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
@@ -214,9 +214,9 @@ if __name__ == "__main__":
     
     constraints = restriction.Restriction([V_u, V_alpha], restricted_dofs)
 
-    _logger.critical(f"{__log_incipit} constraints.blocal_dofs {constraints.blocal_dofs}")
-    _logger.critical(f"{__log_incipit} constraints.bglobal_dofs_vec {constraints.bglobal_dofs_vec}")
-    _logger.critical(f"{__log_incipit} constraints.bglobal_dofs_vec_stacked {constraints.bglobal_dofs_vec_stacked}")
+    # _logger.critical(f"{__log_incipit} constraints.blocal_dofs {constraints.blocal_dofs}")
+    # _logger.critical(f"{__log_incipit} constraints.bglobal_dofs_vec {constraints.bglobal_dofs_vec}")
+    # _logger.critical(f"{__log_incipit} constraints.bglobal_dofs_vec_stacked {constraints.bglobal_dofs_vec_stacked}")
     
     vr = constraints.restrict_vector(v)
     test_cone_project_restricted(vr, constraints, x)
