@@ -782,7 +782,6 @@ class StabilitySolver(SecondOrderSolver):
             self.constraints = constraints
             
             eigen = self.setup_eigenvalue_problem(constraints)
-
             self.eigen = eigen
 
             _Ar = constraints.restrict_matrix(eigen.A)
@@ -794,6 +793,7 @@ class StabilitySolver(SecondOrderSolver):
             # mock computation
             _lmbda_k = _xk.norm()
             self.error = 0
+            self._residual_norm = 1.
 
             # TODO: FIX BUG HERE, computation is not correct in parallel
             while self.iterate(_xk, errors):
@@ -829,6 +829,7 @@ class StabilitySolver(SecondOrderSolver):
         xk.axpy(-s, y)
 
         self._cone_project_restricted(xk)
+        self._residual_norm = y.norm()
         n2 = xk.normalize()
         _logger.critical(f"Cone project update: normalisation {n2}")
 
@@ -947,34 +948,28 @@ class StabilitySolver(SecondOrderSolver):
         Returns:
             bool: True if converged, False otherwise.
         """
-        # assert x.norm() > 0, "Norm of x is zero"
 
         _atol = self.parameters.get("cone").get("cone_atol")
         _rtol = self.parameters.get("cone").get("cone_rtol")
         _maxit = self.parameters.get("cone").get("cone_max_it")
-        # _scaling = self.parameters.get("cone").get("scaling")
-        
+
         if self.iterations == _maxit:
             self._reason = -1
             raise NonConvergenceException(
                 f'SPA solver did not converge to atol {_atol} or rtol {_rtol} within maxit={_maxit} iterations.')
 
         diff = x.duplicate()
-        __import__('pdb').set_trace()
         diff.zeroEntries()
-
-        # xdiff = -x + x_old
+        # xdiff = x_old - x_k 
         diff.waxpy(-1., self._xoldr, x)
 
         error_x_L2 = diff.norm()
 
         self.error = error_x_L2
         self._aerror = error_x_L2
-        self._rerror = error_x_L2 / x.norm()
 
         errors.append(error_x_L2)
         self._aerrors.append(self._aerror)
-        self._rerrors.append(self._rerror)
 
         if not self.iterations % 10000:
             _logger.critical(
@@ -984,9 +979,9 @@ class StabilitySolver(SecondOrderSolver):
         self.data["error_x_L2"].append(error_x_L2)
 
         _acrit = self._aerror < self.parameters.get("cone").get("cone_atol")
-        _rcrit = self._rerror < self.parameters.get("cone").get("cone_rtol")
-
-        _crits = (_acrit, _rcrit)
+        _rnorm = self._residual_norm < self.parameters.get("cone").get("cone_rtol")
+        
+        _crits = (_acrit, _rnorm)
 
         met_criteria = []
 
@@ -1001,7 +996,7 @@ class StabilitySolver(SecondOrderSolver):
             self._reason = met_criteria
         elif self.iterations == 0 or not met_criteria:
             self._converged = False
-
+            
         return self._converged
 
     def _isin_cone(self, x):
