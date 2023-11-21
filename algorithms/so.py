@@ -743,7 +743,6 @@ class StabilitySolver(SecondOrderSolver):
         }
         
         if not self._is_critical(alpha_old):
-            # the current state is damage-subcritical (hence elastic), the state is thus stable
             _logger.info("the current state is damage-subcritical (hence elastic), the state is thus stable")
             self.data["lambda_0"] = np.nan
             self.data["iterations"] = self.iterations
@@ -751,7 +750,6 @@ class StabilitySolver(SecondOrderSolver):
             return True
         
         elif not eig0 and inertia[0]==0 and inertia[1]==0:
-            # the current state is damage-critical and the evolution path is unique, the state is thus stable
             _logger.info("the current state is damage-critical and the evolution path is unique, the state is thus *Stable")
             self.data["lambda_0"] = np.nan
             self.data["iterations"] = self.iterations
@@ -829,10 +827,14 @@ class StabilitySolver(SecondOrderSolver):
         # x_k += (-s * y) 
         xk.axpy(-s, y)
 
+        _logger.info(f'xk view before cone-project at iteration {self.iterations}')
+        xk.view()
         self._cone_project_restricted(xk)
+        _logger.info(f'xk view after cone-project at iteration {self.iterations}')
+        xk.view()
         self._residual_norm = y.norm()
         n2 = xk.normalize()
-        _logger.critical(f"Cone project update: normalisation {n2}")
+        _logger.info(f"Cone project update: normalisation {n2}")
 
     def update_data(self, xk, lmbda_t, y):
         # Update SPA data during each iteration
@@ -1071,19 +1073,22 @@ class StabilitySolver(SecondOrderSolver):
 
             with _x.localForm() as x_local:
                 _dofs = self.constraints.bglobal_dofs_vec[1]
-                # _logger.info(f"x_local")
-                # x_local.view()
-                # _logger.critical(f"Local dofs: {_dofs}")
+                _logger.info(f"Local dofs: {_dofs}")
+
+                _logger.info(f"x_local")
+                x_local.view()
+                comm.Barrier()
+
                 x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
-                # _logger.info(f"x_local truncated")
-                # x_local.view()
+                _logger.info(f"x_local truncated")
+                x_local.view()
+                comm.Barrier()
 
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             x_u, x_alpha = get_local_vectors(_x, maps)
-            
-            _logger.debug(f"Cone Project: Local data of the subvector x_u: {x_u}")
-            _logger.debug(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
+            _logger.critical(f"Cone Project: Local data of the subvector x_u: {x_u}")
+            _logger.critical(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
             
             x = self.constraints.restrict_vector(_x)
             _x.destroy()

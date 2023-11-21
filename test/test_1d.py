@@ -63,7 +63,7 @@ load: displacement hard-t
 
 
 from solvers.function import functions_to_vec
-logging.getLogger().setLevel(logging.INFO)
+# logging.getLogger().setLevel(logging.INFO)
 
 class _AlternateMinimisation1D:
     
