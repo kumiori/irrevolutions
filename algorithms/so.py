@@ -698,7 +698,7 @@ class StabilitySolver(SecondOrderSolver):
                                 '1': 'converged atol',
                                 '2': 'converged rtol'
                                 }
-                self._reason = None
+                _reason = None
 
     def _is_critical(self, alpha_old):
         """
@@ -768,7 +768,7 @@ class StabilitySolver(SecondOrderSolver):
             x0.copy(result=_x).normalize()
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
             
-            _logger.warning(f"x0: {x0.array}")
+            _logger.info(f"initial guess x0: {x0.array}")
         
         _s = float(self.parameters.get("cone").get("scaling"))
         errors = []
@@ -801,8 +801,7 @@ class StabilitySolver(SecondOrderSolver):
                 self.update_xk(_xk, _y, _s)
                 self.update_data(_xk, _lmbda_k, _y)
 
-            perturbation = self.finalise_eigenmode(_xk)
-            
+            self.finalise_eigenmode(_xk)
             self.store_results(_lmbda_k)
             stable = self.check_stability(_lmbda_k)
 
@@ -815,7 +814,9 @@ class StabilitySolver(SecondOrderSolver):
         Ar.mult(xk, self._Axr)
         
         xAx_r = xk.dot(self._Axr)
-
+        _logger.info(f'xk view in update at iteration {self.iterations}')
+        
+        xk.view()
         _lmbda_t = xAx_r / xk.dot(xk)
         y.waxpy(-_lmbda_t, xk, self._Axr)
 
@@ -835,7 +836,7 @@ class StabilitySolver(SecondOrderSolver):
 
     def update_data(self, xk, lmbda_t, y):
         # Update SPA data during each iteration
-        self.iterations += 1
+        # self.iterations += 1
         self.data["iterations"] = self.iterations
         self.data["lambda_k"].append(lmbda_t)
         self.data["y_norm_L2"].append(y.norm())
@@ -905,9 +906,7 @@ class StabilitySolver(SecondOrderSolver):
         Returns:
             bool: True if converged, False otherwise.
         """
-        x.view()
-        
-        # converged = False
+
         try:
             converged = self._convergenceTest(x, errors)
         except NonConvergenceException as e:
@@ -919,7 +918,6 @@ class StabilitySolver(SecondOrderSolver):
             self.iterations += 1
         else:
             self._converged = True
-            self.x_converged = x.copy()
 
         # should we iterate?
         return False if converged else True
@@ -954,7 +952,7 @@ class StabilitySolver(SecondOrderSolver):
         _maxit = self.parameters.get("cone").get("cone_max_it")
 
         if self.iterations == _maxit:
-            self._reason = -1
+            _reason = -1
             raise NonConvergenceException(
                 f'SPA solver did not converge to atol {_atol} or rtol {_rtol} within maxit={_maxit} iterations.')
 
@@ -981,7 +979,7 @@ class StabilitySolver(SecondOrderSolver):
         _acrit = self._aerror < self.parameters.get("cone").get("cone_atol")
         _rnorm = self._residual_norm < self.parameters.get("cone").get("cone_rtol")
         
-        _crits = (_acrit, _rnorm)
+        _crits = (_acrit, False)
 
         met_criteria = []
 
@@ -990,13 +988,17 @@ class StabilitySolver(SecondOrderSolver):
                 self._converged = True
                 met_criteria.append(index)
 
-        if len(met_criteria) > 1:
-            self._reason = 0
-        elif len(met_criteria) == 1:
-            self._reason = met_criteria
+        if len(met_criteria) >= 1:
+            _reason = met_criteria
+            _reason_str = [self._reasons[str(r)] for r in _reason]
+            _logger.critical(f"     [i={self.iterations}] met criteria: {met_criteria}, reason(s) {_reason_str}")      
+        # elif len(met_criteria) == 1:
+            # _reason = met_criteria
         elif self.iterations == 0 or not met_criteria:
             self._converged = False
             
+            _reason_str = 'Not converged'
+        
         return self._converged
 
     def _isin_cone(self, x):

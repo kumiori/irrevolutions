@@ -63,7 +63,7 @@ load: displacement hard-t
 
 
 from solvers.function import functions_to_vec
-logging.getLogger().setLevel(logging.CRITICAL)
+logging.getLogger().setLevel(logging.INFO)
 
 class _AlternateMinimisation1D:
     
@@ -511,7 +511,7 @@ def main(parameters, storage=None):
         ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
 
         stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
-
+        
         with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
             if comm.Get_size() == 1:
 
