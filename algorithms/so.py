@@ -765,7 +765,7 @@ class StabilitySolver(SecondOrderSolver):
             _x, _y, _Ax, self._xold = self.initialize_full_vectors()
 
             x0 = eig0[0].get("xk")
-            _x = x0.copy()
+            x0.copy(result=_x).normalize()
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
             
             _logger.warning(f"x0: {x0.array}")
@@ -800,7 +800,7 @@ class StabilitySolver(SecondOrderSolver):
                 _lmbda_k, _y = self.update_lambda_and_y(_xk, _Ar, _y)
                 self.update_xk(_xk, _y, _s)
                 self.update_data(_xk, _lmbda_k, _y)
-                
+
             perturbation = self.finalise_eigenmode(_xk)
             
             self.store_results(_lmbda_k)
@@ -904,7 +904,9 @@ class StabilitySolver(SecondOrderSolver):
         Returns:
             bool: True if converged, False otherwise.
         """
-        converged = False
+        x.view()
+        
+        # converged = False
         try:
             converged = self._convergenceTest(x, errors)
         except NonConvergenceException as e:
@@ -945,18 +947,20 @@ class StabilitySolver(SecondOrderSolver):
         Returns:
             bool: True if converged, False otherwise.
         """
-        assert x.norm() > 0, "Norm of x is zero"
+        # assert x.norm() > 0, "Norm of x is zero"
 
         _atol = self.parameters.get("cone").get("cone_atol")
         _rtol = self.parameters.get("cone").get("cone_rtol")
         _maxit = self.parameters.get("cone").get("cone_max_it")
-        _scaling = self.parameters.get("cone").get("scaling")
+        # _scaling = self.parameters.get("cone").get("scaling")
+        
         if self.iterations == _maxit:
             self._reason = -1
             raise NonConvergenceException(
                 f'SPA solver did not converge to atol {_atol} or rtol {_rtol} within maxit={_maxit} iterations.')
 
         diff = x.duplicate()
+        __import__('pdb').set_trace()
         diff.zeroEntries()
 
         # xdiff = -x + x_old
