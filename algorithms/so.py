@@ -17,6 +17,7 @@ from dolfinx.fem import (
 from petsc4py import PETSc
 from slepc4py import SLEPc
 from dolfinx.cpp.log import log, LogLevel
+from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
 import ufl
 import numpy as np
 from pathlib import Path
@@ -778,6 +779,8 @@ class StabilitySolver(SecondOrderSolver):
         
         with dolfinx.common.Timer(f"~Second Order: Stability"):
             constraints = self.setup_constraints(alpha_old)
+            self.constraints = constraints
+            
             eigen = self.setup_eigenvalue_problem(constraints)
 
             self.eigen = eigen
@@ -795,7 +798,7 @@ class StabilitySolver(SecondOrderSolver):
             # TODO: FIX BUG HERE, computation is not correct in parallel
             while self.iterate(_xk, errors):
                 _lmbda_t, _y = self.update_lambda_and_y(_xk, _Ar, _y)
-                # self.update_xk(_xk, _y, _s)
+                self.update_xk(_xk, _y, _s)
                 
             #     self.update_data(_xk, _lmbda_t, _y)
 
@@ -831,6 +834,8 @@ class StabilitySolver(SecondOrderSolver):
 
         self._cone_project_restricted(xk)
         n2 = xk.normalize()
+        _logger.critical(f"normalisation: {n2}")
+        __import__('pdb').set_trace()
 
     def update_data(self, xk, lmbda_t, y):
         # Update SPA data during each iteration
@@ -1061,31 +1066,59 @@ class StabilitySolver(SecondOrderSolver):
         with dolfinx.common.Timer(f"~Second Order: Cone Project"):
             # get the subvector associated with damage degrees of freedom with inactive constraints
 
-            if v.size != self._v.size:
-                self._extend_vector(v, self._v)
-                _v = self._v
-            else:
-                _v = v
+            # V_u, V_alpha = self.constraints.function_spaces
+            maps = [(V.dofmap.index_map, V.dofmap.index_map_bs) for V in self.constraints.function_spaces]
+            _x = dolfinx.fem.petsc.create_vector_block(self.F)
 
-            _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
-            _is = PETSc.IS().createGeneral(_dofs)
+            self._extend_vector(v, _x)
 
-            _sub = _v.getSubVector(_is)
-            zero = _sub.duplicate()
 
-            zero.zeroEntries()
+            with _x.localForm() as x_local:
+                _dofs = self.constraints.bglobal_dofs_vec[1]
+                _logger.info(f"x_local")
+                x_local.view()
+                _logger.critical(f"Local dofs: {_dofs}")
+                x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
+                _logger.info(f"x_local truncated")
+                x_local.view()
 
-            _sub.pointwiseMax(_sub, zero)
-            _v.restoreSubVector(_is, _sub)
+            _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
-            # if self.eigen.restriction is not None and v.size != len(self.eigen.restriction.bglobal_dofs_vec_stacked):
-            if self.eigen.restriction is not None and v.size != self._v.size:
-                _v = self.eigen.restriction.restrict_vector(_v)
+            x_u, x_alpha = get_local_vectors(_x, maps)
             
-            # the operation is performed in-place, ghosts are dealt with
-            _v.copy(v)
+            _logger.debug(f"Cone Project: Local data of the subvector x_u: {x_u}")
+            _logger.debug(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
             
-        return _v
+            x = self.constraints.restrict_vector(_x)
+            _x.destroy()
+
+            x.copy(result=v)
+
+            # if v.size != self._v.size:
+            #     self._extend_vector(v, self._v)
+            #     _v = self._v
+            # else:
+            #     _v = v
+
+            # _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
+            # _is = PETSc.IS().createGeneral(_dofs)
+
+            # _sub = _v.getSubVector(_is)
+            # zero = _sub.duplicate()
+
+            # zero.zeroEntries()
+
+            # _sub.pointwiseMax(_sub, zero)
+            # _v.restoreSubVector(_is, _sub)
+
+            # # if self.eigen.restriction is not None and v.size != len(self.eigen.restriction.bglobal_dofs_vec_stacked):
+            # if self.eigen.restriction is not None and v.size != self._v.size:
+            #     _v = self.eigen.restriction.restrict_vector(_v)
+            
+            # # the operation is performed in-place, ghosts are dealt with
+            # _v.copy(v)
+            
+        return v
 
     def check_stability(self, lmbda_t):
         # Check for stability based on SPA algorithm's convergence
