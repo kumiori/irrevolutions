@@ -612,8 +612,8 @@ def main(parameters, storage=None):
         history_data["u_t"].append(state["u"].vector.array.tolist())
         history_data["inertia"].append(inertia)
         
-        _logger.critical(f"u_t {state['u'].vector.array}")
-        _logger.critical(f"alpha_t {state['alpha'].vector.array}")
+        _logger.info(f"u_t {state['u'].vector.array}")
+        _logger.info(f"alpha_t {state['alpha'].vector.array}")
         # _logger.critical(f"u_t {u.vector.array}")
         # _logger.critical(f"alpha {alpha.vector.array}")
         # _logger.critical(f"u_t norm {state['u'].vector.norm()}")
