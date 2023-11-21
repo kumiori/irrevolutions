@@ -829,7 +829,7 @@ class StabilitySolver(SecondOrderSolver):
 
         _logger.info(f'xk view before cone-project at iteration {self.iterations}')
         xk.view()
-        self._cone_project_restricted(xk)
+        xk = self._cone_project_restricted(xk)
         _logger.info(f'xk view after cone-project at iteration {self.iterations}')
         xk.view()
         self._residual_norm = y.norm()
@@ -1092,34 +1092,8 @@ class StabilitySolver(SecondOrderSolver):
             
             x = self.constraints.restrict_vector(_x)
             _x.destroy()
-
-            x.copy(result=v)
-
-            # if v.size != self._v.size:
-            #     self._extend_vector(v, self._v)
-            #     _v = self._v
-            # else:
-            #     _v = v
-
-            # _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
-            # _is = PETSc.IS().createGeneral(_dofs)
-
-            # _sub = _v.getSubVector(_is)
-            # zero = _sub.duplicate()
-
-            # zero.zeroEntries()
-
-            # _sub.pointwiseMax(_sub, zero)
-            # _v.restoreSubVector(_is, _sub)
-
-            # # if self.eigen.restriction is not None and v.size != len(self.eigen.restriction.bglobal_dofs_vec_stacked):
-            # if self.eigen.restriction is not None and v.size != self._v.size:
-            #     _v = self.eigen.restriction.restrict_vector(_v)
-            
-            # # the operation is performed in-place, ghosts are dealt with
-            # _v.copy(v)
-            
-        return v
+                        
+        return x
 
     def check_stability(self, lmbda_t):
         # Check for stability based on SPA algorithm's convergence
