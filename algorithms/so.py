@@ -234,22 +234,6 @@ class SecondOrderSolver:
         dofs_u_all = np.arange(V_u_size, dtype=np.int32)
         dofs_alpha_inactive = np.array(list(idx_alpha_local), dtype=np.int32)
 
-        if len(dofs_alpha_inactive) > 0:
-            self._critical = True
-        else:
-            self._critical = False
-
-        _emoji = "💥" if self._critical else "🌪"
-        _logger.debug(
-            f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
-        )
-
-        _emoji = "non-trivial 🍦 (solid)" if self._critical else "trivial 🌂 (empty)"
-        if self._critical:
-            _logger.debug(
-                f"rank {comm.rank})     > The cone is {_emoji}"
-            )
-
         restricted_dofs = [dofs_u_all, dofs_alpha_inactive]
 
         localSize = F.getLocalSize()
@@ -460,6 +444,7 @@ class SecondOrderSolver:
 
     def log_critical_state(self):
         """Log whether the system is damage-critical."""
+
         _emoji = "💥" if self._critical else "🌪"
         _logger.info(
             f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
@@ -768,6 +753,7 @@ class StabilitySolver(SecondOrderSolver):
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
             
             _logger.debug(f"initial guess x0: {x0.array}")
+            x0.copy(self._xold)
         
         _s = float(self.parameters.get("cone").get("scaling"))
         errors = []
@@ -789,17 +775,15 @@ class StabilitySolver(SecondOrderSolver):
             self._Axr = constraints.restrict_vector(_Ax)
             self._xoldr = constraints.restrict_vector(self._xold)
 
-            # mock computation
             _lmbda_k = _xk.norm()
-            self.error = 0
             self._residual_norm = 1.
-   
-            __import__('pdb').set_trace()
+
             while self.iterate(_xk, errors):
                 _lmbda_k, _y = self.update_lambda_and_y(_xk, _Ar, _y)
-                self.update_xk(_xk, _y, _s)
-                self.update_data(_xk, _lmbda_k, _y)
-            
+                _xk = self.update_xk(_xk, _y, _s)
+                _logger.critical(f"rank {rank} iteration {self.iterations} xk norm {_xk.norm()}")
+                self.log_data(_xk, _lmbda_k, _y)
+
             self.store_results(_lmbda_k, _xk, _y)
             stable = self.check_stability(_lmbda_k)
 
@@ -809,35 +793,42 @@ class StabilitySolver(SecondOrderSolver):
         # Update λ_t and y computing:
         # λ_k = <x_k, A x_k> / <x_k, x_k>
         # y_k = A x_k - λ_k x_k
+        
+        # _logger.info('xk')
+        # xk.view()
+        _logger.critical(f"Ar.norm {Ar.norm(2)}")
         Ar.mult(xk, self._Axr)
         
+        # self._Axr.view()
+        
         xAx_r = xk.dot(self._Axr)
+        
         _logger.debug(f'xk view in update at iteration {self.iterations}')
         
-        # xk.view()
         _lmbda_t = xAx_r / xk.dot(xk)
         y.waxpy(-_lmbda_t, xk, self._Axr)
+        self._residual_norm = y.norm()
 
         return _lmbda_t, y
 
     def update_xk(self, xk, y, s):
         # Update _xk based on the scaling and projection algorithm
         xk.copy(result=self._xoldr)
-
         # x_k = x_k + (-s * y) 
+
         xk.axpy(-s, y)
 
         _logger.debug(f'xk view before cone-project at iteration {self.iterations}')
-        # xk.view()
         _cone_restricted = self._cone_project_restricted(xk)
-        _cone_restricted.copy(result=xk)
+        
         _logger.debug(f'xk view after cone-project at iteration {self.iterations}')
-        # xk.view()
-        self._residual_norm = y.norm()
-        n2 = xk.normalize()
-        _logger.debug(f"Cone project update: normalisation {n2}")
+        n2 = _cone_restricted.normalize()
+        
+        _logger.info(f"Cone project update: normalisation {n2}")
 
-    def update_data(self, xk, lmbda_t, y):
+        return _cone_restricted
+        
+    def log_data(self, xk, lmbda_t, y):
         # Update SPA data during each iteration
         # self.iterations += 1
         self.data["iterations"] = self.iterations
@@ -1053,7 +1044,7 @@ class StabilitySolver(SecondOrderSolver):
         
     def _cone_project_restricted(self, v):
         """
-        Projects a vector into the relevant cone, handling restrictions. In place.
+        Projects a vector into the relevant cone, handling restrictions. Not in place.
 
         Args:
             v: Vector to be projected.
@@ -1062,33 +1053,32 @@ class StabilitySolver(SecondOrderSolver):
             Vector: The projected vector.
         """
         with dolfinx.common.Timer(f"~Second Order: Cone Project"):
-            # get the subvector associated with damage degrees of freedom with inactive constraints
-
-            # V_u, V_alpha = self.constraints.function_spaces
             maps = [(V.dofmap.index_map, V.dofmap.index_map_bs) for V in self.constraints.function_spaces]
             _x = dolfinx.fem.petsc.create_vector_block(self.F)
 
             self._extend_vector(v, _x)
 
+            _logger.critical(f"rank {rank} viewing _x")
+            _x.view()
 
             with _x.localForm() as x_local:
                 _dofs = self.constraints.bglobal_dofs_vec[1]
+                # x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
+
                 _logger.debug(f"Local dofs: {_dofs}")
-
                 _logger.debug(f"x_local")
-                # x_local.view()
-
-                x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
                 _logger.debug(f"x_local truncated")
-                # x_local.view()
 
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             x_u, x_alpha = get_local_vectors(_x, maps)
-            _logger.debug(f"Cone Project: Local data of the subvector x_u: {x_u}")
-            _logger.debug(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
+
+            # _logger.info(f"Cone Project: Local data of the subvector x_u: {x_u}")
+            _logger.info(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
             
             x = self.constraints.restrict_vector(_x)
+            
+            _x.copy(result=x)
             _x.destroy()
                         
         return x
@@ -1110,7 +1100,7 @@ class StabilitySolver(SecondOrderSolver):
             f"Convergence of SPA algorithm within {self.iterations} iterations")
         _logger.info(
             f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(_xt)}")
-        print(self._xk.array)
+
         _logger.critical(f"Restricted Eigenvalue {lmbda_t:.4e}")
         _logger.info(f"Restricted Eigenvalue is positive {lmbda_t > 0}")
         _logger.info(f"Restricted Error {self.error:.4e}")
