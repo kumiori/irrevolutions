@@ -781,7 +781,7 @@ class StabilitySolver(SecondOrderSolver):
             while self.iterate(_xk, errors):
                 _lmbda_k, _y = self.update_lambda_and_y(_xk, _Ar, _y)
                 _xk = self.update_xk(_xk, _y, _s)
-                _logger.critical(f"rank {rank} iteration {self.iterations} xk norm {_xk.norm()}")
+                # _logger.critical(f"rank {rank} iteration {self.iterations} xk norm {_xk.norm()}")
                 self.log_data(_xk, _lmbda_k, _y)
 
             self.store_results(_lmbda_k, _xk, _y)
@@ -796,7 +796,7 @@ class StabilitySolver(SecondOrderSolver):
         
         # _logger.info('xk')
         # xk.view()
-        _logger.critical(f"Ar.norm {Ar.norm(2)}")
+        # _logger.critical(f"Ar.norm {Ar.norm(2)}")
         Ar.mult(xk, self._Axr)
         
         # self._Axr.view()
@@ -824,7 +824,7 @@ class StabilitySolver(SecondOrderSolver):
         _logger.debug(f'xk view after cone-project at iteration {self.iterations}')
         n2 = _cone_restricted.normalize()
         
-        _logger.info(f"Cone project update: normalisation {n2}")
+        # _logger.info(f"Cone project update: normalisation {n2}")
 
         return _cone_restricted
         
@@ -1041,6 +1041,24 @@ class StabilitySolver(SecondOrderSolver):
         vext.restoreSubVector(_isall, _suball)
         
         return
+
+    def _extend_vector(self, vres, vext):
+        """
+        Extends a restricted vector vr into v, not in place.
+
+        Args:
+            vres: Restricted vector to be extended.
+            vext: Extended vector.
+
+        Returns:
+            None
+        """
+        
+        vext.zeroEntries()
+        
+        vext.array[self.constraints.bglobal_dofs_vec_stacked] = vres.array
+        
+        return vext
         
     def _cone_project_restricted(self, v):
         """
@@ -1058,12 +1076,12 @@ class StabilitySolver(SecondOrderSolver):
 
             self._extend_vector(v, _x)
 
-            _logger.critical(f"rank {rank} viewing _x")
-            _x.view()
+            # _logger.critical(f"rank {rank} viewing _x")
+            # _x.view()
 
             with _x.localForm() as x_local:
                 _dofs = self.constraints.bglobal_dofs_vec[1]
-                # x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
+                x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
 
                 _logger.debug(f"Local dofs: {_dofs}")
                 _logger.debug(f"x_local")
@@ -1074,7 +1092,7 @@ class StabilitySolver(SecondOrderSolver):
             x_u, x_alpha = get_local_vectors(_x, maps)
 
             # _logger.info(f"Cone Project: Local data of the subvector x_u: {x_u}")
-            _logger.info(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
+            # _logger.info(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
             
             x = self.constraints.restrict_vector(_x)
             
