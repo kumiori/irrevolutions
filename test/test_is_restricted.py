@@ -50,8 +50,7 @@ if __name__ == "__main__":
     F, v = init_data(10, positive=False)
     # _logger.info(f"F: {F}")
     # _logger.info(f"v: {v}")
-    v.view()
-    
+    # v.view()
     V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
     x = dolfinx.fem.petsc.create_vector_block(F)
     x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
@@ -65,10 +64,18 @@ if __name__ == "__main__":
     # Assuming you have a constraints object named 'constraints' and a PETSc.Vec named 'v'
     # display_vector_info(v)
     # comm.barrier()
-    
-    
-    if is_restricted(v, constraints):
-        print("The vector is restricted.")
-    else:
-        print("The vector is not restricted.")
-
+    _ans = []
+    # ans = 
+    for _v, name in zip([v, vr], ["v", "vr"]):
+        _logger.debug(f"       ~ Vector  {name}")
+        reason = is_restricted(_v, constraints)
+        if reason:
+            print(f"The vector {name} is restricted.")
+        else:
+            print(f"The vector {name} is not restricted.")
+        _ans.append(reason)
+        
+        display_vector_info(_v)
+        
+    print(f"Are v and vr restricted? {_ans}")
+    # assert _ans == [False, True]

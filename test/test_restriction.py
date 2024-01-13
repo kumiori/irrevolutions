@@ -45,9 +45,9 @@ def get_inactive_dofset(v, F):
         size_local = space.dofmap.index_map.size_local
         num_ghosts = space.dofmap.index_map.num_ghosts
 
-        _logger.critical(f"{__log_incipit} space {__names[i]}, bs {bs}")
-        _logger.critical(f"{__log_incipit} space {__names[i]}, size_local {size_local}")
-        _logger.critical(f"{__log_incipit} space {__names[i]}, num_ghosts {num_ghosts}")
+        _logger.debug(f"{__log_incipit} space {__names[i]}, bs {bs}")
+        _logger.debug(f"{__log_incipit} space {__names[i]}, size_local {size_local}")
+        _logger.debug(f"{__log_incipit} space {__names[i]}, num_ghosts {num_ghosts}")
         comm.Barrier()
 
     V_u_size = V_u.dofmap.index_map_bs * (V_u.dofmap.index_map.size_local)
