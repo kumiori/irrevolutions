@@ -50,11 +50,11 @@ except ImportError:
 from utils import norm_H1, norm_L2, ColorPrint
 import sys
 sys.path.append("../")
+sys.path.append("../test")
 import solvers.restriction as restriction
 import solvers.slepcblockproblem as eigenblockproblem
 from solvers.function import functions_to_vec
 from utils import _logger
-
 rank = comm.Get_rank()
 size = comm.Get_size()
 
@@ -461,12 +461,12 @@ class SecondOrderSolver:
     def log_critical_state(self):
         """Log whether the system is damage-critical."""
         _emoji = "💥" if self._critical else "🌪"
-        logging.info(
+        _logger.info(
             f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
         )
         _emoji = "non-trivial 🍦 (solid)" if self._critical else "trivial 🌂 (empty)"
         if self._critical:
-            logging.debug(
+            _logger.debug(
                 f"rank {comm.rank})     > The cone is {_emoji}"
             )
     
@@ -767,7 +767,7 @@ class StabilitySolver(SecondOrderSolver):
             x0.copy(result=_x).normalize()
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
             
-            _logger.info(f"initial guess x0: {x0.array}")
+            _logger.debug(f"initial guess x0: {x0.array}")
         
         _s = float(self.parameters.get("cone").get("scaling"))
         errors = []
@@ -793,14 +793,12 @@ class StabilitySolver(SecondOrderSolver):
             _lmbda_k = _xk.norm()
             self.error = 0
             self._residual_norm = 1.
-
-            # TODO: FIX BUG HERE, computation is not correct in parallel
+   
+            __import__('pdb').set_trace()
             while self.iterate(_xk, errors):
                 _lmbda_k, _y = self.update_lambda_and_y(_xk, _Ar, _y)
                 self.update_xk(_xk, _y, _s)
                 self.update_data(_xk, _lmbda_k, _y)
-
-            perturbation = self.finalise_eigenmode(_xk)
             
             self.store_results(_lmbda_k, _xk, _y)
             stable = self.check_stability(_lmbda_k)
@@ -814,9 +812,9 @@ class StabilitySolver(SecondOrderSolver):
         Ar.mult(xk, self._Axr)
         
         xAx_r = xk.dot(self._Axr)
-        _logger.info(f'xk view in update at iteration {self.iterations}')
+        _logger.debug(f'xk view in update at iteration {self.iterations}')
         
-        xk.view()
+        # xk.view()
         _lmbda_t = xAx_r / xk.dot(xk)
         y.waxpy(-_lmbda_t, xk, self._Axr)
 
@@ -825,18 +823,19 @@ class StabilitySolver(SecondOrderSolver):
     def update_xk(self, xk, y, s):
         # Update _xk based on the scaling and projection algorithm
         xk.copy(result=self._xoldr)
+
         # x_k = x_k + (-s * y) 
-        # x_k += (-s * y) 
         xk.axpy(-s, y)
 
-        _logger.info(f'xk view before cone-project at iteration {self.iterations}')
-        xk.view()
-        xk = self._cone_project_restricted(xk)
-        _logger.info(f'xk view after cone-project at iteration {self.iterations}')
-        xk.view()
+        _logger.debug(f'xk view before cone-project at iteration {self.iterations}')
+        # xk.view()
+        _cone_restricted = self._cone_project_restricted(xk)
+        _cone_restricted.copy(result=xk)
+        _logger.debug(f'xk view after cone-project at iteration {self.iterations}')
+        # xk.view()
         self._residual_norm = y.norm()
         n2 = xk.normalize()
-        _logger.info(f"Cone project update: normalisation {n2}")
+        _logger.debug(f"Cone project update: normalisation {n2}")
 
     def update_data(self, xk, lmbda_t, y):
         # Update SPA data during each iteration
@@ -1025,7 +1024,7 @@ class StabilitySolver(SecondOrderSolver):
         _is = PETSc.IS().createGeneral(_dofs)
         _sub = _x.getSubVector(_is)
 
-        if not self.iterations % 1000:
+        if not self.iterations:
             _logger.critical(f"ITER {self.iterations} rank {rank} is in the cone: {(_sub.array >= 0).all()}")
         # _logger.critical(f"rank {rank} is in the cone: {(_sub.array >= 0)}")
         # _logger.critical(f"rank {rank} is in the cone: {(_sub.array)}")
@@ -1074,22 +1073,20 @@ class StabilitySolver(SecondOrderSolver):
 
             with _x.localForm() as x_local:
                 _dofs = self.constraints.bglobal_dofs_vec[1]
-                _logger.info(f"Local dofs: {_dofs}")
+                _logger.debug(f"Local dofs: {_dofs}")
 
-                _logger.info(f"x_local")
-                x_local.view()
-                comm.Barrier()
+                _logger.debug(f"x_local")
+                # x_local.view()
 
                 x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
-                _logger.info(f"x_local truncated")
-                x_local.view()
-                comm.Barrier()
+                _logger.debug(f"x_local truncated")
+                # x_local.view()
 
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             x_u, x_alpha = get_local_vectors(_x, maps)
-            _logger.critical(f"Cone Project: Local data of the subvector x_u: {x_u}")
-            _logger.critical(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
+            _logger.debug(f"Cone Project: Local data of the subvector x_u: {x_u}")
+            _logger.debug(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
             
             x = self.constraints.restrict_vector(_x)
             _x.destroy()
@@ -1105,12 +1102,15 @@ class StabilitySolver(SecondOrderSolver):
 
     def store_results(self, lmbda_t, _xt, _yt):
         # Store SPA results and log convergence information
+        perturbation = self.finalise_eigenmode(_xt)
         self.data["lambda_0"] = lmbda_t
         self.solution = (lmbda_t, _xt, _yt)
+        self.perturbation = perturbation
         _logger.info(
             f"Convergence of SPA algorithm within {self.iterations} iterations")
         _logger.info(
-            f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(self._xk)}")
+            f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(_xt)}")
+        print(self._xk.array)
         _logger.critical(f"Restricted Eigenvalue {lmbda_t:.4e}")
         _logger.info(f"Restricted Eigenvalue is positive {lmbda_t > 0}")
         _logger.info(f"Restricted Error {self.error:.4e}")

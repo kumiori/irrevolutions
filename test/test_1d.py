@@ -679,9 +679,9 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["geometry"]["N"] = ndofs
 
     parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-6
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-    parameters["stability"]["cone"]["scaling"] = 1e-7
+    parameters["stability"]["cone"]["cone_atol"] = 1e-5
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-5
+    parameters["stability"]["cone"]["scaling"] = 1e-3
 
     # parameters["model"]["model_dimension"] = 2
     parameters["model"]["w1"] = 1
