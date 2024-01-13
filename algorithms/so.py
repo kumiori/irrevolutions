@@ -177,13 +177,14 @@ class SecondOrderSolver:
 
         comm.Allreduce(coef, coeff_glob, op=MPI.MIN)
         elastic = np.isclose(coeff_glob, 0.0, atol=etol)
-        logging.debug(f'is_elastic coeff_glob = {coeff_glob}')
+        _logger.debug(f'is_elastic coeff_glob = {coeff_glob}')
         return elastic
 
     def is_stable(self) -> bool:
         """
         Checks if the system is stable based on elasticity.
-
+        FIXME: Implement stability check.
+        
         Returns:
             bool: True if the system is stable, False otherwise.
         """
@@ -239,13 +240,13 @@ class SecondOrderSolver:
             self._critical = False
 
         _emoji = "💥" if self._critical else "🌪"
-        logging.debug(
+        _logger.debug(
             f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
         )
 
         _emoji = "non-trivial 🍦 (solid)" if self._critical else "trivial 🌂 (empty)"
         if self._critical:
-            logging.debug(
+            _logger.debug(
                 f"rank {comm.rank})     > The cone is {_emoji}"
             )
 
@@ -255,7 +256,7 @@ class SecondOrderSolver:
 
         restricted = len(dofs_alpha_inactive)
 
-        logging.debug(
+        _logger.debug(
             f"rank {comm.rank}) Restricted to (local) {restricted}/{localSize} nodes, {float(restricted/localSize):.1%} (local)",
         )
 
