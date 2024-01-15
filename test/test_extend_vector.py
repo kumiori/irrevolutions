@@ -86,8 +86,8 @@ def test_extend_vector(vr, constraints):
     x_u, x_alpha = get_local_vectors(x, maps)
     
     _logger.info(f"The local vectors")
-    _logger.critical(f"{__log_incipit} Local data of the subvector x_u: {x_u}")
-    _logger.critical(f"{__log_incipit} Local data of the subvector x_alpha: {x_alpha}")
+    _logger.debug(f"{__log_incipit} Local data of the subvector x_u: {x_u}")
+    _logger.debug(f"{__log_incipit} Local data of the subvector x_alpha: {x_alpha}")
     
     
     return
