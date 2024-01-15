@@ -777,9 +777,11 @@ class StabilitySolver(SecondOrderSolver):
 
             _lmbda_k = _xk.norm()
             self._residual_norm = 1.
-
+            
+            # __import__('pdb').set_trace()
+            
             while self.iterate(_xk, errors):
-                _lmbda_k, _y = self.update_lambda_and_y(_xk, _Ar, _y)
+                _lmbda_k, _y = self.update_lambda_and_y(_xk, _Ar)
                 _xk = self.update_xk(_xk, _y, _s)
                 # _logger.critical(f"rank {rank} iteration {self.iterations} xk norm {_xk.norm()}")
                 self.log_data(_xk, _lmbda_k, _y)
@@ -789,24 +791,22 @@ class StabilitySolver(SecondOrderSolver):
 
         return stable
 
-    def update_lambda_and_y(self, xk, Ar, y):
+    def update_lambda_and_y(self, xk, Ar):
         # Update λ_t and y computing:
         # λ_k = <x_k, A x_k> / <x_k, x_k>
         # y_k = A x_k - λ_k x_k
         
-        # _logger.info('xk')
-        # xk.view()
-        # _logger.critical(f"Ar.norm {Ar.norm(2)}")
-        Ar.mult(xk, self._Axr)
+        _Axr = xk.copy()
+        y = xk.copy()
         
-        # self._Axr.view()
+        Ar.mult(xk, _Axr)
         
-        xAx_r = xk.dot(self._Axr)
+        xAx_r = xk.dot(_Axr)
         
         _logger.debug(f'xk view in update at iteration {self.iterations}')
         
         _lmbda_t = xAx_r / xk.dot(xk)
-        y.waxpy(-_lmbda_t, xk, self._Axr)
+        y.waxpy(-_lmbda_t, xk, _Axr)
         self._residual_norm = y.norm()
 
         return _lmbda_t, y
@@ -1021,26 +1021,6 @@ class StabilitySolver(SecondOrderSolver):
         # _logger.critical(f"rank {rank} is in the cone: {(_sub.array)}")
 
         return (_sub.array >= 0).all()
-
-    def _extend_vector(self, vres, vext):
-        """
-        Extends a restricted vector vr into v, in place.
-
-        Args:
-            vres: Restricted vector to be extended.
-            vext: Extended vector.
-
-        Returns:
-            None
-        """
-        _isall = PETSc.IS().createGeneral(self.eigen.restriction.bglobal_dofs_vec_stacked)
-        _suball = vext.getSubVector(_isall)
-
-        vres.copy(_suball)
-        
-        vext.restoreSubVector(_isall, _suball)
-        
-        return
 
     def _extend_vector(self, vres, vext):
         """
