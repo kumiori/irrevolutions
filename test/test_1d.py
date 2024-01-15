@@ -612,8 +612,8 @@ def main(parameters, storage=None):
         history_data["u_t"].append(state["u"].vector.array.tolist())
         history_data["inertia"].append(inertia)
         
-        _logger.info(f"u_t {state['u'].vector.array}")
-        _logger.info(f"alpha_t {state['alpha'].vector.array}")
+        # _logger.info(f"u_t {state['u'].vector.array}")
+        # _logger.info(f"alpha_t {state['alpha'].vector.array}")
         # _logger.critical(f"u_t {u.vector.array}")
         # _logger.critical(f"alpha {alpha.vector.array}")
         # _logger.critical(f"u_t norm {state['u'].vector.norm()}")
@@ -679,8 +679,8 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["geometry"]["N"] = ndofs
 
     parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-5
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-5
+    parameters["stability"]["cone"]["cone_atol"] = 1e-6
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
     parameters["stability"]["cone"]["scaling"] = 1e-3
 
     # parameters["model"]["model_dimension"] = 2

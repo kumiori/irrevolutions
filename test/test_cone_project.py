@@ -11,6 +11,9 @@ import random
 from petsc4py import PETSc
 from mpi4py import MPI
 
+import test_binarydataio
+from test_extend import test_extend_vector
+
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
@@ -22,40 +25,55 @@ from test_restriction import (
 
 from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
 from test_sample_data import init_data  
-from test_extend import test_extension
 
-def test_cone_project_restricted(v, constraints, x):
-    V_u, V_alpha = constraints.function_spaces[0], constraints.function_spaces[1]
-    maps = [(V.dofmap.index_map, V.dofmap.index_map_bs) for V in [V_u, V_alpha]]
-    # x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
     
-    test_extension(v, x, constraints)
-    _logger.info(f"v extended into x")
-    x.view()
+def _cone_project_restricted(v, F, constraints):
+    """
+    Projects a vector into the relevant cone, handling restrictions. Not in place.
 
-    with x.localForm() as x_local:
-        _dofs = constraints.bglobal_dofs_vec[1]
-        _logger.debug(f"x_local")
-        x_local.view()
-        _logger.debug(f"{__log_incipit} Local dofs: {_dofs}")
-        x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
-        _logger.debug(f"x_local projected")
-        x_local.view()
+    Args:
+        v: Vector to be projected.
 
-    x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    Returns:
+        Vector: The projected vector.
+    """
+    with dolfinx.common.Timer(f"~Second Order: Cone Project"):
+        maps = [(V.dofmap.index_map, V.dofmap.index_map_bs) for V in constraints.function_spaces]
+        _x = dolfinx.fem.petsc.create_vector_block(F)
 
-    x_u, x_alpha = get_local_vectors(x, maps)
-    comm.barrier()
-    _logger.info(f"The local vectors")
-    _logger.critical(f"{__log_incipit} Local data of the subvector x_u: {x_u}")
-    _logger.critical(f"{__log_incipit} Local data of the subvector x_alpha: {x_alpha}")
-    comm.barrier()
+        test_extend_vector(v, _x, constraints)
 
-    constraints.restrict_vector(x)
-    
+        # _logger.critical(f"rank {rank} viewing _x")
+        # _x.view()
+
+        with _x.localForm() as x_local:
+            _dofs = constraints.bglobal_dofs_vec[1]
+            x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
+
+            _logger.debug(f"Local dofs: {_dofs}")
+            _logger.debug(f"x_local")
+            _logger.debug(f"x_local truncated")
+
+        _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        # x_u, x_alpha = get_local_vectors(_x, maps)
+
+        # _logger.info(f"Cone Project: Local data of the subvector x_u: {x_u}")
+        # _logger.info(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
+        
+        x = constraints.restrict_vector(_x)
+        
+        _x.copy(result=x)
+        _x.destroy()
+                    
     return x
-     
+
 if __name__ == "__main__":
+
+    full_matrix = test_binarydataio.load_binary_matrix('data/solver/A.mat')
+    matrix = test_binarydataio.load_binary_matrix('data/solver/Ar.mat')
+    guess = test_binarydataio.load_binary_vector('data/solver/x0r.vec')
+
+    
     F, v = init_data(10, positive=False)
     V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
     x = dolfinx.fem.petsc.create_vector_block(F)
@@ -65,16 +83,13 @@ if __name__ == "__main__":
     
     constraints = restriction.Restriction([V_u, V_alpha], restricted_dofs)
 
-    # _logger.critical(f"{__log_incipit} constraints.blocal_dofs {constraints.blocal_dofs}")
-    # _logger.critical(f"{__log_incipit} constraints.bglobal_dofs_vec {constraints.bglobal_dofs_vec}")
-    # _logger.critical(f"{__log_incipit} constraints.bglobal_dofs_vec_stacked {constraints.bglobal_dofs_vec_stacked}")
-    
     vr = constraints.restrict_vector(v)
-    x = test_cone_project_restricted(vr, constraints, x)
+    # x = test_cone_project_restricted(vr, constraints, x)
+    x = _cone_project_restricted(vr, F, constraints)
     
-    _logger.info(f"The vr vector")
-    vr.view()
+    # _logger.info(f"The vr vector")
+    # vr.view()
     
-    _logger.info(f"The x vector")
-    x.view()
+    # _logger.info(f"The x vector")
+    # x.view()
     
