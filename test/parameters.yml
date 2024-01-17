@@ -11,10 +11,9 @@ geometry:
     Lx: 1.
     Ly: .1
     lc: 0.02
-    ell_lc: 3
+    mesh_size_factor: 3
+
 #  === Material === #
-material:
-#  === Model === #
 model:
     E: 1.
     sigma_D0: 1.
@@ -122,7 +121,7 @@ stability:
         cone_max_it: 3000
         cone_rtol: 1.0e-06
         maxmodes: 3
-        scaling: 1.e-4
+        scaling: 1.e-5
     
     linesearch:
         order: 4

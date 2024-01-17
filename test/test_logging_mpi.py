@@ -2,40 +2,55 @@ import logging
 from mpi4py import MPI
 
 
-def setup_logger_mpi():
+def setup_logger_mpi(root_priority: int = logging.INFO):
+    from mpi4py import MPI
+    import dolfinx
+    class MPIFormatter(logging.Formatter):
+        def format(self, record):
+            record.rank = MPI.COMM_WORLD.Get_rank()
+            record.size = MPI.COMM_WORLD.Get_size()
+            return super(MPIFormatter, self).format(record)
+
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    # Set the desired log level for the root process (rank 0)
+    # Desired log level for the root process (rank 0)
     root_process_log_level = logging.INFO  # Adjust as needed
 
-    # Create a logger
-    logger = logging.getLogger('my_logger')
-    logger.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
+    logger = logging.getLogger('E•volver')
+    logger.setLevel(root_process_log_level if rank == 0 else logging.WARNING)
 
-    # Configure the logger (e.g., add handlers, formatters)
-    # ...
-
-    # Add a StreamHandler to log messages to the console (or you can use other handlers)
+    # StreamHandler to log messages to the console
     console_handler = logging.StreamHandler()
+    file_handler = logging.FileHandler('evolution.log')
+
+    # formatter = logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] - %(message)s')
+    formatter = MPIFormatter('%(asctime)s  [Rank %(rank)d, Size %(size)d]  - %(name)s - [%(levelname)s] - %(message)s')
+
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    
+    # file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
     console_handler.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
+    
     logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
 
-    # Set the formatter for the handler
-    # ...
+    # Log messages, and only the root process will log.
+    logger.info("The root process spawning an evolution computation (rank 0)")
+    logger.info(
+    f"DOLFINx version: {dolfinx.__version__} based on GIT commit: {dolfinx.git_commit_hash} of https://github.com/FEniCS/dolfinx/")
 
-    if rank == 0:
-    # Configure additional handlers or custom settings for the root process
-    # ...
-        print(rank)
-
-    # Now, you can use the 'logger' object to log messages, and only the root process will log.
-    logger.info("This message will be logged only on the root process (rank 0)")
-    logger.info(f"This is process {rank} reporting")
-
+    logger.critical("Critical message")
+    if rank == 1:
+        logger.error(f"{rank} Error message")
+        logger.info(f"{rank} Info message")
+        
+    # logger.warning("Warning message")
+    
     return logger
-
 
 if __name__ == "__main__":
     setup_logger_mpi()
