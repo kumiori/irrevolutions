@@ -16,7 +16,7 @@ import numpy as np
 sys.path.append("../")
 
 from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation
+from algorithms.am import AlternateMinimisation, HybridFractureSolver
 
 from meshes.primitives import mesh_bar_gmshapi
 from dolfinx.common import Timer, list_timings, TimingType
@@ -184,12 +184,21 @@ solver = AlternateMinimisation(
     total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
 )
 
+hybrid = HybridFractureSolver(
+    total_energy,
+    state,
+    bcs,
+    bounds=(alpha_lb, alpha_ub),
+    solver_parameters=parameters.get("solvers"),
+)
+
 history_data = {
     "load": [],
     "elastic_energy": [],
     "total_energy": [],
     "fracture_energy": [],
     "solver_data": [],
+    "solver_HY_data": [],
     "F": []
 }
 
@@ -206,7 +215,8 @@ for i_t, t in enumerate(loads):
 
     logging.critical(f"-- Solving for t = {t:3.2f} --")
 
-    solver.solve()
+    # solver.solve()
+    hybrid.solve(alpha_lb)
 
     fracture_energy = comm.allreduce(
         assemble_scalar(form(model.damage_energy_density(state) * dx)),
@@ -223,10 +233,12 @@ for i_t, t in enumerate(loads):
         op=MPI.SUM,
     )
     history_data["load"].append(t)
-    history_data["fracture_energy"].append(fracture_energy)
+    history_data["fracture_energy"].append(fracture_empnergy)
     history_data["elastic_energy"].append(elastic_energy)
     history_data["total_energy"].append(elastic_energy+fracture_energy)
-    history_data["solver_data"].append(solver.data)
+    history_data["solver_data"].append([])
+    # history_data["solver_data"].append(solver.data)
+    history_data["solver_HY_data"].append(hybrid.newton_data)
     history_data["F"].append(stress)
 
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
@@ -250,22 +262,19 @@ import pyvista
 import sys
 from utils.viz import plot_mesh, plot_vector, plot_scalar
 # 
-xvfb.start_xvfb(wait=0.05)
-pyvista.OFF_SCREEN = True
+if comm.Get_size() == 1:
+    xvfb.start_xvfb(wait=0.05)
+    pyvista.OFF_SCREEN = True
 
 
-plotter = pyvista.Plotter(
-    title="Displacement",
-    window_size=[1600, 600],
-    shape=(1, 2),
-)
-_plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-_plt = plot_vector(u, plotter, subplot=(0, 1))
-_plt.screenshot(f"{prefix}/traction-state.png")
-# if comm.rank == 0:
-#     plot_energies(history_data, file=f"{prefix}_energies.pdf")
-#     plot_AMit_load(history_data, file=f"{prefix}_it_load.pdf")
-
+    plotter = pyvista.Plotter(
+        title="Displacement",
+        window_size=[1600, 600],
+        shape=(1, 2),
+    )
+    _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+    _plt = plot_vector(u, plotter, subplot=(0, 1))
+    _plt.screenshot(f"{prefix}/traction-state.png")
 
 from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 
