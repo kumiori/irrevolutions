@@ -674,6 +674,9 @@ class StabilitySolver(SecondOrderSolver):
             nullspace,
             stability_parameters=cone_parameters,
         )
+
+        self.solution = {"lambda_t": np.nan, "xt": [], "yt": []}
+
         with dolfinx.common.Timer(f"~Second Order: Stability"):
             with dolfinx.common.Timer(f"~Second Order: Cone Project"):
                 # self._converged = False
@@ -723,23 +726,23 @@ class StabilitySolver(SecondOrderSolver):
             "iterations": [],
             "error_x_L2": [],
             "lambda_k": [],
-            "lambda_0": [],
+            # "lambda_0": [],
             "y_norm_L2": [],
-            "x_norm_L2": [],
+            # "x_norm_L2": [],
         }
         
         if not self._is_critical(alpha_old):
             _logger.info("the current state is damage-subcritical (hence elastic), the state is thus stable")
-            self.data["lambda_0"] = np.nan
-            self.data["iterations"] = self.iterations
-            self.data["error_x_L2"] = [np.nan]
+            # self.data["lambda_0"] = np.nan
+            # self.data["iterations"] = self.iterations
+            # self.data["error_x_L2"] = [np.nan]
             return True
         
         elif not eig0 and inertia[0]==0 and inertia[1]==0:
             _logger.info("the current state is damage-critical and the evolution path is unique, the state is thus *Stable")
-            self.data["lambda_0"] = np.nan
-            self.data["iterations"] = self.iterations
-            self.data["error_x_L2"] = [np.nan]
+            # self.data["lambda_0"] = np.nan
+            # self.data["iterations"] = self.iterations
+            # self.data["error_x_L2"] = [np.nan]
             return True
         else:
             assert len(eig0) > 0
@@ -757,7 +760,6 @@ class StabilitySolver(SecondOrderSolver):
         
         _s = float(self.parameters.get("cone").get("scaling"))
         errors = []
-        # self.stable = True
 
         self._converged = False
         errors.append(1)
@@ -831,10 +833,11 @@ class StabilitySolver(SecondOrderSolver):
     def log_data(self, xk, lmbda_t, y):
         # Update SPA data during each iteration
         # self.iterations += 1
-        self.data["iterations"] = self.iterations
+        self.data["iterations"].append(self.iterations)
         self.data["lambda_k"].append(lmbda_t)
         self.data["y_norm_L2"].append(y.norm())
-        self.data["x_norm_L2"].append(xk.norm())
+        # self.data["x_norm_L2"].append(xk.norm())
+        self.data["error_x_L2"].append(self.error)
 
     def sanity_check(self, eig0, inertia):
         # this is done at each solve
@@ -968,7 +971,7 @@ class StabilitySolver(SecondOrderSolver):
                 f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}, res = {self._residual_norm}")
 
         # self.data["iterations"].append(self.iterations)
-        self.data["error_x_L2"].append(error_x_L2)
+        # self.data["error_x_L2"].append(error_x_L2)
 
         _acrit = self._aerror < self.parameters.get("cone").get("cone_atol")
         _rnorm = self._residual_norm < self.parameters.get("cone").get("cone_rtol")
@@ -1091,8 +1094,8 @@ class StabilitySolver(SecondOrderSolver):
     def store_results(self, lmbda_t, _xt, _yt):
         # Store SPA results and log convergence information
         perturbation = self.finalise_eigenmode(_xt)
-        self.data["lambda_0"] = lmbda_t
-        self.solution = (lmbda_t, _xt, _yt)
+        # self.data["lambda_0"] = lmbda_t
+        self.solution = {"lambda_t": lmbda_t, "xt": _xt, "yt": _yt}
         self.perturbation = perturbation
         _logger.info(
             f"Convergence of SPA algorithm within {self.iterations} iterations")
