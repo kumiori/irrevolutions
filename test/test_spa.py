@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append("../")
 import solvers.restriction as restriction
-import test_binarydataio
+import test_binarydataio as bio
 from test_extend import test_extend_vector
 from test_cone_project import _cone_project_restricted
 from utils import _logger
@@ -81,7 +81,7 @@ def update_xk(xk, y, s):
 
     xk.axpy(-s, y)
 
-    _cone_restricted = _cone_project_restricted(xk, F, constraints)
+    _cone_restricted = _cone_project_restricted(xk, _x, constraints)
     n2 = _cone_restricted.normalize()
 
     return _cone_restricted
@@ -144,7 +144,7 @@ def load_minimal_constraints(filename, spaces):
         minimal_constraints = pickle.load(file)
 
     # Assuming you have a constructor for your class
-    # Modify this accordingly based on your actual class structure
+
     reconstructed_obj = restriction.Restriction(spaces, np.array([[], []]))
     for key, value in minimal_constraints.items():
         setattr(reconstructed_obj, key, value)
@@ -155,19 +155,17 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-_s = 1e-4
+_s = 1e-3
 
-# A = test_binarydataio.load_binary_matrix('data/solvers/A.mat')
-Ar = test_binarydataio.load_binary_matrix('data/solvers/Ar.mat')
-x0r = test_binarydataio.load_binary_vector('data/solvers/x0r.vec')
+# A = bio.load_binary_matrix('data/solvers/A.mat')
+# Ar = bio.load_binary_matrix('data/Ar.mat')
+# x0r = bio.load_binary_vector('data/x0r.vec')
 
-with XDMFFile(comm, "data/solvers/1d.xdmf", "r") as file: 
+with XDMFFile(comm, "data/input_data.xdmf", "r") as file: 
     mesh = file.read_mesh(name='mesh')
 
-element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                            degree=1)
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                                degree=1)
+element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
 V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
 V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
@@ -175,23 +173,22 @@ u = dolfinx.fem.Function(V_u, name="Displacement")
 alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 dx = ufl.Measure("dx", alpha.function_space.mesh)
 
-energy = (1-alpha)**2*ufl.inner(ufl.grad(u),ufl.grad(u)) * dx
+constraints = load_minimal_constraints('data/constraints.pkl', [V_u, V_alpha])
 
-F_ = [
-    ufl.derivative(
-        energy, u, ufl.TestFunction(u.ufl_function_space())
-    ),
-    ufl.derivative(
-        energy,
-        alpha,
-        ufl.TestFunction(alpha.ufl_function_space()),
-    ),
-]
-F = dolfinx.fem.form(F_)
+A = bio.load_binary_matrix('data/A_hessian.mat')
+Ar = bio.load_binary_matrix('data/Ar_hessian.mat')
+x0 = bio.load_binary_vector('data/x0.vec')
 
-constraints = load_minimal_constraints('data/solvers/constraints.pkl', [V_u, V_alpha])
-A.assemble()
-Ar.assemble()
+# zero vector, compatible with the linear system
+_x = x0.duplicate()
+
+
+# This throws a SIGSEGV
+# Ar = constraints.restrict_matrix(A)
+x0r = constraints.restrict_vector(x0)
+
+# A.assemble()
+# Ar.assemble()
 xold = x0r.duplicate()  # x_k-1, =0 initially
 errors = []
 y = None
@@ -205,4 +202,5 @@ while iterate(x0r, xold, y):
     x0r = update_xk(x0r, y, _s)
 
 _logger.critical(f"lambda_0 = {lmbda_t:.4e}")
-# _Ar = constraints.restrict_matrix(A)
+
+
