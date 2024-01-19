@@ -40,7 +40,7 @@ def iterate(x, xold, errors):
     """
 
     try:
-        converged = _convergenceTest(x, xold, errors)
+        converged = _convergenceTest(x, xold, y)
     except NonConvergenceException as e:
         _logger.warning(e)
         _logger.warning("Continuing")
@@ -157,10 +157,6 @@ size = comm.Get_size()
 
 _s = 1e-3
 
-# A = bio.load_binary_matrix('data/solvers/A.mat')
-# Ar = bio.load_binary_matrix('data/Ar.mat')
-# x0r = bio.load_binary_vector('data/x0r.vec')
-
 with XDMFFile(comm, "data/input_data.xdmf", "r") as file: 
     mesh = file.read_mesh(name='mesh')
 
@@ -182,25 +178,35 @@ x0 = bio.load_binary_vector('data/x0.vec')
 # zero vector, compatible with the linear system
 _x = x0.duplicate()
 
-
 # This throws a SIGSEGV
+# A.assemble()
 # Ar = constraints.restrict_matrix(A)
 x0r = constraints.restrict_vector(x0)
 
-# A.assemble()
-# Ar.assemble()
 xold = x0r.duplicate()  # x_k-1, =0 initially
+error = 1.
 errors = []
 y = None
 iteration = 0
-
-while iterate(x0r, xold, y):
+data = {
+            # "iterations": [],
+            "error_x_L2": [],
+            "lambda_k": [],
+            # "lambda_0": [],
+            "y_norm_L2": [],
+            # "x_norm_L2": [],
+        }
+        
+while iterate(x0r, xold, error):
     iteration += 1
     x0r.copy(result=xold)
     
     lmbda_t, y = update_lambda_and_y(x0r, Ar)
     x0r = update_xk(x0r, y, _s)
+    data["lambda_k"].append(lmbda_t)
+    data["y_norm_L2"].append(y.norm())
+    data["error_x_L2"].append(errors[-1])
 
-_logger.critical(f"lambda_0 = {lmbda_t:.4e}")
+_logger.critical(f"lambda_0 = {lmbda_t:.4e}, residual norm = {y.norm(): .4e}, error = {errors[-1]: .4e}")
 
 
