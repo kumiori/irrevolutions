@@ -478,6 +478,7 @@ class SecondOrderSolver:
         eigen.A.zeroEntries()
         dolfinx.fem.petsc.assemble_matrix_block(eigen.A, eigen.A_form, eigen.bcs)
         eigen.A.assemble()
+        self.A_matrix = eigen.A
         
         return eigen
 
@@ -722,8 +723,11 @@ class StabilitySolver(SecondOrderSolver):
         self.sanity_check(eig0, inertia)
         self.iterations = 0
 
+        # save an internal reference
+        self.alpha_old = alpha_old
+        
         self.data = {
-            "iterations": [],
+            # "iterations": [],
             "error_x_L2": [],
             "lambda_k": [],
             # "lambda_0": [],
@@ -757,6 +761,7 @@ class StabilitySolver(SecondOrderSolver):
             
             _logger.debug(f"initial guess x0: {x0.array}")
             x0.copy(self._xold)
+            self.x0 = x0.copy()
         
         _s = float(self.parameters.get("cone").get("scaling"))
         errors = []
@@ -833,7 +838,7 @@ class StabilitySolver(SecondOrderSolver):
     def log_data(self, xk, lmbda_t, y):
         # Update SPA data during each iteration
         # self.iterations += 1
-        self.data["iterations"].append(self.iterations)
+        # self.data["iterations"].append(self.iterations)
         self.data["lambda_k"].append(lmbda_t)
         self.data["y_norm_L2"].append(y.norm())
         # self.data["x_norm_L2"].append(xk.norm())
@@ -1105,3 +1110,34 @@ class StabilitySolver(SecondOrderSolver):
         _logger.critical(f"Restricted Eigenvalue {lmbda_t:.4e}")
         _logger.info(f"Restricted Eigenvalue is positive {lmbda_t > 0}")
         _logger.info(f"Restricted Error {self.error:.4e}")
+
+    def save_input_data(self, filename="data/input_data.xdmf"):
+        """
+        Save input data to a file.
+
+        Args:
+            filename (str): Output filename for the XDMF file.
+        """
+        if comm.rank == 0:
+            out_dir = Path(filename).parent.absolute()
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+        # Use a try/except block to handle the case when A_matrix is not available
+        try:
+            import test_binarydataio as bio
+            from os import path
+
+            # Save x0 vector
+            bio.save_binary_data(path.join(out_dir, "x0.vec"), self.x0)
+
+            # Save A_matrix if available
+            if hasattr(self, 'A_matrix') and self.A_matrix is not None:
+                bio.save_binary_data(path.join(out_dir, "A_matrix.mat"), self.A_matrix)
+            else:
+                print("Warning: A_matrix is not available. Skipping its save.")
+
+            # Save minimal constraints
+            bio.save_minimal_constraints(self.constraints, path.join(out_dir, "constraints.pkl"))
+
+        except Exception as e:
+            print(f"Error during data save: {str(e)}")
