@@ -518,10 +518,12 @@ def main(parameters, storage=None):
         ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
 
         stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
+        # pdb.set_trace()
         with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
             if comm.Get_size() == 1:
 
                 if bifurcation._spectrum:
+                    pdb.set_trace()
                     vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
                     
                     tol = 1e-3
@@ -734,10 +736,12 @@ if __name__ == "__main__":
     visualization = Visualization(_storage)
     # visualization.visualise_results(pd.DataFrame(history_data), drop = ["solver_data", "cone_data"])
     visualization.save_table(pd.DataFrame(history_data), "history_data")
-    visualization.save_table(pd.DataFrame(stability_data), "stability_data")
+    # visualization.save_table(pd.DataFrame(stability_data), "stability_data")
+    pd.DataFrame(stability_data).to_json(f'{_storage}/stability_data.json')
+    
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"===================-{_storage}-=================")
-
+    __import__('pdb').set_trace()
     # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     # from utils import table_timing_data
