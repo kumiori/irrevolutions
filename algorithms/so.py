@@ -763,7 +763,6 @@ class StabilitySolver(SecondOrderSolver):
             x0.copy(self._xold)
             self.x0 = x0.copy()
         
-        _s = float(self.parameters.get("cone").get("scaling"))
         errors = []
 
         self._converged = False
@@ -774,8 +773,8 @@ class StabilitySolver(SecondOrderSolver):
             self.constraints = constraints
             
             eigen = self.setup_eigenvalue_problem(constraints)
+            
             self.eigen = eigen
-
             _Ar = constraints.restrict_matrix(eigen.A)
             _xk = constraints.restrict_vector(_x)
             _y = constraints.restrict_vector(_y)
@@ -783,20 +782,26 @@ class StabilitySolver(SecondOrderSolver):
             self._xoldr = constraints.restrict_vector(self._xold)
 
             _lmbda_k = _xk.norm()
+
             self._residual_norm = 1.
             
-            # __import__('pdb').set_trace()
+            self.Ar_matrix = _Ar.copy()
             
-            while self.iterate(_xk, errors):
-                _lmbda_k, _y = self.update_lambda_and_y(_xk, _Ar)
-                _xk = self.update_xk(_xk, _y, _s)
-                # _logger.critical(f"rank {rank} iteration {self.iterations} xk norm {_xk.norm()}")
-                self.log_data(_xk, _lmbda_k, _y)
+            _y, _xk, _lmbda_k = self.convergence_loop(errors, _Ar, _xk)
 
             self.store_results(_lmbda_k, _xk, _y)
             stable = self.check_stability(_lmbda_k)
 
         return stable
+
+    def convergence_loop(self, errors, _Ar, _xk):
+        _s = float(self.parameters.get("cone").get("scaling"))
+        
+        while self.iterate(_xk, errors):
+            _lmbda_k, _y = self.update_lambda_and_y(_xk, _Ar)
+            _xk = self.update_xk(_xk, _y, _s)
+            self.log_data(_xk, _lmbda_k, _y)
+        return _y,_xk,_lmbda_k
 
     def update_lambda_and_y(self, xk, Ar):
         # Update λ_t and y computing:
@@ -1122,22 +1127,33 @@ class StabilitySolver(SecondOrderSolver):
             out_dir = Path(filename).parent.absolute()
             out_dir.mkdir(parents=True, exist_ok=True)
 
+        with XDMFFile(MPI.COMM_WORLD, filename, "w") as ofile:
+            ofile.write_mesh(self.mesh)
+            ofile.write_function(self.alpha_old, 0.0)
+
         # Use a try/except block to handle the case when A_matrix is not available
         try:
             import test_binarydataio as bio
             from os import path
 
-            # Save x0 vector
-            bio.save_binary_data(path.join(out_dir, "x0.vec"), self.x0)
-
-            # Save A_matrix if available
+            # Save data if available
             if hasattr(self, 'A_matrix') and self.A_matrix is not None:
-                bio.save_binary_data(path.join(out_dir, "A_matrix.mat"), self.A_matrix)
+                bio.save_binary_data(path.join(out_dir, "A_hessian.mat"), self.A_matrix)
+                bio.save_binary_data(path.join(out_dir, "Ar_hessian.mat"), self.Ar_matrix)
             else:
-                print("Warning: A_matrix is not available. Skipping its save.")
+                _logger.warning("Warning: A_matrix is not available. Skipping its save.")
+
+            if hasattr(self, 'x0') and self.x0 is not None:
+                bio.save_binary_data(path.join(out_dir, "x0.vec"), self.x0)
+            else:
+                _logger.warning("Warning: x0_vector is not available. Skipping its save.")
+
+            if hasattr(self, 'constraints') and self.constraints is not None:
+                bio.save_minimal_constraints(self.constraints, path.join(out_dir, "constraints.pkl"))
+            else:
+                _logger.warning("Warning: x0_vector is not available. Skipping its save.")
 
             # Save minimal constraints
-            bio.save_minimal_constraints(self.constraints, path.join(out_dir, "constraints.pkl"))
 
         except Exception as e:
-            print(f"Error during data save: {str(e)}")
+            _logger.error(f"Error during data save: {str(e)}")
