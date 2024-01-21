@@ -519,7 +519,6 @@ class SecondOrderSolver:
         """Process a single eigenmode and return its components."""
         v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
         beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
-
         _u = dolfinx.fem.petsc.create_vector_block(self.F)
         eigval, ur, _ = eigen.getEigenpair(i)
         _ = self.normalise_eigen(ur)
@@ -737,16 +736,10 @@ class StabilitySolver(SecondOrderSolver):
         
         if not self._is_critical(alpha_old):
             _logger.info("the current state is damage-subcritical (hence elastic), the state is thus stable")
-            # self.data["lambda_0"] = np.nan
-            # self.data["iterations"] = self.iterations
-            # self.data["error_x_L2"] = [np.nan]
             return True
         
         elif not eig0 and inertia[0]==0 and inertia[1]==0:
             _logger.info("the current state is damage-critical and the evolution path is unique, the state is thus *Stable")
-            # self.data["lambda_0"] = np.nan
-            # self.data["iterations"] = self.iterations
-            # self.data["error_x_L2"] = [np.nan]
             return True
         else:
             assert len(eig0) > 0
@@ -796,7 +789,7 @@ class StabilitySolver(SecondOrderSolver):
 
     def convergence_loop(self, errors, _Ar, _xk):
         _s = float(self.parameters.get("cone").get("scaling"))
-        
+
         while self.iterate(_xk, errors):
             _lmbda_k, _y = self.update_lambda_and_y(_xk, _Ar)
             _xk = self.update_xk(_xk, _y, _s)
@@ -913,14 +906,13 @@ class StabilitySolver(SecondOrderSolver):
         Returns:
             bool: True if converged, False otherwise.
         """
-
         try:
             converged = self._convergenceTest(x, errors)
         except NonConvergenceException as e:
             logging.warning(e)
             logging.warning("Continuing")
+            converged = False
             # return False
-
         if not converged:
             self.iterations += 1
         else:
@@ -960,6 +952,7 @@ class StabilitySolver(SecondOrderSolver):
         
         if self.iterations == _maxit:
             _reason = -1
+            _logger.critical("Reached maxit without convergence")
             raise NonConvergenceException(
                 f'SPA solver did not converge to atol {_atol} or rtol {_rtol} within maxit={_maxit} iterations.')
 
@@ -1024,14 +1017,12 @@ class StabilitySolver(SecondOrderSolver):
             _x = x
 
         # Get the subvector associated with damage degrees of freedom with inactive constraints
-        _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
+        _dofs = self.constraints.bglobal_dofs_vec[1]
         _is = PETSc.IS().createGeneral(_dofs)
         _sub = _x.getSubVector(_is)
 
         if not self.iterations:
             _logger.critical(f"ITER {self.iterations} rank {rank} is in the cone: {(_sub.array >= 0).all()}")
-        # _logger.critical(f"rank {rank} is in the cone: {(_sub.array >= 0)}")
-        # _logger.critical(f"rank {rank} is in the cone: {(_sub.array)}")
 
         return (_sub.array >= 0).all()
 
