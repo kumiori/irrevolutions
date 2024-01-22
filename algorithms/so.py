@@ -160,26 +160,6 @@ class SecondOrderSolver:
         self.bcs = bcs["bcs_u"] + bcs["bcs_alpha"]
         pass
 
-    def is_elastic(self) -> bool:
-        """Returns whether or not the current state is elastic,
-        based on the strict positivity of the gradient of E
-
-        Checks if the current state is elastic based on the gradient of E.
-
-        Returns:
-            bool: True if the state is elastic, False otherwise.
-        """
-        etol = self.parameters.get("is_elastic_tol")
-        E_alpha = dolfinx.fem.assemble_vector(self.F[1])
-
-        coef = min(abs(E_alpha.array))
-        coeff_glob = np.array(0.0, dtype=PETSc.ScalarType)
-
-        comm.Allreduce(coef, coeff_glob, op=MPI.MIN)
-        elastic = np.isclose(coeff_glob, 0.0, atol=etol)
-        _logger.debug(f'is_elastic coeff_glob = {coeff_glob}')
-        return elastic
-
     def is_stable(self) -> bool:
         """
         Checks if the system is stable based on elasticity.
