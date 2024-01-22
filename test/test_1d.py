@@ -47,6 +47,7 @@ from utils.plots import plot_energies
 from utils import norm_H1, norm_L2
 from solvers import SNESSolver
 from utils import _logger
+from utils import history_data, _write_history_data
 import pyvista
 from pyvista.utilities import xvfb
 # 
@@ -443,6 +444,7 @@ def main(parameters, storage=None):
     equilibrium = _AlternateMinimisation1D(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
+
     hybrid = HybridFractureSolver(
         total_energy,
         state,
@@ -462,22 +464,6 @@ def main(parameters, storage=None):
         cone_parameters=parameters.get("stability")
     )
 
-    history_data = {
-        "load": [],
-        "elastic_energy": [],
-        "fracture_energy": [],
-        "total_energy": [],
-        "solver_data": [],
-        "cone_data": [],
-        "eigs": [],
-        "cone-stable": [],
-        "F": [],
-        "cone-eig": [],
-        "alpha_t": [],
-        "u_t": [],
-        "inertia": [],
-        "uniqueness": [],
-    }
     
     mode_shapes_data = {
         'time_steps': [],
@@ -487,8 +473,10 @@ def main(parameters, storage=None):
     }
     num_modes = 1
     
-    check_stability = []
-
+    # Extra data fields
+    history_data["F"] = []
+    
+    
     logging.basicConfig(level=logging.INFO)
 
     for i_t, t in enumerate(loads):
@@ -509,7 +497,7 @@ def main(parameters, storage=None):
 
         # n_eigenvalues = 10
         is_unique = bifurcation.solve(alpha_lb)
-        is_elastic = bifurcation.is_elastic()
+        is_elastic = not bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
         # stability.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
 
@@ -523,7 +511,6 @@ def main(parameters, storage=None):
             if comm.Get_size() == 1:
 
                 if bifurcation._spectrum:
-                    pdb.set_trace()
                     vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
                     
                     tol = 1e-3
@@ -620,23 +607,19 @@ def main(parameters, storage=None):
         )
         _F = assemble_scalar( form(stress(state)) )
         
-        _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
         ColorPrint.print_bold(stability.solution['lambda_t'])
+                    
+        _write_history_data(
+            equilibrium,
+            bifurcation,
+            stability,
+            history_data,
+            t,
+            inertia,
+            stable,
+            [fracture_energy, elastic_energy])
         
-        history_data["load"].append(t)
-        history_data["fracture_energy"].append(fracture_energy)
-        history_data["elastic_energy"].append(elastic_energy)
-        history_data["total_energy"].append(elastic_energy+fracture_energy)
-        history_data["solver_data"].append(equilibrium.data)
-        history_data["cone_data"].append(stability.data)
-        history_data["eigs"].append(bifurcation.data["eigs"])
-        history_data["uniqueness"].append(_unique)
-        history_data["cone-stable"].append(stable)
         history_data["F"].append(_F)
-        history_data["cone-eig"].append(stability.solution["lambda_t"])
-        history_data["alpha_t"].append(state["alpha"].vector.array.tolist())
-        history_data["u_t"].append(state["u"].vector.array.tolist())
-        history_data["inertia"].append(inertia)
         
         with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
             file.write_function(u, t)
@@ -741,7 +724,6 @@ if __name__ == "__main__":
     
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"===================-{_storage}-=================")
-    __import__('pdb').set_trace()
     # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     # from utils import table_timing_data
