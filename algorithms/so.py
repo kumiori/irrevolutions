@@ -415,6 +415,7 @@ class SecondOrderSolver:
             "pos_eigs": [],
             "elastic": [],
         }
+        self.alpha_old = alpha_old
 
         # Check if the system is damage-critical and log it
         self.log_critical_state()
@@ -442,17 +443,35 @@ class SecondOrderSolver:
 
         return stable
 
+    def _is_critical(self, alpha_old):
+        """
+        Determines if the current state is damage-critical.
+
+        Args:
+            alpha_old (dolfinx.fem.function.Function): The previous damage function.
+
+        Returns:
+            bool: True if damage-critical, False otherwise.
+        """
+        constrained_dofs = len(self.get_inactive_dofset(alpha_old)[1])
+
+        if constrained_dofs > 0:
+            return True
+        else:
+            return False
+        
     def log_critical_state(self):
         """Log whether the system is damage-critical."""
-
-        _emoji = "💥" if self._critical else "🌪"
+        critical = self._is_critical(self.alpha_old)
+        _emoji = "💥" if critical else "🌪"
+        
         _logger.info(
-            f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
+            f"rank {comm.rank}) Current state is damage-critical? {critical } {_emoji } "
         )
-        _emoji = "non-trivial 🍦 (solid)" if self._critical else "trivial 🌂 (empty)"
-        if self._critical:
-            _logger.debug(
-                f"rank {comm.rank})     > The cone is {_emoji}"
+        _emoji = "non-trivial 🍦 (solid)" if critical else "trivial 🌂 (empty)"
+        if critical:
+            _logger.info(
+                f"rank {comm.rank})         => The cone is {_emoji}"
             )
     
     def setup_constraints(self, alpha_old: dolfinx.fem.function.Function):
@@ -689,22 +708,6 @@ class StabilitySolver(SecondOrderSolver):
                                 }
                 _reason = None
 
-    def _is_critical(self, alpha_old):
-        """
-        Determines if the current state is damage-critical.
-
-        Args:
-            alpha_old (dolfinx.fem.function.Function): The previous damage function.
-
-        Returns:
-            bool: True if damage-critical, False otherwise.
-        """
-        constrained_dofs = len(self.get_inactive_dofset(alpha_old)[1])
-
-        if constrained_dofs > 0:
-            return True
-        else:
-            return False
 
     def solve(self, alpha_old: dolfinx.fem.function.Function, eig0 = None, inertia = None):
         """
