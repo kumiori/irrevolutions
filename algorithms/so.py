@@ -403,7 +403,6 @@ class SecondOrderSolver:
         with dolfinx.common.Timer(f"~Second Order: Bifurcation") as timer:
             # Set up constraints
             constraints = self.setup_constraints(alpha_old)
-
             self.inertia_setup(constraints)
 
             # Set up and solve the eigenvalue problem
