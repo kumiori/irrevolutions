@@ -9,6 +9,7 @@ import sys
 from petsc4py import PETSc
 import logging
 from mpi4py import MPI
+from typing import List
 
 comm = MPI.COMM_WORLD
 
@@ -135,7 +136,6 @@ code_info = {
 from slepc4py import __version__ as slepc_version
 from dolfinx import __version__ as dolfinx_version
 from petsc4py import __version__ as petsc_version
-
 
 library_info = {
     "dolfinx_version": dolfinx_version,
@@ -282,3 +282,37 @@ class Visualization:
             a_file = open(f"{self.prefix}/{name}.json", "w")
             json.dump(data.to_json(), a_file)
             a_file.close()
+
+history_data = {
+    "load": [],
+    "elastic_energy": [],
+    "fracture_energy": [],
+    "total_energy": [],
+    "solver_data": [],
+    "cone_data": [],
+    "eigs-ball": [],
+    "eigs-cone": [],
+    "stable": [],
+    "unique": [],
+    "inertia": [],
+}
+
+def _write_history_data(equilibrium, bifurcation, stability, history_data, t, inertia, stable, energies: List):
+    
+    elastic_energy = energies[0]
+    fracture_energy = energies[1]
+    unique = True if inertia[0] == 0 and inertia[1] == 0 else False
+    
+    history_data["load"].append(t)
+    history_data["fracture_energy"].append(fracture_energy)
+    history_data["elastic_energy"].append(elastic_energy)
+    history_data["total_energy"].append(elastic_energy+fracture_energy)
+    history_data["solver_data"].append(equilibrium.data)
+    history_data["cone_data"].append(stability.data)
+    history_data["unique"].append(unique)
+    history_data["stable"].append(stable)
+    history_data["eigs-ball"].append(bifurcation.data["eigs"])
+    history_data["eigs-cone"].append(stability.solution["lambda_t"])
+    history_data["inertia"].append(inertia)
+
+    return 
