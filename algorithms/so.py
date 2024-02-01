@@ -175,9 +175,9 @@ class SecondOrderSolver:
 
     def get_inactive_dofset(self, a_old) -> set:
         """Computes the set of dofs where damage constraints are inactive
-        based on the energy gradient and the ub constraint. The global
-        set of inactive constraint-dofs is the union of constrained
-        alpha-dofs and u-dofs.
+        based on the energy gradient, the upper bound, and the lower bound
+        constraint. The global set of inactive constraint-dofs is the union 
+        of constrained alpha-dofs and u-dofs.
 
         Computes the set of inactive dofs for damage constraints.
 

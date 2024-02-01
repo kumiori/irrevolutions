@@ -107,8 +107,8 @@ def rayleigh(parameters, storage=None):
         cone_parameters=parameters.get("stability")
     )
 
-    __import__('pdb').set_trace()
     is_unique = bifurcation.solve(zero_alpha)
+    __import__('pdb').set_trace()
 
 
 def load_parameters(file_path, ndofs, model='at1'):
