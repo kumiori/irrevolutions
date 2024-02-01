@@ -8,7 +8,7 @@ from meshes import (_addPoint as addPoint,
     _addCircleArc as addCircleArc,
     _addCurveLoop as addCurveLoop,
     _addPlaneSurface as _addPlaneSurface,
-    _addPhysicalGroup as _addPhysicalGroup,)
+    _addPhysicalSurface as _addPhysicalSurface,)
 
 from pathlib import Path
 
@@ -67,15 +67,19 @@ def mesh_extended_pacman(
         _addPlaneSurface([cloop], tag=100)
         _addPlaneSurface([cloop_ext], tag=101)
         
+        model.geo.addSurfaceLoop([cloop, cloop_ext, 15])
+        
         model.geo.synchronize()
-        _addPhysicalGroup(tdim, [model.getEntities(tdim)[0][1]], tag=1)
-        model.setPhysicalName(tdim, 200, "Pacman")
+        entities = model.getEntities(dim=2)
+        
+        _addPhysicalSurface(tdim, [entities[0][1]], tag=1)
+        model.setPhysicalName(tdim, 1, "Pacman")
 
-        _addPhysicalGroup(tdim, [model.getEntities(tdim)[1][1]], tag=100)
-        model.setPhysicalName(tdim, 201, "Extended Domain")
-
+        _addPhysicalSurface(tdim, [entities[1][1]], tag=100)
+        model.setPhysicalName(tdim, 100, "Extended Domain")
+        # model.addPhysicalGroup(tdim, [entities[0][1], entities[1][1]], tag=1000)
+        
         model.geo.synchronize()
-
         model.mesh.generate(tdim)
 
         if msh_file is not None:
