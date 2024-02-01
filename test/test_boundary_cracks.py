@@ -45,6 +45,7 @@ from algorithms.so import BifurcationSolver, StabilitySolver
 from algorithms.am import AlternateMinimisation, HybridFractureSolver
 from meshes.primitives import mesh_bar_gmshapi
 from models import DamageElasticityModel as Brittle
+from models import ElasticityModel as Elastic
 from meshes.extended_pacman import mesh_extended_pacman as mesh_pacman
 from utils import ColorPrint, set_vector_to_constant
 from utils.lib import _local_notch_asymptotic
@@ -53,6 +54,7 @@ from utils import ColorPrint
 from utils.plots import plot_energies
 from utils import norm_H1, norm_L2
 from utils import history_data, _write_history_data
+from utils import _logger
 from solvers import SNESSolver
 from utils import _logger
 import pyvista
@@ -178,14 +180,17 @@ def main(parameters, storage):
     # Measures
     dx = ufl.Measure("dx", subdomain_data=cell_tags, domain=mesh)
     ds = ufl.Measure("ds", domain=mesh)
-
-    pdb.set_trace()
-    assemble_scalar(dolfinx.fem.form(Constant(mesh, 1.)*dx(1)))
-    assemble_scalar(dolfinx.fem.form(Constant(mesh, 1.)*dx(100)))
+    _logger.critical("Checking sanity of the mesh")
+    area_1 = assemble_scalar(dolfinx.fem.form(Constant(mesh, 1.)*dx(100)))
+    area_2 = assemble_scalar(dolfinx.fem.form(Constant(mesh, 1.)*dx(1)))
+    _logger.critical(f"Area 1: {area_1}")
+    _logger.critical(f"Area 2: {area_2}")
+    
+    # pdb.set_trace()
     # Set Bcs Function
-
+    ext_radius = geom_parameters["rho"] * geom_parameters["r"]
     ext_bd_facets = locate_entities_boundary(
-        mesh, dim=1, marker=lambda x: np.isclose(x[0]**2. + x[1]**2. - _radius**2, 0., atol=1.e-4)
+        mesh, dim=1, marker=lambda x: np.isclose(x[0]**2. + x[1]**2. - ext_radius**2, 0., atol=1.e-4)
     )
 
     boundary_dofs_u = locate_dofs_topological(
@@ -212,7 +217,8 @@ def main(parameters, storage):
             V_alpha,
         )
     ]
-    bcs_alpha = []
+    
+    # bcs_alpha = []
     set_bc(alpha_ub.vector, bcs_alpha)
     alpha_ub.vector.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
@@ -232,17 +238,28 @@ def main(parameters, storage):
     set_vector_to_constant(alpha_ub.vector, 1)
 
     model = Brittle(parameters["model"])
+    
+    _stiff_elastic_parameters = yaml.load("""
+            E: 1000.
+            nu: 0.3
+            model_dimension: 2
+            model_type: "2D"
+            """)
+
+    machine = Elastic(_stiff_elastic_parameters)
 
     # Energy functional
     f = dolfinx.fem.Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
-    external_work = ufl.dot(f, state["u"]) * dx
-    total_energy = model.total_energy_density(state) * dx - external_work
-
+    external_work = ufl.dot(f, state["u"]) * dx(1)
+    total_energy = model.total_energy_density(state) * dx(1)    \
+        + machine.elastic_energy_density(state) * dx(100)       \
+        - external_work
 
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
-    loads = [0., 0.5, 1.01, 1.3, 2.]
+    loads = [0., 0.5, 1.01]
+    # loads = [0.5]
 
     equilibrium = HybridFractureSolver(
         total_energy,
@@ -256,7 +273,6 @@ def main(parameters, storage):
         total_energy, state, bcs,
         bifurcation_parameters=parameters.get("stability")
     )
-
 
     stability = StabilitySolver(
         total_energy, state, bcs,
@@ -302,11 +318,11 @@ def main(parameters, storage):
         with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
 
             fracture_energy = comm.allreduce(
-                assemble_scalar(form(model.damage_energy_density(state) * dx)),
+                assemble_scalar(form(model.damage_energy_density(state) * dx(1))),
                 op=MPI.SUM,
             )
             elastic_energy = comm.allreduce(
-                assemble_scalar(form(model.elastic_energy_density(state) * dx)),
+                assemble_scalar(form(model.elastic_energy_density(state) * dx(1))),
                 op=MPI.SUM,
             )
             
@@ -426,7 +442,7 @@ if __name__ == "__main__":
     ColorPrint.print_bold(history_data["eigs-cone"])
     from utils import ResultsStorage, Visualization
     storage = ResultsStorage(MPI.COMM_WORLD, _storage)
-    storage.store_results(parameters, history_data, state)
+    # storage.store_results(parameters, history_data, state)
     visualization = Visualization(_storage)
     # visualization.visualise_results(pd.DataFrame(history_data), drop = ["solver_data", "cone_data"])
     visualization.save_table(pd.DataFrame(history_data), "history_data")

@@ -168,7 +168,7 @@ def main(parameters, storage):
             V_alpha,
         )
     ]
-
+    bcs_alpha = []
     set_bc(alpha_ub.vector, bcs_alpha)
     alpha_ub.vector.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
@@ -198,7 +198,7 @@ def main(parameters, storage):
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
-    loads = [0., 0.5, 1.01, 1.3]
+    # loads = [0., 0.5, 1.01, 1.3, 2.]
 
     equilibrium = HybridFractureSolver(
         total_energy,
@@ -228,7 +228,7 @@ def main(parameters, storage):
     }
     num_modes = 1
 
-    _logger.setLevel(level=logging.INFO)
+    _logger.setLevel(level=logging.CRITICAL)
 
     for i_t, t in enumerate(loads):
 

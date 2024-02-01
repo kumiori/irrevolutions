@@ -99,7 +99,7 @@ def test_restriction():
 
     x = dolfinx.fem.petsc.create_vector_block(F)
     
-    restricted_dofs = get_inactive_dofset(v)
+    restricted_dofs = get_inactive_dofset(v, F)
 
     constraints = restriction.Restriction([V_u, V_alpha], restricted_dofs)
     vr = constraints.restrict_vector(v)
