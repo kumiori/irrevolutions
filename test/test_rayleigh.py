@@ -23,30 +23,32 @@ import json
 
 _logger.setLevel(logging.CRITICAL)
 
-def rayleigh():
+def rayleigh(parameters, storage=None):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    _s = 1e-3
-
-    a = parameters['a']
-    b = parameters['b']
-    c = parameters['c']
-    
     with XDMFFile(comm, "data/input_data.xdmf", "r") as file: 
         mesh = file.read_mesh(name='mesh')
 
+    a = dolfinx.fem.Constant(mesh, PETSc.ScalarType(parameters['model']['a']))
+    b = dolfinx.fem.Constant(mesh, PETSc.ScalarType(parameters['model']['b']))
+    c = dolfinx.fem.Constant(mesh, PETSc.ScalarType(parameters['model']['c']))
+    
     element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
     element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
     V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
     V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
     u = dolfinx.fem.Function(V_u, name="Displacement")
+
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
+
     zero_u = dolfinx.fem.Function(V_u, name="Boundary condition")
     zero_alpha = dolfinx.fem.Function(V_u, name="Lower bound")
     one_alpha = dolfinx.fem.Function(V_u, name="Upper bound")
+    
+    alpha.interpolate(lambda x: 1e-4 * np.ones_like(x[0]))
     
     for zero in [zero_u, zero_alpha]:
         zero.interpolate(lambda x: np.zeros_like(x[0]))
@@ -105,6 +107,7 @@ def rayleigh():
         cone_parameters=parameters.get("stability")
     )
 
+    __import__('pdb').set_trace()
     is_unique = bifurcation.solve(zero_alpha)
 
 
@@ -137,6 +140,8 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["geometry"]["mesh_size_factor"] = 4
     parameters["geometry"]["N"] = ndofs
 
+    parameters["stability"]["inactiveset_gatol"] = 1e-1
+    
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
