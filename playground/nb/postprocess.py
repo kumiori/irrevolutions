@@ -33,10 +33,15 @@ def load_data(rootdir):
 	with open(rootdir + '/parameters.yaml') as f:
 		params = yaml.load(f, Loader=yaml.FullLoader)
 
-	with open(rootdir + '/time_data.json', 'r') as f:
-		data = json.load(f)
-		dataf = pd.DataFrame(data).sort_values('load')
-
+	try:
+		with open(rootdir + '/time_data.json', 'r') as f:
+			data = json.load(f)
+			dataf = pd.DataFrame(data).sort_values('load')
+		# Continue with your code using the dataf DataFrame
+	except FileNotFoundError:
+		print("File 'time_data.json' not found. Handle this case accordingly.")
+		dataf = pd.DataFrame()
+	
 	if os.path.isfile(rootdir + '/signature.md5'):
 #         print('sig file found')
 		with open(rootdir + '/signature.md5', 'r') as f:
@@ -352,3 +357,80 @@ def _plot_spectrum(data):
     axis.legend()
     
     return figure, axis
+
+def read_mode_data_from_npz(npz_file, time_step, num_points = -1, num_modes=1):
+    """
+    Read mode data for a given timestep and x_values from an npz file.
+
+    Parameters:
+    - npz_file (numpy.lib.npyio.NpzFile): The npz file containing mode shapes data.
+    - time_step (int): The timestep to read.
+    - num_modes (int): The number of modes.
+    - num_points (int): The number of domain nodes.
+
+    Returns:
+    - mode_data (dict): A dictionary containing mode-specific fields for the given timestep.
+    """
+    mode_data = {}
+    mode_data["x_values"] = npz_file["point_values"].item()["x_values"]
+    if 'time_steps' not in npz_file or time_step not in npz_file['time_steps']:
+        print(f"No data available for timestep {time_step}.")
+        return None
+
+    index = np.where(npz_file['time_steps'] == time_step)[0][0]
+
+    for mode in range(1, num_modes + 1):
+        mode_key = f'mode_{mode}'
+
+        # print(f"{mode_key not in npz_file['point_values']}")
+        
+        if mode_key not in npz_file['point_values'].item():
+            print(f"No data available for mode {mode} at timestep {time_step}.")
+            continue
+
+        fields = npz_file['point_values'].item()[mode_key]
+        if 'bifurcation' not in fields or 'stability' not in fields:
+            print(f"Incomplete data for mode {mode} at timestep {time_step}.")
+            continue
+        
+
+        field_1_values = np.array(fields['bifurcation'][index])
+        field_2_values = np.array(fields['stability'][index])
+
+        # Assuming x_values is known or can be obtained
+        if num_points == -1:
+            num_points = len(npz_file["point_values"].item()["x_values"])
+        x_values = np.linspace(0, 1, num_points)  # Replace with actual x_values
+        
+        mode_data["fields"] = {
+            'bifurcation': {'x_values': x_values, 'values': field_1_values},
+            'stability': {'x_values': x_values, 'values': field_2_values},
+        }
+        mode_data["time_step"] = time_step
+        mode_data["lambda_bifurcation"] = np.nan
+        mode_data["lambda_stability"] = np.nan
+        
+        # print(mode_data[mode_key])
+    return mode_data
+
+def plot_fields_for_time_step(mode_shapes_data):
+    x_values = mode_shapes_data["x_values"]
+    fields = mode_shapes_data["fields"]
+    if 'bifurcation' in fields and 'stability' in fields:
+        bifurcation_values = np.array(fields['bifurcation']['values'])
+        stability_values = np.array(fields['stability']['values'])
+
+        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+        axes[0].plot(x_values, bifurcation_values, label='Bifurcation Mode', marker = 'o')
+        axes[0].set_title(f'Bifurcation')
+
+        axes[1].plot(x_values, stability_values, label='Stability Mode', marker = 'o')
+        axes[1].set_title(f'Stability')
+
+        for axis in axes:
+            axis.axhline(0., c='k')
+        
+        return fig, axes
+
+
