@@ -26,26 +26,8 @@ import logging
 from solvers.function import vec_to_functions
 
 from mpi4py import MPI
-comm = MPI.COMM_WORLD
-try:
-    from dolfinx.fem import (
-        assemble_matrix,
-        apply_lifting,
-        create_vector,
-        create_matrix,
-        set_bc,
-        assemble_vector
-    )
 
-except ImportError:
-    from dolfinx.fem.petsc import (
-        assemble_matrix,
-        apply_lifting,
-        create_vector,
-        create_matrix,
-        set_bc,
-        assemble_vector
-        )
+from dolfinx.fem.petsc import (create_vector_block)
 
 from utils import norm_H1, norm_L2, ColorPrint
 import sys
@@ -55,6 +37,9 @@ import solvers.restriction as restriction
 import solvers.slepcblockproblem as eigenblockproblem
 from solvers.function import functions_to_vec
 from utils import _logger
+
+comm = MPI.COMM_WORLD
+
 rank = comm.Get_rank()
 size = comm.Get_size()
 
@@ -517,7 +502,7 @@ class SecondOrderSolver:
         """Process a single eigenmode and return its components."""
         v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
         beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
-        _u = dolfinx.fem.petsc.create_vector_block(self.F)
+        _u = create_vector_block(self.F)
         eigval, ur, _ = eigen.getEigenpair(i)
         _ = self.normalise_eigen(ur)
 
@@ -678,7 +663,7 @@ class StabilitySolver(SecondOrderSolver):
         with dolfinx.common.Timer(f"~Second Order: Stability"):
             with dolfinx.common.Timer(f"~Second Order: Cone Project"):
                 # self._converged = False
-                self._v = dolfinx.fem.petsc.create_vector_block(self.F)
+                self._v = create_vector_block(self.F)
 
                 self._reasons = {'0': 'converged',
                                 '-1': 'non-converged, check the logs',
@@ -839,19 +824,19 @@ class StabilitySolver(SecondOrderSolver):
         return None
 
     def initialize_full_vectors(self):
-        _x = dolfinx.fem.petsc.create_vector_block(self.F)
-        _y = dolfinx.fem.petsc.create_vector_block(self.F)
-        _Ax = dolfinx.fem.petsc.create_vector_block(self.F)
-        _xold = dolfinx.fem.petsc.create_vector_block(self.F)
+        _x = create_vector_block(self.F)
+        _y = create_vector_block(self.F)
+        _Ax = create_vector_block(self.F)
+        _xold = create_vector_block(self.F)
 
         return _x, _y, _Ax, _xold
 
     def initialize_restricted_vectors(self, constraints):
         # Create and initialize SPA vectors 
-        _x = dolfinx.fem.petsc.create_vector_block(self.F)
-        _y = dolfinx.fem.petsc.create_vector_block(self.F)
-        _Ax = dolfinx.fem.petsc.create_vector_block(self.F)
-        _xold = dolfinx.fem.petsc.create_vector_block(self.F)
+        _x = create_vector_block(self.F)
+        _y = create_vector_block(self.F)
+        _Ax = create_vector_block(self.F)
+        _xold = create_vector_block(self.F)
 
         _xk = constraints.restrict_vector(_x)
         _y = constraints.restrict_vector(_y)
@@ -1034,7 +1019,7 @@ class StabilitySolver(SecondOrderSolver):
         """
         with dolfinx.common.Timer(f"~Second Order: Cone Project"):
             maps = [(V.dofmap.index_map, V.dofmap.index_map_bs) for V in self.constraints.function_spaces]
-            _x = dolfinx.fem.petsc.create_vector_block(self.F)
+            _x = create_vector_block(self.F)
 
             self._extend_vector(v, _x)
 
