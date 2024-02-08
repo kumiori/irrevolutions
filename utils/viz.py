@@ -148,7 +148,7 @@ def plot_mesh(mesh, ax=None):
         ax = plt.gca()
     ax.set_aspect("equal")
     points = mesh.geometry.x
-    cells = mesh.geometry.dofmap.array.reshape((-1, mesh.topology.dim + 1))
+    cells = mesh.geometry.dofmap.reshape((-1, mesh.topology.dim + 1))
     tria = tri.Triangulation(points[:, 0], points[:, 1], cells)
     ax.triplot(tria, color="k")
     return ax

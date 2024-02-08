@@ -552,6 +552,7 @@ class SecondOrderSolver:
         stable = self.check_stability(eig0)
 
         self.data = {
+            "inf_spectrum": self._spectrum,
             "eigs": eigs,
             "perturbations_beta": perturbations_beta,
             "perturbations_v": perturbations_v,
@@ -581,7 +582,7 @@ class SecondOrderSolver:
         Args:
             filename (str): Output filename for the XDMF file.
         """
-        eigs = self.data["eigs"]
+        eigs = self.data["inf_spectrum"]
         v = self.data["perturbations_v"]
         beta = self.data["perturbations_beta"]
         ColorPrint.print_info(

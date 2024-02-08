@@ -35,6 +35,7 @@ from pyvista.utilities import xvfb
 import pyvista
 import sys
 from utils.viz import plot_vector, plot_scalar, plot_profile
+from utils import history_data, _write_history_data
 
 
 import logging
@@ -86,7 +87,7 @@ def test_linsearch(parameters, storage):
     tdim = parameters["geometry"]["geometric_dimension"]
     _nameExp = parameters["geometry"]["geom_type"]
     ell_ = parameters["model"]["ell"]
-    _lc = ell_ / parameters["geometry"]["ell_lc"]
+    _lc = ell_ / parameters["geometry"]["mesh_size_factor"]
     geom_type = parameters["geometry"]["geom_type"]
 
     gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
@@ -229,7 +230,7 @@ def test_linsearch(parameters, storage):
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
 
-    solver = AlternateMinimisation(
+    equilibrium = AlternateMinimisation(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 
@@ -245,7 +246,7 @@ def test_linsearch(parameters, storage):
         total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
     )
 
-    cone = StabilitySolver(
+    stability = StabilitySolver(
         total_energy, state, bcs,
         cone_parameters=parameters.get("stability")
     )
@@ -253,25 +254,8 @@ def test_linsearch(parameters, storage):
     linesearch = LineSearch(total_energy, state, linesearch_parameters=parameters.get("stability").get("linesearch"))
 
 
-    history_data = {
-        "load": [],
-        "elastic_energy": [],
-        "fracture_energy": [],
-        "total_energy": [],
-        "solver_data": [],
-        "cone_data": [],
-        "cone-eig": [],
-        "eigs": [],
-        "uniqueness": [],
-        "inertia": [],
-        "F": [],
-        "alphadot_norm": [],
-        "rate_12_norm": [],
-        "unscaled_rate_12_norm": [],
-        "cone-stable": []
-    }
-
-
+    history_data.update({"F": []})
+    
     for i_t, t in enumerate(loads):
         u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
         u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
@@ -293,7 +277,7 @@ def test_linsearch(parameters, storage):
 
         logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
-        solver.solve()
+        equilibrium.solve()
 
         ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
         ColorPrint.print_bold(f"===================-=============")
@@ -315,33 +299,29 @@ def test_linsearch(parameters, storage):
         ColorPrint.print_bold(f"===================-=================")
 
         # n_eigenvalues = 10
-        is_stable = bifurcation.solve(alpha_lb)
-        is_elastic = bifurcation.is_elastic()
+        is_unique = bifurcation.solve(alpha_lb)
+        is_elastic = not bifurcation._is_critical(alpha_lb)
         # is_critical = bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
         
         ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
         
-        stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
+        stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
         if not stable:
-            _perturbation = cone.get_perturbation()
-        
-            vec_to_functions(_perturbation, [v, β])
-    
+            vec_to_functions(stability.solution['xt'], [v, β])
             perturbation = {"v": v, "beta": β}
 
             interval = linesearch.get_unilateral_interval(state, perturbation)
 
             order = 3
             h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
-            # logging.critical(f"state is stable: {stable} h_opt is {h_opt}")
             logging.critical(f" *> State is unstable: {not stable}")
             logging.critical(f"line search interval is {interval}")
             logging.critical(f"perturbation energies: {energies_1d}")
             logging.critical(f"hopt: {h_opt}")
-            logging.critical(f"lambda_t: {cone.data['lambda_0']}")
+            logging.critical(f"lambda_t: {stability.solution['lambda_t']}")
             x_plot = np.linspace(interval[0], interval[1], order+1)
             fig, axes = plt.subplots(1, 1)
             plt.scatter(x_plot, energies_1d)
@@ -403,7 +383,6 @@ def test_linsearch(parameters, storage):
                 β,
                 points,
                 plotter,
-                subplot=(0, 0),
                 lineproperties={
                     "c": "k",
                     "label": f"$\\beta$"
@@ -415,13 +394,16 @@ def test_linsearch(parameters, storage):
             _plt.title("Perurbation")
             _plt.savefig(f"{prefix}/perturbation-profile.png")
             _plt.close()
+            
             # perturb the state
+            # compute norm of state
+            __import__('pdb').set_trace()
+            norm_state_pre = sum([norm_H1(v) for v in state.values()])
             linesearch.perturb(state, perturbation, h_opt)
-            # i -= 1
-            # t = t 
-            # compute convergence criteria
+            norm_state_post = sum([norm_H1(v) for v in state.values()])
 
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
+        ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
@@ -448,21 +430,32 @@ def test_linsearch(parameters, storage):
 
         _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
 
-        history_data["load"].append(t)
-        history_data["fracture_energy"].append(fracture_energy)
-        history_data["elastic_energy"].append(elastic_energy)
-        history_data["total_energy"].append(elastic_energy+fracture_energy)
-        history_data["solver_data"].append(solver.data)
-        history_data["eigs"].append(bifurcation.data["eigs"])
+        # history_data["load"].append(t)
+        # history_data["fracture_energy"].append(fracture_energy)
+        # history_data["elastic_energy"].append(elastic_energy)
+        # history_data["total_energy"].append(elastic_energy+fracture_energy)
+        # history_data["solver_data"].append(solver.data)
+        # history_data["eigs"].append(bifurcation.data["eigs"])
         history_data["F"].append(stress)
-        history_data["cone_data"].append(cone.data)
-        history_data["alphadot_norm"].append(alphadot.vector.norm())
-        history_data["rate_12_norm"].append(rate_12_norm)
-        history_data["unscaled_rate_12_norm"].append(urate_12_norm)
-        history_data["cone-stable"].append(stable)
-        history_data["cone-eig"].append(cone.data["lambda_0"])
-        history_data["uniqueness"].append(_unique)
-        history_data["inertia"].append(inertia)
+        # history_data["cone_data"].append(cone.data)
+        # history_data["alphadot_norm"].append(alphadot.vector.norm())
+        # history_data["rate_12_norm"].append(rate_12_norm)
+        # history_data["unscaled_rate_12_norm"].append(urate_12_norm)
+        # history_data["cone-stable"].append(stable)
+        # history_data["cone-eig"].append(cone.data["lambda_0"])
+        # history_data["uniqueness"].append(_unique)
+        # history_data["inertia"].append(inertia)
+        
+        _write_history_data(
+            equilibrium,
+            bifurcation,
+            stability,
+            history_data,
+            t,
+            inertia,
+            stable,
+            [fracture_energy, elastic_energy])
+        
 
         with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
             file.write_function(u, t)
@@ -512,10 +505,6 @@ def test_linsearch(parameters, storage):
         plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
         plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
-
-
-
-
 def load_parameters(file_path):
     """
     Load parameters from a YAML file.
@@ -532,9 +521,9 @@ def load_parameters(file_path):
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     # parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-7
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-7
-    parameters["stability"]["cone"]["scaling"] = .00001
+    parameters["stability"]["cone"]["cone_atol"] = 1e-6
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
+    parameters["stability"]["cone"]["scaling"] = 1e-4
 
     parameters["model"]["model_dimension"] = 2
     parameters["model"]["model_type"] = '2D'
@@ -554,7 +543,7 @@ if __name__ == "__main__":
 
     parameters, signature = load_parameters("../test/parameters.yml")
     ColorPrint.print_bold(f"===================-{signature}-=================")
-    _storage = f"output/test_linesearch/{signature}"
+    _storage = f"output/linesearch/{signature}"
     ColorPrint.print_bold(f"===================-{_storage}-=================")
     # __import__('pdb').set_trace()
     test_linsearch(parameters, _storage)

@@ -13,6 +13,7 @@ import dolfinx.plot
 from dolfinx import log
 import ufl
 sys.path.append("../")
+from pyvista.utilities import xvfb
 
 # from meshes import gmsh_model_to_mesh
 # from damage.utils import ColorPrint
@@ -201,6 +202,8 @@ for i_t, t in enumerate(loads):
 
 from utils.viz import plot_mesh, plot_vector, plot_scalar
 import pyvista 
+xvfb.start_xvfb(wait=0.05)
+pyvista.OFF_SCREEN = True
 
 plotter = pyvista.Plotter(
     title="Displacement",
@@ -210,4 +213,4 @@ plotter = pyvista.Plotter(
 
 # _plt = plot_scalar(u_.sub(0), plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 1))
-_plt.screenshot(f"output/elasticity_displacement_MPI{comm.size}.png")
+_plt.screenshot(f"output/elasticity/elasticity_displacement_MPI{comm.size}.png")

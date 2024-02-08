@@ -182,18 +182,18 @@ solver = AlternateMinimisation(
 )
 
 
-stability = BifurcationSolver(
-    total_energy, state, bcs, stability_parameters=parameters.get("stability")
+bifurcation = BifurcationSolver(
+    total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
 )
 
 history_data = {
     "load": [],
     "elastic_energy": [],
-    "dissipated_energy": [],
+    "fracture_energy": [],
     "total_energy": [],
     "solver_data": [],
-    "eigs": [],
-    "stable": [],
+    "eigs-ball": [],
+    "unique": [],
 }
 
 check_stability = []
@@ -215,17 +215,16 @@ for i_t, t in enumerate(loads):
     solver.solve()
 
     n_eigenvalues = 10
-    is_stable = stability.solve(alpha_lb, n_eigenvalues)
-    is_elastic = stability.is_elastic()
-    inertia = stability.get_inertia()
-    stability.save_eigenvectors(filename=f"{prefix}_eigv_{t:3.2f}.xdmf")
-    check_stability.append(is_stable)
+    is_unique = bool(bifurcation.solve(alpha_lb))
+    is_elastic = not bifurcation._is_critical(alpha_lb)
+    inertia = bifurcation.get_inertia()
+    bifurcation.save_eigenvectors(filename=f"{prefix}_eigv_{t:3.2f}.xdmf")
 
     ColorPrint.print_bold(f"State is elastic: {is_elastic}")
     ColorPrint.print_bold(f"State's inertia: {inertia}")
-    ColorPrint.print_bold(f"State is stable: {is_stable}")
+    ColorPrint.print_bold(f"Path is unique: {is_unique}")
 
-    dissipated_energy = comm.allreduce(
+    fracture_energy = comm.allreduce(
         assemble_scalar(form(model.damage_energy_density(state) * dx)),
         op=MPI.SUM,
     )
@@ -235,12 +234,12 @@ for i_t, t in enumerate(loads):
     )
 
     history_data["load"].append(t)
-    history_data["dissipated_energy"].append(dissipated_energy)
+    history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
-    history_data["total_energy"].append(elastic_energy+dissipated_energy)
+    history_data["total_energy"].append(elastic_energy+fracture_energy)
     history_data["solver_data"].append(solver.data)
-    history_data["eigs"].append(stability.data["eigs"])
-    history_data["stable"].append(stability.data["stable"])
+    history_data["eigs-ball"].append(bifurcation.data["eigs"])
+    history_data["unique"].append(is_unique)
 
     with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)
