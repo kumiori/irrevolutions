@@ -47,6 +47,13 @@ def rayleigh(parameters, storage=None):
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
+    if comm.rank == 0:
+        with open(f"{prefix}/parameters.yaml", 'w') as file:
+            yaml.dump(parameters, file)
+
+        with open(f"{prefix}/signature.md5", 'w') as f:
+            f.write(signature)
+
     _a = parameters['model']['a']
     _b = parameters['model']['b']
     _c = parameters['model']['c']
@@ -207,7 +214,7 @@ def rayleigh(parameters, storage=None):
         axes[1] = _plt.gca()
         axes[1].set_xlabel('x')
         axes[1].set_xticks([0, _D, 1], [0, r"$D$", 1])
-        axes[1].set_yticks([0, 1])
+        axes[1].set_yticks([0, 1], [0, 1])
         axes[1].set_ylabel('$\\beta$')
         _plt.legend()
         _plt.fill_between(data_stability[0], data_stability[1].reshape(len(data_stability[1])))
@@ -254,7 +261,7 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["model"]["model_type"] = '1D'
     parameters["model"].update({'a': 1,
                                 'b': 1,
-                                'c': 4})
+                                'c': 8})
 
     parameters["geometry"]["geom_type"] = "infinite-dimensional-unit-test"
     # Get mesh parameters
@@ -266,8 +273,8 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["stability"]["inactiveset_gatol"] = 1e-1
     
     parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-6
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
+    parameters["stability"]["cone"]["cone_atol"] = 1e-8
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-8
     parameters["stability"]["cone"]["scaling"] = 1e-2
     
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
@@ -287,5 +294,3 @@ if __name__ == "__main__":
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
         history_data, stability_data, state = rayleigh(parameters, _storage)
-
-    

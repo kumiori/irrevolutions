@@ -833,10 +833,6 @@ class StabilitySolver(SecondOrderSolver):
             self.stable = True
             return self.stable
 
-        x0 = eig0[0].get("xk")
-        _x = x0.copy()
-        # self.data["iterations"].append(0)
-        # self.data["error_x_L2"].append(1)
         self._aerrors = []
         self._rerrors = []
 

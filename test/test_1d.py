@@ -439,7 +439,7 @@ def main(parameters, storage=None):
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
 
-    # loads = [0., 0.5, .99, 1.01, 1.3]
+    loads = [0., 0.5, .99, 1.01, 1.3]
     
     equilibrium = _AlternateMinimisation1D(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
