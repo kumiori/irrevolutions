@@ -160,26 +160,6 @@ class SecondOrderSolver:
         self.bcs = bcs["bcs_u"] + bcs["bcs_alpha"]
         pass
 
-    def is_elastic(self) -> bool:
-        """Returns whether or not the current state is elastic,
-        based on the strict positivity of the gradient of E
-
-        Checks if the current state is elastic based on the gradient of E.
-
-        Returns:
-            bool: True if the state is elastic, False otherwise.
-        """
-        etol = self.parameters.get("is_elastic_tol")
-        E_alpha = dolfinx.fem.assemble_vector(self.F[1])
-
-        coef = min(abs(E_alpha.array))
-        coeff_glob = np.array(0.0, dtype=PETSc.ScalarType)
-
-        comm.Allreduce(coef, coeff_glob, op=MPI.MIN)
-        elastic = np.isclose(coeff_glob, 0.0, atol=etol)
-        _logger.debug(f'is_elastic coeff_glob = {coeff_glob}')
-        return elastic
-
     def is_stable(self) -> bool:
         """
         Checks if the system is stable based on elasticity.
@@ -195,9 +175,9 @@ class SecondOrderSolver:
 
     def get_inactive_dofset(self, a_old) -> set:
         """Computes the set of dofs where damage constraints are inactive
-        based on the energy gradient and the ub constraint. The global
-        set of inactive constraint-dofs is the union of constrained
-        alpha-dofs and u-dofs.
+        based on the energy gradient, the upper bound, and the lower bound
+        constraint. The global set of inactive constraint-dofs is the union 
+        of constrained alpha-dofs and u-dofs.
 
         Computes the set of inactive dofs for damage constraints.
 
@@ -415,6 +395,7 @@ class SecondOrderSolver:
             "pos_eigs": [],
             "elastic": [],
         }
+        self.alpha_old = alpha_old
 
         # Check if the system is damage-critical and log it
         self.log_critical_state()
@@ -422,7 +403,6 @@ class SecondOrderSolver:
         with dolfinx.common.Timer(f"~Second Order: Bifurcation") as timer:
             # Set up constraints
             constraints = self.setup_constraints(alpha_old)
-
             self.inertia_setup(constraints)
 
             # Set up and solve the eigenvalue problem
@@ -442,17 +422,35 @@ class SecondOrderSolver:
 
         return stable
 
+    def _is_critical(self, alpha_old):
+        """
+        Determines if the current state is damage-critical.
+
+        Args:
+            alpha_old (dolfinx.fem.function.Function): The previous damage function.
+
+        Returns:
+            bool: True if damage-critical, False otherwise.
+        """
+        constrained_dofs = len(self.get_inactive_dofset(alpha_old)[1])
+
+        if constrained_dofs > 0:
+            return True
+        else:
+            return False
+        
     def log_critical_state(self):
         """Log whether the system is damage-critical."""
-
-        _emoji = "💥" if self._critical else "🌪"
+        critical = self._is_critical(self.alpha_old)
+        _emoji = "💥" if critical else "🌪"
+        
         _logger.info(
-            f"rank {comm.rank}) Current state is damage-critical? {self._critical } {_emoji } "
+            f"rank {comm.rank}) Current state is damage-critical? {critical } {_emoji } "
         )
-        _emoji = "non-trivial 🍦 (solid)" if self._critical else "trivial 🌂 (empty)"
-        if self._critical:
-            _logger.debug(
-                f"rank {comm.rank})     > The cone is {_emoji}"
+        _emoji = "non-trivial 🍦 (solid)" if critical else "trivial 🌂 (empty)"
+        if critical:
+            _logger.info(
+                f"rank {comm.rank})         => The cone is {_emoji}"
             )
     
     def setup_constraints(self, alpha_old: dolfinx.fem.function.Function):
@@ -478,6 +476,7 @@ class SecondOrderSolver:
         eigen.A.zeroEntries()
         dolfinx.fem.petsc.assemble_matrix_block(eigen.A, eigen.A_form, eigen.bcs)
         eigen.A.assemble()
+        self.A_matrix = eigen.A
         
         return eigen
 
@@ -518,7 +517,6 @@ class SecondOrderSolver:
         """Process a single eigenmode and return its components."""
         v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
         beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
-
         _u = dolfinx.fem.petsc.create_vector_block(self.F)
         eigval, ur, _ = eigen.getEigenpair(i)
         _ = self.normalise_eigen(ur)
@@ -674,6 +672,9 @@ class StabilitySolver(SecondOrderSolver):
             nullspace,
             stability_parameters=cone_parameters,
         )
+
+        self.solution = {"lambda_t": np.nan, "xt": [], "yt": []}
+
         with dolfinx.common.Timer(f"~Second Order: Stability"):
             with dolfinx.common.Timer(f"~Second Order: Cone Project"):
                 # self._converged = False
@@ -686,22 +687,6 @@ class StabilitySolver(SecondOrderSolver):
                                 }
                 _reason = None
 
-    def _is_critical(self, alpha_old):
-        """
-        Determines if the current state is damage-critical.
-
-        Args:
-            alpha_old (dolfinx.fem.function.Function): The previous damage function.
-
-        Returns:
-            bool: True if damage-critical, False otherwise.
-        """
-        constrained_dofs = len(self.get_inactive_dofset(alpha_old)[1])
-
-        if constrained_dofs > 0:
-            return True
-        else:
-            return False
 
     def solve(self, alpha_old: dolfinx.fem.function.Function, eig0 = None, inertia = None):
         """
@@ -719,27 +704,24 @@ class StabilitySolver(SecondOrderSolver):
         self.sanity_check(eig0, inertia)
         self.iterations = 0
 
+        # save an internal reference
+        self.alpha_old = alpha_old
+        
         self.data = {
-            "iterations": [],
+            # "iterations": [],
             "error_x_L2": [],
             "lambda_k": [],
-            "lambda_0": [],
+            # "lambda_0": [],
             "y_norm_L2": [],
-            "x_norm_L2": [],
+            # "x_norm_L2": [],
         }
         
         if not self._is_critical(alpha_old):
             _logger.info("the current state is damage-subcritical (hence elastic), the state is thus stable")
-            self.data["lambda_0"] = np.nan
-            self.data["iterations"] = self.iterations
-            self.data["error_x_L2"] = [np.nan]
             return True
         
         elif not eig0 and inertia[0]==0 and inertia[1]==0:
             _logger.info("the current state is damage-critical and the evolution path is unique, the state is thus *Stable")
-            self.data["lambda_0"] = np.nan
-            self.data["iterations"] = self.iterations
-            self.data["error_x_L2"] = [np.nan]
             return True
         else:
             assert len(eig0) > 0
@@ -754,10 +736,9 @@ class StabilitySolver(SecondOrderSolver):
             
             _logger.debug(f"initial guess x0: {x0.array}")
             x0.copy(self._xold)
+            self.x0 = x0.copy()
         
-        _s = float(self.parameters.get("cone").get("scaling"))
         errors = []
-        # self.stable = True
 
         self._converged = False
         errors.append(1)
@@ -767,8 +748,8 @@ class StabilitySolver(SecondOrderSolver):
             self.constraints = constraints
             
             eigen = self.setup_eigenvalue_problem(constraints)
+            
             self.eigen = eigen
-
             _Ar = constraints.restrict_matrix(eigen.A)
             _xk = constraints.restrict_vector(_x)
             _y = constraints.restrict_vector(_y)
@@ -776,20 +757,26 @@ class StabilitySolver(SecondOrderSolver):
             self._xoldr = constraints.restrict_vector(self._xold)
 
             _lmbda_k = _xk.norm()
+
             self._residual_norm = 1.
             
-            # __import__('pdb').set_trace()
+            self.Ar_matrix = _Ar.copy()
             
-            while self.iterate(_xk, errors):
-                _lmbda_k, _y = self.update_lambda_and_y(_xk, _Ar)
-                _xk = self.update_xk(_xk, _y, _s)
-                # _logger.critical(f"rank {rank} iteration {self.iterations} xk norm {_xk.norm()}")
-                self.log_data(_xk, _lmbda_k, _y)
+            _y, _xk, _lmbda_k = self.convergence_loop(errors, _Ar, _xk)
 
             self.store_results(_lmbda_k, _xk, _y)
             stable = self.check_stability(_lmbda_k)
 
         return stable
+
+    def convergence_loop(self, errors, _Ar, _xk):
+        _s = float(self.parameters.get("cone").get("scaling"))
+
+        while self.iterate(_xk, errors):
+            _lmbda_k, _y = self.update_lambda_and_y(_xk, _Ar)
+            _xk = self.update_xk(_xk, _y, _s)
+            self.log_data(_xk, _lmbda_k, _y)
+        return _y,_xk,_lmbda_k
 
     def update_lambda_and_y(self, xk, Ar):
         # Update λ_t and y computing:
@@ -831,10 +818,11 @@ class StabilitySolver(SecondOrderSolver):
     def log_data(self, xk, lmbda_t, y):
         # Update SPA data during each iteration
         # self.iterations += 1
-        self.data["iterations"] = self.iterations
+        # self.data["iterations"].append(self.iterations)
         self.data["lambda_k"].append(lmbda_t)
         self.data["y_norm_L2"].append(y.norm())
-        self.data["x_norm_L2"].append(xk.norm())
+        # self.data["x_norm_L2"].append(xk.norm())
+        self.data["error_x_L2"].append(self.error)
 
     def sanity_check(self, eig0, inertia):
         # this is done at each solve
@@ -900,14 +888,13 @@ class StabilitySolver(SecondOrderSolver):
         Returns:
             bool: True if converged, False otherwise.
         """
-
         try:
             converged = self._convergenceTest(x, errors)
         except NonConvergenceException as e:
             logging.warning(e)
             logging.warning("Continuing")
+            converged = False
             # return False
-
         if not converged:
             self.iterations += 1
         else:
@@ -947,6 +934,7 @@ class StabilitySolver(SecondOrderSolver):
         
         if self.iterations == _maxit:
             _reason = -1
+            _logger.critical("Reached maxit without convergence")
             raise NonConvergenceException(
                 f'SPA solver did not converge to atol {_atol} or rtol {_rtol} within maxit={_maxit} iterations.')
 
@@ -968,7 +956,7 @@ class StabilitySolver(SecondOrderSolver):
                 f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}, res = {self._residual_norm}")
 
         # self.data["iterations"].append(self.iterations)
-        self.data["error_x_L2"].append(error_x_L2)
+        # self.data["error_x_L2"].append(error_x_L2)
 
         _acrit = self._aerror < self.parameters.get("cone").get("cone_atol")
         _rnorm = self._residual_norm < self.parameters.get("cone").get("cone_rtol")
@@ -1011,14 +999,12 @@ class StabilitySolver(SecondOrderSolver):
             _x = x
 
         # Get the subvector associated with damage degrees of freedom with inactive constraints
-        _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
+        _dofs = self.constraints.bglobal_dofs_vec[1]
         _is = PETSc.IS().createGeneral(_dofs)
         _sub = _x.getSubVector(_is)
 
         if not self.iterations:
             _logger.critical(f"ITER {self.iterations} rank {rank} is in the cone: {(_sub.array >= 0).all()}")
-        # _logger.critical(f"rank {rank} is in the cone: {(_sub.array >= 0)}")
-        # _logger.critical(f"rank {rank} is in the cone: {(_sub.array)}")
 
         return (_sub.array >= 0).all()
 
@@ -1091,8 +1077,8 @@ class StabilitySolver(SecondOrderSolver):
     def store_results(self, lmbda_t, _xt, _yt):
         # Store SPA results and log convergence information
         perturbation = self.finalise_eigenmode(_xt)
-        self.data["lambda_0"] = lmbda_t
-        self.solution = (lmbda_t, _xt, _yt)
+        # self.data["lambda_0"] = lmbda_t
+        self.solution = {"lambda_t": lmbda_t, "xt": _xt, "yt": _yt}
         self.perturbation = perturbation
         _logger.info(
             f"Convergence of SPA algorithm within {self.iterations} iterations")
@@ -1102,3 +1088,45 @@ class StabilitySolver(SecondOrderSolver):
         _logger.critical(f"Restricted Eigenvalue {lmbda_t:.4e}")
         _logger.info(f"Restricted Eigenvalue is positive {lmbda_t > 0}")
         _logger.info(f"Restricted Error {self.error:.4e}")
+
+    def save_input_data(self, filename="data/input_data.xdmf"):
+        """
+        Save input data to a file.
+
+        Args:
+            filename (str): Output filename for the XDMF file.
+        """
+        if comm.rank == 0:
+            out_dir = Path(filename).parent.absolute()
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+        with XDMFFile(MPI.COMM_WORLD, filename, "w") as ofile:
+            ofile.write_mesh(self.mesh)
+            ofile.write_function(self.alpha_old, 0.0)
+
+        # Use a try/except block to handle the case when A_matrix is not available
+        try:
+            import test_binarydataio as bio
+            from os import path
+
+            # Save data if available
+            if hasattr(self, 'A_matrix') and self.A_matrix is not None:
+                bio.save_binary_data(path.join(out_dir, "A_hessian.mat"), self.A_matrix)
+                bio.save_binary_data(path.join(out_dir, "Ar_hessian.mat"), self.Ar_matrix)
+            else:
+                _logger.warning("Warning: A_matrix is not available. Skipping its save.")
+
+            if hasattr(self, 'x0') and self.x0 is not None:
+                bio.save_binary_data(path.join(out_dir, "x0.vec"), self.x0)
+            else:
+                _logger.warning("Warning: x0_vector is not available. Skipping its save.")
+
+            if hasattr(self, 'constraints') and self.constraints is not None:
+                bio.save_minimal_constraints(self.constraints, path.join(out_dir, "constraints.pkl"))
+            else:
+                _logger.warning("Warning: x0_vector is not available. Skipping its save.")
+
+            # Save minimal constraints
+
+        except Exception as e:
+            _logger.error(f"Error during data save: {str(e)}")

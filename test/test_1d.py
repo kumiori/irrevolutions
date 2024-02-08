@@ -47,6 +47,7 @@ from utils.plots import plot_energies
 from utils import norm_H1, norm_L2
 from solvers import SNESSolver
 from utils import _logger
+from utils import history_data, _write_history_data
 import pyvista
 from pyvista.utilities import xvfb
 # 
@@ -438,7 +439,7 @@ def main(parameters, storage=None):
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
 
-    loads = [0., 0.5, .99, 1.01, 1.3]
+    # loads = [0., 0.5, .99, 1.01, 1.3]
     
     equilibrium = _AlternateMinimisation1D(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
@@ -463,25 +464,19 @@ def main(parameters, storage=None):
         cone_parameters=parameters.get("stability")
     )
 
-    history_data = {
-        "load": [],
-        "elastic_energy": [],
-        "fracture_energy": [],
-        "total_energy": [],
-        "solver_data": [],
-        "cone_data": [],
-        "eigs": [],
-        "cone-stable": [],
-        "F": [],
-        "cone-eig": [],
-        "alpha_t": [],
-        "u_t": [],
-        "inertia": [],
-        "uniqueness": [],
+    
+    mode_shapes_data = {
+        'time_steps': [],
+        'point_values': {
+            'x_values': [],
+        }
     }
-
-    check_stability = []
-
+    num_modes = 1
+    
+    # Extra data fields
+    history_data["F"] = []
+    
+    
     logging.basicConfig(level=logging.INFO)
 
     for i_t, t in enumerate(loads):
@@ -502,7 +497,7 @@ def main(parameters, storage=None):
 
         # n_eigenvalues = 10
         is_unique = bifurcation.solve(alpha_lb)
-        is_elastic = bifurcation.is_elastic()
+        is_elastic = not bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
         # stability.save_eigenvectors(filename=f"{prefix}/{_nameExp}_eigv_{t:3.2f}.xdmf")
 
@@ -511,7 +506,7 @@ def main(parameters, storage=None):
         ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
 
         stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
-        
+        # pdb.set_trace()
         with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
             if comm.Get_size() == 1:
 
@@ -528,7 +523,7 @@ def main(parameters, storage=None):
                         window_size=[800, 600],
                         shape=(1, 2),
                     )
-                    _plt, data = plot_profile(
+                    _plt, data_bifurcation = plot_profile(
                         β,
                         points,
                         plotter,
@@ -544,7 +539,7 @@ def main(parameters, storage=None):
                     ax.set_yticks([-1, 0, 1])
                     ax.set_ylabel('$\\beta$')
                     _plt.legend()
-                    _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+                    _plt.fill_between(data_bifurcation[0], data_bifurcation[1].reshape(len(data_bifurcation[1])))
                     _plt.title("Perurbation in Vector Space")
                     _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
                     _plt.close()
@@ -555,7 +550,7 @@ def main(parameters, storage=None):
                     #     shape=(1, 1),
                     # )
 
-                    _plt, data = plot_profile(
+                    _plt, data_stability = plot_profile(
                         stability.perturbation['beta'],
                         points,
                         plotter,
@@ -577,11 +572,30 @@ def main(parameters, storage=None):
                     ax.set_yticks([0, 1])
                     ax.set_ylabel('$\\beta$')
                     _plt.legend()
-                    _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+                    _plt.fill_between(data_stability[0], data_stability[1].reshape(len(data_stability[1])))
                     _plt.title("Perurbation in the Cone")
                     # _plt.screenshot(f"{prefix}/perturbations-{i_t}.png")
                     _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
                     _plt.close()
+                    
+                    num_points = len(data_stability[0])
+                    
+                    mode_shapes_data['time_steps'].append(t)
+                    mode_shapes_data['point_values']['x_values'] = data_stability[0]
+                    
+                    for mode in range(1, num_modes + 1):
+                        bifurcation_values_mode = data_bifurcation[1].flatten()  # Replace with actual values
+                        stability_values_mode = data_stability[1].flatten()  # Replace with actual values
+                        # Append mode-specific fields to the data structure
+                        mode_key = f'mode_{mode}'
+                        mode_shapes_data['point_values'][mode_key] = {
+                            'bifurcation': mode_shapes_data['point_values'].get(mode_key, {}).get('bifurcation', []),
+                            'stability': mode_shapes_data['point_values'].get(mode_key, {}).get('stability', []),
+                        }
+                        mode_shapes_data['point_values'][mode_key]['bifurcation'].append(bifurcation_values_mode)
+                        mode_shapes_data['point_values'][mode_key]['stability'].append(stability_values_mode)
+
+        np.savez(f'{prefix}/mode_shapes_data.npz', **mode_shapes_data)
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(damage_energy_density(state) * dx)),
@@ -593,31 +607,20 @@ def main(parameters, storage=None):
         )
         _F = assemble_scalar( form(stress(state)) )
         
-        _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
+        ColorPrint.print_bold(stability.solution['lambda_t'])
+                    
+        _write_history_data(
+            equilibrium,
+            bifurcation,
+            stability,
+            history_data,
+            t,
+            inertia,
+            stable,
+            [fracture_energy, elastic_energy])
         
-        ColorPrint.print_bold(stability.data['lambda_0'])
-        
-        history_data["load"].append(t)
-        history_data["fracture_energy"].append(fracture_energy)
-        history_data["elastic_energy"].append(elastic_energy)
-        history_data["total_energy"].append(elastic_energy+fracture_energy)
-        history_data["solver_data"].append(equilibrium.data)
-        history_data["cone_data"].append(stability.data)
-        history_data["eigs"].append(bifurcation.data["eigs"])
-        history_data["uniqueness"].append(_unique)
-        history_data["cone-stable"].append(stable)
         history_data["F"].append(_F)
-        history_data["cone-eig"].append(stability.data["lambda_0"])
-        history_data["alpha_t"].append(state["alpha"].vector.array.tolist())
-        history_data["u_t"].append(state["u"].vector.array.tolist())
-        history_data["inertia"].append(inertia)
         
-        # _logger.info(f"u_t {state['u'].vector.array}")
-        # _logger.info(f"alpha_t {state['alpha'].vector.array}")
-        # _logger.critical(f"u_t {u.vector.array}")
-        # _logger.critical(f"alpha {alpha.vector.array}")
-        # _logger.critical(f"u_t norm {state['u'].vector.norm()}")
-
         with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
             file.write_function(u, t)
             file.write_function(alpha, t)
@@ -637,7 +640,7 @@ def main(parameters, storage=None):
         plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
         plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
-    return history_data, state
+    return history_data, stability.data, state
 
 # Viz
 
@@ -681,7 +684,7 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-    parameters["stability"]["cone"]["scaling"] = 1e-3
+    parameters["stability"]["cone"]["scaling"] = 1e-2
 
     # parameters["model"]["model_dimension"] = 2
     parameters["model"]["w1"] = 1
@@ -707,18 +710,19 @@ if __name__ == "__main__":
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
-        history_data, state = main(parameters, _storage)
+        history_data, stability_data, state = main(parameters, _storage)
 
-    ColorPrint.print_bold(history_data["cone-eig"])
     from utils import ResultsStorage, Visualization
     storage = ResultsStorage(MPI.COMM_WORLD, _storage)
     storage.store_results(parameters, history_data, state)
     visualization = Visualization(_storage)
     # visualization.visualise_results(pd.DataFrame(history_data), drop = ["solver_data", "cone_data"])
     visualization.save_table(pd.DataFrame(history_data), "history_data")
+    # visualization.save_table(pd.DataFrame(stability_data), "stability_data")
+    pd.DataFrame(stability_data).to_json(f'{_storage}/stability_data.json')
+    
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"===================-{_storage}-=================")
-
     # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     # from utils import table_timing_data

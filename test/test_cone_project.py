@@ -27,19 +27,20 @@ from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
 from test_sample_data import init_data  
 
     
-def _cone_project_restricted(v, F, constraints):
+def _cone_project_restricted(v, _x, constraints):
     """
     Projects a vector into the relevant cone, handling restrictions. Not in place.
 
     Args:
         v: Vector to be projected.
+        _x: A full vector.
 
     Returns:
         Vector: The projected vector.
     """
     with dolfinx.common.Timer(f"~Second Order: Cone Project"):
         maps = [(V.dofmap.index_map, V.dofmap.index_map_bs) for V in constraints.function_spaces]
-        _x = dolfinx.fem.petsc.create_vector_block(F)
+        # _x = dolfinx.fem.petsc.create_vector_block(F)
 
         test_extend_vector(v, _x, constraints)
 
@@ -62,8 +63,8 @@ def _cone_project_restricted(v, F, constraints):
         
         x = constraints.restrict_vector(_x)
         
-        _x.copy(result=x)
-        _x.destroy()
+        # _x.copy(result=x)
+        # _x.destroy()
                     
     return x
 
@@ -76,6 +77,7 @@ if __name__ == "__main__":
     
     F, v = init_data(10, positive=False)
     V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
+    _x = dolfinx.fem.petsc.create_vector_block(F)
     x = dolfinx.fem.petsc.create_vector_block(F)
     x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
     
@@ -85,7 +87,7 @@ if __name__ == "__main__":
 
     vr = constraints.restrict_vector(v)
     # x = test_cone_project_restricted(vr, constraints, x)
-    x = _cone_project_restricted(vr, F, constraints)
+    x = _cone_project_restricted(vr, _x, constraints)
     
     # _logger.info(f"The vr vector")
     # vr.view()

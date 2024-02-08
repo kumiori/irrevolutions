@@ -31,7 +31,7 @@ def mesh_pacman(
 
         omega = np.deg2rad(geom_parameters.get("omega"))
         radius = geom_parameters.get("r")
-        lc = geom_parameters.get("lc")
+        lc = geom_parameters.get("meshsize")
         elltomesh = geom_parameters.get("elltomesh")
 
         refinement = geom_parameters.get("refinement")
@@ -93,7 +93,7 @@ def mesh_pacman(
 
         # We can constrain resolution
         # values (see `t10.py' for more details):
-        gmsh.option.setNumber("Mesh.MeshSizeMin", lc/3.)
+        gmsh.option.setNumber("Mesh.MeshSizeMin", lc/refinement)
         gmsh.option.setNumber("Mesh.MeshSizeMax", 2*lc)
 
         gmsh.model.mesh.generate(tdim)
