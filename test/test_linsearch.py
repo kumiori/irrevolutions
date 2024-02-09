@@ -15,6 +15,7 @@ from dolfinx import log
 import ufl
 import numpy as np
 sys.path.append("../")
+
 import matplotlib.pyplot as plt
 
 from models import DamageElasticityModel as Brittle
@@ -30,20 +31,19 @@ from meshes.primitives import mesh_bar_gmshapi
 from dolfinx.common import Timer, list_timings, TimingType
 
 from solvers.function import vec_to_functions
-# Viz
 from pyvista.utilities import xvfb
 import pyvista
 import sys
 from utils.viz import plot_vector, plot_scalar, plot_profile
 from utils import history_data, _write_history_data
 
+from utils.viz import plot_vector, plot_scalar, plot_profile
+from utils import history_data, _write_history_data
 
 import logging
 
 logging.basicConfig(level=logging.INFO)
 
-import dolfinx
-import dolfinx.plot
 from dolfinx.io import XDMFFile, gmshio
 from dolfinx.fem import (
     Constant,
@@ -72,12 +72,10 @@ petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
 size = comm.Get_size()
 
-# Mesh on node model_rank and then distribute
 model_rank = 0
 
 def test_linsearch(parameters, storage):
 
-    petsc4py.init(sys.argv)
     comm = MPI.COMM_WORLD
 
     model_rank = 0
@@ -89,12 +87,14 @@ def test_linsearch(parameters, storage):
     ell_ = parameters["model"]["ell"]
     _lc = ell_ / parameters["geometry"]["mesh_size_factor"]
     geom_type = parameters["geometry"]["geom_type"]
+    kick = parameters["stability"]["continuation"]
 
     gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
     outdir = "output"
+    
     if storage is None:
         prefix = os.path.join(outdir, "traction_AT2_cone", signature)
     else:
@@ -103,45 +103,9 @@ def test_linsearch(parameters, storage):
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
-    if comm.rank == 0:
         with open(f"{prefix}/signature.md5", 'w') as f:
             f.write(signature)
 
-    if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
-            yaml.dump(parameters, file)
-
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
-        file.write_mesh(mesh)
-
-    # Get mesh parameters
-    Lx = parameters["geometry"]["Lx"]
-    Ly = parameters["geometry"]["Ly"]
-    tdim = parameters["geometry"]["geometric_dimension"]
-    _nameExp = parameters["geometry"]["geom_type"]
-    _nameExp = "bar"
-    ell_ = parameters["model"]["ell"]
-    lc = parameters["geometry"]["lc"]
-
-    # Get geometry model
-    geom_type = parameters["geometry"]["geom_type"]
-
-
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
-    outdir = "output"
-    if storage is None:
-        prefix = os.path.join(outdir, "traction_AT2_cone", signature)
-    else:
-        prefix = storage
-    
-    if comm.rank == 0:
-        Path(prefix).mkdir(parents=True, exist_ok=True)
-
-    if comm.rank == 0:
-        with open(f"{prefix}/signature.md5", 'w') as f:
-            f.write(signature)
-
-    if comm.rank == 0:
         with open(f"{prefix}/parameters.yaml", 'w') as file:
             yaml.dump(parameters, file)
 
@@ -167,7 +131,7 @@ def test_linsearch(parameters, storage):
 
     state = {"u": u, "alpha": alpha}
     z = [u, alpha]
-    _z = [v, β]
+
     # need upper/lower bound for the damage field
     alpha_lb = Function(V_alpha, name="Lower bound")
     alpha_ub = Function(V_alpha, name="Upper bound")
@@ -214,7 +178,6 @@ def test_linsearch(parameters, storage):
     alpha_ub.vector.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
-
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
     # Define the model
@@ -267,11 +230,6 @@ def test_linsearch(parameters, storage):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        logging.critical("--  --")
-        logging.critical("")
-        logging.critical("")
-        logging.critical("")
-        
         ColorPrint.print_bold(f"   Solving first order: AM   ")
         ColorPrint.print_bold(f"===================-=========")
 
@@ -301,7 +259,6 @@ def test_linsearch(parameters, storage):
         # n_eigenvalues = 10
         is_unique = bifurcation.solve(alpha_lb)
         is_elastic = not bifurcation._is_critical(alpha_lb)
-        # is_critical = bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
         
         ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
@@ -310,6 +267,9 @@ def test_linsearch(parameters, storage):
         stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
         if not stable:
+            import pyvista
+            from pyvista.utilities import xvfb
+
             vec_to_functions(stability.solution['xt'], [v, β])
             perturbation = {"v": v, "beta": β}
 
@@ -369,16 +329,17 @@ def test_linsearch(parameters, storage):
     
             plt.close()
 
-
             tol = 1e-3
             xs = np.linspace(0 + tol, Lx - tol, 101)
             points = np.zeros((3, 101))
             points[0] = xs
+            
             plotter = pyvista.Plotter(
                 title="Perturbation profile",
                 window_size=[800, 600],
                 shape=(1, 1),
             )
+            
             _plt, data = plot_profile(
                 β,
                 points,
@@ -397,18 +358,24 @@ def test_linsearch(parameters, storage):
             
             # perturb the state
             # compute norm of state
-            __import__('pdb').set_trace()
             norm_state_pre = sum([norm_H1(v) for v in state.values()])
-            linesearch.perturb(state, perturbation, h_opt)
+        
+            if kick:
+                linesearch.perturb(state, perturbation, h_opt)
+        
             norm_state_post = sum([norm_H1(v) for v in state.values()])
-
+            # print norms and relative norms difference
+            logging.critical(f"norm state pre: {norm_state_pre}")
+            logging.critical(f"norm state post: {norm_state_post}")
+            logging.critical(f"relative norm difference: {(norm_state_post-norm_state_pre) / norm_state_pre}")
+            
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
         ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
         logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
-        # logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+        logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
         logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
@@ -430,22 +397,8 @@ def test_linsearch(parameters, storage):
 
         _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
 
-        # history_data["load"].append(t)
-        # history_data["fracture_energy"].append(fracture_energy)
-        # history_data["elastic_energy"].append(elastic_energy)
-        # history_data["total_energy"].append(elastic_energy+fracture_energy)
-        # history_data["solver_data"].append(solver.data)
-        # history_data["eigs"].append(bifurcation.data["eigs"])
         history_data["F"].append(stress)
-        # history_data["cone_data"].append(cone.data)
-        # history_data["alphadot_norm"].append(alphadot.vector.norm())
-        # history_data["rate_12_norm"].append(rate_12_norm)
-        # history_data["unscaled_rate_12_norm"].append(urate_12_norm)
-        # history_data["cone-stable"].append(stable)
-        # history_data["cone-eig"].append(cone.data["lambda_0"])
-        # history_data["uniqueness"].append(_unique)
-        # history_data["inertia"].append(inertia)
-        
+
         _write_history_data(
             equilibrium,
             bifurcation,
@@ -468,34 +421,31 @@ def test_linsearch(parameters, storage):
 
         ColorPrint.print_bold(f"   Written timely data.    ")
         print()
-        print()
-        print()
-        print()
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     import pandas as pd
     df = pd.DataFrame(history_data)
     print(df.drop(['solver_data', 'cone_data'], axis=1))
 
-    # # Viz
-    # from pyvista.utilities import xvfb
-    # import pyvista
-    # import sys
-    # from utils.viz import plot_mesh, plot_vector, plot_scalar
-    # # 
-    # xvfb.start_xvfb(wait=0.05)
-    # pyvista.OFF_SCREEN = True
+    # Viz
+    from pyvista.utilities import xvfb
+    import pyvista
+    import sys
+    from utils.viz import plot_mesh, plot_vector, plot_scalar
+    # 
+    xvfb.start_xvfb(wait=0.05)
+    pyvista.OFF_SCREEN = True
 
-    # # if size == 1:
-    # if comm.rank == 0:
-    #     plotter = pyvista.Plotter(
-    #         title="Displacement",
-    #         window_size=[1600, 600],
-    #         shape=(1, 2),
-    #     )
-    #     _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-    #     _plt = plot_vector(u, plotter, subplot=(0, 1))
-    #     _plt.screenshot(f"{prefix}/traction-state.png")
+    # if size == 1:
+    if comm.rank == 0:
+        plotter = pyvista.Plotter(
+            title="Displacement",
+            window_size=[1600, 600],
+            shape=(1, 2),
+        )
+        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+        _plt = plot_vector(u, plotter, subplot=(0, 1))
+        _plt.screenshot(f"{prefix}/traction-state.png")
 
 
     from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
@@ -524,28 +474,26 @@ def load_parameters(file_path):
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
     parameters["stability"]["cone"]["scaling"] = 1e-4
+    parameters["stability"]["continuation"] = True
 
     parameters["model"]["model_dimension"] = 2
     parameters["model"]["model_type"] = '2D'
     parameters["model"]["w1"] = 1
     parameters["model"]["ell"] = .1
     parameters["model"]["k_res"] = 0.
-    parameters["loading"]["min"] = .99
-    parameters["loading"]["max"] = 1.1
-    parameters["loading"]["steps"] = 3
+    parameters["loading"]["min"] = .0
+    parameters["loading"]["max"] = 1.3
+    parameters["loading"]["steps"] = 30
 
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
     return parameters, signature
 
 if __name__ == "__main__":
-    # test_NLB(nest=False)
-
     parameters, signature = load_parameters("../test/parameters.yml")
-    ColorPrint.print_bold(f"===================-{signature}-=================")
+    ColorPrint.print_bold(f"===================- {signature} -=================")
     _storage = f"output/linesearch/{signature}"
-    ColorPrint.print_bold(f"===================-{_storage}-=================")
-    # __import__('pdb').set_trace()
+    ColorPrint.print_bold(f"===================- {_storage} -=================")
     test_linsearch(parameters, _storage)
-    ColorPrint.print_bold(f"===================-{signature}-=================")
-    ColorPrint.print_bold(f"===================-{_storage}-=================")
+    ColorPrint.print_bold(f"===================- {signature} -=================")
+    ColorPrint.print_bold(f"===================- {_storage} -=================")
