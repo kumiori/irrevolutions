@@ -11,10 +11,9 @@ geometry:
     Lx: 1.
     Ly: .1
     lc: 0.02
-    ell_lc: 3
+    mesh_size_factor: 3
+
 #  === Material === #
-material:
-#  === Model === #
 model:
     E: 1.
     sigma_D0: 1.
@@ -32,7 +31,7 @@ solvers:
             snes_stol: 1e-8
             snes_atol: 1e-8
             snes_rtol: 1e-8
-            snes_max_it: 100
+            snes_max_it: 200
             # snes_divergence_tolerance: -1.0
             snes_monitor: ""
             ksp_type: preonly
@@ -78,8 +77,8 @@ solvers:
 
     # Damage Elasticity Solver parameters
     damage_elasticity:
-        max_it: 100
-        alpha_rtol: 1.0e-8
+        max_it: 200
+        alpha_rtol: 1.0e-4
         criterion: "alpha_H1"
     
     newton:
@@ -118,11 +117,11 @@ stability:
         eps_max_it: 100
 
     cone:
-        cone_atol: 1.0e-05
+        cone_atol: 1.0e-06
         cone_max_it: 3000
-        cone_rtol: 1.0e-05
+        cone_rtol: 1.0e-06
         maxmodes: 3
-        scaling: 0.0001
+        scaling: 1.e-5
     
     linesearch:
         order: 4

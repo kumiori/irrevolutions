@@ -289,9 +289,9 @@ class SNESBlockProblem:
         self.print_norms(it)
 
     def print_norms(self, it):
-        logging.critical("\n### SNES iteration {}".format(it))
+        logging.info("\n### SNES iteration {}".format(it))
         for i, ui in enumerate(self.u):
-            logging.critical(
+            logging.info(
                 "# sub {:2d} |x|={:1.3e} |dx|={:1.3e} |r|={:1.3e} ({})".format(
                     i,
                     self.norm_x[it][i],
@@ -300,7 +300,7 @@ class SNESBlockProblem:
                     ui.name,
                 )
             )
-        logging.critical(
+        logging.info(
             "# all    |x|={:1.3e} |dx|={:1.3e} |r|={:1.3e}".format(
                 np.linalg.norm(np.asarray(self.norm_x[it])),
                 np.linalg.norm(np.asarray(self.norm_dx[it])),

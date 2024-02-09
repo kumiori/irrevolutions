@@ -20,7 +20,7 @@ opts = PETSc.Options()
 import logging
 
 from meshes.primitives import mesh_bar_gmshapi
-from meshes import gmsh_model_to_mesh
+# from meshes import gmsh_model_to_mesh
 
 logging.basicConfig(level=logging.INFO)
 

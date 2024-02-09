@@ -33,10 +33,15 @@ def load_data(rootdir):
 	with open(rootdir + '/parameters.yaml') as f:
 		params = yaml.load(f, Loader=yaml.FullLoader)
 
-	with open(rootdir + '/time_data.json', 'r') as f:
-		data = json.load(f)
-		dataf = pd.DataFrame(data).sort_values('load')
-
+	try:
+		with open(rootdir + '/time_data.json', 'r') as f:
+			data = json.load(f)
+			dataf = pd.DataFrame(data).sort_values('load')
+		# Continue with your code using the dataf DataFrame
+	except FileNotFoundError:
+		print("File 'time_data.json' not found. Handle this case accordingly.")
+		dataf = pd.DataFrame()
+	
 	if os.path.isfile(rootdir + '/signature.md5'):
 #         print('sig file found')
 		with open(rootdir + '/signature.md5', 'r') as f:

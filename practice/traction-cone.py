@@ -72,50 +72,6 @@ comm = MPI.COMM_WORLD
 model_rank = 0
 
 
-def parameters_vs_ell(parameters = None, ell = 0.1):
-    if parameters is None:    
-        with open("../test/parameters.yml") as f:
-            parameters = yaml.load(f, Loader=yaml.FullLoader)
-        
-    parameters["model"]["ell"] = ell
-
-    parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-5
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-5
-    parameters["stability"]["cone"]["scaling"] = 0.01
-
-    # parameters["model"]["model_dimension"] = 2
-    # parameters["model"]["model_type"] = '1D'
-    # parameters["model"]["w1"] = 1
-    # parameters["model"]["k_res"] = 0.
-
-    parameters["loading"]["min"] = .9
-    parameters["loading"]["max"] = 2
-    parameters["loading"]["steps"] = 30
-
-    # parameters["geometry"]["geom_type"] = "traction-bar"
-    parameters["geometry"]["ell_lc"] = 3
-
-    return parameters
-
-def parameters_vs_SPA_scaling(parameters = None, s = 0.01):
-    if parameters is None:    
-        with open("../test/parameters.yml") as f:
-            parameters = yaml.load(f, Loader=yaml.FullLoader)
-        
-    parameters["stability"]["cone"]["scaling"] = s
-
-    parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-6
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-5
-
-    parameters["model"]["ell"] = 0.1
-    parameters["loading"]["min"] = .98
-    parameters["loading"]["max"] = 1.4
-    parameters["loading"]["steps"] = 50
-
-    return parameters
-
 def traction_with_parameters(parameters, slug = ''):
     # Get mesh parameters
     Lx = parameters["geometry"]["Lx"]
