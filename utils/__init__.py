@@ -307,12 +307,12 @@ def _write_history_data(equilibrium, bifurcation, stability, history_data, t, in
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
     history_data["total_energy"].append(elastic_energy+fracture_energy)
-    history_data["solver_data"].append(equilibrium.data)
+    history_data["equilibrium_data"].append(equilibrium.data)
     history_data["inertia"].append(inertia)
     history_data["unique"].append(unique)
     history_data["stable"].append(stable)
-    history_data["eigs-ball"].append(bifurcation.data["eigs"])
+    history_data["eigs_ball"].append(bifurcation.data["eigs"])
     history_data["cone_data"].append(stability.data)
-    history_data["eigs-cone"].append(stability.solution["lambda_t"])
+    history_data["eigs_cone"].append(stability.solution["lambda_t"])
 
     return 
