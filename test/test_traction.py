@@ -233,7 +233,7 @@ for i_t, t in enumerate(loads):
         op=MPI.SUM,
     )
     history_data["load"].append(t)
-    history_data["fracture_energy"].append(fracture_empnergy)
+    history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
     history_data["total_energy"].append(elastic_energy+fracture_energy)
     history_data["solver_data"].append([])
@@ -280,5 +280,5 @@ from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 
 if comm.rank == 0:
     plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
-    plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+    # plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
     plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")

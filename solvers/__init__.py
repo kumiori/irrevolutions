@@ -11,12 +11,8 @@ from dolfinx.cpp.log import LogLevel, log
 from dolfinx.fem import form
 # from damage.utils import ColorPrint
 
-try:
-    from dolfinx.fem import (assemble_matrix, apply_lifting,
-                             create_vector, create_matrix, set_bc, assemble_vector)
-except ImportError:
-    from dolfinx.fem.petsc import (
-        assemble_matrix, apply_lifting, create_vector, create_matrix, set_bc, assemble_vector)
+from dolfinx.fem.petsc import (
+    assemble_matrix, apply_lifting, create_vector, create_matrix, set_bc, assemble_vector)
 
 
 # import pdb;
@@ -93,7 +89,6 @@ class SNESSolver:
         # Set options
         snes.setOptionsPrefix(self.prefix)
         self.set_petsc_options()
-
         snes.setFunction(self.F, self.b)
         snes.setJacobian(self.J, self.a)
 
