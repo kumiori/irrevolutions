@@ -107,7 +107,6 @@ solver_snes.getKSP().getPC().setType("lu")
 
 def monitor(snes, its, fgnorm):
     print(f"Iteration {its:d}, error: {fgnorm:2.3e}")
-    __import__('pdb').set_trace()
 
 
 solver_snes.setMonitor(monitor)
@@ -118,7 +117,7 @@ prefix = os.path.join("output", "test-vi")
 if MPI.COMM_WORLD.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
-prefix = "output/test_vi"
+prefix = "output/test-vi"
 from pathlib import Path
 Path(prefix).mkdir(parents=True, exist_ok=True)
 
@@ -161,7 +160,7 @@ _plt, data = plot_profile(
     u,
     points,
     plotter,
-    subplot=(0, 0),
+    subplotnumber=1,
     lineproperties={
         "c": "k",
         "label": f"$u_\ell$ with $\ell$ = {ell:.2f}"
@@ -177,7 +176,6 @@ _plt.savefig(f"{prefix}/test_vi_profile_MPI{MPI.COMM_WORLD.size}-{ell:.3f}.png")
 
 
 
-pdb.set_trace()
 from dolfinx.fem.assemble import assemble_scalar
 
 min_en = assemble_scalar(dolfinx.fem.form(energy))
