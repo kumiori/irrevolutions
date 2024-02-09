@@ -433,4 +433,28 @@ def plot_fields_for_time_step(mode_shapes_data):
         
         return fig, axes
 
+def plot_operator_spectrum(data, parameters):
+    figure, axis = plt.subplots(1, 1)
+    scale = data['eigs-ball'].values[0][0]
+    tol = parameters["stability"]["cone"]["cone_rtol"]
+    colour = np.where(data['eigs-cone'] > tol, 'green', 'red')
+    # Concatenate data for all load steps
+    load_steps_all = np.concatenate([np.full_like(eigenvalues, load_step) for load_step, eigenvalues in zip(data['load'], data['eigs-ball'])])
+    eigenvalues_all = np.concatenate(data['eigs-ball'])
 
+    # Create a scatter plot with vertical alignment
+    axis.scatter(load_steps_all, eigenvalues_all / scale, marker='o', c='C0', label='Eigenvalues in vector space')
+    axis.scatter(data.load, data['eigs-cone'], marker = 'd', c=colour, s=60, label='Eigenvalues in cone')
+
+    axis.set_xlabel(r'Load $t$')
+    axis.set_ylabel('Eigenvalues')
+    axis.set_title('Spectrum of Nonlinear Operator $H_{\\ell}:=E_\\ell\'\'(y_t)$')
+    axis.set_yticks([0, 1, -3])
+    axis.axhline(0., c='k')
+    axis.axhline(tol, c='k')
+    axis.set_ylim(-.5, 1.5)
+    axis.grid(True)
+    axis.legend()
+    
+    return figure, axis
+    # axis.show()

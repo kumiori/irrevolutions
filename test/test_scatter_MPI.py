@@ -324,7 +324,6 @@ def test():
         _suball = vext.getSubVector(_isall)
 
         # v_r.zeroEntries()
-        __import__('pdb').set_trace()
         vres.copy(_suball)
         vext.restoreSubVector(_isall, _suball)
         
@@ -341,7 +340,6 @@ def test():
     xold.zeroEntries()
     extend_vector(vr, xold)
 
-    __import__('pdb').set_trace()
 
 
     while not converged(v_r):
