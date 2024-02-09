@@ -51,7 +51,6 @@ class NonConvergenceException(Exception):
         self.message = message
         super().__init__(self.message)
 
-
 def info_dofmap(space, name=None):
     """Get information on the dofmap"""
     logging.info("\n")
@@ -252,7 +251,7 @@ class SecondOrderSolver:
             pc: Preconditioner object.
         """
         pc = PETSc.PC().create(comm)
-        prefix = "inertia"
+        prefix = "inertia_"
         opts = PETSc.Options(prefix)
         opts["ksp_type"] = "preonly"
         opts["pc_type"] = "cholesky"
