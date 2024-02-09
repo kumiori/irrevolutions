@@ -797,11 +797,11 @@ class StabilitySolver(SecondOrderSolver):
 
         return _cone_restricted
         
-    def log_data(self, xk, lmbda_t, y):
+    def log_data(self, xk, lmbda_k, y):
         # Update SPA data during each iteration
         # self.iterations += 1
         # self.data["iterations"].append(self.iterations)
-        self.data["lambda_k"].append(lmbda_t)
+        self.data["lambda_k"].append(lmbda_k)
         self.data["y_norm_L2"].append(y.norm())
         # self.data["x_norm_L2"].append(xk.norm())
         self.data["error_x_L2"].append(self.error)
@@ -1049,7 +1049,7 @@ class StabilitySolver(SecondOrderSolver):
         # Check for stability based on SPA algorithm's convergence
         if self._converged and lmbda_t < float(self.parameters.get("cone").get("cone_rtol")):
             return False
-        else:
+        elif self._converged and lmbda_t > float(self.parameters.get("cone").get("cone_rtol")):
             return True
 
     def store_results(self, lmbda_t, _xt, _yt):
