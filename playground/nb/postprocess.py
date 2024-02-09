@@ -329,3 +329,127 @@ def format_params(params):
     return '$$\ell = {:.2f}, \\nu = {:.1f}, \\sigma_c = {:.1f}, ' \
            'E = {:.1f}$$'.format(params['material']['ell'], params['material']['nu'],
                 params['material']['sigma_D0'], params['material']['E'])
+
+def _plot_spectrum(data):
+    _stab_cnd = lambda data: [0 if data["cone-stable"][i]==True else 1 for i in range(len(data))]
+    # _uniq_cnd = [.3 if d[0]>0 else .7 for d in data['eigs']]
+    """docstring for plotSpaceVsCone"""
+    figure, axis = plt.subplots(1, 1)
+    _lambda_0 = [np.nan if type(a) is list else a for a in data["cone-eig"] ]
+    
+    # __lambda_0 = [e[0] for e in data['eigs']]
+    __lambda_0 = [e[0] if len(e)>0 else np.nan for e in data['eigs']]
+    scale = __lambda_0[0]
+    _colormap=_stab_cnd(data)
+    axis.scatter(data.load, np.array(_lambda_0)/scale, c=_colormap, cmap='RdYlGn_r', alpha=.8, s=200, label='cone')
+    # axis.scatter(data.load, np.array(__lambda_0)/scale, c=_uniq_cnd, cmap = 'seismic', alpha=.8, label='space')
+    axis.scatter(data.load, np.array(__lambda_0)/scale, cmap = 'seismic', alpha=.8, label='space')
+    axis.axhline(0., c='k')
+    axis.set_xlabel('load')
+    axis.set_yticks([0, 1, -3])
+    axis.set_ylabel('$min \lambda / \Lambda_0$')
+    axis.set_title('Min eig in cone vs. space')
+    axis.legend()
+    
+    return figure, axis
+
+def read_mode_data_from_npz(npz_file, time_step, num_points = -1, num_modes=1):
+    """
+    Read mode data for a given timestep and x_values from an npz file.
+
+    Parameters:
+    - npz_file (numpy.lib.npyio.NpzFile): The npz file containing mode shapes data.
+    - time_step (int): The timestep to read.
+    - num_modes (int): The number of modes.
+    - num_points (int): The number of domain nodes.
+
+    Returns:
+    - mode_data (dict): A dictionary containing mode-specific fields for the given timestep.
+    """
+    mode_data = {}
+    mode_data["x_values"] = npz_file["point_values"].item()["x_values"]
+    if 'time_steps' not in npz_file or time_step not in npz_file['time_steps']:
+        print(f"No data available for timestep {time_step}.")
+        return None
+
+    index = np.where(npz_file['time_steps'] == time_step)[0][0]
+
+    for mode in range(1, num_modes + 1):
+        mode_key = f'mode_{mode}'
+
+        # print(f"{mode_key not in npz_file['point_values']}")
+        
+        if mode_key not in npz_file['point_values'].item():
+            print(f"No data available for mode {mode} at timestep {time_step}.")
+            continue
+
+        fields = npz_file['point_values'].item()[mode_key]
+        if 'bifurcation' not in fields or 'stability' not in fields:
+            print(f"Incomplete data for mode {mode} at timestep {time_step}.")
+            continue
+        
+
+        field_1_values = np.array(fields['bifurcation'][index])
+        field_2_values = np.array(fields['stability'][index])
+
+        # Assuming x_values is known or can be obtained
+        if num_points == -1:
+            num_points = len(npz_file["point_values"].item()["x_values"])
+        x_values = np.linspace(0, 1, num_points)  # Replace with actual x_values
+        
+        mode_data["fields"] = {
+            'bifurcation': {'x_values': x_values, 'values': field_1_values},
+            'stability': {'x_values': x_values, 'values': field_2_values},
+        }
+        mode_data["time_step"] = time_step
+        mode_data["lambda_bifurcation"] = np.nan
+        mode_data["lambda_stability"] = np.nan
+        
+        # print(mode_data[mode_key])
+    return mode_data
+
+def plot_fields_for_time_step(mode_shapes_data):
+    x_values = mode_shapes_data["x_values"]
+    fields = mode_shapes_data["fields"]
+    if 'bifurcation' in fields and 'stability' in fields:
+        bifurcation_values = np.array(fields['bifurcation']['values'])
+        stability_values = np.array(fields['stability']['values'])
+
+        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+        axes[0].plot(x_values, bifurcation_values, label='Bifurcation Mode', marker = 'o')
+        axes[0].set_title(f'Bifurcation')
+
+        axes[1].plot(x_values, stability_values, label='Stability Mode', marker = 'o')
+        axes[1].set_title(f'Stability')
+
+        for axis in axes:
+            axis.axhline(0., c='k')
+        
+        return fig, axes
+
+def plot_operator_spectrum(data, parameters):
+    figure, axis = plt.subplots(1, 1)
+    scale = data['eigs-ball'].values[0][0]
+    tol = parameters["stability"]["cone"]["cone_rtol"]
+    colour = np.where(data['eigs-cone'] > tol, 'green', 'red')
+    # Concatenate data for all load steps
+    load_steps_all = np.concatenate([np.full_like(eigenvalues, load_step) for load_step, eigenvalues in zip(data['load'], data['eigs-ball'])])
+    eigenvalues_all = np.concatenate(data['eigs-ball'])
+
+    # Create a scatter plot with vertical alignment
+    axis.scatter(load_steps_all, eigenvalues_all / scale, marker='o', c='C0', label='Eigenvalues in vector space')
+    axis.scatter(data.load, data['eigs-cone'], marker = 'd', c=colour, s=60, label='Eigenvalues in cone')
+
+    axis.set_xlabel(r'Load $t$')
+    axis.set_ylabel('Eigenvalues')
+    axis.set_title('Spectrum of Nonlinear Operator $H_{\\ell}:=E_\\ell\'\'(y_t)$')
+    axis.set_yticks([0, 1, -3])
+    axis.axhline(0., c='k')
+    axis.axhline(tol, c='k')
+    axis.set_ylim(-.5, 1.5)
+    axis.grid(True)
+    axis.legend()
+    
+    return figure, axis
+    # axis.show()

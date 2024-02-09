@@ -334,12 +334,11 @@ def extend_vector(vres, vext):
     _isall = PETSc.IS().createGeneral(restriction.bglobal_dofs_vec_stacked)
     _suball = vext.getSubVector(_isall)
 
-    # v_r.zeroEntries()
-    __import__('pdb').set_trace()
-    vres.copy(_suball)
-    vext.restoreSubVector(_isall, _suball)
-    
-    return
+        # v_r.zeroEntries()
+        vres.copy(_suball)
+        vext.restoreSubVector(_isall, _suball)
+        
+        return
 
 
 v = urandom.copy()
@@ -353,7 +352,6 @@ print(f"{rank}) vk.array_r {vk.array_r}")
 xold.zeroEntries()
 extend_vector(vr, xold)
 
-__import__('pdb').set_trace()
 
 
 while not converged(v_r):
