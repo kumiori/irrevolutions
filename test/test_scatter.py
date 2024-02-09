@@ -248,14 +248,12 @@ rank = comm.Get_rank()
 size = comm.Get_size()
 
 print(rank)
-__import__('pdb').set_trace()
 v_local = _cpp.la.petsc.get_local_vectors(v, maps)
 v1_local = v_local[1]
 print(f"v1_local {v1_local}")
 
 print(f"{comm.rank}, {rank}/{size} restriction.bglobal_dofs_vec {restriction.bglobal_dofs_vec}")
 print(f"{comm.rank}, {rank}/{size} restriction.bglobal_dofs_vec {restriction.blocal_dofs}")
-__import__('pdb').set_trace()
 # scatters block_local vectors into v
 _cpp.la.petsc.scatter_local_vectors(v, v_local, maps)
 v.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)

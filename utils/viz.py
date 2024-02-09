@@ -30,11 +30,12 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import matplotlib.pyplot as plt
 
-try:
-    from dolfinx.plot import create_vtk_mesh as compute_topology
-except ImportError:
-    from dolfinx.plot import create_vtk_topology as compute_topology
+# try:
+#     from dolfinx.plot import create_vtk_mesh as compute_topology
+# except ImportError:
+#     from dolfinx.plot import create_vtk_topology as compute_topology
 
+from dolfinx.plot import vtk_mesh as compute_topology
 
 def plot_vector(u, plotter, subplot=None, scale=1.):
     if subplot:
@@ -105,12 +106,12 @@ def plot_profile(u, points, plotter, subplot=None, lineproperties={}, fig=None, 
     import matplotlib.pyplot as plt
     import dolfinx.geometry
     mesh = u.function_space.mesh
-    bb_tree = dolfinx.geometry.BoundingBoxTree(mesh, mesh.topology.dim)
+    bb_tree = dolfinx.geometry.bb_tree(mesh, mesh.topology.dim)
 
     cells = []
     points_on_proc = []
     # Find cells whose bounding-box collide with the the points
-    cell_candidates = dolfinx.geometry.compute_collisions(bb_tree, points.T)
+    cell_candidates = dolfinx.geometry.compute_collisions_points(bb_tree, points.T)
     # Choose one of the cells that contains the point
     colliding_cells = dolfinx.geometry.compute_colliding_cells(
         mesh, cell_candidates, points.T
@@ -147,7 +148,7 @@ def plot_mesh(mesh, ax=None):
         ax = plt.gca()
     ax.set_aspect("equal")
     points = mesh.geometry.x
-    cells = mesh.geometry.dofmap.array.reshape((-1, mesh.topology.dim + 1))
+    cells = mesh.geometry.dofmap.reshape((-1, mesh.topology.dim + 1))
     tria = tri.Triangulation(points[:, 0], points[:, 1], cells)
     ax.triplot(tria, color="k")
     return ax

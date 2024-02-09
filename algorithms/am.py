@@ -22,25 +22,16 @@ from dolfinx.io import XDMFFile
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
-try:
-    from dolfinx.fem import (
-        assemble_matrix,
-        apply_lifting,
-        create_vector,
-        create_matrix,
-        set_bc,
-        assemble_vector
-    )
 
-except ImportError:
-    from dolfinx.fem.petsc import (
-        assemble_matrix,
-        apply_lifting,
-        create_vector,
-        create_matrix,
-        set_bc,
-        assemble_vector
-    )
+from dolfinx.fem.petsc import (
+    assemble_matrix,
+    apply_lifting,
+    create_vector,
+    create_matrix,
+    set_bc,
+    assemble_vector
+)
+
 logging.basicConfig()
 
 # logging.getLogger().setLevel(logging.INFO)

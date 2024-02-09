@@ -32,6 +32,10 @@ from dolfinx.common import Timer, list_timings, TimingType
 
 from solvers.function import vec_to_functions
 from pyvista.utilities import xvfb
+import pyvista
+import sys
+from utils.viz import plot_vector, plot_scalar, plot_profile
+from utils import history_data, _write_history_data
 
 from utils.viz import plot_vector, plot_scalar, plot_profile
 from utils import history_data, _write_history_data
@@ -81,7 +85,7 @@ def test_linsearch(parameters, storage):
     tdim = parameters["geometry"]["geometric_dimension"]
     _nameExp = parameters["geometry"]["geom_type"]
     ell_ = parameters["model"]["ell"]
-    _lc = ell_ / parameters["geometry"]["ell_lc"]
+    _lc = ell_ / parameters["geometry"]["mesh_size_factor"]
     geom_type = parameters["geometry"]["geom_type"]
     kick = parameters["stability"]["continuation"]
 
@@ -189,7 +193,7 @@ def test_linsearch(parameters, storage):
     loads = np.linspace(load_par["min"],
                         load_par["max"], load_par["steps"])
 
-    solver = AlternateMinimisation(
+    equilibrium = AlternateMinimisation(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 
@@ -213,25 +217,8 @@ def test_linsearch(parameters, storage):
     linesearch = LineSearch(total_energy, state, linesearch_parameters=parameters.get("stability").get("linesearch"))
 
 
-    history_data = {
-        "load": [],
-        "elastic_energy": [],
-        "fracture_energy": [],
-        "total_energy": [],
-        "solver_data": [],
-        "cone_data": [],
-        "cone-eig": [],
-        "eigs": [],
-        "uniqueness": [],
-        "inertia": [],
-        "F": [],
-        "alphadot_norm": [],
-        "rate_12_norm": [],
-        "unscaled_rate_12_norm": [],
-        "cone-stable": []
-    }
-
-
+    history_data.update({"F": []})
+    
     for i_t, t in enumerate(loads):
         u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
         u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
@@ -248,7 +235,7 @@ def test_linsearch(parameters, storage):
 
         logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
-        solver.solve()
+        equilibrium.solve()
 
         ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
         ColorPrint.print_bold(f"===================-=============")
@@ -280,7 +267,6 @@ def test_linsearch(parameters, storage):
         stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
 
         if not stable:
-            __import__('pdb').set_trace()
             import pyvista
             from pyvista.utilities import xvfb
 
@@ -291,12 +277,11 @@ def test_linsearch(parameters, storage):
 
             order = 3
             h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
-            # logging.critical(f"state is stable: {stable} h_opt is {h_opt}")
             logging.critical(f" *> State is unstable: {not stable}")
             logging.critical(f"line search interval is {interval}")
             logging.critical(f"perturbation energies: {energies_1d}")
             logging.critical(f"hopt: {h_opt}")
-            logging.critical(f"lambda_t: {stability.data['lambda_0']}")
+            logging.critical(f"lambda_t: {stability.solution['lambda_t']}")
             x_plot = np.linspace(interval[0], interval[1], order+1)
             fig, axes = plt.subplots(1, 1)
             plt.scatter(x_plot, energies_1d)
@@ -359,7 +344,6 @@ def test_linsearch(parameters, storage):
                 β,
                 points,
                 plotter,
-                subplot=(0, 0),
                 lineproperties={
                     "c": "k",
                     "label": f"$\\beta$"
@@ -371,6 +355,7 @@ def test_linsearch(parameters, storage):
             _plt.title("Perurbation")
             _plt.savefig(f"{prefix}/perturbation-profile.png")
             _plt.close()
+            
             # perturb the state
             # compute norm of state
             norm_state_pre = sum([norm_H1(v) for v in state.values()])
@@ -385,6 +370,7 @@ def test_linsearch(parameters, storage):
             logging.critical(f"relative norm difference: {(norm_state_post-norm_state_pre) / norm_state_pre}")
             
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
+        ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
@@ -468,10 +454,6 @@ def test_linsearch(parameters, storage):
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
         plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
         plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
-
-
-
-
 
 def load_parameters(file_path):
     """
