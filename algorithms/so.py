@@ -308,47 +308,35 @@ class SecondOrderSolver:
 
         Args:
             u: Eigenmode vector.
-            mode (str): Mode for normalization. Only "max-beta" is supported.
+            mode (str): Mode for normalization. Supported modes:
+                - "max-beta", L-infty on beta
+                - "unit", L2-norm of the mixed vector
         
         Returns:
             float: Coefficient used for normalization.
         """
-        assert mode == "max-beta"
-        v, beta = u[0], u[1]
-        V_alpha_lrange = beta.function_space.dofmap.index_map.local_range
+        if mode == "max-beta":
+            v, beta = u[0], u[1]
+            coeff_glob = beta.vector.norm(3)
 
-        coeff = max(abs(beta.vector[V_alpha_lrange[0]: V_alpha_lrange[1]]))
-        coeff_glob = np.array(0.0, "d")
+            logging.debug(f"{rank}, |β|_infty {beta.vector.norm(3):.3f}")
 
-        comm.Allreduce(coeff, coeff_glob, op=MPI.MAX)
-
-        logging.debug(f"{rank}, coeff_loc {coeff:.3f}")
-        logging.debug(f"{rank}, coeff_glob {coeff_glob:.3f}")
+        elif mode == "unit":
+            coeff_glob = np.sqrt(sum(n**2 for n in [v_i.vector.norm(2) for v_i in u]))
+            logging.debug(f"rank {rank}, coeff_glob {coeff_glob:.3f}")
+            logging.debug(f"{rank}, |(v, β)^*|_2 {coeff_glob:.3f}")
 
         if coeff_glob == 0.0:
-            log(
-                LogLevel.INFO,
-                "Damage eigenvector is null i.e. |β|={}".format(
-                    beta.vector.norm()),
-            )
+            logging.error(f"Damage eigenvector is null i.e. |β|={beta.vector.norm()}")
             return 0.0
 
-        with v.vector.localForm() as v_local:
-            v_local.scale(1.0 / coeff_glob)
-        v.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
-        )
+        for v_i in u:
+            with v_i.vector.localForm() as v_local:
+                v_local.scale(1.0 / coeff_glob)
+            v_i.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
 
-        with beta.vector.localForm() as beta_local:
-            beta_local.scale(1.0 / coeff_glob)
-        beta.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
-        )
+        _norm = np.sqrt(sum(n**2 for n in [v_i.vector.norm(2) for v_i in u]))
 
-        logging.debug(
-            f"{rank}, beta range: ({min(beta.vector[V_alpha_lrange[0] : V_alpha_lrange[1]]):.3f},\
-            {max(beta.vector[V_alpha_lrange[0] : V_alpha_lrange[1]]):.3f})"
-        )
         return coeff_glob
 
     def postproc_eigs(self, eigs, eigen):
@@ -503,7 +491,7 @@ class SecondOrderSolver:
         beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
         _u = create_vector_block(self.F)
         eigval, ur, _ = eigen.getEigenpair(i)
-        _ = self.normalise_eigen(ur)
+        _ = self.normalise_eigen(ur, mode = "unit")
 
         functions_to_vec(ur, _u)
 
@@ -520,7 +508,8 @@ class SecondOrderSolver:
         beta_n.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
-
+        _norm = np.sqrt(sum(n**2 for n in [v_i.vector.norm(2) for v_i in ur]))
+        logging.critical(f"mode {i}-norm {_norm}")
         logging.debug(f"mode {i} {ur[0].name}-norm {ur[0].vector.norm()}")
         logging.debug(f"mode {i} {ur[1].name}-norm {ur[1].vector.norm()}")
         logging.debug(f"mode {i} beta_n-norm {beta_n.vector.norm()}")
