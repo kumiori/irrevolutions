@@ -488,34 +488,30 @@ class SecondOrderSolver:
     def process_eigenmode(self, eigen, i):
         """Process a single eigenmode and return its components."""
         v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
-        beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
+        β_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
         _u = create_vector_block(self.F)
         eigval, ur, _ = eigen.getEigenpair(i)
         _ = self.normalise_eigen(ur, mode = "unit")
 
         functions_to_vec(ur, _u)
 
-        with ur[0].vector.localForm() as v_loc, v_n.vector.localForm() as v_n_loc:
-            v_loc.copy(result=v_n_loc)
 
-        v_n.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        )
+        for u, component in zip(ur, [v_n, β_n]):
+            with u.vector.localForm() as u_loc, component.vector.localForm() as c_loc:
+                u_loc.copy(result=c_loc)
+            component.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )     
 
-        with ur[1].vector.localForm() as b_loc, beta_n.vector.localForm() as b_n_loc:
-            b_loc.copy(result=b_n_loc)
 
-        beta_n.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        )
         _norm = np.sqrt(sum(n**2 for n in [v_i.vector.norm(2) for v_i in ur]))
         logging.critical(f"mode {i}-norm {_norm}")
         logging.debug(f"mode {i} {ur[0].name}-norm {ur[0].vector.norm()}")
         logging.debug(f"mode {i} {ur[1].name}-norm {ur[1].vector.norm()}")
-        logging.debug(f"mode {i} beta_n-norm {beta_n.vector.norm()}")
+        logging.debug(f"mode {i} β_n-norm {β_n.vector.norm()}")
         logging.debug("")
 
-        return v_n, beta_n, eigval, _u
+        return v_n, β_n, eigval, _u
     
     def store_results(self, eigen, spectrum):
         """Store eigenmodes and results."""
