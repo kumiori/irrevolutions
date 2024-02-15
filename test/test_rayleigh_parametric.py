@@ -29,6 +29,41 @@ import matplotlib.pyplot as plt
 
 _logger.setLevel(logging.CRITICAL)
 
+
+def rayleigh_ratio_reduced(β, parameters):
+
+    dx = ufl.Measure("dx", β.function_space.mesh)
+    a, b, c = parameters['model']['a'], parameters['model']['b'], parameters['model']['c']
+    
+    sq_int_beta = (β * dx)**2
+    numerator = (a * β.dx(0)**2 * dx) +  b * c**2 * sq_int_beta
+    denominator = ufl.inner(β, β) * dx
+
+    R = numerator / denominator
+
+    # Create the dolfinx form
+    form = dolfinx.fem.Form(R)
+
+    return form
+
+
+def rayleigh_ratio_form(z, parameters):
+    (v, β) = z
+    dx = ufl.Measure("dx", v.function_space.mesh)
+
+    a, b, c = parameters['model']['a'], parameters['model']['b'], parameters['model']['c']
+    
+    numerator = (a * β.dx(0)**2 + b * (v.dx(0) - c * β)**2) * dx
+    denominator = ufl.inner(β, β) * dx
+
+    R = numerator / denominator
+
+    # Create the dolfinx form
+    form = dolfinx.fem.Form(R)
+
+    return form
+
+
 def rayleigh(parameters, storage=None):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -93,19 +128,12 @@ def rayleigh(parameters, storage=None):
 
     dx = ufl.Measure("dx", alpha.function_space.mesh)
 
+    # G = 1/2 * (a * alpha.dx(0)**2 + b * (u.dx(0) - c * alpha)**2) \
+    #         * dx
+
     G = 1/2 * (a * alpha.dx(0)**2 + b * (u.dx(0) - c * alpha)**2) \
             * dx
 
-    F_ = [
-        ufl.derivative(
-            G, u, ufl.TestFunction(u.ufl_function_space())
-        ),
-        ufl.derivative(
-            G, alpha, ufl.TestFunction(alpha.ufl_function_space()),
-        ),
-    ]
-    F = dolfinx.fem.form(F_)
-    
     dofs_alpha_left = locate_dofs_geometrical(
         V_alpha, lambda x: np.isclose(x[0], 0.))
     dofs_alpha_right = locate_dofs_geometrical(
@@ -172,13 +200,19 @@ def rayleigh(parameters, storage=None):
         data_bifurcation_v = get_datapoints(v, points)
         data_stability = get_datapoints(stability.perturbation['beta'], points)
         
-    mode_shapes_data['time_steps'].append(0)
-    mode_shapes_data['mesh'] = data_stability[0][:, 0]
-                    
+        mode_shapes_data['time_steps'].append(0)
+        mode_shapes_data['mesh'] = data_stability[0][:, 0]
+
+        
+        _R_vector = rayleigh_ratio_form((v, β), parameters)
+        _R_cone   = rayleigh_ratio_reduced(β, parameters)
+        __import__('pdb').set_trace()
+        
     for mode in range(1, num_modes + 1):
-        bifurcation_values_mode = data_bifurcation[1].flatten()  
+        bifurcation_values_mode_β = data_bifurcation[1].flatten()  
         bifurcation_values_mode_v = data_bifurcation_v[1].flatten()  
-        stability_values_mode = data_stability[1].flatten()  
+        stability_values_mode = data_stability[1].flatten() 
+         
         # Append mode-specific fields to the data structure
         mode_key = f'mode_{mode}'
         mode_shapes_data['point_values'][mode_key] = {
@@ -186,7 +220,7 @@ def rayleigh(parameters, storage=None):
             'bifurcation_v': mode_shapes_data['point_values'].get(mode_key, {}).get('bifurcation_v', []),
             'stability_β': mode_shapes_data['point_values'].get(mode_key, {}).get('stability_β', []),
         }
-        mode_shapes_data['point_values'][mode_key]['bifurcation_β'].append(bifurcation_values_mode)
+        mode_shapes_data['point_values'][mode_key]['bifurcation_β'].append(bifurcation_values_mode_β)
         mode_shapes_data['point_values'][mode_key]['bifurcation_v'].append(bifurcation_values_mode_v)
         mode_shapes_data['point_values'][mode_key]['stability_β'].append(stability_values_mode)
 
