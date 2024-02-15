@@ -322,7 +322,7 @@ class SecondOrderSolver:
             logging.debug(f"{rank}, |β|_infty {beta.vector.norm(3):.3f}")
 
         elif mode == "unit":
-            coeff_glob = np.sqrt(sum(n**2 for n in [v_i.vector.norm(2) for v_i in u]))
+            coeff_glob = np.sqrt(sum(n**2 for n in [v_i.vector.norm() for v_i in u]))
             logging.debug(f"rank {rank}, coeff_glob {coeff_glob:.3f}")
             logging.debug(f"{rank}, |(v, β)^*|_2 {coeff_glob:.3f}")
 
@@ -491,11 +491,11 @@ class SecondOrderSolver:
         β_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
         _u = create_vector_block(self.F)
         eigval, ur, _ = eigen.getEigenpair(i)
-        _ = self.normalise_eigen(ur, mode = "unit")
 
         functions_to_vec(ur, _u)
-
-
+        
+        _u.normalize()
+        
         for u, component in zip(ur, [v_n, β_n]):
             with u.vector.localForm() as u_loc, component.vector.localForm() as c_loc:
                 u_loc.copy(result=c_loc)
@@ -503,13 +503,12 @@ class SecondOrderSolver:
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )     
 
+        _norm = np.sqrt(sum(n**2 for n in [v_i.vector.norm() for v_i in ur]))
+        
+        logging.debug(f"mode {i} {ur[0].name}-norm\t\t{ur[0].vector.norm():.3f}")
+        logging.debug(f"mode {i} {ur[1].name}-norm\t\t{ur[1].vector.norm():.3f}")
+        logging.debug(f"mode {i} _u-norm\t\t\t{_u.norm()}\n")
 
-        _norm = np.sqrt(sum(n**2 for n in [v_i.vector.norm(2) for v_i in ur]))
-        logging.critical(f"mode {i}-norm {_norm}")
-        logging.debug(f"mode {i} {ur[0].name}-norm {ur[0].vector.norm()}")
-        logging.debug(f"mode {i} {ur[1].name}-norm {ur[1].vector.norm()}")
-        logging.debug(f"mode {i} β_n-norm {β_n.vector.norm()}")
-        logging.debug("")
 
         return v_n, β_n, eigval, _u
     
@@ -702,7 +701,6 @@ class StabilitySolver(SecondOrderSolver):
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
             
             _logger.debug(f"initial guess x0: {x0.array}")
-            x0.copy(self._xold)
             self.x0 = x0.copy()
         
         errors = []
@@ -728,7 +726,6 @@ class StabilitySolver(SecondOrderSolver):
             self._residual_norm = 1.
             
             self.Ar_matrix = _Ar.copy()
-            
             _y, _xk, _lmbda_k = self.convergence_loop(errors, _Ar, _xk)
 
             self.store_results(_lmbda_k, _xk, _y)
