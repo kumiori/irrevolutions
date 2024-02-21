@@ -143,3 +143,33 @@ def solve_eigenspace_cone(parameters, idx = 0):
     
     return {"v": 0, "β": β.subs(_normalise[idx]), "D": D}, _normalise[idx]
 
+def book_of_the_numbers(scale_b = 3, scale_c = 3):
+    """This function, informally called `fuck_dgsi`, invokes the book of the numbers
+    to get three real quantities, according to the scriptures.
+    
+    @article{pham:2011-the-issues,
+        author = {Pham, Kim and Marigo, Jean-Jacques and Maurini, Corrado},
+        date-added = {2015-08-24 14:23:19 +0000},
+        date-modified = {2022-08-10 11:03:49 +0200},
+        journal = {Journal of the Mechanics and Physics of Solids},
+        number = {6},
+        pages = {1163--1190},
+        publisher = {Elsevier},
+        title = {The issues of the uniqueness and the stability of the homogeneous response in uniaxial tests with gradient damage models},
+        volume = {59},
+        year = {2011},
+        }
+        
+    Also, fuck Elsevier and Springer Nature.
+    
+    """
+    while True:
+        a = np.random.rand()
+        b = np.random.rand()*scale_b
+        c = (np.random.choice([-1, 1], 1) * np.random.rand(1))[0]*scale_c  # Generate a random number with sign between 0 and 3
+
+        # Check conditions
+        if a > 0 and b > 0 and c != 0:
+            break
+
+    return {"a": a, "b": b, "c": c}

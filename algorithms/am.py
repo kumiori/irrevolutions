@@ -34,8 +34,6 @@ from dolfinx.fem.petsc import (
 
 logging.basicConfig()
 
-# logging.getLogger().setLevel(logging.INFO)
-
 
 class AlternateMinimisation:
     def __init__(

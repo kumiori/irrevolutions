@@ -487,8 +487,8 @@ class SecondOrderSolver:
 
     def process_eigenmode(self, eigen, i):
         """Process a single eigenmode and return its components."""
-        v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
-        β_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
+        v_n = dolfinx.fem.Function(self.V_u, name="Displacement_perturbation")
+        β_n = dolfinx.fem.Function(self.V_alpha, name="Damage_perturbation")
         _u = create_vector_block(self.F)
         eigval, ur, _ = eigen.getEigenpair(i)
 
@@ -541,7 +541,9 @@ class SecondOrderSolver:
             "perturbations_v": perturbations_v,
             "stable": bool(stable),
         }
-
+        # store the first perturbation mode
+        self.perturbation = {'v': spectrum[0]['v'], 'β': spectrum[0]['beta'], 'λ': spectrum[0]['lambda']}
+        
         return stable
     
     def check_stability(self, eig0):
@@ -824,16 +826,25 @@ class StabilitySolver(SecondOrderSolver):
 
         return _xk, _y, _xoldr, _Axr
 
-    def finalise_eigenmode(self, xk):
+    def finalise_eigenmode(self, xt, yt, lmbda_t):
         # Extract, extend, and finalize the converged eigenmode
-        self._xk = xk
-        self._extend_vector(xk, self._v)
+        self._xk = xt
+        self._extend_vector(xt, self._v)
 
-        (v, β) = (Function(self.V_u, name="Displacement perturbation"),
-                Function(self.V_alpha, name="Damage perturbation"))
+        (v, β) = (Function(self.V_u, name="Displacement_perturbation"),
+                Function(self.V_alpha, name="Damage_perturbation"))
 
         vec_to_functions(self._v, [v, β])
-        self.perturbation = {"v": v, "beta": β}
+        self.perturbation = {"v": v, "β": β, "λ": lmbda_t}
+
+        self._y = create_vector_block(self.F)
+
+        (w, ζ) = (Function(self.V_u, name="Displacement_residual"),
+                Function(self.V_alpha, name="Damage_residual"))
+
+        self._extend_vector(yt, self._y)
+        vec_to_functions(self._y, [w, ζ])
+        self.residual = {"w": w, "ζ": ζ}
 
         return self.perturbation
 
@@ -1036,7 +1047,7 @@ class StabilitySolver(SecondOrderSolver):
 
     def store_results(self, lmbda_t, _xt, _yt):
         # Store SPA results and log convergence information
-        perturbation = self.finalise_eigenmode(_xt)
+        perturbation = self.finalise_eigenmode(_xt, _yt, lmbda_t)
         # self.data["lambda_0"] = lmbda_t
         self.solution = {"lambda_t": lmbda_t, "xt": _xt, "yt": _yt}
         self.perturbation = perturbation
