@@ -394,6 +394,7 @@ def read_mode_data_from_npz(npz_file, time_step, num_points = -1, num_modes=1):
         field_β_bif_values = np.array(fields['bifurcation_β'][index])
         field_v_bif_values = np.array(fields['bifurcation_v'][index])
         field_β_stab_values = np.array(fields['stability_β'][index])
+        field_v_stab_values = np.array(fields['stability_v'][index])
 
         # Assuming x_values is known or can be obtained
         if num_points == -1:
@@ -403,7 +404,8 @@ def read_mode_data_from_npz(npz_file, time_step, num_points = -1, num_modes=1):
         mode_data["fields"] = {
             'bifurcation_β': field_β_bif_values,
             'bifurcation_v': field_v_bif_values,
-            'stability': field_β_stab_values,
+            'stability_β': field_β_stab_values,
+            'stability_v': field_v_stab_values,
         }
 
         mode_data["time_step"] = time_step
@@ -415,10 +417,11 @@ def read_mode_data_from_npz(npz_file, time_step, num_points = -1, num_modes=1):
 def plot_fields_for_time_step(mode_shapes_data):
     x_values = mode_shapes_data["mesh"]
     fields = mode_shapes_data["fields"]
-    if 'bifurcation_β' in fields and 'stability' in fields:
+    if 'bifurcation_β' in fields and 'stability_β' in fields:
         bifurcation_values = np.array(fields['bifurcation_β'])
         bifurcation_values_v = np.array(fields['bifurcation_v'])
-        stability_values = np.array(fields['stability'])
+        stability_values = np.array(fields['stability_β'])
+        stability_values_v = np.array(fields['stability_v'])
 
         fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
@@ -427,6 +430,7 @@ def plot_fields_for_time_step(mode_shapes_data):
         axes[0].set_title(f'Bifurcation')
 
         axes[1].plot(x_values, stability_values, label='Stability Mode', marker = 'o')
+        axes[1].plot(x_values, stability_values_v, label='Stability Mode', marker = 'o')
         axes[1].set_title(f'Stability')
 
         for axis in axes:

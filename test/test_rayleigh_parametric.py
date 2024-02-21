@@ -1,6 +1,8 @@
 import os
 import sys
 sys.path.append("../")
+sys.path.append("../playground/nb")
+
 import test_binarydataio as bio
 # from test_extend import test_extend_vector
 # from test_cone_project import _cone_project_restricted
@@ -26,9 +28,10 @@ from pyvista.utilities import xvfb
 from utils.viz import plot_profile
 from pathlib import Path
 import matplotlib.pyplot as plt
+from dolfinx.fem import form, assemble_scalar
+import eigenspace as eig
 
 _logger.setLevel(logging.CRITICAL)
-
 
 def rayleigh_ratio_reduced(β, parameters):
 
@@ -39,30 +42,26 @@ def rayleigh_ratio_reduced(β, parameters):
     numerator = (a * β.dx(0)**2 * dx) +  b * c**2 * sq_int_beta
     denominator = ufl.inner(β, β) * dx
 
-    R = numerator / denominator
-
+    R = assemble_scalar(form(numerator))  \
+            / assemble_scalar(form(denominator))
+    
     # Create the dolfinx form
-    form = dolfinx.fem.Form(R)
 
-    return form
+    return R
 
-
-def rayleigh_ratio_form(z, parameters):
+def rayleigh_ratio(z, parameters):
     (v, β) = z
     dx = ufl.Measure("dx", v.function_space.mesh)
 
     a, b, c = parameters['model']['a'], parameters['model']['b'], parameters['model']['c']
     
-    numerator = (a * β.dx(0)**2 + b * (v.dx(0) - c * β)**2) * dx
+    numerator = (a * ufl.inner(β.dx(0), β.dx(0)) + b * ufl.inner(v.dx(0) - c * β, v.dx(0) - c * β)) * dx
     denominator = ufl.inner(β, β) * dx
 
-    R = numerator / denominator
-
-    # Create the dolfinx form
-    form = dolfinx.fem.Form(R)
-
-    return form
-
+    R = assemble_scalar(form(numerator))  \
+            / assemble_scalar(form(denominator))
+    
+    return R
 
 def rayleigh(parameters, storage=None):
     comm = MPI.COMM_WORLD
@@ -164,7 +163,12 @@ def rayleigh(parameters, storage=None):
         'mesh': [],
         'point_values': {
             # 'x_values': [],
+        },
+        'global_values': {
+            'R_vector': [],
+            'R_cone': [],
         }
+        
     }
     num_modes = 1
     
@@ -189,29 +193,35 @@ def rayleigh(parameters, storage=None):
     from utils.viz import get_datapoints
     
     if bifurcation.spectrum:
-        vec_to_functions(bifurcation.spectrum[0]['xk'], [v, β])
+        # vec_to_functions(bifurcation.spectrum[0]['xk'], [v, β])
         
         tol = 1e-3
         xs = np.linspace(0 + tol, 1 - tol, 101)
         points = np.zeros((3, 101))
         points[0] = xs
 
-        data_bifurcation = get_datapoints(β, points)
-        data_bifurcation_v = get_datapoints(v, points)
-        data_stability = get_datapoints(stability.perturbation['beta'], points)
+        data_bifurcation_v = get_datapoints(bifurcation.perturbation['v'], points)
+        data_bifurcation_β = get_datapoints(bifurcation.perturbation['β'], points)
+        data_stability_v = get_datapoints(stability.perturbation['v'], points)
+        data_stability_β = get_datapoints(stability.perturbation['β'], points)
+        data_stability_residual_w = get_datapoints(stability.residual['w'], points)
+        data_stability_residual_ζ = get_datapoints(stability.residual['ζ'], points)
         
         mode_shapes_data['time_steps'].append(0)
-        mode_shapes_data['mesh'] = data_stability[0][:, 0]
+        mode_shapes_data['mesh'] = data_stability_β[0][:, 0]
 
+        _R_vector = rayleigh_ratio((bifurcation.perturbation['v'], bifurcation.perturbation['β']), parameters)
+        _R_cone = rayleigh_ratio((stability.perturbation['v'], stability.perturbation['β']), parameters)
         
-        _R_vector = rayleigh_ratio_form((v, β), parameters)
-        _R_cone   = rayleigh_ratio_reduced(β, parameters)
-        __import__('pdb').set_trace()
+        # for mode in range(1, num_modes + 1):
+        mode = 1
         
-    for mode in range(1, num_modes + 1):
-        bifurcation_values_mode_β = data_bifurcation[1].flatten()  
+        bifurcation_values_mode_β = data_bifurcation_β[1].flatten()  
         bifurcation_values_mode_v = data_bifurcation_v[1].flatten()  
-        stability_values_mode = data_stability[1].flatten() 
+        stability_values_mode_β = data_stability_β[1].flatten() 
+        stability_values_mode_v = data_stability_v[1].flatten() 
+        stability_values_residual_w = data_stability_residual_w[1].flatten() 
+        stability_values_residual_ζ = data_stability_residual_ζ[1].flatten() 
          
         # Append mode-specific fields to the data structure
         mode_key = f'mode_{mode}'
@@ -219,11 +229,21 @@ def rayleigh(parameters, storage=None):
             'bifurcation_β': mode_shapes_data['point_values'].get(mode_key, {}).get('bifurcation_β', []),
             'bifurcation_v': mode_shapes_data['point_values'].get(mode_key, {}).get('bifurcation_v', []),
             'stability_β': mode_shapes_data['point_values'].get(mode_key, {}).get('stability_β', []),
+            'stability_v': mode_shapes_data['point_values'].get(mode_key, {}).get('stability_v', []),
+            'stability_residual_w': mode_shapes_data['point_values'].get(mode_key, {}).get('stability_residual_w', []),
+            'stability_residual_ζ': mode_shapes_data['point_values'].get(mode_key, {}).get('stability_residual_ζ', []),
         }
         mode_shapes_data['point_values'][mode_key]['bifurcation_β'].append(bifurcation_values_mode_β)
         mode_shapes_data['point_values'][mode_key]['bifurcation_v'].append(bifurcation_values_mode_v)
-        mode_shapes_data['point_values'][mode_key]['stability_β'].append(stability_values_mode)
-
+        mode_shapes_data['point_values'][mode_key]['stability_β'].append(stability_values_mode_β)
+        mode_shapes_data['point_values'][mode_key]['stability_v'].append(stability_values_mode_v)
+        mode_shapes_data['point_values'][mode_key]['stability_residual_w'].append(stability_values_residual_w)
+        mode_shapes_data['point_values'][mode_key]['stability_residual_ζ'].append(stability_values_residual_ζ)
+        
+        mode_shapes_data['global_values']['R_vector'] = _R_vector
+        mode_shapes_data['global_values']['R_cone'] = _R_cone
+        
+        __import__('pdb').set_trace()
     np.savez(f'{prefix}/mode_shapes_data.npz', **mode_shapes_data)
 
     return None, None, None
@@ -251,9 +271,8 @@ def load_parameters(file_path, ndofs, model='at1'):
                                 'c': 8})
 
     parameters["geometry"]["geom_type"] = "infinite-dimensional-unit-test"
-    # Get mesh parameters
 
-    parameters["geometry"]["geom_type"] = "traction-bar"
+    # Get mesh parameters
     parameters["geometry"]["mesh_size_factor"] = 4
     parameters["geometry"]["N"] = ndofs
 
@@ -270,8 +289,11 @@ def load_parameters(file_path, ndofs, model='at1'):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process evolution.')
-    parser.add_argument("-N", help="The number of dofs.", type=int, default=10)
+    parser.add_argument("-N", help="The number of dofs.", type=int, default=50)
+    parser.add_argument("-M", help="The number of simulation runs.", type=int, default=10)
+    
     args = parser.parse_args()
+
     parameters, signature = load_parameters("parameters.yml", ndofs=args.N)
     pretty_parameters = json.dumps(parameters, indent=2)
 
