@@ -302,6 +302,34 @@ class SecondOrderSolver:
 
         return (neg, zero, pos)
 
+    def normalise_eigenmode(self, x, mode="functional"):
+        """Normalises the eigenmode by the functional L2 norm
+
+        Args:
+            x (_type_): a (mixed space) vector
+            mode (str, optional): _description_. Defaults to "functional".
+        """
+        _v = dolfinx.fem.Function(self.V_u, name="Displacement_component")
+        _β = dolfinx.fem.Function(self.V_alpha, name="Damage_component")
+
+        vec_to_functions(x, [_v, _β])
+        
+        if mode == "functional":
+            scaling = np.sqrt(norm_L2(_v)**2 + norm_L2(_β)**2)
+        else:
+            raise NotImplementedError("Normalisation mode not implemented")
+        
+        # for u in [_v, _β]:
+        #     with u.vector.localForm() as u_local:
+        #         u_local.scale(1.0 / scaling)
+        #     u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+
+        with x.localForm() as x_local:
+            x_local.scale(1.0 / scaling)
+        x.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+
+        return x
+        
     def normalise_eigen(self, u, mode="max-beta"):
         """
         Normalize the eigenmode vector.
@@ -494,7 +522,7 @@ class SecondOrderSolver:
 
         functions_to_vec(ur, _u)
         
-        _u.normalize()
+        _u = self.normalise_eigenmode(_u, mode="functional")
         
         for u, component in zip(ur, [v_n, β_n]):
             with u.vector.localForm() as u_loc, component.vector.localForm() as c_loc:
@@ -502,13 +530,6 @@ class SecondOrderSolver:
             component.vector.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )     
-
-        _norm = np.sqrt(sum(n**2 for n in [v_i.vector.norm() for v_i in ur]))
-        
-        logging.debug(f"mode {i} {ur[0].name}-norm\t\t{ur[0].vector.norm():.3f}")
-        logging.debug(f"mode {i} {ur[1].name}-norm\t\t{ur[1].vector.norm():.3f}")
-        logging.debug(f"mode {i} _u-norm\t\t\t{_u.norm()}\n")
-
 
         return v_n, β_n, eigval, _u
     
@@ -730,7 +751,13 @@ class StabilitySolver(SecondOrderSolver):
             self.Ar_matrix = _Ar.copy()
             _y, _xk, _lmbda_k = self.convergence_loop(errors, _Ar, _xk)
 
-            self.store_results(_lmbda_k, _xk, _y)
+            # process eigenmode
+            # ... normalise ...
+            y = self.normalise_eigenmode(_y, mode="functional")
+            xk = self.normalise_eigenmode(_xk, mode="functional")
+            
+            # store
+            self.store_results(_lmbda_k, xk, y)
             stable = self.check_stability(_lmbda_k)
 
         return stable
@@ -1045,16 +1072,16 @@ class StabilitySolver(SecondOrderSolver):
         elif self._converged and lmbda_t > float(self.parameters.get("cone").get("cone_rtol")):
             return True
 
-    def store_results(self, lmbda_t, _xt, _yt):
+    def store_results(self, lmbda_t, xt, yt):
         # Store SPA results and log convergence information
-        perturbation = self.finalise_eigenmode(_xt, _yt, lmbda_t)
+        perturbation = self.finalise_eigenmode(xt, yt, lmbda_t)
         # self.data["lambda_0"] = lmbda_t
-        self.solution = {"lambda_t": lmbda_t, "xt": _xt, "yt": _yt}
+        self.solution = {"lambda_t": lmbda_t, "xt": xt, "yt": yt}
         self.perturbation = perturbation
         _logger.info(
             f"Convergence of SPA algorithm within {self.iterations} iterations")
         _logger.info(
-            f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(_xt)}")
+            f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(xt)}")
 
         _logger.critical(f"Restricted Eigenvalue {lmbda_t:.4e}")
         _logger.info(f"Restricted Eigenvalue is positive {lmbda_t > 0}")
