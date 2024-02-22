@@ -1,6 +1,7 @@
 import os
 import sys
 sys.path.append("../")
+sys.path.append("../playground/nb")
 import test_binarydataio as bio
 # from test_extend import test_extend_vector
 # from test_cone_project import _cone_project_restricted
@@ -27,8 +28,11 @@ from utils.viz import plot_profile
 from pathlib import Path
 import matplotlib.pyplot as plt
 from utils.viz import get_datapoints
+import eigenspace as eig
+from utils import indicator_function
 
 _logger.setLevel(logging.CRITICAL)
+
 
 def rayleigh(parameters, storage=None):
     comm = MPI.COMM_WORLD
@@ -137,10 +141,13 @@ def rayleigh(parameters, storage=None):
         'time_steps': [],
         'mesh': [],
         'point_values': {
+            # 'x_values': [],
         },
         'global_values': {
             'R_vector': [],
             'R_cone': [],
+            'D_theory': [],
+            'D_support': [],
         }
         
     }
@@ -166,6 +173,9 @@ def rayleigh(parameters, storage=None):
     
     if bifurcation.spectrum:
         vec_to_functions(bifurcation.spectrum[0]['xk'], [v, β])
+        
+        _support = indicator_function(stability.perturbation['β'])
+        D_support = dolfinx.fem.assemble_scalar(dolfinx.fem.form(_support * dx))
         
         tol = 1e-3
         xs = np.linspace(0 + tol, 1 - tol, 101)
@@ -248,7 +258,7 @@ def rayleigh(parameters, storage=None):
 
         axes[1] = _plt.gca()
         axes[1].set_xlabel('x')
-        axes[1].set_xticks([0, _D, 1], [0, r"$D$", 1])
+        axes[1].set_xticks([0, _D, D_support, 1-_D, 1], [0, r"$D$", r"D^*", r"$1-D$", 1])
         axes[1].set_yticks([0], [0])
         axes[1].set_ylabel('$v,\\beta$')
         _plt.legend()
@@ -287,8 +297,8 @@ def rayleigh(parameters, storage=None):
 
         axes[2] = _plt.gca()
         axes[2].set_xlabel('x')
-        axes[2].set_xticks([0, _D, 1], [0, r"$D$", 1])
-        # axes[2].set_yticks([0], [0])
+        axes[2].set_xticks([0, _D, D_support, 1-_D, 1], [0, r"$D$", r"D^*", r"$1-D$", 1])
+        axes[2].set_yticks([0], [0])
 
         _plt.title("Residual in the Cone")
 
@@ -333,6 +343,12 @@ def rayleigh(parameters, storage=None):
         mode_shapes_data['point_values'][mode_key]['stability_residual_w'].append(stability_values_residual_w)
         mode_shapes_data['point_values'][mode_key]['stability_residual_ζ'].append(stability_values_residual_ζ)
         
+        # mode_shapes_data['global_values']['R_vector'] = _R_vector
+        # mode_shapes_data['global_values']['R_cone'] = _R_cone
+        mode_shapes_data['global_values']['D_theory'] = _D
+        mode_shapes_data['global_values']['D_support'] = D_support
+            
+    print(mode_shapes_data['global_values'])
     np.savez(f'{prefix}/mode_shapes_data.npz', **mode_shapes_data)
 
     return None, None, None
@@ -355,9 +371,11 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["model"] = {}
     parameters["model"]["model_dimension"] = 1
     parameters["model"]["model_type"] = '1D'
-    parameters["model"].update({'a': 10,
-                                'b': 6,
-                                'c': 6})
+    parameters["model"].update({'a': 1,
+                                'b': 4,
+                                'c': 10})
+    # _numerical_parameters = eig.book_of_the_numbers()
+    # parameters["model"].update(_numerical_parameters)
 
     parameters["geometry"]["geom_type"] = "infinite-dimensional-unit-test"
     # Get mesh parameters
@@ -369,8 +387,8 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["stability"]["inactiveset_gatol"] = 1e-1
     
     parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-8
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-8
+    parameters["stability"]["cone"]["cone_atol"] = 1e-6
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
     parameters["stability"]["cone"]["scaling"] = 1e-3
     
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()

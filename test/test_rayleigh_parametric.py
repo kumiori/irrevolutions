@@ -30,6 +30,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from dolfinx.fem import form, assemble_scalar
 import eigenspace as eig
+from utils import indicator_function
 
 _logger.setLevel(logging.CRITICAL)
 
@@ -99,7 +100,7 @@ def rayleigh(parameters, storage=None):
     
     # (size of the) support of the cone-eigenfunction - if any.
     # 
-    _D = (np.pi**2 * _a/(_b*_c**2) )**(1/3)
+    _D = (np.pi**2 * _a/(_b*_c**2) )**(1/3) if np.pi**2 * _a - _b * _c**2 < 0 else 1
 
     element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
     element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
@@ -167,6 +168,8 @@ def rayleigh(parameters, storage=None):
         'global_values': {
             'R_vector': [],
             'R_cone': [],
+            'D_theory': [],
+            'D_support': [],
         }
         
     }
@@ -187,7 +190,9 @@ def rayleigh(parameters, storage=None):
     is_unique = bifurcation.solve(zero_alpha)
     inertia = bifurcation.get_inertia()
     stable = stability.solve(zero_alpha, eig0=bifurcation.spectrum, inertia = (1, 0, 10))
-    
+    # (size of the) support of the cone-eigenfunction - if any.
+    # 
+
     _logger.setLevel(level=logging.INFO)
     
     from utils.viz import get_datapoints
@@ -242,13 +247,14 @@ def rayleigh(parameters, storage=None):
         
         mode_shapes_data['global_values']['R_vector'] = _R_vector
         mode_shapes_data['global_values']['R_cone'] = _R_cone
+        mode_shapes_data['global_values']['D_theory'] = _D
+        mode_shapes_data['global_values']['D_support'] = _D
         
-        __import__('pdb').set_trace()
     np.savez(f'{prefix}/mode_shapes_data.npz', **mode_shapes_data)
 
     return None, None, None
 
-def load_parameters(file_path, ndofs, model='at1'):
+def load_parameters(file_path, ndofs, model='rayleigh'):
     """
     Load parameters from a YAML file.
 
@@ -266,10 +272,14 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["model"] = {}
     parameters["model"]["model_dimension"] = 1
     parameters["model"]["model_type"] = '1D'
-    parameters["model"].update({'a': 1,
-                                'b': 1,
-                                'c': 8})
 
+    _numerical_parameters = eig.book_of_the_numbers(scale_c=2, scale_b=3)
+
+    # parameters["model"].update({'a': 1,
+    #                             'b': 1,
+    #                             'c': 8})
+
+    parameters["model"].update(_numerical_parameters)
     parameters["geometry"]["geom_type"] = "infinite-dimensional-unit-test"
 
     # Get mesh parameters
@@ -279,27 +289,32 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["stability"]["inactiveset_gatol"] = 1e-1
     
     parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-8
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-8
-    parameters["stability"]["cone"]["scaling"] = 1e-2
+    parameters["stability"]["cone"]["cone_atol"] = 1e-6
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
+    parameters["stability"]["cone"]["scaling"] = 1e-3
     
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
     return parameters, signature
 
 if __name__ == "__main__":
+    
     parser = argparse.ArgumentParser(description='Process evolution.')
     parser.add_argument("-N", help="The number of dofs.", type=int, default=50)
     parser.add_argument("-M", help="The number of simulation runs.", type=int, default=10)
     
     args = parser.parse_args()
 
-    parameters, signature = load_parameters("parameters.yml", ndofs=args.N)
-    pretty_parameters = json.dumps(parameters, indent=2)
+    # run M simulations:
+        
+    input(f"About to run {args.M} random tests, from the Book of the Numbers \nPress any key to continue...")
+    
+    for i in range(args.M):
+        parameters, signature = load_parameters("parameters.yml", ndofs=args.N)
+        pretty_parameters = json.dumps(parameters, indent=2)
 
+        _storage = f"output/rayleigh-benchmark-parametric/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+        ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    _storage = f"output/rayleigh-benchmark-parametric/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
-    ColorPrint.print_bold(f"===================-{_storage}-=================")
-
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
-        history_data, stability_data, state = rayleigh(parameters, _storage)
+        with dolfinx.common.Timer(f"~Random Computation Experiment") as timer:
+            history_data, stability_data, state = rayleigh(parameters, _storage)
