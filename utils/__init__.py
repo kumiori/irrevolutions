@@ -316,3 +316,16 @@ def _write_history_data(equilibrium, bifurcation, stability, history_data, t, in
     history_data["eigs_cone"].append(stability.solution["lambda_t"])
 
     return 
+
+
+def indicator_function(v):
+    import dolfinx
+    # Create the indicator function
+    w = dolfinx.fem.Function(v.function_space)
+    with w.vector.localForm() as w_loc, v.vector.localForm() as v_loc:
+        w_loc[:] = np.where(v_loc[:] > 0, 1., 0.)
+
+    w.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
+        mode=PETSc.ScatterMode.FORWARD)
+    
+    return w
