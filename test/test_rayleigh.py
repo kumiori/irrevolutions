@@ -159,15 +159,13 @@ def rayleigh(parameters, storage=None):
         G, state, bcs,
         bifurcation_parameters=parameters.get("stability")
     )
-
     stability = StabilitySolver(
         G, state, bcs,
         cone_parameters=parameters.get("stability")
     )
-
     is_unique = bifurcation.solve(zero_alpha)
     inertia = bifurcation.get_inertia()
-    stable = stability.solve(zero_alpha, eig0=bifurcation.spectrum, inertia = (1, 0, 10))
+    stable = stability.solve(zero_alpha, eig0=bifurcation.spectrum[0]['xk'], inertia = (1, 0, 10))
     
     _logger.setLevel(level=logging.INFO)
     
@@ -342,6 +340,7 @@ def rayleigh(parameters, storage=None):
         mode_shapes_data['point_values'][mode_key]['stability_v'].append(stability_values_mode_v)
         mode_shapes_data['point_values'][mode_key]['stability_residual_w'].append(stability_values_residual_w)
         mode_shapes_data['point_values'][mode_key]['stability_residual_ζ'].append(stability_values_residual_ζ)
+        mode_shapes_data['mesh'] = data_stability_β[0][:, 0]
         
         # mode_shapes_data['global_values']['R_vector'] = _R_vector
         # mode_shapes_data['global_values']['R_cone'] = _R_cone
@@ -372,8 +371,8 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["model"]["model_dimension"] = 1
     parameters["model"]["model_type"] = '1D'
     parameters["model"].update({'a': 1,
-                                'b': 4,
-                                'c': 10})
+                                'b': 5,
+                                'c': 2})
     # _numerical_parameters = eig.book_of_the_numbers()
     # parameters["model"].update(_numerical_parameters)
 

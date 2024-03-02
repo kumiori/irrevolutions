@@ -166,7 +166,7 @@ def book_of_the_numbers(scale_b = 3, scale_c = 3):
     while True:
         a = np.random.rand()
         b = np.random.rand()*scale_b
-        c = (np.random.choice([-1, 1], 1) * np.random.rand(1))[0]*scale_c  # Generate a random number with sign between 0 and 3
+        c = float((np.random.choice([-1, 1], 1) * np.random.rand(1))[0]*scale_c)  # Generate a random number with sign between 0 and 3
 
         # Check conditions
         if a > 0 and b > 0 and c != 0:

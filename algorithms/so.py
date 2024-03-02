@@ -713,13 +713,14 @@ class StabilitySolver(SecondOrderSolver):
             _logger.info("the current state is damage-critical and the evolution path is unique, the state is thus *Stable")
             return True
         else:
-            assert len(eig0) > 0
+            # assert len(eig0) > 0
             # assert that there is at least one negative or zero eigenvalue
             assert inertia[0] > 0 or inertia[1] > 0
     
             _x, _y, _Ax, self._xold = self.initialize_full_vectors()
 
-            x0 = eig0[0].get("xk")
+            # x0 = eig0[0].get("xk")
+            x0 = eig0
             x0.copy(result=_x).normalize()
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
             
