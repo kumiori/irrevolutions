@@ -13,9 +13,9 @@ import dolfinx.plot
 from dolfinx import log
 import ufl
 sys.path.append("../")
+from pyvista.utilities import xvfb
 
-from dolfinx.io import XDMFFile
-from meshes import gmsh_model_to_mesh
+# from meshes import gmsh_model_to_mesh
 # from damage.utils import ColorPrint
 from models import ElasticityModel
 from solvers import SNESSolver as ElasticitySolver
@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO)
 
 import dolfinx
 import dolfinx.plot
-import dolfinx.io
+from dolfinx.io import XDMFFile, gmshio
 from dolfinx.fem import (
     Constant,
     Function,
@@ -74,6 +74,9 @@ log.set_log_level(log.LogLevel.WARNING)
 
 comm = MPI.COMM_WORLD
 
+# Mesh on node model_rank and then distribute
+model_rank = 0
+
 with open("parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -90,10 +93,7 @@ geom_type = parameters["geometry"]["geom_type"]
 gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
 
 # Get mesh and meshtags
-mesh, mts = gmsh_model_to_mesh(gmsh_model,
-                               cell_data=False,
-                               facet_data=True,
-                               gdim=2)
+mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
 outdir = "output"
 if comm.rank == 0:
@@ -108,11 +108,14 @@ with XDMFFile(comm, f"{prefix}.xdmf", "w",
 # Function spaces
 element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
 V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
+V_ux = dolfinx.fem.FunctionSpace(
+    mesh, ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+)
 
 # Define the state
 u = dolfinx.fem.Function(V_u, name="Displacement")
 u_ = dolfinx.fem.Function(V_u, name="Boundary Displacement")
-ux_ = dolfinx.fem.Function(V_u.sub(0).collapse(), name="Boundary Displacement")
+ux_ = dolfinx.fem.Function(V_ux, name="Boundary Displacement")
 zero_u = dolfinx.fem.Function(V_u, name="   Boundary Displacement")
 
 state = {"u": u}
@@ -126,7 +129,7 @@ dofs_u_left = dolfinx.fem.locate_dofs_geometrical(
 dofs_u_right = dolfinx.fem.locate_dofs_geometrical(
     V_u, lambda x: np.isclose(x[0], Lx))
 dofs_ux_right = dolfinx.fem.locate_dofs_geometrical(
-    (V_u.sub(0), V_u.sub(0).collapse()), lambda x: np.isclose(x[0], Lx))
+    V_ux, lambda x: np.isclose(x[0], Lx))
 
 # Set Bcs Function
 zero_u.interpolate(lambda x: (np.zeros_like(x[0]), np.zeros_like(x[1])))
@@ -199,6 +202,8 @@ for i_t, t in enumerate(loads):
 
 from utils.viz import plot_mesh, plot_vector, plot_scalar
 import pyvista 
+xvfb.start_xvfb(wait=0.05)
+pyvista.OFF_SCREEN = True
 
 plotter = pyvista.Plotter(
     title="Displacement",
@@ -208,4 +213,4 @@ plotter = pyvista.Plotter(
 
 # _plt = plot_scalar(u_.sub(0), plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 1))
-_plt.screenshot(f"output/elasticity_displacement_MPI{comm.size}.png")
+_plt.screenshot(f"output/elasticity/elasticity_displacement_MPI{comm.size}.png")

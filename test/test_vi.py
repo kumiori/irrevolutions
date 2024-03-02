@@ -22,6 +22,9 @@ import petsc4py
 from petsc4py import PETSc
 import sys
 import yaml
+import pdb
+import os
+from pathlib import Path
 
 sys.path.append("../")
 from solvers import SNESSolver
@@ -110,8 +113,13 @@ solver_snes.setMonitor(monitor)
 solver_snes.solve(None, u.vector)
 # solver_snes.view()
 
+prefix = os.path.join("output", "test-vi")
+if MPI.COMM_WORLD.rank == 0:
+    Path(prefix).mkdir(parents=True, exist_ok=True)
+
+prefix = "output/test-vi"
 from pathlib import Path
-Path("output").mkdir(parents=True, exist_ok=True)
+Path(prefix).mkdir(parents=True, exist_ok=True)
 
 with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "output/u.xdmf", "w") as f:
     f.write_mesh(mesh)
@@ -123,7 +131,7 @@ from pyvista.utilities import xvfb
 import dolfinx.plot
 
 sys.path.append("../../test")
-from test_viz import plot_vector, plot_scalar, plot_profile
+from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
 
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
@@ -138,7 +146,7 @@ _plt = plot_scalar(u, plotter, subplot=(0, 0), lineproperties=_props)
 
 # _plt = plot_vector(u, plotter, subplot=(0, 1))
 
-_plt.screenshot(f"./output/test_vi_MPI{MPI.COMM_WORLD.size}.png")
+_plt.screenshot(f"{prefix}/test_vi_MPI{MPI.COMM_WORLD.size}.png")
 
 if not pyvista.OFF_SCREEN:
     plotter.show()
@@ -152,7 +160,7 @@ _plt, data = plot_profile(
     u,
     points,
     plotter,
-    subplot=(0, 0),
+    subplotnumber=1,
     lineproperties={
         "c": "k",
         "label": f"$u_\ell$ with $\ell$ = {ell:.2f}"
@@ -164,12 +172,10 @@ ax.axvline(2 * ell, c="k", label='D=$2\ell$')
 _plt.legend()
 _plt.fill_between(data[0], data[1].reshape(len(data[1])))
 _plt.title("Variational Inequality")
-_plt.savefig(f"./output/test_vi_profile_MPI{MPI.COMM_WORLD.size}-{ell:.3f}.png")
+_plt.savefig(f"{prefix}/test_vi_profile_MPI{MPI.COMM_WORLD.size}-{ell:.3f}.png")
 
 
-import pdb
 
-pdb.set_trace()
 from dolfinx.fem.assemble import assemble_scalar
 
 min_en = assemble_scalar(dolfinx.fem.form(energy))

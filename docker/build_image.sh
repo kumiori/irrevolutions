@@ -1,5 +1,5 @@
 #!/bin/bash
-docker build  -t fenicsx-dev -f Dockerfile.dev --no-cache .
+docker build  -t fenicsx-stable -f Dockerfile.dev --no-cache .
 # docker images
 # docker tag <id> kumiori3/numerix:latest
 # docker push kumiori3/numerix:latest
