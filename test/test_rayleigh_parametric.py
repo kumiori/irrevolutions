@@ -198,7 +198,7 @@ def rayleigh(parameters, storage=None):
     from utils.viz import get_datapoints
     
     if bifurcation.spectrum:
-        # vec_to_functions(bifurcation.spectrum[0]['xk'], [v, β])
+        # vec_to_functions(bifurcation.spectrum[0]['xk'], [v, β])   
         
         tol = 1e-3
         xs = np.linspace(0 + tol, 1 - tol, 101)
@@ -217,6 +217,9 @@ def rayleigh(parameters, storage=None):
 
         _R_vector = rayleigh_ratio((bifurcation.perturbation['v'], bifurcation.perturbation['β']), parameters)
         _R_cone = rayleigh_ratio((stability.perturbation['v'], stability.perturbation['β']), parameters)
+        
+        _support = indicator_function(stability.perturbation['β'])
+        D_support = dolfinx.fem.assemble_scalar(dolfinx.fem.form(_support * dx))  
         
         # for mode in range(1, num_modes + 1):
         mode = 1
@@ -248,7 +251,7 @@ def rayleigh(parameters, storage=None):
         mode_shapes_data['global_values']['R_vector'] = _R_vector
         mode_shapes_data['global_values']['R_cone'] = _R_cone
         mode_shapes_data['global_values']['D_theory'] = _D
-        mode_shapes_data['global_values']['D_support'] = _D
+        mode_shapes_data['global_values']['D_support'] = D_support
         
     np.savez(f'{prefix}/mode_shapes_data.npz', **mode_shapes_data)
 
@@ -278,7 +281,7 @@ def load_parameters(file_path, ndofs, model='rayleigh'):
     # parameters["model"].update({'a': 1,
     #                             'b': 1,
     #                             'c': 8})
-
+    
     parameters["model"].update(_numerical_parameters)
     parameters["geometry"]["geom_type"] = "infinite-dimensional-unit-test"
 

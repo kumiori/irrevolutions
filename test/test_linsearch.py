@@ -362,6 +362,7 @@ def test_linsearch(parameters, storage):
         
             if kick:
                 linesearch.perturb(state, perturbation, h_opt)
+                hybrid.solve(alpha_lb)
         
             norm_state_post = sum([norm_H1(v) for v in state.values()])
             # print norms and relative norms difference
@@ -425,7 +426,7 @@ def test_linsearch(parameters, storage):
 
     import pandas as pd
     df = pd.DataFrame(history_data)
-    print(df.drop(['solver_data', 'cone_data'], axis=1))
+    print(df.drop(['equilibrium_data', 'cone_data'], axis=1))
 
     # Viz
     from pyvista.utilities import xvfb
