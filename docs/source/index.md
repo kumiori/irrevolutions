@@ -3,7 +3,15 @@
 % You can adapt this file completely to your liking, but it should at least
 % contain the root `toctree` directive.
 
-# Welcome to Irreversible Solvers's documentation!
+# Irreversible Solvers • documentation
+
+```{include} ../../README.md
+:relative-images:
+```
+
+```{warning}
+Library uner development
+```
 
 ```{toctree}
 :caption: 'Contents:'
