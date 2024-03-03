@@ -4,8 +4,10 @@ from petsc4py import PETSc
 
 import os
 import sys
+
 sys.path.append("../")
 import solvers.restriction as restriction
+
 # from utils import _logger
 import dolfinx
 import ufl
@@ -29,6 +31,7 @@ from test_vector_info import display_vector_info
 
 _logger = setup_logger_mpi()
 
+
 def is_restricted(v, constraints):
     """
     Check if the vector v is a restricted vector based on the given constraints.
@@ -46,6 +49,7 @@ def is_restricted(v, constraints):
     global_size = comm.allreduce(v.sizes[0], op=MPI.SUM)
     return global_size == len(constraints.bglobal_dofs_vec_stacked)
 
+
 if __name__ == "__main__":
     F, v = init_data(10, positive=False)
     # _logger.info(f"F: {F}")
@@ -54,9 +58,9 @@ if __name__ == "__main__":
     V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
     x = dolfinx.fem.petsc.create_vector_block(F)
     x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-    
+
     restricted_dofs = get_inactive_dofset(v, F)
-    
+
     constraints = restriction.Restriction([V_u, V_alpha], restricted_dofs)
     vr = constraints.restrict_vector(v)
 
@@ -65,7 +69,7 @@ if __name__ == "__main__":
     # display_vector_info(v)
     # comm.barrier()
     _ans = []
-    # ans = 
+    # ans =
     for _v, name in zip([v, vr], ["v", "vr"]):
         _logger.debug(f"       ~ Vector  {name}")
         reason = is_restricted(_v, constraints)
@@ -74,8 +78,8 @@ if __name__ == "__main__":
         else:
             print(f"The vector {name} is not restricted.")
         _ans.append(reason)
-        
+
         display_vector_info(_v)
-        
+
     print(f"Are v and vr restricted? {_ans}")
     # assert _ans == [False, True]

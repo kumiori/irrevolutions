@@ -8,7 +8,7 @@
 
 project = 'Irreversible Solvers'
 copyright = '2024, Anddés A León Baldelli'
-author = 'Anddés A León Baldelli'
+author = 'Andrés A León Baldelli'
 release = '0.1'
 
 # -- General configuration ---------------------------------------------------
@@ -17,10 +17,17 @@ release = '0.1'
 extensions = ["myst_parser",
               "sphinx.ext.duration",
               "sphinx.ext.autosectionlabel",
+              "sphinx.ext.autodoc",
+              "autoapi.extension",
+              "sphinx.ext.napoleon",
               ]
 
+autoapi_type = 'python'
+autoapi_dirs = ['../../']
+
 templates_path = ['_templates']
-exclude_patterns = []
+exclude_patterns = [
+                    ]
 
 
 

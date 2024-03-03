@@ -14,6 +14,7 @@ import dolfinx.plot
 from dolfinx import log
 import ufl
 import numpy as np
+
 sys.path.append("../")
 from utils.plots import plot_energies
 from utils import ColorPrint
@@ -66,12 +67,7 @@ from algorithms.so import BifurcationSolver
 
 # ///////////
 
-from utils.viz import (
-    plot_mesh,
-    plot_profile,
-    plot_scalar,
-    plot_vector
-)
+from utils.viz import plot_mesh, plot_profile, plot_scalar, plot_vector
 
 
 petsc4py.init(sys.argv)
@@ -93,14 +89,14 @@ _r = parameters["geometry"]["r"]
 _omega = parameters["geometry"]["omega"]
 tdim = parameters["geometry"]["geometric_dimension"]
 _nameExp = parameters["geometry"]["geom_type"]
-_nameExp = 'pacman'
+_nameExp = "pacman"
 ell_ = parameters["model"]["ell"]
-lc = ell_ / 1.
+lc = ell_ / 1.0
 
 parameters["geometry"]["lc"] = lc
 
-parameters["loading"]["min"] = 0.
-parameters["loading"]["max"] = .5
+parameters["loading"]["min"] = 0.0
+parameters["loading"]["max"] = 0.5
 # Get geometry model
 geom_type = parameters["geometry"]["geom_type"]
 
@@ -115,7 +111,9 @@ mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
-with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+with XDMFFile(
+    comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+) as file:
     file.write_mesh(mesh)
 
 if comm.rank == 0:
@@ -161,27 +159,33 @@ from dolfinx.fem import (
     locate_dofs_topological,
     set_bc,
 )
+
+
 def singularity_exp(omega):
     """Exponent of singularity, λ\in [1/2, 1]
     lmbda : = sin(2*lmbda*(pi - omega)) + lmbda*sin(2(pi-lmbda)) = 0"""
     from sympy import nsolve, pi, sin, symbols
 
-    x = symbols('x')
+    x = symbols("x")
 
-    return nsolve(
-        sin(2*x*(pi - omega)) + x*sin(2*(pi-omega)), 
-        x, .5)
+    return nsolve(sin(2 * x * (pi - omega)) + x * sin(2 * (pi - omega)), x, 0.5)
+
 
 def ext_boundary_marker(x):
-    return np.isclose(x[0]**2. + x[1]**2. - _r**2, 0., atol = 1.e-4)
+    return np.isclose(x[0] ** 2.0 + x[1] ** 2.0 - _r**2, 0.0, atol=1.0e-4)
+
 
 ext_bd_facets = locate_entities_boundary(
-    mesh, dim=1, marker=lambda x: np.isclose(x[0]**2. + x[1]**2. - _r**2, 0., atol = 1.e-4)
-    )
+    mesh,
+    dim=1,
+    marker=lambda x: np.isclose(x[0] ** 2.0 + x[1] ** 2.0 - _r**2, 0.0, atol=1.0e-4),
+)
 
 # boundary_facets = dolfinx.mesh.exterior_facet_indices(mesh.topology)
 boundary_dofs_u = locate_dofs_topological(V_u, mesh.topology.dim - 1, ext_bd_facets)
-boundary_dofs_alpha = locate_dofs_topological(V_alpha, mesh.topology.dim - 1, ext_bd_facets)
+boundary_dofs_alpha = locate_dofs_topological(
+    V_alpha, mesh.topology.dim - 1, ext_bd_facets
+)
 
 # locate_dofs_geometrical(V_alpha, ext_boundary_marker)
 # locate_dofs_geometrical(V_u, ext_boundary_marker)
@@ -189,17 +193,24 @@ boundary_dofs_alpha = locate_dofs_topological(V_alpha, mesh.topology.dim - 1, ex
 # also: boundary_facets = locate_entities_boundary(mesh, dim=1, marker = lambda x: np.full(x.shape[1], True, dtype=bool))
 
 
-def _local_notch_asymptotic(x, ω=np.deg2rad(_omega / 2.), t=1., par = parameters["material"]):
+def _local_notch_asymptotic(
+    x, ω=np.deg2rad(_omega / 2.0), t=1.0, par=parameters["material"]
+):
     from sympy import nsolve, pi, sin, cos, pi, symbols
-    λ = singularity_exp(ω)
-    Θ = symbols('Θ')
-    _E = par['E']
-    ν = par['ν']
-    Θv = np.arctan2(x[1], x[0])
-        
-    coeff = ( (1+λ) * sin( (1+λ) * (pi - ω) ) ) / ( (1-λ) * sin( (1-λ) * (pi - ω) ) )
 
-    _f = (2*np.pi)**(λ - 1) * ( cos( (1+λ) * Θ) - coeff * cos((1-λ) * Θ) ) / (1-coeff)
+    λ = singularity_exp(ω)
+    Θ = symbols("Θ")
+    _E = par["E"]
+    ν = par["ν"]
+    Θv = np.arctan2(x[1], x[0])
+
+    coeff = ((1 + λ) * sin((1 + λ) * (pi - ω))) / ((1 - λ) * sin((1 - λ) * (pi - ω)))
+
+    _f = (
+        (2 * np.pi) ** (λ - 1)
+        * (cos((1 + λ) * Θ) - coeff * cos((1 - λ) * Θ))
+        / (1 - coeff)
+    )
 
     f = sp.lambdify(Θ, _f, "numpy")
     fp = sp.lambdify(Θ, sp.diff(_f, Θ, 1), "numpy")
@@ -214,20 +225,21 @@ def _local_notch_asymptotic(x, ω=np.deg2rad(_omega / 2.), t=1., par = parameter
     # assert(np.isclose(f(np.float16(pi.n() - ω)), 0., atol=1.0e-5))
     # assert(np.isclose(f(np.float16(-pi.n() + ω)), 0., atol=1.0e-5))
 
-    r = np.sqrt(x[0]**2. + x[1]**2.)
-    _c1 = (λ+1)*(1- ν*λ - ν**2.*(λ+1))
-    _c2 = 1-ν**2.
-    _c3 = 2.*(1+ν)*λ**2. + _c1
+    r = np.sqrt(x[0] ** 2.0 + x[1] ** 2.0)
+    _c1 = (λ + 1) * (1 - ν * λ - ν**2.0 * (λ + 1))
+    _c2 = 1 - ν**2.0
+    _c3 = 2.0 * (1 + ν) * λ**2.0 + _c1
     _c4 = _c2
-    _c5 = λ**2. * (1-λ**2.)
+    _c5 = λ**2.0 * (1 - λ**2.0)
 
-    ur = t * ( r**λ / _E * (_c1*f(Θv) + _c2*fpp(Θv)) ) / _c5
-    uΘ = t * ( r**λ / _E * (_c3*fp(Θv) + _c4*fppp(Θv)) ) / _c5
+    ur = t * (r**λ / _E * (_c1 * f(Θv) + _c2 * fpp(Θv))) / _c5
+    uΘ = t * (r**λ / _E * (_c3 * fp(Θv) + _c4 * fppp(Θv))) / _c5
 
     values = np.zeros((tdim, x.shape[1]))
     values[0] = ur * np.cos(Θv) - uΘ * np.sin(Θv)
     values[1] = ur * np.sin(Θv) + uΘ * np.cos(Θv)
     return values
+
 
 uD.interpolate(_local_notch_asymptotic)
 
@@ -242,8 +254,7 @@ alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
 alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
 for f in [zero_u, zero_alpha, alpha_lb, alpha_ub]:
-    f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                         mode=PETSc.ScatterMode.FORWARD)
+    f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
 bcs_u = [dirichletbc(value=uD, dofs=boundary_dofs_u)]
 
@@ -273,8 +284,7 @@ external_work = ufl.dot(f, state["u"]) * dx
 total_energy = model.total_energy_density(state) * dx - external_work
 
 load_par = parameters["loading"]
-loads = np.linspace(load_par["min"],
-                    load_par["max"], load_par["steps"])
+loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
 solver = AlternateMinimisation(
     total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
@@ -298,16 +308,13 @@ history_data = {
 check_stability = []
 
 for i_t, t in enumerate(loads):
+    uD.interpolate(
+        lambda x: _local_notch_asymptotic(
+            x, ω=np.deg2rad(_omega / 2.0), t=t, par=parameters["material"]
+        )
+    )
 
-    uD.interpolate(lambda x: _local_notch_asymptotic(
-        x,
-        ω=np.deg2rad(_omega / 2.),
-        t=t,
-        par = parameters["material"]
-    ))
-
-    uD.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                          mode=PETSc.ScatterMode.FORWARD)
+    uD.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     # update the lower bound
     alpha.vector.copy(alpha_lb.vector)
@@ -342,7 +349,7 @@ for i_t, t in enumerate(loads):
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
-    history_data["total_energy"].append(elastic_energy+fracture_energy)
+    history_data["total_energy"].append(elastic_energy + fracture_energy)
     history_data["solver_data"].append(solver.data)
     history_data["eigs"].append(stability.data["eigs"])
     history_data["stable"].append(stability.data["stable"])
@@ -367,9 +374,9 @@ for i_t, t in enumerate(loads):
     )
 
     _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-    logging.critical('plotted scalar')
+    logging.critical("plotted scalar")
     _plt = plot_vector(u, plotter, subplot=(0, 1))
-    logging.critical('plotted vector')
+    logging.critical("plotted vector")
 
     _plt.screenshot(f"{prefix}/fields-{i_t}.png")
 
@@ -377,6 +384,7 @@ for i_t, t in enumerate(loads):
 list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
 import pandas as pd
+
 df = pd.DataFrame(history_data)
 print(df)
 

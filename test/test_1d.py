@@ -30,10 +30,7 @@ import dolfinx.plot
 from dolfinx import log
 import ufl
 
-from dolfinx.fem.petsc import (
-    set_bc,
-    assemble_vector
-    )
+from dolfinx.fem.petsc import set_bc, assemble_vector
 from dolfinx.io import XDMFFile, gmshio
 import logging
 from dolfinx.common import Timer, list_timings, TimingType
@@ -50,7 +47,8 @@ from utils import _logger
 from utils import history_data, _write_history_data
 import pyvista
 from pyvista.utilities import xvfb
-# 
+
+#
 from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
 from solvers.function import vec_to_functions
 
@@ -64,18 +62,19 @@ load: displacement hard-t
 
 
 from solvers.function import functions_to_vec
+
 # logging.getLogger().setLevel(logging.INFO)
 
+
 class _AlternateMinimisation1D:
-    
-    def __init__(self,
-                total_energy,
-                state,
-                bcs,
-                solver_parameters={},
-                bounds=(dolfinx.fem.function.Function,
-                        dolfinx.fem.function.Function)
-                ):
+    def __init__(
+        self,
+        total_energy,
+        state,
+        bcs,
+        solver_parameters={},
+        bounds=(dolfinx.fem.function.Function, dolfinx.fem.function.Function),
+    ):
         self.state = state
         self.alpha = state["alpha"]
         self.alpha_old = dolfinx.fem.function.Function(self.alpha.function_space)
@@ -88,8 +87,7 @@ class _AlternateMinimisation1D:
         V_u = state["u"].function_space
         V_alpha = state["alpha"].function_space
 
-        energy_u = ufl.derivative(
-            self.total_energy, self.u, ufl.TestFunction(V_u))
+        energy_u = ufl.derivative(self.total_energy, self.u, ufl.TestFunction(V_u))
         energy_alpha = ufl.derivative(
             self.total_energy, self.alpha, ufl.TestFunction(V_alpha)
         )
@@ -115,7 +113,6 @@ class _AlternateMinimisation1D:
         )
 
     def solve(self, outdir=None):
-
         alpha_diff = dolfinx.fem.Function(self.alpha.function_space)
 
         self.data = {
@@ -134,9 +131,13 @@ class _AlternateMinimisation1D:
         for iteration in range(
             self.solver_parameters.get("damage_elasticity").get("max_it")
         ):
-            with dolfinx.common.Timer("~First Order: Alternate Minimization : Elastic solver"):
+            with dolfinx.common.Timer(
+                "~First Order: Alternate Minimization : Elastic solver"
+            ):
                 (solver_u_it, solver_u_reason) = self.elasticity.solve()
-            with dolfinx.common.Timer("~First Order: Alternate Minimization : Damage solver"):
+            with dolfinx.common.Timer(
+                "~First Order: Alternate Minimization : Damage solver"
+            ):
                 (solver_alpha_it, solver_alpha_reason) = self.damage.solve()
 
             # Define error function
@@ -152,10 +153,7 @@ class _AlternateMinimisation1D:
             Fv = [assemble_vector(form(F)) for F in self.F]
 
             Fnorm = np.sqrt(
-                np.array(
-                    [comm.allreduce(Fvi.norm(), op=MPI.SUM)
-                        for Fvi in Fv]
-                ).sum()
+                np.array([comm.allreduce(Fvi.norm(), op=MPI.SUM) for Fvi in Fv]).sum()
             )
 
             error_alpha_max = alpha_diff.vector.max()[1]
@@ -202,10 +200,8 @@ class _AlternateMinimisation1D:
             self.data["solver_u_it"].append(solver_u_it)
             self.data["total_energy"].append(total_energy_int)
 
-
             if (
-                self.solver_parameters.get(
-                    "damage_elasticity").get("criterion")
+                self.solver_parameters.get("damage_elasticity").get("criterion")
                 == "residual_u"
             ):
                 if error_residual_F <= self.solver_parameters.get(
@@ -213,8 +209,7 @@ class _AlternateMinimisation1D:
                 ).get("alpha_rtol"):
                     break
             if (
-                self.solver_parameters.get(
-                    "damage_elasticity").get("criterion")
+                self.solver_parameters.get("damage_elasticity").get("criterion")
                 == "alpha_H1"
             ):
                 if error_alpha_H1 <= self.solver_parameters.get(
@@ -225,6 +220,7 @@ class _AlternateMinimisation1D:
             raise RuntimeError(
                 f"Could not converge after {iteration:3d} iterations, error {error_alpha_H1:3.4e}"
             )
+
 
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
@@ -251,29 +247,30 @@ def main(parameters, storage=None):
         prefix = os.path.join(outdir, f"test_1d-N{parameters['model']['N']}")
     else:
         prefix = storage
-    
+
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
     import hashlib
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
 
-        with open(f"{prefix}/signature.md5", 'w') as f:
+        with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
 
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_mesh(mesh)
 
     # Functional Setting
-    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                                degree=1)
+    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                                    degree=1)
+    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
     V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
     V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
@@ -282,7 +279,7 @@ def main(parameters, storage=None):
     u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
 
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
-    
+
     # Perturbations
     β = Function(V_alpha, name="DamagePerturbation")
     v = Function(V_u, name="DisplacementPerturbation")
@@ -311,12 +308,10 @@ def main(parameters, storage=None):
 
     # Boundary sets
 
-    dofs_alpha_left = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], 0.))
-    dofs_alpha_right = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], Lx))
+    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
-    dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.))
+    dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
 
     # Boundary data
@@ -333,14 +328,13 @@ def main(parameters, storage=None):
     u_.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [zero_u, u_, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+        f.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
-    bc_u_left = dirichletbc(
-        np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u)
+    bc_u_left = dirichletbc(np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
-    bc_u_right = dirichletbc(
-        u_, dofs_u_right)
+    bc_u_right = dirichletbc(u_, dofs_u_right)
     bcs_u = [bc_u_left, bc_u_right]
 
     bcs_alpha = []
@@ -350,17 +344,14 @@ def main(parameters, storage=None):
 
     # Material behaviour
 
-
     def a(alpha):
         # k_res = parameters["model"]['k_res']
-        return (1 - alpha)**2 
-
+        return (1 - alpha) ** 2
 
     def a_atk(alpha):
-        k_res = parameters["model"]['k_res']
-        _k = parameters["model"]['k']
-        return (1 - alpha) / ((_k-1) * alpha + 1)
-
+        k_res = parameters["model"]["k_res"]
+        _k = parameters["model"]["k"]
+        return (1 - alpha) / ((_k - 1) * alpha + 1)
 
     def w(alpha):
         """
@@ -371,7 +362,6 @@ def main(parameters, storage=None):
         # Return w(alpha) function
         return alpha
 
-
     def elastic_energy_density_atk(state):
         """
         Returns the elastic energy density from the state.
@@ -381,10 +371,9 @@ def main(parameters, storage=None):
         u = state["u"]
         eps = ufl.grad(u)
 
-        _mu = parameters["model"]['E']
-        energy_density = _mu / 2. * a_atk(alpha) * ufl.inner(eps, eps)
+        _mu = parameters["model"]["E"]
+        energy_density = _mu / 2.0 * a_atk(alpha) * ufl.inner(eps, eps)
         return energy_density
-
 
     def elastic_energy_density(state):
         """
@@ -395,10 +384,9 @@ def main(parameters, storage=None):
         u = state["u"]
         eps = ufl.grad(u)
 
-        _mu = parameters["model"]['E']
-        energy_density = _mu / 2. * a(alpha) * ufl.inner(eps, eps)
+        _mu = parameters["model"]["E"]
+        energy_density = _mu / 2.0 * a(alpha) * ufl.inner(eps, eps)
         return energy_density
-
 
     def damage_energy_density(state):
         """
@@ -412,10 +400,8 @@ def main(parameters, storage=None):
         # Compute the damage gradient
         grad_alpha = ufl.grad(alpha)
         # Compute the damage dissipation density
-        D_d = _w1 * w(alpha) + _w1 * _ell**2 * ufl.dot(
-            grad_alpha, grad_alpha)
+        D_d = _w1 * w(alpha) + _w1 * _ell**2 * ufl.dot(grad_alpha, grad_alpha)
         return D_d
-
 
     def stress(state):
         """
@@ -424,10 +410,9 @@ def main(parameters, storage=None):
         u = state["u"]
         alpha = state["alpha"]
 
-        return parameters["model"]['E'] * a(alpha) * u.dx() * dx
+        return parameters["model"]["E"] * a(alpha) * u.dx() * dx
 
-    total_energy = (elastic_energy_density(state) +
-                    damage_energy_density(state)) * dx
+    total_energy = (elastic_energy_density(state) + damage_energy_density(state)) * dx
 
     # Energy functional
     # f = Constant(mesh, 0)
@@ -436,11 +421,10 @@ def main(parameters, storage=None):
     external_work = f * state["u"] * dx
 
     load_par = parameters["loading"]
-    loads = np.linspace(load_par["min"],
-                        load_par["max"], load_par["steps"])
+    loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
-    loads = [0., 0.5, .99, 1.01, 1.3]
-    
+    loads = [0.0, 0.5, 0.99, 1.01, 1.3]
+
     equilibrium = _AlternateMinimisation1D(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
@@ -454,35 +438,31 @@ def main(parameters, storage=None):
     )
 
     bifurcation = BifurcationSolver(
-        total_energy, state, bcs,
-        bifurcation_parameters=parameters.get("stability")
+        total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
     )
-
 
     stability = StabilitySolver(
-        total_energy, state, bcs,
-        cone_parameters=parameters.get("stability")
+        total_energy, state, bcs, cone_parameters=parameters.get("stability")
     )
 
-    
     mode_shapes_data = {
-        'time_steps': [],
-        'point_values': {
-            'x_values': [],
-        }
+        "time_steps": [],
+        "point_values": {
+            "x_values": [],
+        },
     }
     num_modes = 1
-    
+
     # Extra data fields
     history_data["F"] = []
-    
-    
+
     logging.basicConfig(level=logging.INFO)
 
     for i_t, t in enumerate(loads):
         u_.interpolate(lambda x: t * np.ones_like(x[0]))
-        u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+        u_.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         # update the lower bound
         alpha.vector.copy(alpha_lb.vector)
@@ -505,19 +485,18 @@ def main(parameters, storage=None):
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
 
-        stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
+        stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia=inertia)
         # pdb.set_trace()
         with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
             if comm.Get_size() == 1:
-
                 if bifurcation._spectrum:
-                    vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
-                    
+                    vec_to_functions(bifurcation._spectrum[0]["xk"], [v, β])
+
                     tol = 1e-3
                     xs = np.linspace(0 + tol, Lx - tol, 101)
                     points = np.zeros((3, 101))
                     points[0] = xs
-                    
+
                     plotter = pyvista.Plotter(
                         title="Perturbation profile",
                         window_size=[800, 600],
@@ -528,18 +507,18 @@ def main(parameters, storage=None):
                         points,
                         plotter,
                         subplot=(1, 2),
-                        lineproperties={
-                            "c": "k",
-                            "label": f"$\\beta$"
-                        },
-                        subplotnumber=1
+                        lineproperties={"c": "k", "label": f"$\\beta$"},
+                        subplotnumber=1,
                     )
                     ax = _plt.gca()
-                    ax.set_xlabel('x')
+                    ax.set_xlabel("x")
                     ax.set_yticks([-1, 0, 1])
-                    ax.set_ylabel('$\\beta$')
+                    ax.set_ylabel("$\\beta$")
                     _plt.legend()
-                    _plt.fill_between(data_bifurcation[0], data_bifurcation[1].reshape(len(data_bifurcation[1])))
+                    _plt.fill_between(
+                        data_bifurcation[0],
+                        data_bifurcation[1].reshape(len(data_bifurcation[1])),
+                    )
                     _plt.title("Perurbation in Vector Space")
                     _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
                     _plt.close()
@@ -551,16 +530,13 @@ def main(parameters, storage=None):
                     # )
 
                     _plt, data_stability = plot_profile(
-                        stability.perturbation['beta'],
+                        stability.perturbation["beta"],
                         points,
                         plotter,
                         subplot=(1, 2),
-                        lineproperties={
-                            "c": "k",
-                            "label": f"$\\beta$"
-                        },
+                        lineproperties={"c": "k", "label": f"$\\beta$"},
                         subplotnumber=2,
-                        ax = ax
+                        ax=ax,
                     )
 
                     # # Set custom ticks and tick locations
@@ -568,34 +544,49 @@ def main(parameters, storage=None):
                     # plotter.y_tick_locations = np.arange(-5, 6, 1)  # Set Y-axis tick locations
 
                     ax = _plt.gca()
-                    ax.set_xlabel('x')
+                    ax.set_xlabel("x")
                     ax.set_yticks([0, 1])
-                    ax.set_ylabel('$\\beta$')
+                    ax.set_ylabel("$\\beta$")
                     _plt.legend()
-                    _plt.fill_between(data_stability[0], data_stability[1].reshape(len(data_stability[1])))
+                    _plt.fill_between(
+                        data_stability[0],
+                        data_stability[1].reshape(len(data_stability[1])),
+                    )
                     _plt.title("Perurbation in the Cone")
                     # _plt.screenshot(f"{prefix}/perturbations-{i_t}.png")
                     _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
                     _plt.close()
-                    
-                    num_points = len(data_stability[0])
-                    
-                    mode_shapes_data['time_steps'].append(t)
-                    mode_shapes_data['point_values']['x_values'] = data_stability[0]
-                    
-                    for mode in range(1, num_modes + 1):
-                        bifurcation_values_mode = data_bifurcation[1].flatten()  # Replace with actual values
-                        stability_values_mode = data_stability[1].flatten()  # Replace with actual values
-                        # Append mode-specific fields to the data structure
-                        mode_key = f'mode_{mode}'
-                        mode_shapes_data['point_values'][mode_key] = {
-                            'bifurcation': mode_shapes_data['point_values'].get(mode_key, {}).get('bifurcation', []),
-                            'stability': mode_shapes_data['point_values'].get(mode_key, {}).get('stability', []),
-                        }
-                        mode_shapes_data['point_values'][mode_key]['bifurcation'].append(bifurcation_values_mode)
-                        mode_shapes_data['point_values'][mode_key]['stability'].append(stability_values_mode)
 
-        np.savez(f'{prefix}/mode_shapes_data.npz', **mode_shapes_data)
+                    num_points = len(data_stability[0])
+
+                    mode_shapes_data["time_steps"].append(t)
+                    mode_shapes_data["point_values"]["x_values"] = data_stability[0]
+
+                    for mode in range(1, num_modes + 1):
+                        bifurcation_values_mode = data_bifurcation[
+                            1
+                        ].flatten()  # Replace with actual values
+                        stability_values_mode = data_stability[
+                            1
+                        ].flatten()  # Replace with actual values
+                        # Append mode-specific fields to the data structure
+                        mode_key = f"mode_{mode}"
+                        mode_shapes_data["point_values"][mode_key] = {
+                            "bifurcation": mode_shapes_data["point_values"]
+                            .get(mode_key, {})
+                            .get("bifurcation", []),
+                            "stability": mode_shapes_data["point_values"]
+                            .get(mode_key, {})
+                            .get("stability", []),
+                        }
+                        mode_shapes_data["point_values"][mode_key][
+                            "bifurcation"
+                        ].append(bifurcation_values_mode)
+                        mode_shapes_data["point_values"][mode_key]["stability"].append(
+                            stability_values_mode
+                        )
+
+        np.savez(f"{prefix}/mode_shapes_data.npz", **mode_shapes_data)
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(damage_energy_density(state) * dx)),
@@ -605,10 +596,10 @@ def main(parameters, storage=None):
             assemble_scalar(form(elastic_energy_density(state) * dx)),
             op=MPI.SUM,
         )
-        _F = assemble_scalar( form(stress(state)) )
-        
-        ColorPrint.print_bold(stability.solution['lambda_t'])
-                    
+        _F = assemble_scalar(form(stress(state)))
+
+        ColorPrint.print_bold(stability.solution["lambda_t"])
+
         _write_history_data(
             equilibrium,
             bifurcation,
@@ -617,11 +608,14 @@ def main(parameters, storage=None):
             t,
             inertia,
             stable,
-            [fracture_energy, elastic_energy])
-        
+            [fracture_energy, elastic_energy],
+        )
+
         history_data["F"].append(_F)
-        
-        with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+
+        with XDMFFile(
+            comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+        ) as file:
             file.write_function(u, t)
             file.write_function(alpha, t)
 
@@ -638,13 +632,17 @@ def main(parameters, storage=None):
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
         plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-        plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
+        plot_force_displacement(
+            history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
+        )
 
     return history_data, stability.data, state
 
+
 # Viz
 
-def load_parameters(file_path, ndofs, model='at1'):
+
+def load_parameters(file_path, ndofs, model="at1"):
     """
     Load parameters from a YAML file.
 
@@ -660,20 +658,20 @@ def load_parameters(file_path, ndofs, model='at1'):
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     parameters["model"]["model_dimension"] = 1
-    parameters["model"]["model_type"] = '1D'
+    parameters["model"]["model_type"] = "1D"
     # parameters["model"]["mu"] = 1
     parameters["model"]["w1"] = 1
 
     parameters["geometry"]["geom_type"] = "discrete-damageable"
     # Get mesh parameters
 
-    if model == 'at2':
-        parameters["loading"]["min"] = .9
-        parameters["loading"]["max"] = .9
+    if model == "at2":
+        parameters["loading"]["min"] = 0.9
+        parameters["loading"]["max"] = 0.9
         parameters["loading"]["steps"] = 1
 
-    elif model == 'at1':
-        parameters["loading"]["min"] = .0
+    elif model == "at1":
+        parameters["loading"]["min"] = 0.0
         parameters["loading"]["max"] = 1.5
         parameters["loading"]["steps"] = 20
 
@@ -688,18 +686,19 @@ def load_parameters(file_path, ndofs, model='at1'):
 
     # parameters["model"]["model_dimension"] = 2
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = .2
-    parameters["model"]["k_res"] = 0.
+    parameters["model"]["ell"] = 0.2
+    parameters["model"]["k_res"] = 0.0
 
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     return parameters, signature
+
 
 if __name__ == "__main__":
     import argparse
     from mpi4py import MPI
-    
-    parser = argparse.ArgumentParser(description='Process evolution.')
+
+    parser = argparse.ArgumentParser(description="Process evolution.")
     parser.add_argument("-N", help="The number of dofs.", type=int, default=10)
     args = parser.parse_args()
     parameters, signature = load_parameters("parameters.yml", ndofs=args.N)
@@ -713,14 +712,15 @@ if __name__ == "__main__":
         history_data, stability_data, state = main(parameters, _storage)
 
     from utils import ResultsStorage, Visualization
+
     storage = ResultsStorage(MPI.COMM_WORLD, _storage)
     storage.store_results(parameters, history_data, state)
     visualization = Visualization(_storage)
     # visualization.visualise_results(pd.DataFrame(history_data), drop = ["solver_data", "cone_data"])
     visualization.save_table(pd.DataFrame(history_data), "history_data")
     # visualization.save_table(pd.DataFrame(stability_data), "stability_data")
-    pd.DataFrame(stability_data).to_json(f'{_storage}/stability_data.json')
-    
+    pd.DataFrame(stability_data).to_json(f"{_storage}/stability_data.json")
+
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"===================-{_storage}-=================")
     # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])

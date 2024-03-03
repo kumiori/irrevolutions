@@ -16,11 +16,11 @@ N = 4
 
 v = PETSc.Vec().createSeq(N)
 
-v.array = np.random.rand(N)-.5
+v.array = np.random.rand(N) - 0.5
 
 zero = v.duplicate()
 zero.zeroEntries()
-print('original', v.array)
+print("original", v.array)
 v.pointwiseMax(v, zero)
-print('pwise Max', v.array)
-__import__('pdb').set_trace()
+print("pwise Max", v.array)
+__import__("pdb").set_trace()

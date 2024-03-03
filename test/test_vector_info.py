@@ -1,6 +1,7 @@
 from petsc4py import PETSc
 import numpy as np
 
+
 def display_vector_info(v):
     # Ensure the vector is assembled
     v.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
@@ -16,10 +17,13 @@ def display_vector_info(v):
     print("Global indices of nonzero entries:", v.getOwnershipRange())
     print("Global indices of nonzero entries:", v.getOwnershipRanges())
 
+
 # Assuming you have a vector v
+
 
 def restricted_cone_project(x_local, subset_dofs):
     x_local.array[subset_dofs] = np.maximum(x_local.array[subset_dofs], 0)
+
 
 if __name__ == "__main__":
     # Example usage

@@ -24,8 +24,8 @@ gmsh.logger.start()
 # gmsh.model.occ.addCurveLoop([11], 11)
 # gmsh.model.occ.synchronize()
 
-gmsh.model.occ.addDisk(0, 0, 0, 1., 1., tag=1)
-gmsh.model.occ.addDisk(.0, -.3, 0., 1.3, 1., tag=2)
+gmsh.model.occ.addDisk(0, 0, 0, 1.0, 1.0, tag=1)
+gmsh.model.occ.addDisk(0.0, -0.3, 0.0, 1.3, 1.0, tag=2)
 gmsh.model.occ.cut([(2, 1)], [(2, 2)], 3)
 gmsh.model.occ.synchronize()
 
@@ -40,4 +40,3 @@ gmsh.option.setNumber("Mesh.MeshSizeMax", 0.02)
 
 gmsh.model.mesh.generate(2)
 gmsh.write("t19.msh")
-

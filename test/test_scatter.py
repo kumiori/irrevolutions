@@ -3,12 +3,14 @@ import os
 from ctypes import c_void_p
 
 import petsc4py
+
 petsc4py.init(sys.argv)
 from mpi4py import MPI
 from petsc4py import PETSc
 
 import dolfinx
 import ufl
+
 sys.path.append("../")
 import solvers.restriction as restriction
 
@@ -29,11 +31,9 @@ mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 outdir = "output"
 prefix = os.path.join(outdir, "test_cone")
 
-element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                              degree=1)
+element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                                  degree=1)
+element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
 V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
 V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
@@ -42,27 +42,26 @@ alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 from dolfinx.fem import locate_dofs_geometrical, dirichletbc
 import numpy as np
 
-dofs_alpha_left = locate_dofs_geometrical(
-    V_alpha, lambda x: np.isclose(x[0], 0.))
-dofs_alpha_right = locate_dofs_geometrical(
-    V_alpha, lambda x: np.isclose(x[0], 1.))
+dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 1.0))
 
-dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.))
-dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 1.))
+dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
+dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 1.0))
 
 
 def get_inactive_dofset():
     """docstring for get_inactive_dofset"""
     V_u_size = V_u.dofmap.index_map_bs * (V_u.dofmap.index_map.size_local)
-    
+
     idx_alpha_local = set(np.arange(5, 8))
     dofs_u_all = np.arange(V_u_size, dtype=np.int32)
     dofs_alpha_inactive = np.array(list(idx_alpha_local), dtype=np.int32)
-    
+
     restricted_dofs = [dofs_u_all, dofs_alpha_inactive]
-    
+
     return restricted_dofs
-    
+
+
 V_u_size = V_u.dofmap.index_map_bs * (V_u.dofmap.index_map.size_local)
 V_alpha_size = V_alpha.dofmap.index_map_bs * (V_u.dofmap.index_map.size_local)
 
@@ -71,12 +70,10 @@ restricted_dofs = get_inactive_dofset()
 restriction = restriction.Restriction([V_u, V_alpha], restricted_dofs)
 dx = ufl.Measure("dx", alpha.function_space.mesh)
 
-energy = (1-alpha)**2*ufl.inner(u,u) * dx
+energy = (1 - alpha) ** 2 * ufl.inner(u, u) * dx
 
 F_ = [
-    ufl.derivative(
-        energy, u, ufl.TestFunction(u.ufl_function_space())
-    ),
+    ufl.derivative(energy, u, ufl.TestFunction(u.ufl_function_space())),
     ufl.derivative(
         energy,
         alpha,
@@ -113,15 +110,21 @@ _sub = v.getSubVector(_is)
 a = _sub.duplicate()
 # a.interpolate(1.)
 
-maps = [(form.function_spaces[0].dofmap.index_map, form.function_spaces[0].dofmap.index_map_bs) for form in F]
+maps = [
+    (
+        form.function_spaces[0].dofmap.index_map,
+        form.function_spaces[0].dofmap.index_map_bs,
+    )
+    for form in F
+]
 
 print(f"a array {a.array}")
 
 # with a.localForm() as loc:
 #     loc.set(1.0)
 # *** AttributeError: attribute 'array_r' of 'petsc4py.PETSc.Vec' objects is not writable
-a.array = [1]*len(alpha_dofs)
-a.array = [.5*k for k in [-2,.5, -1, 2, 3, 4, 5, 3][0:len(alpha_dofs)]]
+a.array = [1] * len(alpha_dofs)
+a.array = [0.5 * k for k in [-2, 0.5, -1, 2, 3, 4, 5, 3][0 : len(alpha_dofs)]]
 a.assemble()
 
 _sub.pointwiseMax(_sub, a)
@@ -136,7 +139,6 @@ v.restoreSubVector(_is, _sub)
 print(f"v restored (projected) {v.array}")
 
 for i, space in enumerate([V_u, V_alpha]):
-
     bs = space.dofmap.index_map_bs
 
     size_local = space.dofmap.index_map.size_local
@@ -148,6 +150,7 @@ for i, space in enumerate([V_u, V_alpha]):
 
 
 from dolfinx import cpp as _cpp
+
 x0_local = _cpp.la.petsc.get_local_vectors(x, maps)
 
 print(f"this should scatter x0_local into the global vector v")
@@ -174,9 +177,11 @@ c_dofs = restriction.bglobal_dofs_vec[1]
 # its=0
 
 import random
+
+
 def converged(x):
     _converged = bool(np.int32(random.uniform(0, 1.5)))
-    
+
     # update xold
     # x.copy(_xold)
     # x.vector.ghostUpdate(
@@ -185,27 +190,28 @@ def converged(x):
 
     # if not converged:
     #     its += 1
-    
+
     print("converged" if _converged else f" converging")
 
     return _converged
 
+
 def _cone_project(v, v_r):
     """Projection vector into the cone
 
-        takes arguments:
-        - v: vector in a mixed space
+    takes arguments:
+    - v: vector in a mixed space
 
-        returns
+    returns
     """
 
     _dofs = restriction.bglobal_dofs_vec[1]
     _is = PETSc.IS().createGeneral(_dofs)
-    
+
     # new vector
     w = v.copy()
     _sub = w.getSubVector(_is)
-    
+
     zero = _sub.duplicate()
     zero.zeroEntries()
 
@@ -215,7 +221,7 @@ def _cone_project(v, v_r):
 
 
 _sub = v.getSubVector(_is)
-_sub.array = [.5*k for k in [-2,.5, -1, 2, 3, 4, 5, 3][0:len(alpha_dofs)]]
+_sub.array = [0.5 * k for k in [-2, 0.5, -1, 2, 3, 4, 5, 3][0 : len(alpha_dofs)]]
 _sub.assemble()
 v.restoreSubVector(_is, _sub)
 
@@ -226,7 +232,7 @@ urandom.array = [random.uniform(0, 1.5) for r in range(v.local_size)]
 # get initial guess (full)
 urandom.copy(x)
 
-# restrict 
+# restrict
 # project component
 x_r = restriction.restrict_vector(x)
 # x_rp = _cone_project(x, x_r)
@@ -252,8 +258,12 @@ v_local = _cpp.la.petsc.get_local_vectors(v, maps)
 v1_local = v_local[1]
 print(f"v1_local {v1_local}")
 
-print(f"{comm.rank}, {rank}/{size} restriction.bglobal_dofs_vec {restriction.bglobal_dofs_vec}")
-print(f"{comm.rank}, {rank}/{size} restriction.bglobal_dofs_vec {restriction.blocal_dofs}")
+print(
+    f"{comm.rank}, {rank}/{size} restriction.bglobal_dofs_vec {restriction.bglobal_dofs_vec}"
+)
+print(
+    f"{comm.rank}, {rank}/{size} restriction.bglobal_dofs_vec {restriction.blocal_dofs}"
+)
 # scatters block_local vectors into v
 _cpp.la.petsc.scatter_local_vectors(v, v_local, maps)
 v.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)

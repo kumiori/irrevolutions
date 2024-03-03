@@ -55,13 +55,13 @@ gmsh_model, tdim, tag_names = mesh_tdcb(
     _tdcb.get("geometry").get("geom_type"),
     _tdcb.get("geometry"),
     lc,
-    msh_file="output/tdcb2d.msh")
+    msh_file="output/tdcb2d.msh",
+)
 
 # Get mesh and meshtags
-mesh, cell_tags, facet_tags = gmsh_model_to_mesh(gmsh_model,
-                                                 cell_data=True,
-                                                 facet_data=True,
-                                                 gdim=2)
+mesh, cell_tags, facet_tags = gmsh_model_to_mesh(
+    gmsh_model, cell_data=True, facet_data=True, gdim=2
+)
 
 # domains_keys = tag_names["cells"]
 # boundary_keys = tag_names["facets"]
@@ -71,6 +71,7 @@ mesh, cell_tags, facet_tags = gmsh_model_to_mesh(gmsh_model,
 
 import matplotlib.pyplot as plt
 from utils.viz import plot_mesh
+
 plt.figure()
 ax = plot_mesh(mesh)
 fig = ax.get_figure()

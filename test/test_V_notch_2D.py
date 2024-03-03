@@ -32,18 +32,14 @@ geom_type = "notch"
 
 
 # Create the mesh of the specimen with given dimensions
-gmsh_model, tdim, tag_names = mesh_V_notch(geom_type,
-                                           L,
-                                           L_crack,
-                                           theta,
-                                           lc,
-                                           msh_file="output/v-notch2d.msh")
+gmsh_model, tdim, tag_names = mesh_V_notch(
+    geom_type, L, L_crack, theta, lc, msh_file="output/v-notch2d.msh"
+)
 
 # Get mesh and meshtags
-mesh, cell_tags, facet_tags = gmsh_model_to_mesh(gmsh_model,
-                                                 cell_data=True,
-                                                 facet_data=True,
-                                                 gdim=2)
+mesh, cell_tags, facet_tags = gmsh_model_to_mesh(
+    gmsh_model, cell_data=True, facet_data=True, gdim=2
+)
 
 # domains_keys = tag_names["cells"]
 
@@ -54,6 +50,7 @@ ds = ufl.Measure("ds", subdomain_data=facet_tags, domain=mesh)
 
 import matplotlib.pyplot as plt
 from utils.viz import plot_mesh
+
 plt.figure()
 ax = plot_mesh(mesh)
 fig = ax.get_figure()

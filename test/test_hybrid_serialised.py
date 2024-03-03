@@ -91,7 +91,6 @@ if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
 
-
 def test_newtonblock(nest):
     Lx = 1.0
     Ly = 0.1
@@ -219,7 +218,6 @@ def test_newtonblock(nest):
         block_params["pc_type"] = "lu"
         block_params["pc_factor_mat_solver_type"] = "mumps"
 
-
     opts = PETSc.Options("block")
 
     opts.setValue("snes_type", "vinewtonrsls")
@@ -240,14 +238,11 @@ def test_newtonblock(nest):
         opts.setValue("pc_type", "lu")
         opts.setValue("pc_factor_mat_solver_type", "mumps")
 
-    newton = SNESBlockProblem(
-        F, z, bcs=bcs_z, nest=nest, prefix="block"
-    )
+    newton = SNESBlockProblem(F, z, bcs=bcs_z, nest=nest, prefix="block")
 
     if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
-
 
     snes = newton.snes
 
@@ -262,7 +257,6 @@ def test_newtonblock(nest):
     data = []
 
     for i_t, t in enumerate(loads):
-
         u_.interpolate(lambda x: (t * np.ones_like(x[0]), 0 * np.ones_like(x[1])))
         u_.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
@@ -279,13 +273,16 @@ def test_newtonblock(nest):
 
         equilibrium.solve()
 
-
         dissipated_energy = comm.allreduce(
-            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state) * dx)),
+            dolfinx.fem.assemble_scalar(
+                dolfinx.fem.form(model.damage_energy_density(state) * dx)
+            ),
             op=MPI.SUM,
         )
         elastic_energy = comm.allreduce(
-            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.elastic_energy_density(state) * dx)),
+            dolfinx.fem.assemble_scalar(
+                dolfinx.fem.form(model.elastic_energy_density(state) * dx)
+            ),
             op=MPI.SUM,
         )
         datai = {
@@ -293,12 +290,11 @@ def test_newtonblock(nest):
             "AM_F_alpha_H1": equilibrium.data["error_alpha_H1"][-1],
             "AM_Fnorm": equilibrium.data["error_residual_F"][-1],
             "NE_Fnorm": newton.snes.getFunctionNorm(),
-
-            "load" : t,
-            "dissipated_energy" : dissipated_energy,
-            "elastic_energy" : elastic_energy,
-            "total_energy" : elastic_energy+dissipated_energy,
-            "solver_data" : equilibrium.data,
+            "load": t,
+            "dissipated_energy": dissipated_energy,
+            "elastic_energy": elastic_energy,
+            "total_energy": elastic_energy + dissipated_energy,
+            "solver_data": equilibrium.data,
             # "eigs" : stability.data["eigs"],
             # "stable" : stability.data["stable"],
             # "F" : _F
@@ -339,7 +335,6 @@ def test_newtonblock(nest):
         _plt.close()
 
     print(data)
-
 
     if comm.rank == 0:
         a_file = open(f"{prefix}/time_data.json", "w")

@@ -30,10 +30,7 @@ import dolfinx.plot
 from dolfinx import log
 import ufl
 
-from dolfinx.fem.petsc import (
-    set_bc,
-    assemble_vector
-    )
+from dolfinx.fem.petsc import set_bc, assemble_vector
 from dolfinx.io import XDMFFile, gmshio
 import logging
 from dolfinx.common import Timer, list_timings, TimingType
@@ -45,8 +42,6 @@ from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
 from utils.plots import plot_energies
 from utils import norm_H1, norm_L2
-
-
 
 
 sys.path.append("../")
@@ -65,7 +60,9 @@ load: displacement hard-t
 
 
 from solvers.function import functions_to_vec
+
 logging.getLogger().setLevel(logging.CRITICAL)
+
 
 class StabilitySolver(BifurcationSolver):
     """Base class for a minimal implementation of the solution of eigenvalue
@@ -86,8 +83,7 @@ class StabilitySolver(BifurcationSolver):
             bcs,
             nullspace,
             stability_parameters=cone_parameters,
-
-    )
+        )
 
     def _solve(self, alpha_old: dolfinx.fem.function.Function):
         """Recursively solves (until convergence) the abstract eigenproblem
@@ -99,32 +95,33 @@ class StabilitySolver(BifurcationSolver):
         self.iterations = 0
         errors = []
         stable = self.solve(alpha_old)
-        
+
         # The cone is non-trivial, aka non-empty
         # only if the state is irreversibly damage-critical
 
         if self._critical:
-            
             # loop
-            _x = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _x_orig = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _y = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
-            _Bx = dolfinx.fem.petsc.create_vector_block(self.F)        
-            self._xold = dolfinx.fem.petsc.create_vector_block(self.F)    
-            
+            _x = dolfinx.fem.petsc.create_vector_block(self.F)
+            _x_orig = dolfinx.fem.petsc.create_vector_block(self.F)
+            _y = dolfinx.fem.petsc.create_vector_block(self.F)
+            _Ax = dolfinx.fem.petsc.create_vector_block(self.F)
+            _Bx = dolfinx.fem.petsc.create_vector_block(self.F)
+            self._xold = dolfinx.fem.petsc.create_vector_block(self.F)
+
             # Map current solution into vector _x
             functions_to_vec(self.Kspectrum[0].get("xk"), _x)
-            
+
             lambda_k = []
 
             while not self.loop(_x):
                 print("")
-                logging.critical(f" Cone-convergence loop iteration {self.iterations:2d}")
+                logging.critical(
+                    f" Cone-convergence loop iteration {self.iterations:2d}"
+                )
                 errors.append(self.error)
                 # make it admissible: map into the cone
                 # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
-                
+
                 self._cone_project(_x)
 
                 # logging.critical(f"_x is in the cone? {self._isin_cone(_x)}")
@@ -134,13 +131,18 @@ class StabilitySolver(BifurcationSolver):
                 alpha_dofs = self.eigen.restriction.bglobal_dofs_vec[1]
                 logging.critical(f"> mode {self.Kspectrum[0]['n']:2d}")
                 logging.critical(f"iterating eigenvector, full: {_x.array}")
-                logging.critical(f"iterating eigenvector, alpha dofs: {_x.array[alpha_dofs]}")
-                logging.critical(f"iterating eigenvector, is in cone 🍦? {self._isin_cone(_x)}")
+                logging.critical(
+                    f"iterating eigenvector, alpha dofs: {_x.array[alpha_dofs]}"
+                )
+                logging.critical(
+                    f"iterating eigenvector, is in cone 🍦? {self._isin_cone(_x)}"
+                )
 
-                logging.critical(f"original eigenvalue {self.Kspectrum[0]['lambda']:.3f}")
-                
+                logging.critical(
+                    f"original eigenvalue {self.Kspectrum[0]['lambda']:.3f}"
+                )
+
                 self._debug(self.eigen)
-
 
                 if self.eigen.restriction is not None:
                     _A = self.eigen.rA
@@ -161,7 +163,7 @@ class StabilitySolver(BifurcationSolver):
                 if not self.eigen.empty_B():
                     _B.mult(_x, _Bx)
                     xBx = _x.dot(_Bx)
-                    _lmbda_t = xAx/xBx
+                    _lmbda_t = xAx / xBx
                 else:
                     logging.critical("B = Id")
                     _Bx = _x
@@ -175,13 +177,13 @@ class StabilitySolver(BifurcationSolver):
 
                 _x.copy(self._xold)
                 _x.axpy(-_s, _y)
-                
+
                 logging.critical(f"perturbed eigenvalue {_lmbda_t:.3f}")
                 logging.critical(f"perturbed eigenvalue {_x.array}")
                 # project onto cone
                 self._cone_project(_x)
                 logging.critical(f"perturbed , projected eigenvalue {_x.array}")
-                
+
                 # L2-normalise
                 n2 = _x.normalize()
                 lambda_k.append(_lmbda_t)
@@ -189,21 +191,24 @@ class StabilitySolver(BifurcationSolver):
 
                 # _x.view()
                 # iterate
-                # x_i+1 = _v 
+                # x_i+1 = _v
 
             logging.critical(f"Convergence of SPA algorithm with s={_s}")
             print(errors)
             logging.critical(f"eigenfunction is in cone 🍦? {self._isin_cone(_x)}")
-        
+
             print("")
             functions_to_vec(self.Kspectrum[0].get("xk"), _x_orig)
-            logging.critical(f"original eigenvalue = {self.Kspectrum[0]['lambda']:.3f}, eigenvector {_x_orig.array}")
-            logging.critical(f"converged eigenvalue = {lambda_k[-1]:.3f}, eigenvector {_x.array}")
+            logging.critical(
+                f"original eigenvalue = {self.Kspectrum[0]['lambda']:.3f}, eigenvector {_x_orig.array}"
+            )
+            logging.critical(
+                f"converged eigenvalue = {lambda_k[-1]:.3f}, eigenvector {_x.array}"
+            )
             logging.critical(f"converged residual {_y.array}")
             print("")
 
         return stable
-    
 
     def _debug(self, eigen):
         """debugging eigenproblem"""
@@ -219,50 +224,56 @@ class StabilitySolver(BifurcationSolver):
 
             for i in range(M.shape[0]):
                 for j in range(M.shape[0]):
-                    c = M[j,i]
-                    ax.text(i, j, f"{c:.3f}", va='center', ha='center')
+                    c = M[j, i]
+                    ax.text(i, j, f"{c:.3f}", va="center", ha="center")
 
             return fig
 
         indptr, indices, data = self.eigen.rA.getValuesCSR()
-        _rA = scipy.sparse.csr_matrix((data, indices, indptr), shape=self.eigen.rA.sizes[0])
+        _rA = scipy.sparse.csr_matrix(
+            (data, indices, indptr), shape=self.eigen.rA.sizes[0]
+        )
 
         _fig = plot_matrix(_rA)
         _fig.savefig(f"mat-r-{self.eigen.eps.getOptionsPrefix()}.png")
 
         _eigs = scipy.sparse.linalg.eigs(_rA.toarray())[0]
 
-        logging.critical(f"eigs of sparse? {[np.real(f) for f in np.sort(scipy.sparse.linalg.eigs(_rA.toarray())[0])]}")
+        logging.critical(
+            f"eigs of sparse? {[np.real(f) for f in np.sort(scipy.sparse.linalg.eigs(_rA.toarray())[0])]}"
+        )
 
-        _x = dolfinx.fem.petsc.create_vector_block(self.F)        
-        _Ax = dolfinx.fem.petsc.create_vector_block(self.F)        
-        # _Bx = dolfinx.fem.petsc.create_vector_block(self.F)        
+        _x = dolfinx.fem.petsc.create_vector_block(self.F)
+        _Ax = dolfinx.fem.petsc.create_vector_block(self.F)
+        # _Bx = dolfinx.fem.petsc.create_vector_block(self.F)
         functions_to_vec(self.Kspectrum[0].get("xk"), _x)
-        
+
         _x = self.eigen.restriction.restrict_vector(_x)
         _Ax = self.eigen.restriction.restrict_vector(_Ax)
 
         self.eigen.rA.mult(_x, _Ax)
         xAx = _x.dot(_Ax)
-        
+
         logging.critical(f"eigs of operator xAx/||_x||^2 = {xAx/ _x.dot(_x):.3f}")
 
     def convergenceTest(self, x):
         """
-        Test convergence of current iterate x against 
+        Test convergence of current iterate x against
         prior
         """
         _atol = self.parameters.get("cone").get("cone_rtol")
         _maxit = self.parameters.get("cone").get("cone_max_it")
 
         if self.iterations == _maxit:
-            raise RuntimeError(f'SPA solver did not converge within {_maxit} iterations. Aborting')
-            # return False        
+            raise RuntimeError(
+                f"SPA solver did not converge within {_maxit} iterations. Aborting"
+            )
+            # return False
         # xdiff = -x + x_old
         diff = x.duplicate()
         diff.zeroEntries()
 
-        diff.waxpy(-1., self._xold, x)
+        diff.waxpy(-1.0, self._xold, x)
 
         error_alpha_L2 = diff.norm()
         self.error = error_alpha_L2
@@ -277,7 +288,7 @@ class StabilitySolver(BifurcationSolver):
     def loop(self, x):
         # its = self.iterations
         reason = self.convergenceTest(x)
-        
+
         # update xold
         # x.copy(self._xold)
         # x.vector.ghostUpdate(
@@ -292,23 +303,23 @@ class StabilitySolver(BifurcationSolver):
     def _isin_cone(self, x):
         """Is in the zone IFF x is in the cone"""
 
-        # get the subvector associated to damage dofs with inactive constraints 
+        # get the subvector associated to damage dofs with inactive constraints
         _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
         _is = PETSc.IS().createGeneral(_dofs)
         _sub = x.getSubVector(_is)
 
         return (_sub.array >= 0).all()
-        
+
     def _cone_project(self, v):
         """Projection vector into the cone
 
-            takes arguments:
-            - v: vector in a mixed space
+        takes arguments:
+        - v: vector in a mixed space
 
-            returns
+        returns
         """
-        
-        # get the subvector associated to damage dofs with inactive constraints 
+
+        # get the subvector associated to damage dofs with inactive constraints
         _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
         _is = PETSc.IS().createGeneral(_dofs)
         _sub = v.getSubVector(_is)
@@ -319,15 +330,16 @@ class StabilitySolver(BifurcationSolver):
         v.restoreSubVector(_is, _sub)
         return
 
+
 class _AlternateMinimisation:
-    def __init__(self,
-                total_energy,
-                state,
-                bcs,
-                solver_parameters={},
-                bounds=(dolfinx.fem.function.Function,
-                        dolfinx.fem.function.Function)
-                ):
+    def __init__(
+        self,
+        total_energy,
+        state,
+        bcs,
+        solver_parameters={},
+        bounds=(dolfinx.fem.function.Function, dolfinx.fem.function.Function),
+    ):
         self.state = state
         self.alpha = state["alpha"]
         self.alpha_old = dolfinx.fem.function.Function(self.alpha.function_space)
@@ -340,8 +352,7 @@ class _AlternateMinimisation:
         V_u = state["u"].function_space
         V_alpha = state["alpha"].function_space
 
-        energy_u = ufl.derivative(
-            self.total_energy, self.u, ufl.TestFunction(V_u))
+        energy_u = ufl.derivative(self.total_energy, self.u, ufl.TestFunction(V_u))
         energy_alpha = ufl.derivative(
             self.total_energy, self.alpha, ufl.TestFunction(V_alpha)
         )
@@ -367,7 +378,6 @@ class _AlternateMinimisation:
         )
 
     def solve(self, outdir=None):
-
         alpha_diff = dolfinx.fem.Function(self.alpha.function_space)
 
         self.data = {
@@ -404,10 +414,7 @@ class _AlternateMinimisation:
             Fv = [assemble_vector(form(F)) for F in self.F]
 
             Fnorm = np.sqrt(
-                np.array(
-                    [comm.allreduce(Fvi.norm(), op=MPI.SUM)
-                        for Fvi in Fv]
-                ).sum()
+                np.array([comm.allreduce(Fvi.norm(), op=MPI.SUM) for Fvi in Fv]).sum()
             )
 
             error_alpha_max = alpha_diff.vector.max()[1]
@@ -454,10 +461,8 @@ class _AlternateMinimisation:
             self.data["solver_u_it"].append(solver_u_it)
             self.data["total_energy"].append(total_energy_int)
 
-
             if (
-                self.solver_parameters.get(
-                    "damage_elasticity").get("criterion")
+                self.solver_parameters.get("damage_elasticity").get("criterion")
                 == "residual_u"
             ):
                 if error_residual_F <= self.solver_parameters.get(
@@ -465,8 +470,7 @@ class _AlternateMinimisation:
                 ).get("alpha_rtol"):
                     break
             if (
-                self.solver_parameters.get(
-                    "damage_elasticity").get("criterion")
+                self.solver_parameters.get("damage_elasticity").get("criterion")
                 == "alpha_H1"
             ):
                 if error_alpha_H1 <= self.solver_parameters.get(
@@ -489,17 +493,17 @@ model_rank = 0
 with open("parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-parameters["stability"]["cone"] = {            
-                "maxmodes": 3,
-                "cone_atol": 1.e-5,
-                "cone_rtol": 1.e-5,
-                "cone_max_it": 100,
-                "scaling": 0.1,
-                }
+parameters["stability"]["cone"] = {
+    "maxmodes": 3,
+    "cone_atol": 1.0e-5,
+    "cone_rtol": 1.0e-5,
+    "cone_max_it": 100,
+    "scaling": 0.1,
+}
 # parameters["cone"]["atol"] = 1e-7
 
 parameters["model"]["model_dimension"] = 1
-parameters["model"]["model_type"] = '1D'
+parameters["model"]["model_type"] = "1D"
 parameters["model"]["mu"] = 1
 parameters["model"]["w1"] = 1
 parameters["model"]["k_res"] = 1e-4
@@ -533,26 +537,27 @@ if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
 import hashlib
-signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+
+signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
 if comm.rank == 0:
-    with open(f"{prefix}/parameters.yaml", 'w') as file:
+    with open(f"{prefix}/parameters.yaml", "w") as file:
         yaml.dump(parameters, file)
 
 if comm.rank == 0:
-    with open(f"{prefix}/signature.md5", 'w') as f:
+    with open(f"{prefix}/signature.md5", "w") as f:
         f.write(signature)
 
-with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+with XDMFFile(
+    comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+) as file:
     file.write_mesh(mesh)
 
 # Functional Setting
 
-element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                              degree=1)
+element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
-element_alpha = ufl.FiniteElement("DG", mesh.ufl_cell(),
-                                  degree=0)
+element_alpha = ufl.FiniteElement("DG", mesh.ufl_cell(), degree=0)
 
 V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
 V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
@@ -589,12 +594,10 @@ ds = ufl.Measure("ds", domain=mesh)
 # Boundary sets
 
 
-dofs_alpha_left = locate_dofs_geometrical(
-    V_alpha, lambda x: np.isclose(x[0], 0.))
-dofs_alpha_right = locate_dofs_geometrical(
-    V_alpha, lambda x: np.isclose(x[0], Lx))
+dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
-dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.))
+dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
 dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
 
 # Boundary data
@@ -611,14 +614,11 @@ zero_u.interpolate(lambda x: np.zeros_like(x[0]))
 u_.interpolate(lambda x: np.ones_like(x[0]))
 
 for f in [zero_u, u_, alpha_lb, alpha_ub]:
-    f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                         mode=PETSc.ScatterMode.FORWARD)
+    f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
-bc_u_left = dirichletbc(
-    np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u)
+bc_u_left = dirichletbc(np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
-bc_u_right = dirichletbc(
-    u_, dofs_u_right)
+bc_u_right = dirichletbc(u_, dofs_u_right)
 bcs_u = [bc_u_left, bc_u_right]
 
 bcs_alpha = []
@@ -632,14 +632,14 @@ bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
 
 def a(alpha):
-    k_res = parameters["model"]['k_res']
-    return (1 - alpha)**2 + k_res
+    k_res = parameters["model"]["k_res"]
+    return (1 - alpha) ** 2 + k_res
 
 
 def a_atk(alpha):
-    k_res = parameters["model"]['k_res']
-    _k = parameters["model"]['k']
-    return (1 - alpha) / ((_k-1) * alpha + 1)
+    k_res = parameters["model"]["k_res"]
+    _k = parameters["model"]["k"]
+    return (1 - alpha) / ((_k - 1) * alpha + 1)
 
 
 def w(alpha):
@@ -661,7 +661,7 @@ def elastic_energy_density(state):
     u = state["u"]
     eps = ufl.grad(u)
 
-    _mu = parameters["model"]['mu']
+    _mu = parameters["model"]["mu"]
     energy_density = a(alpha) * _mu * ufl.inner(eps, eps)
     return energy_density
 
@@ -675,7 +675,7 @@ def elastic_energy_density_atk(state):
     u = state["u"]
     eps = ufl.grad(u)
 
-    _mu = parameters["model"]['mu']
+    _mu = parameters["model"]["mu"]
     energy_density = a_atk(alpha) * _mu * ufl.inner(eps, eps)
     return energy_density
 
@@ -693,8 +693,7 @@ def damage_energy_density(state):
     # Compute the damage gradient
     grad_alpha = ufl.grad(alpha)
     # Compute the damage dissipation density
-    D_d = _w1 * w(alpha) + _w1 * _ell**2 * ufl.dot(
-        grad_alpha, grad_alpha)
+    D_d = _w1 * w(alpha) + _w1 * _ell**2 * ufl.dot(grad_alpha, grad_alpha)
     return D_d
 
 
@@ -705,10 +704,10 @@ def stress(state):
     u = state["u"]
     alpha = state["alpha"]
 
-    return parameters["model"]['mu'] * a_atk(alpha) * u.dx() * dx
+    return parameters["model"]["mu"] * a_atk(alpha) * u.dx() * dx
 
-total_energy = (elastic_energy_density_atk(state) +
-                damage_energy_density(state)) * dx
+
+total_energy = (elastic_energy_density_atk(state) + damage_energy_density(state)) * dx
 
 # Energy functional
 # f = Constant(mesh, 0)
@@ -717,8 +716,7 @@ f = Constant(mesh, np.array(0, dtype=PETSc.ScalarType))
 external_work = f * state["u"] * dx
 
 load_par = parameters["loading"]
-loads = np.linspace(load_par["min"],
-                    load_par["max"], load_par["steps"])
+loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
 solver = _AlternateMinimisation(
     total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
@@ -731,8 +729,7 @@ stability = BifurcationSolver(
 
 
 cone = StabilitySolver(
-    total_energy, state, bcs,
-    cone_parameters=parameters.get("stability")
+    total_energy, state, bcs, cone_parameters=parameters.get("stability")
 )
 
 history_data = {
@@ -754,8 +751,7 @@ logging.basicConfig(level=logging.INFO)
 
 for i_t, t in enumerate(loads):
     u_.interpolate(lambda x: t * np.ones_like(x[0]))
-    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                          mode=PETSc.ScatterMode.FORWARD)
+    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     # update the lower bound
     alpha.vector.copy(alpha_lb.vector)
@@ -788,18 +784,20 @@ for i_t, t in enumerate(loads):
         assemble_scalar(form(elastic_energy_density(state) * dx)),
         op=MPI.SUM,
     )
-    _F = assemble_scalar( form(stress(state)) )
-    
+    _F = assemble_scalar(form(stress(state)))
+
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
-    history_data["total_energy"].append(elastic_energy+fracture_energy)
+    history_data["total_energy"].append(elastic_energy + fracture_energy)
     history_data["solver_data"].append(solver.data)
     history_data["eigs"].append(stability.data["eigs"])
     history_data["stable"].append(stability.data["stable"])
     history_data["F"].append(_F)
-    
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_function(u, t)
         file.write_function(alpha, t)
 
@@ -810,7 +808,6 @@ for i_t, t in enumerate(loads):
 
 list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 # print(history_data)
-
 
 
 df = pd.DataFrame(history_data)

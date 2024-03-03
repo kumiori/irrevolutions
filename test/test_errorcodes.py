@@ -1,9 +1,7 @@
 error_codes = {
     "PETSC_SUCCESS": 0,
     "PETSC_ERR_BOOLEAN_MACRO_FAILURE": 1,
-
     "PETSC_ERR_MIN_VALUE": 54,
-
     "PETSC_ERR_MEM": 55,
     "PETSC_ERR_SUP": 56,
     "PETSC_ERR_SUP_SYS": 57,
@@ -19,7 +17,6 @@ error_codes = {
     "PETSC_ERR_SYS": 88,
     "PETSC_ERR_POINTER": 70,
     "PETSC_ERR_MPI_LIB_INCOMP": 87,
-
     "PETSC_ERR_ARG_SIZ": 60,
     "PETSC_ERR_ARG_IDN": 61,
     "PETSC_ERR_ARG_WRONG": 62,
@@ -33,15 +30,12 @@ error_codes = {
     "PETSC_ERR_ARG_INCOMP": 75,
     "PETSC_ERR_ARG_NULL": 85,
     "PETSC_ERR_ARG_UNKNOWN_TYPE": 86,
-
     "PETSC_ERR_FILE_OPEN": 65,
     "PETSC_ERR_FILE_READ": 66,
     "PETSC_ERR_FILE_WRITE": 67,
     "PETSC_ERR_FILE_UNEXPECTED": 79,
-
     "PETSC_ERR_MAT_LU_ZRPVT": 71,
     "PETSC_ERR_MAT_CH_ZRPVT": 81,
-
     "PETSC_ERR_INT_OVERFLOW": 84,
     "PETSC_ERR_FLOP_COUNT": 90,
     "PETSC_ERR_NOT_CONVERGED": 91,
@@ -55,19 +49,16 @@ error_codes = {
     "PETSC_ERR_RETURN": 99,
     "PETSC_ERR_MEM_LEAK": 100,
     "PETSC_ERR_MAX_VALUE": 101,
-
     "PETSC_ERR_MIN_SIGNED_BOUND_DO_NOT_USE": "INT_MIN",
-    "PETSC_ERR_MAX_SIGNED_BOUND_DO_NOT_USE": "INT_MAX"
+    "PETSC_ERR_MAX_SIGNED_BOUND_DO_NOT_USE": "INT_MAX",
 }
-
 
 
 # Reverse the dictionary to create an inverse mapping
 translatePETScERROR = {v: k for k, v in error_codes.items()}
 
 if __name__ == "__main__":
-
-# Example: Look up the description string for an error code
+    # Example: Look up the description string for an error code
     error_code = 55
     description = translatePETScERROR.get(error_code, "Error code not found")
     print(description)

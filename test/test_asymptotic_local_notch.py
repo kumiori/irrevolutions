@@ -14,6 +14,7 @@ import dolfinx.plot
 from dolfinx import log
 import ufl
 import numpy as np
+
 sys.path.append("../")
 from utils.plots import plot_energies
 from utils import ColorPrint
@@ -97,6 +98,7 @@ gmsh_model, tdim = mesh_pacman(geom_type, parameters["geometry"], tdim)
 mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
 from dolfinx.mesh import CellType, create_unit_square
+
 # mesh = create_unit_square(MPI.COMM_WORLD, 3, 3, CellType.triangle)
 
 
@@ -105,7 +107,9 @@ prefix = os.path.join(outdir, "test_notch")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
-with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+with XDMFFile(
+    comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+) as file:
     file.write_mesh(mesh)
 
 # Function spaces
@@ -121,52 +125,62 @@ zero_u = Function(V_u, name="   Boundary Displacement")
 
 uD = Function(V_u)
 
+
 def singularity_exp(omega):
     """Exponent of singularity, λ\in [1/2, 1]
     lmbda : = sin(2*lmbda*(pi - omega)) + lmbda*sin(2(pi-lmbda)) = 0"""
     from sympy import nsolve, pi, sin, symbols
 
-    x = symbols('x')
+    x = symbols("x")
 
-    return nsolve(
-        sin(2*x*(pi - omega)) + x*sin(2*(pi-omega)), 
-        x, .5)
+    return nsolve(sin(2 * x * (pi - omega)) + x * sin(2 * (pi - omega)), x, 0.5)
+
 
 import sympy as sp
 
 bd_facets = locate_entities_boundary(
-    mesh, dim=1, marker=lambda x: np.greater((x[0]**2 + x[1]**2), _r**2)
-    )
+    mesh, dim=1, marker=lambda x: np.greater((x[0] ** 2 + x[1] ** 2), _r**2)
+)
 
 bd_facets = locate_entities_boundary(
-    mesh, dim=1, marker=lambda x: np.greater((x[0]**2 + x[1]**2), _r**2)
-    )
-  
-bd_cells = locate_entities_boundary(mesh, dim=1, marker = lambda x: np.greater(x[0], 0.5))
+    mesh, dim=1, marker=lambda x: np.greater((x[0] ** 2 + x[1] ** 2), _r**2)
+)
+
+bd_cells = locate_entities_boundary(mesh, dim=1, marker=lambda x: np.greater(x[0], 0.5))
 
 bd_facets2 = locate_entities_boundary(
-    mesh, dim=1, marker=lambda x: np.greater(x[0], 0.)
-    )
+    mesh, dim=1, marker=lambda x: np.greater(x[0], 0.0)
+)
 
 
-bd_facets3 = locate_entities_boundary(mesh, dim=1, marker = lambda x: np.full(x.shape[1], True, dtype=bool))
+bd_facets3 = locate_entities_boundary(
+    mesh, dim=1, marker=lambda x: np.full(x.shape[1], True, dtype=bool)
+)
 boundary_dofs = locate_dofs_topological(V_u, mesh.topology.dim - 1, bd_facets3)
 
 boundary_facets = dolfinx.mesh.exterior_facet_indices(mesh.topology)
 
-assert((boundary_facets == bd_facets3).all())
+assert (boundary_facets == bd_facets3).all()
 
-def _local_notch_asymptotic(x, ω=np.deg2rad(_omega / 2.), t=1., par = parameters["material"]):
+
+def _local_notch_asymptotic(
+    x, ω=np.deg2rad(_omega / 2.0), t=1.0, par=parameters["material"]
+):
     from sympy import nsolve, pi, sin, cos, pi, symbols
-    λ = singularity_exp(ω)
-    Θ = symbols('Θ')
-    _E = par['E']
-    ν = par['ν']
-    Θv = np.arctan2(x[1], x[0])
-        
-    coeff = ( (1+λ) * sin( (1+λ) * (pi - ω) ) ) / ( (1-λ) * sin( (1-λ) * (pi - ω) ) )
 
-    _f = (2*np.pi)**(λ - 1) * ( cos( (1+λ) * Θ) - coeff * cos((1-λ) * Θ) ) / (1-coeff)
+    λ = singularity_exp(ω)
+    Θ = symbols("Θ")
+    _E = par["E"]
+    ν = par["ν"]
+    Θv = np.arctan2(x[1], x[0])
+
+    coeff = ((1 + λ) * sin((1 + λ) * (pi - ω))) / ((1 - λ) * sin((1 - λ) * (pi - ω)))
+
+    _f = (
+        (2 * np.pi) ** (λ - 1)
+        * (cos((1 + λ) * Θ) - coeff * cos((1 - λ) * Θ))
+        / (1 - coeff)
+    )
 
     f = sp.lambdify(Θ, _f, "numpy")
     fp = sp.lambdify(Θ, sp.diff(_f, Θ, 1), "numpy")
@@ -177,35 +191,33 @@ def _local_notch_asymptotic(x, ω=np.deg2rad(_omega / 2.), t=1., par = parameter
     # print("F(pi - ω)", f(np.float16(pi.n() - ω)))
     # print("F(-pi + ω)", f(np.float16(-pi.n() + ω)))
 
-    assert(np.isclose(f(np.float16(pi.n() - ω)), 0.))
-    assert(np.isclose(f(np.float16(-pi.n() + ω)), 0.))
+    assert np.isclose(f(np.float16(pi.n() - ω)), 0.0)
+    assert np.isclose(f(np.float16(-pi.n() + ω)), 0.0)
 
-    r = np.sqrt(x[0]**2. + x[1]**2.)
-    _c1 = (λ+1)*(1- ν*λ - ν**2.*(λ+1))
-    _c2 = 1-ν**2.
-    _c3 = 2.*(1+ν)*λ**2. + _c1
+    r = np.sqrt(x[0] ** 2.0 + x[1] ** 2.0)
+    _c1 = (λ + 1) * (1 - ν * λ - ν**2.0 * (λ + 1))
+    _c2 = 1 - ν**2.0
+    _c3 = 2.0 * (1 + ν) * λ**2.0 + _c1
     _c4 = _c2
-    _c5 = λ**2. * (1-λ**2.)
+    _c5 = λ**2.0 * (1 - λ**2.0)
 
-    ur = t * ( r**λ / _E * (_c1*f(Θv) + _c2*fpp(Θv)) ) / _c5
-    uΘ = t * ( r**λ / _E * (_c3*fp(Θv) + _c4*fppp(Θv)) ) / _c5
+    ur = t * (r**λ / _E * (_c1 * f(Θv) + _c2 * fpp(Θv))) / _c5
+    uΘ = t * (r**λ / _E * (_c3 * fp(Θv) + _c4 * fppp(Θv))) / _c5
 
     values = np.zeros((tdim, x.shape[1]))
     values[0] = ur * np.cos(Θv) - uΘ * np.sin(Θv)
     values[1] = ur * np.sin(Θv) + uΘ * np.cos(Θv)
     return values
 
+
 uD.interpolate(_local_notch_asymptotic)
 
-with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+with XDMFFile(
+    comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+) as file:
     file.write_function(uD, 0)
 
-from utils.viz import (
-    plot_mesh,
-    plot_profile,
-    plot_scalar,
-    plot_vector
-)
+from utils.viz import plot_mesh, plot_profile, plot_scalar, plot_vector
 import pyvista
 from pyvista.utilities import xvfb
 
@@ -223,9 +235,8 @@ ax = plot_mesh(mesh)
 fig = ax.get_figure()
 fig.savefig(f"{prefix}/test_mesh.png")
 
-_plt = plot_vector(uD, plotter, scale=.1)
-logging.critical('plotted vector')
+_plt = plot_vector(uD, plotter, scale=0.1)
+logging.critical("plotted vector")
 _plt.screenshot(f"{prefix}/test_vector.png")
 
 dirichletbc(value=uD, dofs=boundary_dofs)
-

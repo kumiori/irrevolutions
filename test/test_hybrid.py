@@ -90,6 +90,7 @@ prefix = os.path.join(outdir, "test_hybrid")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
+
 def test_hybrid(nest):
     Lx = 1.0
     Ly = 0.1
@@ -215,7 +216,7 @@ def test_hybrid(nest):
         block_params["pc_type"] = "lu"
         block_params["pc_factor_mat_solver_type"] = "mumps"
 
-    parameters.get("solvers")['newton'] = block_params
+    parameters.get("solvers")["newton"] = block_params
 
     hybrid = HybridFractureSolver(
         total_energy,
@@ -226,9 +227,8 @@ def test_hybrid(nest):
     )
 
     if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
-
 
     snes = hybrid.newton.snes
 
@@ -241,12 +241,16 @@ def test_hybrid(nest):
     # loads = np.linspace(0.0, 1.3, 10)
 
     data = []
-    
+
     norm_12_form = dolfinx.fem.form(
-        (ufl.inner(alpha, alpha) + parameters["model"]["ell"] * ufl.inner(ufl.grad(alpha), ufl.grad(alpha))) * dx)
+        (
+            ufl.inner(alpha, alpha)
+            + parameters["model"]["ell"] * ufl.inner(ufl.grad(alpha), ufl.grad(alpha))
+        )
+        * dx
+    )
 
     for i_t, t in enumerate(loads):
-
         u_.interpolate(lambda x: (t * np.ones_like(x[0]), 0 * np.ones_like(x[1])))
         u_.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
@@ -265,27 +269,33 @@ def test_hybrid(nest):
         alpha.vector.copy(alphadot.vector)
         alphadot.vector.axpy(-1, alpha_lb.vector)
         alphadot.vector.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         logging.info(f"alpha vector norm: {alpha.vector.norm()}")
         logging.info(f"alpha lb norm: {alpha_lb.vector.norm()}")
         logging.info(f"alphadot norm: {alphadot.vector.norm()}")
         logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
 
-        rate_12_norm = np.sqrt(comm.allreduce(
-            dolfinx.fem.assemble_scalar(
-                hybrid.scaled_rate_norm(alpha, parameters))
-                , op=MPI.SUM))
-        
+        rate_12_norm = np.sqrt(
+            comm.allreduce(
+                dolfinx.fem.assemble_scalar(hybrid.scaled_rate_norm(alpha, parameters)),
+                op=MPI.SUM,
+            )
+        )
+
         logging.info(f"rate scaled alpha_12 norm: {rate_12_norm}")
 
         dissipated_energy = comm.allreduce(
-            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state) * dx)),
+            dolfinx.fem.assemble_scalar(
+                dolfinx.fem.form(model.damage_energy_density(state) * dx)
+            ),
             op=MPI.SUM,
         )
         elastic_energy = comm.allreduce(
-            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.elastic_energy_density(state) * dx)),
+            dolfinx.fem.assemble_scalar(
+                dolfinx.fem.form(model.elastic_energy_density(state) * dx)
+            ),
             op=MPI.SUM,
         )
 
@@ -294,11 +304,11 @@ def test_hybrid(nest):
             "AM_F_alpha_H1": hybrid.data["error_alpha_H1"][-1],
             "AM_Fnorm": hybrid.data["error_residual_F"][-1],
             "NE_Fnorm": hybrid.newton.snes.getFunctionNorm(),
-            "load" : t,
-            "dissipated_energy" : dissipated_energy,
-            "elastic_energy" : elastic_energy,
-            "total_energy" : elastic_energy+dissipated_energy,
-            "solver_data" : hybrid.data,
+            "load": t,
+            "dissipated_energy": dissipated_energy,
+            "elastic_energy": elastic_energy,
+            "total_energy": elastic_energy + dissipated_energy,
+            "solver_data": hybrid.data,
             "alphadot_norm": alphadot.vector.norm(),
             "rate_12_norm": rate_12_norm
             # "eigs" : stability.data["eigs"],
@@ -306,7 +316,6 @@ def test_hybrid(nest):
             # "F" : _F
         }
         data.append(datai)
-
 
         # logging.info(f"getConvergedReason() {newton.snes.getConvergedReason()}")
         # logging.info(f"getFunctionNorm() {newton.snes.getFunctionNorm():.5e}")
@@ -338,7 +347,6 @@ def test_hybrid(nest):
         _plt.close()
 
     print(data)
-
 
     if comm.rank == 0:
         a_file = open(f"{prefix}/time_data.json", "w")

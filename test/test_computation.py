@@ -41,6 +41,7 @@ from utils import ColorPrint
 from utils.plots import plot_energies
 from utils import norm_H1, norm_L2
 
+
 # Define the Computation class
 class Computation:
     def __init__(self, parameters_file):
@@ -78,10 +79,10 @@ class Computation:
             "uniqueness": [],
             "inertia": [],
             "F": [],
-            "alphadot_norm" : [],
-            "rate_12_norm" : [],
-            "unscaled_rate_12_norm" : [],
-            "cone-stable": []
+            "alphadot_norm": [],
+            "rate_12_norm": [],
+            "unscaled_rate_12_norm": [],
+            "cone-stable": [],
         }
 
     def load_parameters(self, parameters_file):
@@ -90,7 +91,7 @@ class Computation:
         return parameters
 
     def generate_signature(self, parameters):
-        signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+        signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
         return signature
 
     def create_mesh_and_files(self):
@@ -128,6 +129,7 @@ class Computation:
     def run_computation(self):
         # Wrapper to run the entire computation
         pass
+
 
 # Example usage
 parameters_file = "../test/parameters.yml"

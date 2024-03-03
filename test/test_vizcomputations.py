@@ -2,14 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Example list of computations, where each computation is a list of partial time quotas
-computations = [
-    [10, 20, 15, 5, 30],
-    [15, 10, 25, 8, 20],
-    [5, 15, 10, 25, 30]
-]
+computations = [[10, 20, 15, 5, 30], [15, 10, 25, 8, 20], [5, 15, 10, 25, 30]]
 
 # Create a list of tasks (assuming the same tasks for all computations)
-tasks = ['Task 1', 'Task 2', 'Task 3', 'Task 4', 'Task 5']
+tasks = ["Task 1", "Task 2", "Task 3", "Task 4", "Task 5"]
 
 # Convert the list of computations into a NumPy array for easier manipulation
 computations = np.array(computations)
@@ -24,12 +20,14 @@ fig, ax = plt.subplots()
 
 # Create bars for each computation
 for i in range(num_computations):
-    ax.bar(index + i * bar_width, computations[i], bar_width, label=f'Computation {i+1}')
+    ax.bar(
+        index + i * bar_width, computations[i], bar_width, label=f"Computation {i+1}"
+    )
 
 # Set labels and title
-ax.set_xlabel('Tasks')
-ax.set_ylabel('Time Quotas (minutes)')
-ax.set_title('Partial Time Quotas for Computations')
+ax.set_xlabel("Tasks")
+ax.set_ylabel("Time Quotas (minutes)")
+ax.set_title("Partial Time Quotas for Computations")
 
 # Set x-axis ticks and labels
 ax.set_xticks(index + bar_width * (num_computations - 1) / 2)

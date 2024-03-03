@@ -39,10 +39,7 @@ from utils import ColorPrint, set_vector_to_constant
 from dolfinx.fem import locate_dofs_topological
 from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
 from dolfinx.io import XDMFFile, gmshio
-from dolfinx.fem.petsc import (
-    set_bc,
-    assemble_vector
-    )
+from dolfinx.fem.petsc import set_bc, assemble_vector
 
 import pyvista
 from pyvista.utilities import xvfb
@@ -62,7 +59,6 @@ from dolfinx.fem import (
 from utils.viz import plot_matrix
 
 import solvers.restriction as restriction
-
 
 
 class NLBSolver(StabilitySolver):
@@ -101,8 +97,8 @@ class NLBSolver(StabilitySolver):
             ),
         ]
         self.F = dolfinx.fem.form(self.F_)
-        
-        # Is the current state critical? 
+
+        # Is the current state critical?
         self._critical = False
 
         self.bcs = bcs["bcs_alpha"]
@@ -119,9 +115,9 @@ class NLBSolver(StabilitySolver):
         V_u = self.state[0].function_space
 
         F = dolfinx.fem.petsc.assemble_vector(self.F[0])
-        
-        print('Fa', F[:])
-        
+
+        print("Fa", F[:])
+
         with F.localForm() as f_local:
             idx_grad_local = np.where(np.isclose(f_local[:], 0.0, atol=gtol))[0]
 
@@ -146,14 +142,12 @@ class NLBSolver(StabilitySolver):
             self._critical = True
         else:
             self._critical = False
-        
+
         logging.critical(
             f"rank {comm.rank}) Current state is damage-critical? {self._critical}"
         )
         if self._critical:
-            logging.critical(
-                f"rank {comm.rank})     > The cone is open 🍦"
-            )
+            logging.critical(f"rank {comm.rank})     > The cone is open 🍦")
 
         # F.view()
 
@@ -169,11 +163,9 @@ class NLBSolver(StabilitySolver):
 
         return restricted_dofs
 
-
     def _potential_energy(self, equilibrium: dict):
         """returns total_energy computed on substituted field"""
         return ufl.replace(self.energy, equilibrium)
-
 
     def _solve(self, alpha_old: dolfinx.fem.function.Function, state: dict, neig=None):
         """Compute derivatives and check positivity"""
@@ -183,7 +175,7 @@ class NLBSolver(StabilitySolver):
         restricted_dofs = self.get_inactive_dofset(alpha_old)
         constraints = restriction.Restriction([self.V_alpha], restricted_dofs)
 
-        if len(restricted_dofs[0])==0:
+        if len(restricted_dofs[0]) == 0:
             # no damaging = elastic state
             _stability = True
             self.H = None
@@ -195,29 +187,29 @@ class NLBSolver(StabilitySolver):
             equilibrium = {u: state["u"]}
             # damaging, compute Hessian
             _F = ufl.replace(self.F_[0], equilibrium)
-            
+
             _P = self._potential_energy(equilibrium)
             F_ = ufl.derivative(
-                        _P,
-                        self.state[0],
-                        ufl.TestFunction(state["alpha"].ufl_function_space()),
-                    )
+                _P,
+                self.state[0],
+                ufl.TestFunction(state["alpha"].ufl_function_space()),
+            )
 
             H_ = ufl.algorithms.expand_derivatives(
-                            ufl.derivative(
-                                F_,
-                                self.state[0],
-                                ufl.TrialFunction(self.V_alpha),
-                            )
-                        )
+                ufl.derivative(
+                    F_,
+                    self.state[0],
+                    ufl.TrialFunction(self.V_alpha),
+                )
+            )
 
             self.H_form = ufl.algorithms.expand_derivatives(
-                            ufl.derivative(
-                                _F,
-                                self.state[0],
-                                ufl.TrialFunction(self.V_alpha),
-                            )
-                        )
+                ufl.derivative(
+                    _F,
+                    self.state[0],
+                    ufl.TrialFunction(self.V_alpha),
+                )
+            )
             Haa = dolfinx.fem.petsc.assemble_matrix(form(self.H_form), bcs=self.bcs)
             Haa.assemble()
 
@@ -238,24 +230,23 @@ class NLBSolver(StabilitySolver):
     def _isin_cone(self, x):
         """Is in the zone IFF x is in the cone"""
 
-        # get the subvector associated to damage dofs with inactive constraints 
+        # get the subvector associated to damage dofs with inactive constraints
         _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
         _is = PETSc.IS().createGeneral(_dofs)
         _sub = x.getSubVector(_is)
 
         return (_sub.array >= 0).all()
-        
+
     def _cone_project(self, v):
         """Projection vector into the cone
 
-            takes arguments:
-            - v: vector in a mixed space
+        takes arguments:
+        - v: vector in a mixed space
 
-            returns
+        returns
         """
         with dolfinx.common.Timer(f"~Second Order: Cone Project"):
-            
-            # get the subvector associated to damage dofs with inactive constraints 
+            # get the subvector associated to damage dofs with inactive constraints
             _dofs = self.eigen.restriction.bglobal_dofs_vec[1]
             _is = PETSc.IS().createGeneral(_dofs)
             _sub = v.getSubVector(_is)
@@ -318,13 +309,13 @@ prefix = os.path.join(outdir, "test_NLB")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
-def test_NLB(nest):
 
+def test_NLB(nest):
     with open("parameters.yml") as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     parameters["model"]["model_dimension"] = 1
-    parameters["model"]["model_type"] = '1D'
+    parameters["model"]["model_type"] = "1D"
     parameters["model"]["mu"] = 1
     parameters["model"]["w1"] = 100
     parameters["model"]["k_res"] = 1e-4
@@ -346,10 +337,8 @@ def test_NLB(nest):
     geom_type = parameters["geometry"]["geom_type"]
     _N = parameters["model"]["N"]
 
-
     # Create the mesh of the specimen with given dimensions
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
-
 
     outdir = "output"
     prefix = os.path.join(outdir, f"test_cone-N{parameters['model']['N']}")
@@ -358,26 +347,27 @@ def test_NLB(nest):
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
     import hashlib
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
 
     if comm.rank == 0:
-        with open(f"{prefix}/signature.md5", 'w') as f:
+        with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
 
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_mesh(mesh)
 
     # Functional Setting
 
-    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                                degree=1)
+    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
-    element_alpha = ufl.FiniteElement("DG", mesh.ufl_cell(),
-                                    degree=0)
+    element_alpha = ufl.FiniteElement("DG", mesh.ufl_cell(), degree=0)
 
     V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
     V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
@@ -385,12 +375,11 @@ def test_NLB(nest):
     u = dolfinx.fem.Function(V_u, name="Displacement")
     u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
 
-
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 
     # Pack state
     state = {"u": u, "alpha": alpha}
-    
+
     # Bounds
     alpha_ub = dolfinx.fem.Function(V_alpha, name="UpperBoundDamage")
     alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
@@ -459,8 +448,9 @@ def test_NLB(nest):
     # Energy functional
     f = dolfinx.fem.Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
     external_work = ufl.dot(f, state["u"]) * dx
-    total_energy = (elastic_energy_density_atk(state) +
-                    damage_energy_density(state)) * dx
+    total_energy = (
+        elastic_energy_density_atk(state) + damage_energy_density(state)
+    ) * dx
 
     parameters.get("model")["k_res"] = 1e-04
     parameters.get("solvers").get("damage_elasticity")["alpha_tol"] = 1e-03
@@ -492,7 +482,7 @@ def test_NLB(nest):
         block_params["pc_type"] = "lu"
         block_params["pc_factor_mat_solver_type"] = "mumps"
 
-    parameters.get("solvers")['newton'] = block_params
+    parameters.get("solvers")["newton"] = block_params
 
     hybrid = HybridFractureSolver(
         total_energy,
@@ -503,9 +493,8 @@ def test_NLB(nest):
     )
 
     if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
-
 
     snes = hybrid.newton.snes
 
@@ -518,12 +507,12 @@ def test_NLB(nest):
     # loads = np.linspace(0.0, 1.3, 10)
 
     data = []
-    
+
     norm_12_form = dolfinx.fem.form(
-        (ufl.inner(alpha, alpha) + ufl.inner(ufl.grad(alpha), ufl.grad(alpha))) * dx)
+        (ufl.inner(alpha, alpha) + ufl.inner(ufl.grad(alpha), ufl.grad(alpha))) * dx
+    )
 
     for i_t, t in enumerate(loads):
-
         # u_.interpolate(lambda x: (t * np.ones_like(x[0]), 0 * np.ones_like(x[1])))
         # u_.vector.ghostUpdate(
         #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
@@ -542,21 +531,22 @@ def test_NLB(nest):
         alpha.vector.copy(alphadot.vector)
         alphadot.vector.axpy(-1, alpha_lb.vector)
         alphadot.vector.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         logging.info(f"alpha vector norm: {alpha.vector.norm()}")
         logging.info(f"alpha lb norm: {alpha_lb.vector.norm()}")
         logging.info(f"alphadot norm: {alphadot.vector.norm()}")
         logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
 
-        rate_12_norm = np.sqrt(comm.allreduce(
-            dolfinx.fem.assemble_scalar(
-                hybrid.scaled_rate_norm(alpha, parameters))
-                , op=MPI.SUM))
-        
-        logging.info(f"rate scaled alpha_12 norm: {rate_12_norm}")
+        rate_12_norm = np.sqrt(
+            comm.allreduce(
+                dolfinx.fem.assemble_scalar(hybrid.scaled_rate_norm(alpha, parameters)),
+                op=MPI.SUM,
+            )
+        )
 
+        logging.info(f"rate scaled alpha_12 norm: {rate_12_norm}")
 
         # dissipated_energy = comm.allreduce(
         #     dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state) * dx)),
@@ -566,23 +556,21 @@ def test_NLB(nest):
         #     dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.elastic_energy_density(state) * dx)),
         #     op=MPI.SUM,
         # )
-        
+
         # We have the equilibrium displacement now
         # let's substitute in the total energy
         # to get P(\alpha) = E(u^*, \alpha) where u^* is the equilibrium displacement
-
-
 
         datai = {
             "it": i_t,
             "AM_F_alpha_H1": hybrid.data["error_alpha_H1"][-1],
             "AM_Fnorm": hybrid.data["error_residual_F"][-1],
             "NE_Fnorm": hybrid.newton.snes.getFunctionNorm(),
-            "load" : t,
-            "dissipated_energy" : dissipated_energy,
-            "elastic_energy" : elastic_energy,
-            "total_energy" : elastic_energy+dissipated_energy,
-            "solver_data" : hybrid.data,
+            "load": t,
+            "dissipated_energy": dissipated_energy,
+            "elastic_energy": elastic_energy,
+            "total_energy": elastic_energy + dissipated_energy,
+            "solver_data": hybrid.data,
             "alphadot_norm": alphadot.vector.norm(),
             "rate_12_norm": rate_12_norm
             # "eigs" : stability.data["eigs"],
@@ -590,7 +578,6 @@ def test_NLB(nest):
             # "F" : _F
         }
         data.append(datai)
-
 
         # logging.info(f"getConvergedReason() {newton.snes.getConvergedReason()}")
         # logging.info(f"getFunctionNorm() {newton.snes.getFunctionNorm():.5e}")
@@ -623,7 +610,6 @@ def test_NLB(nest):
 
     print(data)
 
-
     if comm.rank == 0:
         a_file = open(f"{prefix}/time_data.json", "w")
         json.dump(data, a_file)
@@ -632,7 +618,7 @@ def test_NLB(nest):
 
 def test_cone():
     """docstring for test_cone"""
-        
+
     from dolfinx.fem import (
         Constant,
         Function,
@@ -659,19 +645,19 @@ def test_cone():
 
     """
 
-
     from solvers.function import functions_to_vec
+
     logging.getLogger().setLevel(logging.CRITICAL)
 
     class _AlternateMinimisation:
-        def __init__(self,
-                    total_energy,
-                    state,
-                    bcs,
-                    solver_parameters={},
-                    bounds=(dolfinx.fem.function.Function,
-                            dolfinx.fem.function.Function)
-                    ):
+        def __init__(
+            self,
+            total_energy,
+            state,
+            bcs,
+            solver_parameters={},
+            bounds=(dolfinx.fem.function.Function, dolfinx.fem.function.Function),
+        ):
             self.state = state
             self.alpha = state["alpha"]
             self.alpha_old = dolfinx.fem.function.Function(self.alpha.function_space)
@@ -684,8 +670,7 @@ def test_cone():
             V_u = state["u"].function_space
             V_alpha = state["alpha"].function_space
 
-            energy_u = ufl.derivative(
-                self.total_energy, self.u, ufl.TestFunction(V_u))
+            energy_u = ufl.derivative(self.total_energy, self.u, ufl.TestFunction(V_u))
             energy_alpha = ufl.derivative(
                 self.total_energy, self.alpha, ufl.TestFunction(V_alpha)
             )
@@ -711,7 +696,6 @@ def test_cone():
             )
 
         def solve(self, outdir=None):
-
             alpha_diff = dolfinx.fem.Function(self.alpha.function_space)
 
             self.data = {
@@ -749,8 +733,7 @@ def test_cone():
 
                 Fnorm = np.sqrt(
                     np.array(
-                        [comm.allreduce(Fvi.norm(), op=MPI.SUM)
-                            for Fvi in Fv]
+                        [comm.allreduce(Fvi.norm(), op=MPI.SUM) for Fvi in Fv]
                     ).sum()
                 )
 
@@ -798,10 +781,8 @@ def test_cone():
                 self.data["solver_u_it"].append(solver_u_it)
                 self.data["total_energy"].append(total_energy_int)
 
-
                 if (
-                    self.solver_parameters.get(
-                        "damage_elasticity").get("criterion")
+                    self.solver_parameters.get("damage_elasticity").get("criterion")
                     == "residual_u"
                 ):
                     if error_residual_F <= self.solver_parameters.get(
@@ -809,8 +790,7 @@ def test_cone():
                     ).get("alpha_rtol"):
                         break
                 if (
-                    self.solver_parameters.get(
-                        "damage_elasticity").get("criterion")
+                    self.solver_parameters.get("damage_elasticity").get("criterion")
                     == "alpha_H1"
                 ):
                     if error_alpha_H1 <= self.solver_parameters.get(
@@ -822,13 +802,11 @@ def test_cone():
                     f"Could not converge after {iteration:3d} iterations, error {error_alpha_H1:3.4e}"
                 )
 
-
     petsc4py.init(sys.argv)
     comm = MPI.COMM_WORLD
 
     # Mesh on node model_rank and then distribute
     model_rank = 0
-
 
     with open("parameters.yml") as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
@@ -837,7 +815,7 @@ def test_cone():
     # parameters["cone"]["atol"] = 1e-7
 
     parameters["model"]["model_dimension"] = 1
-    parameters["model"]["model_type"] = '1D'
+    parameters["model"]["model_type"] = "1D"
     parameters["model"]["mu"] = 1
     parameters["model"]["w1"] = 2
     parameters["model"]["k_res"] = 1e-4
@@ -859,7 +837,6 @@ def test_cone():
     geom_type = parameters["geometry"]["geom_type"]
     _N = parameters["model"]["N"]
 
-
     # Create the mesh of the specimen with given dimensions
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
@@ -870,33 +847,33 @@ def test_cone():
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
     import hashlib
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
 
     if comm.rank == 0:
-        with open(f"{prefix}/signature.md5", 'w') as f:
+        with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
 
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_mesh(mesh)
 
     # Functional Setting
 
-    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                                degree=1)
+    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
-    element_alpha = ufl.FiniteElement("DG", mesh.ufl_cell(),
-                                    degree=0)
+    element_alpha = ufl.FiniteElement("DG", mesh.ufl_cell(), degree=0)
 
     V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
     V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
 
     u = dolfinx.fem.Function(V_u, name="Displacement")
     u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
-
 
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 
@@ -918,19 +895,16 @@ def test_cone():
     u_ = Function(V_u, name="Boundary Unknown")
     zero_u = Function(V_u, name="Boundary Unknown")
 
-
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
     ds = ufl.Measure("ds", domain=mesh)
 
     # Boundary sets
 
-    dofs_alpha_left = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], 0.))
-    dofs_alpha_right = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], Lx))
+    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
-    dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.))
+    dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
 
     # Boundary data
@@ -947,31 +921,27 @@ def test_cone():
     u_.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [zero_u, u_, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+        f.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
-    bc_u_left = dirichletbc(
-        np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u)
+    bc_u_left = dirichletbc(np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
-    bc_u_right = dirichletbc(
-        u_, dofs_u_right)
+    bc_u_right = dirichletbc(u_, dofs_u_right)
     bcs_u = [bc_u_left, bc_u_right]
 
     bcs_alpha = []
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
-
     def a(alpha):
-        k_res = parameters["model"]['k_res']
-        return (1 - alpha)**2 + k_res
-
+        k_res = parameters["model"]["k_res"]
+        return (1 - alpha) ** 2 + k_res
 
     def a_atk(alpha):
-        k_res = parameters["model"]['k_res']
-        _k = parameters["model"]['k']
-        return (1 - alpha) / ((_k-1) * alpha + 1)
-
+        k_res = parameters["model"]["k_res"]
+        _k = parameters["model"]["k"]
+        return (1 - alpha) / ((_k - 1) * alpha + 1)
 
     def w(alpha):
         """
@@ -982,7 +952,6 @@ def test_cone():
         # Return w(alpha) function
         return alpha
 
-
     def elastic_energy_density_atk(state):
         """
         Returns the elastic energy density from the state.
@@ -992,10 +961,9 @@ def test_cone():
         u = state["u"]
         eps = ufl.grad(u)
 
-        _mu = parameters["model"]['mu']
-        energy_density = _mu / 2. * a_atk(alpha) * ufl.inner(eps, eps)
+        _mu = parameters["model"]["mu"]
+        energy_density = _mu / 2.0 * a_atk(alpha) * ufl.inner(eps, eps)
         return energy_density
-
 
     def damage_energy_density(state):
         """
@@ -1010,10 +978,8 @@ def test_cone():
         # Compute the damage gradient
         grad_alpha = ufl.grad(alpha)
         # Compute the damage dissipation density
-        D_d = _w1 * w(alpha) + _w1 * _ell**2 * ufl.dot(
-            grad_alpha, grad_alpha)
+        D_d = _w1 * w(alpha) + _w1 * _ell**2 * ufl.dot(grad_alpha, grad_alpha)
         return D_d
-
 
     def stress(state):
         """
@@ -1022,10 +988,11 @@ def test_cone():
         u = state["u"]
         alpha = state["alpha"]
 
-        return parameters["model"]['mu'] * a_atk(alpha) * u.dx() * dx
+        return parameters["model"]["mu"] * a_atk(alpha) * u.dx() * dx
 
-    total_energy = (elastic_energy_density_atk(state) +
-                    damage_energy_density(state)) * dx
+    total_energy = (
+        elastic_energy_density_atk(state) + damage_energy_density(state)
+    ) * dx
 
     # Energy functional
     # f = Constant(mesh, 0)
@@ -1034,27 +1001,23 @@ def test_cone():
     external_work = f * state["u"] * dx
 
     load_par = parameters["loading"]
-    loads = np.linspace(load_par["min"],
-                        load_par["max"], load_par["steps"])
+    loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
     solver = _AlternateMinimisation(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 
-
     stability = BifurcationSolver(
         total_energy, state, bcs, stability_parameters=parameters.get("stability")
     )
 
-
     cone = StabilitySolver(
-        total_energy, state, bcs,
-        cone_parameters=parameters.get("stability")
+        total_energy, state, bcs, cone_parameters=parameters.get("stability")
     )
 
-    nlb = NLBSolver(total_energy, state, bcs,
-        nlb_parameters=parameters.get("stability"))
-
+    nlb = NLBSolver(
+        total_energy, state, bcs, nlb_parameters=parameters.get("stability")
+    )
 
     history_data = {
         "load": [],
@@ -1078,8 +1041,9 @@ def test_cone():
 
     for i_t, t in enumerate(loads):
         u_.interpolate(lambda x: t * np.ones_like(x[0]))
-        u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+        u_.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         # update the lower bound
         alpha.vector.copy(alpha_lb.vector)
@@ -1102,13 +1066,10 @@ def test_cone():
         stable = cone._solve(alpha_lb)
         nlb_stable = nlb._solve(alpha_lb, state)
 
-
-
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         ColorPrint.print_bold(f"State is stable: {is_stable}")
         ColorPrint.print_bold(f"State is nlb-stable: {nlb_stable}")
-
 
         # postproc
 
@@ -1129,12 +1090,12 @@ def test_cone():
             assemble_scalar(form(elastic_energy_density_atk(state) * dx)),
             op=MPI.SUM,
         )
-        _F = assemble_scalar( form(stress(state)) )
-        
+        _F = assemble_scalar(form(stress(state)))
+
         history_data["load"].append(t)
         history_data["fracture_energy"].append(fracture_energy)
         history_data["elastic_energy"].append(elastic_energy)
-        history_data["total_energy"].append(elastic_energy+fracture_energy)
+        history_data["total_energy"].append(elastic_energy + fracture_energy)
         history_data["solver_data"].append(solver.data)
         history_data["cone_data"].append(cone.data)
         history_data["eigs"].append(stability.data["eigs"])
@@ -1144,11 +1105,13 @@ def test_cone():
         history_data["Hii"].append(_Hii)
         history_data["alpha_t"].append(state["alpha"].vector.array.tolist())
         history_data["u_t"].append(state["u"].vector.array.tolist())
-        
+
         # logging.critical(f"u_t {u.vector.array}")
         # logging.critical(f"u_t norm {state['u'].vector.norm()}")
 
-        with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+        with XDMFFile(
+            comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+        ) as file:
             file.write_function(u, t)
             file.write_function(alpha, t)
 
@@ -1163,14 +1126,14 @@ def test_cone():
     df = pd.DataFrame(history_data)
     print(df)
 
-
     from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
         plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-        plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
-
+        plot_force_displacement(
+            history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
+        )
 
 
 if __name__ == "__main__":

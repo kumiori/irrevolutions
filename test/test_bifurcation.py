@@ -13,6 +13,7 @@ import dolfinx.plot
 from dolfinx import log
 import ufl
 import numpy as np
+
 sys.path.append("../")
 from utils.plots import plot_energies
 from utils import ColorPrint
@@ -57,8 +58,6 @@ from algorithms.so import BifurcationSolver
 # ///////////
 
 
-
-
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
 
@@ -94,8 +93,9 @@ if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
 
-
-with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+with XDMFFile(
+    comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+) as file:
     file.write_mesh(mesh)
 
 # Function spaces
@@ -122,10 +122,8 @@ alpha_ub = Function(V_alpha, name="Upper bound")
 dx = ufl.Measure("dx", domain=mesh)
 ds = ufl.Measure("ds", domain=mesh)
 
-dofs_alpha_left = locate_dofs_geometrical(
-    V_alpha, lambda x: np.isclose(x[0], 0.0))
-dofs_alpha_right = locate_dofs_geometrical(
-    V_alpha, lambda x: np.isclose(x[0], Lx))
+dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
 dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
 dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -137,16 +135,13 @@ alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
 alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
 for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
-    f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                         mode=PETSc.ScatterMode.FORWARD)
+    f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
-bc_u_left = dirichletbc(
-    np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
+bc_u_left = dirichletbc(np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
 # import pdb; pdb.set_trace()
 
-bc_u_right = dirichletbc(
-    u_, dofs_u_right)
+bc_u_right = dirichletbc(u_, dofs_u_right)
 bcs_u = [bc_u_left, bc_u_right]
 
 bcs_alpha = [
@@ -174,8 +169,7 @@ external_work = ufl.dot(f, state["u"]) * dx
 total_energy = model.total_energy_density(state) * dx - external_work
 
 load_par = parameters["loading"]
-loads = np.linspace(load_par["min"],
-                    load_par["max"], load_par["steps"])
+loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
 solver = AlternateMinimisation(
     total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
@@ -200,9 +194,8 @@ check_stability = []
 
 
 for i_t, t in enumerate(loads):
-    u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
-    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                          mode=PETSc.ScatterMode.FORWARD)
+    u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
+    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     # update the lower bound
     alpha.vector.copy(alpha_lb.vector)
@@ -236,12 +229,14 @@ for i_t, t in enumerate(loads):
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
-    history_data["total_energy"].append(elastic_energy+fracture_energy)
+    history_data["total_energy"].append(elastic_energy + fracture_energy)
     history_data["solver_data"].append(solver.data)
     history_data["eigs-ball"].append(bifurcation.data["eigs"])
     history_data["unique"].append(is_unique)
 
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_function(u, t)
         file.write_function(alpha, t)
 
@@ -253,6 +248,7 @@ for i_t, t in enumerate(loads):
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
 import pandas as pd
+
 df = pd.DataFrame(history_data)
 print(df)
 
