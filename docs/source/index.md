@@ -5,17 +5,22 @@
 
 # Irreversible Solvers • documentation
 
-```{include} ../../README.md
+<!-- ```{include} ../../README.md
 :relative-images:
-```
+``` -->
 
 ```{warning}
 Library uner development
 ```
 
+For further info, check out {doc}`usage`.
+Read installation instructions in {ref}`Installation`
+
 ```{toctree}
 :caption: 'Contents:'
 :maxdepth: 2
+
+usage
 ```
 
 # Indices and tables
