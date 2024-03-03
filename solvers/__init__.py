@@ -9,10 +9,17 @@ petsc4py.init(sys.argv)
 
 from dolfinx.cpp.log import LogLevel, log
 from dolfinx.fem import form
+
 # from damage.utils import ColorPrint
 
 from dolfinx.fem.petsc import (
-    assemble_matrix, apply_lifting, create_vector, create_matrix, set_bc, assemble_vector)
+    assemble_matrix,
+    apply_lifting,
+    create_vector,
+    create_matrix,
+    set_bc,
+    assemble_vector,
+)
 
 
 # import pdb;
@@ -25,6 +32,7 @@ class SNESSolver:
     """
     Problem class for elasticity, compatible with PETSC.SNES solvers.
     """
+
     def __init__(
         self,
         F_form: ufl.Form,
@@ -38,7 +46,6 @@ class SNESSolver:
         monitor=None,
         prefix=None,
     ):
-
         self.u = u
         self.bcs = bcs
         self.bounds = bounds
@@ -115,11 +122,11 @@ class SNESSolver:
         """
         # We need to assign the vector to the function
 
-        x.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                      mode=PETSc.ScatterMode.FORWARD)
+        x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
         x.copy(self.u.vector)
-        self.u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                                  mode=PETSc.ScatterMode.FORWARD)
+        self.u.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         # Zero the residual vector
         with b.localForm() as b_local:
@@ -128,8 +135,7 @@ class SNESSolver:
 
         # Apply boundary conditions
         apply_lifting(b, [self.J_form], [self.bcs], [x], -1.0)
-        b.ghostUpdate(addv=PETSc.InsertMode.ADD,
-                      mode=PETSc.ScatterMode.REVERSE)
+        b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
         set_bc(b, self.bcs, x, -1.0)
 
     def J(self, snes, x: PETSc.Vec, A: PETSc.Mat, P: PETSc.Mat):
@@ -156,10 +162,10 @@ class SNESSolver:
             #    "with converged reason",
             #    self.solver.getConvergedReason(),
             # )
-            self.u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                                      mode=PETSc.ScatterMode.FORWARD)
-            return (self.solver.getIterationNumber(),
-                    self.solver.getConvergedReason())
+            self.u.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+            return (self.solver.getIterationNumber(), self.solver.getConvergedReason())
 
         except Warning:
             log(

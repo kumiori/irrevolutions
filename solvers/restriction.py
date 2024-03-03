@@ -39,7 +39,6 @@ class Restriction:
         offset_vec = 0
 
         for i, space in enumerate(function_spaces):
-
             bs = space.dofmap.index_map_bs
 
             size_local = space.dofmap.index_map.size_local

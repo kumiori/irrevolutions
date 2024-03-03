@@ -13,7 +13,6 @@ default_model_parameters = default_parameters["model"]
 
 
 class ElasticityModel:
-
     # Basic class for elasticity
 
     def __init__(self, eps_0=None, model_parameters={}):
@@ -34,9 +33,11 @@ class ElasticityModel:
         # geometric values
         # self.Ly = geometry_parameters["Ly"]
         # calculating Lame coefficients
-        self.lmbda = (self.E * self.nu /
-                      ((1 + self.nu) * (1 -
-                                        (self.model_dimension - 1) * self.nu)))
+        self.lmbda = (
+            self.E
+            * self.nu
+            / ((1 + self.nu) * (1 - (self.model_dimension - 1) * self.nu))
+        )
         self.mu = self.E / (2 * (1 + self.nu))
 
     def eps(self, u):
@@ -44,11 +45,14 @@ class ElasticityModel:
             return ufl.sym(ufl.grad(u))
         if self.model_type == "plane-strain":
             return ufl.sym(
-                ufl.as_matrix([
-                    [u[0].dx(0), u[0.].dx(1), 0],
-                    [u[1].dx(0), u[1].dx(1), 0],
-                    [0, 0, 0],
-                ]))
+                ufl.as_matrix(
+                    [
+                        [u[0].dx(0), u[0.0].dx(1), 0],
+                        [u[1].dx(0), u[1].dx(1), 0],
+                        [0, 0, 0],
+                    ]
+                )
+            )
 
     def elastic_energy_density_strain(self, eps):
         """
@@ -58,7 +62,7 @@ class ElasticityModel:
         lmbda = self.lmbda
         mu = self.mu
         # Elastic energy density
-        return 1 / 2 * (2 * mu * ufl.inner(eps, eps) + lmbda * ufl.tr(eps)**2)
+        return 1 / 2 * (2 * mu * ufl.inner(eps, eps) + lmbda * ufl.tr(eps) ** 2)
 
     def elastic_energy_density(self, state):
         """
@@ -104,7 +108,7 @@ class DamageElasticityModel(ElasticityModel):
 
     def a(self, alpha):
         k_res = self.k_res
-        return (1 - alpha)**2 + k_res
+        return (1 - alpha) ** 2 + k_res
 
     def w(self, alpha):
         """
@@ -121,10 +125,13 @@ class DamageElasticityModel(ElasticityModel):
         # Parameters
         lmbda = self.lmbda
         mu = self.mu
-        
+
         energy_density = (
-            self.a(alpha) * 1.0 / 2.0 *
-            (2 * mu * ufl.inner(eps, eps) + lmbda * ufl.tr(eps)**2))
+            self.a(alpha)
+            * 1.0
+            / 2.0
+            * (2 * mu * ufl.inner(eps, eps) + lmbda * ufl.tr(eps) ** 2)
+        )
         return energy_density
 
     def elastic_energy_density(self, state):
@@ -150,7 +157,8 @@ class DamageElasticityModel(ElasticityModel):
         lmbda = self.lmbda
         mu = self.mu
         sigma = 2 * mu * strain + lmbda * ufl.tr(strain) * ufl.Identity(
-            self.model_dimension)
+            self.model_dimension
+        )
         return sigma
 
     def damage_energy_density(self, state):
@@ -166,8 +174,7 @@ class DamageElasticityModel(ElasticityModel):
         # Compute the damage gradient
         grad_alpha = ufl.grad(alpha)
         # Compute the damage dissipation density
-        D_d = w1 * self.w(alpha) + w1 * ell**2 * ufl.dot(
-            grad_alpha, grad_alpha)
+        D_d = w1 * self.w(alpha) + w1 * ell**2 * ufl.dot(grad_alpha, grad_alpha)
         return D_d
 
     def total_energy_density(self, state):
@@ -175,14 +182,15 @@ class DamageElasticityModel(ElasticityModel):
         Return the damage dissipation density from the state.
         """
         # Get the material parameters
-        energy = self.elastic_energy_density(
-            state) + self.damage_energy_density(state)
+        energy = self.elastic_energy_density(state) + self.damage_energy_density(state)
         return energy
+
 
 class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
     """
     Base class for thin film elasticity coupled with damage.
     """
+
     def __init__(self, model_parameters={}, eps_0=ufl.Identity(2)):
         """
         Initialie material parameters.
@@ -199,7 +207,7 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
         super().__init__(model_parameters)
         if model_parameters:
             self.model_parameters.update(model_parameters)
-        
+
         # Initialize the damage parameters
         self.w1 = self.model_parameters["w1"]
         self.ell = self.model_parameters["ell"]
@@ -208,7 +216,7 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
         self.eps_0 = eps_0
 
     def elastic_foundation_density(self, u):
-        K = self.ell_e**(-2.)
+        K = self.ell_e ** (-2.0)
         return 0.5 * K * ufl.inner(u, u)
 
     def elastic_energy_density(self, state):
@@ -220,41 +228,51 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
         u = state["u"]
         eps = self.eps(u) - self.eps_0
         return self.elastic_energy_density_strain(
-            eps, alpha) + self.elastic_foundation_density(u)
+            eps, alpha
+        ) + self.elastic_foundation_density(u)
 
     def stress(self, strain, alpha):
         from numpy import ndarray
         from dolfinx.fem import assemble_scalar, form
+
         # Differentiate the elastic energy w.r.t. the strain tensor
         eps_ = ufl.variable(strain)
         # Derivative of energy w.r.t. the strain tensor to obtain the stress
         # tensor
         _sigma = ufl.diff(self.elastic_energy_density_strain(eps_, alpha), eps_)
-        dx = ufl.Measure("dx", domain = alpha.function_space.mesh)
+        dx = ufl.Measure("dx", domain=alpha.function_space.mesh)
         sigma = ndarray(shape=(self.model_dimension, self.model_dimension))
 
         for i in range(self.model_dimension):
             for j in range(self.model_dimension):
                 # ompute the average value for the field sigma
                 sigma[i, j] = assemble_scalar(form(_sigma[i, j] * dx))
-        
+
         return ufl.as_tensor(sigma)
 
+
 from dolfinx.fem.function import Function
+
+
 class VariableThickness:
-    #accept the class as argument
+    # accept the class as argument
     def __init__(self, model):
         self.model = model
-    
-    #accept the class's __init__ method arguments
-    def __call__(self, thickness: Function, model_parameters={}, eps_0=ufl.Identity(2)):
 
-        #replace energy densities with newdisplay
-        self.model.elastic_energy_density = thickness * self.model.elastic_energy_density
-        self.model.elastic_foundation_density = thickness * self.model.elastic_foundation_density
-        self.model.damage_dissipation_density = thickness * self.model.damage_dissipation_density
-        
-        #return the instance of the class
+    # accept the class's __init__ method arguments
+    def __call__(self, thickness: Function, model_parameters={}, eps_0=ufl.Identity(2)):
+        # replace energy densities with newdisplay
+        self.model.elastic_energy_density = (
+            thickness * self.model.elastic_energy_density
+        )
+        self.model.elastic_foundation_density = (
+            thickness * self.model.elastic_foundation_density
+        )
+        self.model.damage_dissipation_density = (
+            thickness * self.model.damage_dissipation_density
+        )
+
+        # return the instance of the class
         obj = self.model(thickness, model_parameters, eps_0)
         return obj
 
