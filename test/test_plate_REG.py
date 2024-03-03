@@ -25,8 +25,7 @@ from ufl import (CellDiameter, FacetNormal, SpatialCoordinate, TestFunction,
                  TrialFunction, avg, div, ds, dS, dx, grad, inner, jump)
 import pdb
 
-from dolfinx.io import XDMFFile
-from meshes import gmsh_model_to_mesh
+from dolfinx.io import XDMFFile, gmshio
 # from damage.utils import ColorPrint
 from models import ElasticityModel
 from solvers import SNESSolver as ElasticitySolver
@@ -74,11 +73,11 @@ log.set_log_level(log.LogLevel.WARNING)
 
 comm = MPI.COMM_WORLD
 
-outdir = './output/test_plate'
+outdir = './output/plate'
 if comm.rank == 0:
     Path(outdir).mkdir(parents=True, exist_ok=True)
 
-with open(f"{outdir}/parameters.yml") as f:
+with open(f"parameters.yml") as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
 
@@ -88,6 +87,11 @@ Ly = parameters["geometry"]["Ly"]
 tdim = parameters["geometry"]["geometric_dimension"]
 lc = parameters["geometry"]["lc"]
 
+Lx = 1
+Ly = 1
+tdim = 2
+lc = 0.1
+
 # Get geometry model
 geom_type = parameters["geometry"]["geom_type"]
 
@@ -95,10 +99,8 @@ geom_type = parameters["geometry"]["geom_type"]
 gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
 
 # Get mesh and meshtags
-mesh, mts = gmsh_model_to_mesh(gmsh_model,
-                               cell_data=False,
-                               facet_data=True,
-                               gdim=2)
+
+mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, 0, tdim)
 
 with XDMFFile(comm, f"{outdir}/mesh.xdmf", "w",
               encoding=XDMFFile.Encoding.HDF5) as file:
@@ -161,8 +163,6 @@ boundary_facets = dolfinx.mesh.locate_entities_boundary(
 boundary_dofs = dolfinx.fem.locate_dofs_topological(
     (V.sub(1), V_1), mesh.topology.dim - 1, boundary_facets)
 
-# pdb.set_trace()
-
 bcs = [dirichletbc(zero_u, boundary_dofs, V.sub(1))]
 
 A = assemble_matrix(a, bcs=bcs)
@@ -188,15 +188,19 @@ sigma_h = S(ufl.as_tensor([[x_h[0], x_h[1]], [x_h[2], x_h[3]]]))
 
 (_S, _w) = x_h.split()
 
+
+_V = FunctionSpace(mesh, ufl.FiniteElement("Lagrange", ufl.triangle, 1))
+v = Function(_V)
+v.interpolate(_w)
+
 with XDMFFile(comm, f"{outdir}/output.xdmf", "a",
                 encoding=XDMFFile.Encoding.HDF5) as file:
-    file.write_function(_w)
+    file.write_function(v)
 
 
 
 
 
-pdb.set_trace()
 # Viz
 
 xvfb.start_xvfb(wait=0.05)
@@ -207,7 +211,8 @@ plotter = pyvista.Plotter(
     window_size=[1600, 600],
     shape=(1, 1),
 )
-_plt = plot_scalar(_w, plotter, subplot=(0, 0))
+# _plt = plot_scalar(_w, plotter, subplot=(0, 0))
+_plt = plot_scalar(v, plotter, subplot=(0, 0))
 # _plt = plot_vector(u, plotter, subplot=(0, 1))
 _plt.screenshot(f"{outdir}/plate_regge_displacement.png")
 
