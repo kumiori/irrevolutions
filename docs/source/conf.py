@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Irreversible Solvers'
-copyright = '2024, Anddés A León Baldelli'
+copyright = '2024, Andrés A León Baldelli'
 author = 'Andrés A León Baldelli'
 release = '0.1'
 
@@ -16,7 +16,6 @@ release = '0.1'
 
 extensions = ["myst_parser",
               "sphinx.ext.duration",
-              "sphinx.ext.autosectionlabel",
               "sphinx.ext.autodoc",
               "autoapi.extension",
               "sphinx.ext.napoleon",

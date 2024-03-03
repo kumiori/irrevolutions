@@ -10,11 +10,10 @@
 ``` -->
 
 ```{warning}
-Library uner development
+Library under development
 ```
 
 For further info, check out {doc}`usage`.
-Read installation instructions in {ref}`Installation`
 
 ```{toctree}
 :caption: 'Contents:'
@@ -23,8 +22,7 @@ Read installation instructions in {ref}`Installation`
 usage
 ```
 
-# Indices and tables
+# Indices
 
 - {ref}`genindex`
 - {ref}`modindex`
-- {ref}`search`
