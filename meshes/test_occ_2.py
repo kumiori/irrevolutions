@@ -21,7 +21,7 @@ line3 = gmsh.model.occ.addLine(point3, point1)
 
 triangle_loop = gmsh.model.occ.addCurveLoop([line1, line2, line3])
 triangle = gmsh.model.occ.addPlaneSurface([triangle_loop])
-__import__('pdb').set_trace()
+__import__("pdb").set_trace()
 # Perform boolean operations
 boolean = gmsh.model.occ.cut([(2, rectangle)], [(2, disk)])
 boolean = gmsh.model.occ.cut([(2, rectangle)], [(2, triangle)])

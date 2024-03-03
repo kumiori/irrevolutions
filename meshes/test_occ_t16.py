@@ -89,21 +89,21 @@ gmsh.model.addPhysicalGroup(3, [ov[-1][1]], 10)
 # To identify points or other bounding entities you can take advantage of the
 # `getEntities()', `getBoundary()' and `getEntitiesInBoundingBox()' functions:
 
-lcar1 = .1
-lcar2 = .0005
-lcar3 = .055
+lcar1 = 0.1
+lcar2 = 0.0005
+lcar3 = 0.055
 
 # Assign a mesh size to all the points:
 gmsh.model.mesh.setSize(gmsh.model.getEntities(0), lcar1)
 
 # Override this constraint on the points of the five spheres:
-gmsh.model.mesh.setSize(gmsh.model.getBoundary(holes, False, False, True),
-                        lcar3)
+gmsh.model.mesh.setSize(gmsh.model.getBoundary(holes, False, False, True), lcar3)
 
 # Select the corner point by searching for it geometrically:
 eps = 1e-3
-ov = gmsh.model.getEntitiesInBoundingBox(0.5 - eps, 0.5 - eps, 0.5 - eps,
-                                         0.5 + eps, 0.5 + eps, 0.5 + eps, 0)
+ov = gmsh.model.getEntitiesInBoundingBox(
+    0.5 - eps, 0.5 - eps, 0.5 - eps, 0.5 + eps, 0.5 + eps, 0.5 + eps, 0
+)
 gmsh.model.mesh.setSize(ov, lcar2)
 
 gmsh.model.mesh.generate(3)

@@ -4,6 +4,7 @@ import sys
 gmsh.initialize()
 
 import warnings
+
 warnings.filterwarnings("ignore")
 gmsh.initialize()
 gmsh.option.setNumber("General.Terminal", 1)
@@ -29,4 +30,3 @@ gmsh.model.mesh.generate(2)
 
 gmsh.write("mesh.msh")
 gmsh.finalize()
-
