@@ -21,6 +21,11 @@ extensions = ["myst_parser",
               "sphinx.ext.napoleon",
               ]
 
+myst_enable_extensions = [
+    "amsmath",
+    "dollarmath",
+]
+
 autoapi_type = 'python'
 autoapi_dirs = ['../../']
 
