@@ -58,7 +58,7 @@ import dolfinx.mesh
 
 sys.path.append("../")
 
-# from algorithms.am import AlternateMinimisation, HybridFractureSolver
+# from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint

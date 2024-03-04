@@ -19,7 +19,7 @@ sys.path.append("../")
 import matplotlib.pyplot as plt
 
 from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridFractureSolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver, BifurcationSolver
 from algorithms.ls import LineSearch
 from meshes.primitives import mesh_bar_gmshapi
@@ -197,7 +197,7 @@ def test_linsearch(parameters, storage):
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 
-    hybrid = HybridFractureSolver(
+    hybrid = HybridSolver(
         total_energy,
         state,
         bcs,

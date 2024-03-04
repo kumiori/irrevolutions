@@ -40,7 +40,7 @@ from dolfinx.common import Timer, list_timings, TimingType
 
 sys.path.append("../")
 from algorithms.so import BifurcationSolver, StabilitySolver
-from algorithms.am import AlternateMinimisation, HybridFractureSolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
 from utils.plots import plot_energies
@@ -445,7 +445,7 @@ def main(parameters, storage=None):
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 
-    hybrid = HybridFractureSolver(
+    hybrid = HybridSolver(
         total_energy,
         state,
         bcs,

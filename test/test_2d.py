@@ -42,7 +42,7 @@ from dolfinx.common import Timer, list_timings, TimingType
 
 sys.path.append("../")
 from algorithms.so import BifurcationSolver, StabilitySolver
-from algorithms.am import AlternateMinimisation, HybridFractureSolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 from meshes.primitives import mesh_bar_gmshapi
 from models import DamageElasticityModel as Brittle
 from meshes.pacman import mesh_pacman
@@ -200,7 +200,7 @@ def main(parameters, storage):
                         load_par["max"], load_par["steps"])
     # loads = [0., 0.5, 1.01, 1.3, 2.]
 
-    equilibrium = HybridFractureSolver(
+    equilibrium = HybridSolver(
         total_energy,
         state,
         bcs,

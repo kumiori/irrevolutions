@@ -16,7 +16,7 @@ import numpy as np
 sys.path.append("../")
 
 from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridFractureSolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 
 from meshes.primitives import mesh_bar_gmshapi
 from dolfinx.common import Timer, list_timings, TimingType
@@ -184,7 +184,7 @@ solver = AlternateMinimisation(
     total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
 )
 
-hybrid = HybridFractureSolver(
+hybrid = HybridSolver(
     total_energy,
     state,
     bcs,

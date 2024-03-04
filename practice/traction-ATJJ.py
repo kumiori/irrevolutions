@@ -46,7 +46,7 @@ from utils.plots import plot_energies
 from utils import ColorPrint
 from meshes.primitives import mesh_bar_gmshapi
 from algorithms.so import BifurcationSolver, StabilitySolver
-from algorithms.am import AlternateMinimisation, HybridFractureSolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 from models import DamageElasticityModel
 
 
@@ -284,7 +284,7 @@ def traction_with_parameters(parameters, slug=''):
     #     bounds=(alpha_lb, alpha_ub)
     # )
 
-    hybrid = HybridFractureSolver(
+    hybrid = HybridSolver(
         total_energy,
         state,
         bcs,

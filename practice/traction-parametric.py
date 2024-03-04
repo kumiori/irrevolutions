@@ -46,7 +46,7 @@ from utils import ColorPrint
 from meshes.primitives import mesh_bar_gmshapi
 from solvers import SNESSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
-from algorithms.am import AlternateMinimisation, HybridFractureSolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 from models import DamageElasticityModel as Brittle
 
 
@@ -256,7 +256,7 @@ def main(parameters, model='at2', storage=None):
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 
-    hybrid = HybridFractureSolver(
+    hybrid = HybridSolver(
         total_energy,
         state,
         bcs,

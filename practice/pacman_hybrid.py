@@ -25,7 +25,7 @@ import dolfinx.plot
 sys.path.append("../")
 from utils import ColorPrint, set_vector_to_constant
 from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation as AM, HybridFractureSolver
+from algorithms.am import AlternateMinimisation as AM, HybridSolver
 
 from meshes.pacman import mesh_pacman
 from utils.lib import _local_notch_asymptotic
@@ -252,7 +252,7 @@ def pacman_hybrid(nest):
     F = [Eu, Ealpha]
     z = [u, alpha]
 
-    hybrid = HybridFractureSolver(
+    hybrid = HybridSolver(
         total_energy,
         state,
         bcs,
