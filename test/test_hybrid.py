@@ -29,7 +29,7 @@ import dolfinx.plot
 
 # import pyvista
 import yaml
-from algorithms.am import AlternateMinimisation as AM, HybridFractureSolver
+from algorithms.am import AlternateMinimisation as AM, HybridSolver
 from models import DamageElasticityModel as Brittle
 from utils import ColorPrint, set_vector_to_constant
 from dolfinx.fem import locate_dofs_topological
@@ -218,7 +218,7 @@ def test_hybrid(nest):
 
     parameters.get("solvers")["newton"] = block_params
 
-    hybrid = HybridFractureSolver(
+    hybrid = HybridSolver(
         total_energy,
         state,
         bcs,

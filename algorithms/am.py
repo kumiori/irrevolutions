@@ -35,8 +35,6 @@ from dolfinx.fem.petsc import (
 
 logging.basicConfig()
 
-# logging.getLogger().setLevel(logging.INFO)
-
 
 class AlternateMinimisation:
     def __init__(
@@ -234,7 +232,7 @@ class AlternateMinimisation:
 import solvers.restriction as restriction
 
 
-class HybridFractureSolver(AlternateMinimisation):
+class HybridSolver(AlternateMinimisation):
     """Hybrid (AltMin+Newton) solver for fracture"""
 
     def __init__(
@@ -246,7 +244,7 @@ class HybridFractureSolver(AlternateMinimisation):
         bounds=(dolfinx.fem.function.Function, dolfinx.fem.function.Function),
         monitor=None,
     ):
-        super(HybridFractureSolver, self).__init__(
+        super(HybridSolver, self).__init__(
             total_energy, state, bcs, solver_parameters, bounds, monitor
         )
 

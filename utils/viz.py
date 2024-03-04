@@ -105,39 +105,30 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     plotter.set_background("white")
     return plotter
 
+def plot_profile(u, points, plotter, subplot=None, lineproperties={}, fig=None, ax=None, subplotnumber = 1):
+    # import matplotlib.pyplot as plt
+    # import dolfinx.geometry
+    # mesh = u.function_space.mesh
+    # bb_tree = dolfinx.geometry.bb_tree(mesh, mesh.topology.dim)
 
-def plot_profile(
-    u,
-    points,
-    plotter,
-    subplot=None,
-    lineproperties={},
-    fig=None,
-    ax=None,
-    subplotnumber=1,
-):
-    import matplotlib.pyplot as plt
-    import dolfinx.geometry
+    # cells = []
+    # points_on_proc = []
+    # # Find cells whose bounding-box collide with the the points
+    # cell_candidates = dolfinx.geometry.compute_collisions_points(bb_tree, points.T)
+    # # Choose one of the cells that contains the point
+    # colliding_cells = dolfinx.geometry.compute_colliding_cells(
+    #     mesh, cell_candidates, points.T
+    # )
+    # for i, point in enumerate(points.T):
+    #     if len(colliding_cells.links(i)) > 0:
+    #         points_on_proc.append(point)
+    #         cells.append(colliding_cells.links(i)[0])
 
-    mesh = u.function_space.mesh
-    bb_tree = dolfinx.geometry.bb_tree(mesh, mesh.topology.dim)
+    # points_on_proc = np.array(points_on_proc, dtype=np.float64)
+    # u_values = u.eval(points_on_proc, cells)
 
-    cells = []
-    points_on_proc = []
-    # Find cells whose bounding-box collide with the the points
-    cell_candidates = dolfinx.geometry.compute_collisions_points(bb_tree, points.T)
-    # Choose one of the cells that contains the point
-    colliding_cells = dolfinx.geometry.compute_colliding_cells(
-        mesh, cell_candidates, points.T
-    )
-    for i, point in enumerate(points.T):
-        if len(colliding_cells.links(i)) > 0:
-            points_on_proc.append(point)
-            cells.append(colliding_cells.links(i)[0])
-
-    points_on_proc = np.array(points_on_proc, dtype=np.float64)
-    u_values = u.eval(points_on_proc, cells)
-
+    points_on_proc, u_values = get_datapoints(u, points)
+    
     if fig is None:
         fig = plt.figure()
 
@@ -168,6 +159,25 @@ def plot_mesh(mesh, ax=None):
     ax.triplot(tria, color="k")
     return ax
 
+def get_datapoints(u, points):
+    import dolfinx.geometry
+    mesh = u.function_space.mesh
+    cells = []
+    bb_tree = dolfinx.geometry.bb_tree(mesh, mesh.topology.dim)
+    points_on_proc = []
+    cell_candidates = dolfinx.geometry.compute_collisions_points(bb_tree, points.T)
+    colliding_cells = dolfinx.geometry.compute_colliding_cells(
+        mesh, cell_candidates, points.T
+    )
+    for i, point in enumerate(points.T):
+        if len(colliding_cells.links(i)) > 0:
+            points_on_proc.append(point)
+            cells.append(colliding_cells.links(i)[0])
+
+    points_on_proc = np.array(points_on_proc, dtype=np.float64)
+    u_values = u.eval(points_on_proc, cells)
+    
+    return points_on_proc, u_values
 
 def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
     from solvers.function import vec_to_functions

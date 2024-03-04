@@ -313,10 +313,10 @@ history_data = {
     "elastic_energy": [],
     "fracture_energy": [],
     "total_energy": [],
-    "solver_data": [],
+    "equilibrium_data": [],
     "cone_data": [],
-    "eigs-ball": [],
-    "eigs-cone": [],
+    "eigs_ball": [],
+    "eigs_cone": [],
     "stable": [],
     "unique": [],
     "inertia": [],
@@ -340,13 +340,26 @@ def _write_history_data(
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
-    history_data["total_energy"].append(elastic_energy + fracture_energy)
-    history_data["solver_data"].append(equilibrium.data)
+    history_data["total_energy"].append(elastic_energy+fracture_energy)
+    history_data["equilibrium_data"].append(equilibrium.data)
     history_data["inertia"].append(inertia)
     history_data["unique"].append(unique)
     history_data["stable"].append(stable)
-    history_data["eigs-ball"].append(bifurcation.data["eigs"])
+    history_data["eigs_ball"].append(bifurcation.data["eigs"])
     history_data["cone_data"].append(stability.data)
-    history_data["eigs-cone"].append(stability.solution["lambda_t"])
+    history_data["eigs_cone"].append(stability.solution["lambda_t"])
 
     return
+
+
+def indicator_function(v):
+    import dolfinx
+    # Create the indicator function
+    w = dolfinx.fem.Function(v.function_space)
+    with w.vector.localForm() as w_loc, v.vector.localForm() as v_loc:
+        w_loc[:] = np.where(v_loc[:] > 0, 1., 0.)
+
+    w.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
+        mode=PETSc.ScatterMode.FORWARD)
+    
+    return w

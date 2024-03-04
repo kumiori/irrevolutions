@@ -42,5 +42,5 @@
 **/*.mat*
 **/.DS_Store
 
-# sphinz
+# sphinx
 docs/build/

@@ -303,52 +303,73 @@ class SecondOrderSolver:
 
         return (neg, zero, pos)
 
+    def normalise_eigenmode(self, x, mode="functional"):
+        """Normalises the eigenmode by the functional L2 norm
+
+        Args:
+            x (_type_): a (mixed space) vector
+            mode (str, optional): _description_. Defaults to "functional".
+        """
+        _v = dolfinx.fem.Function(self.V_u, name="Displacement_component")
+        _β = dolfinx.fem.Function(self.V_alpha, name="Damage_component")
+
+        vec_to_functions(x, [_v, _β])
+
+        if mode == "functional":
+            scaling = np.sqrt(norm_L2(_v) ** 2 + norm_L2(_β) ** 2)
+        else:
+            raise NotImplementedError("Normalisation mode not implemented")
+
+        # for u in [_v, _β]:
+        #     with u.vector.localForm() as u_local:
+        #         u_local.scale(1.0 / scaling)
+        #     u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+
+        with x.localForm() as x_local:
+            x_local.scale(1.0 / scaling)
+        x.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
+        )
+
+        return x
+
     def normalise_eigen(self, u, mode="max-beta"):
         """
         Normalize the eigenmode vector.
 
         Args:
             u: Eigenmode vector.
-            mode (str): Mode for normalization. Only "max-beta" is supported.
+            mode (str): Mode for normalization. Supported modes:
+                - "max-beta", L-infty on beta
+                - "unit", L2-norm of the mixed vector
 
         Returns:
             float: Coefficient used for normalization.
         """
-        assert mode == "max-beta"
-        v, beta = u[0], u[1]
-        V_alpha_lrange = beta.function_space.dofmap.index_map.local_range
+        if mode == "max-beta":
+            v, beta = u[0], u[1]
+            coeff_glob = beta.vector.norm(3)
 
-        coeff = max(abs(beta.vector[V_alpha_lrange[0] : V_alpha_lrange[1]]))
-        coeff_glob = np.array(0.0, "d")
+            logging.debug(f"{rank}, |β|_infty {beta.vector.norm(3):.3f}")
 
-        comm.Allreduce(coeff, coeff_glob, op=MPI.MAX)
-
-        logging.debug(f"{rank}, coeff_loc {coeff:.3f}")
-        logging.debug(f"{rank}, coeff_glob {coeff_glob:.3f}")
+        elif mode == "unit":
+            coeff_glob = np.sqrt(sum(n**2 for n in [v_i.vector.norm() for v_i in u]))
+            logging.debug(f"rank {rank}, coeff_glob {coeff_glob:.3f}")
+            logging.debug(f"{rank}, |(v, β)^*|_2 {coeff_glob:.3f}")
 
         if coeff_glob == 0.0:
-            log(
-                LogLevel.INFO,
-                "Damage eigenvector is null i.e. |β|={}".format(beta.vector.norm()),
-            )
+            logging.error(f"Damage eigenvector is null i.e. |β|={beta.vector.norm()}")
             return 0.0
 
-        with v.vector.localForm() as v_local:
-            v_local.scale(1.0 / coeff_glob)
-        v.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
-        )
+        for v_i in u:
+            with v_i.vector.localForm() as v_local:
+                v_local.scale(1.0 / coeff_glob)
+            v_i.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
+            )
 
-        with beta.vector.localForm() as beta_local:
-            beta_local.scale(1.0 / coeff_glob)
-        beta.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
-        )
+        _norm = np.sqrt(sum(n**2 for n in [v_i.vector.norm(2) for v_i in u]))
 
-        logging.debug(
-            f"{rank}, beta range: ({min(beta.vector[V_alpha_lrange[0] : V_alpha_lrange[1]]):.3f},\
-            {max(beta.vector[V_alpha_lrange[0] : V_alpha_lrange[1]]):.3f})"
-        )
         return coeff_glob
 
     def postproc_eigs(self, eigs, eigen):
@@ -496,34 +517,23 @@ class SecondOrderSolver:
 
     def process_eigenmode(self, eigen, i):
         """Process a single eigenmode and return its components."""
-        v_n = dolfinx.fem.Function(self.V_u, name="Displacement perturbation")
-        beta_n = dolfinx.fem.Function(self.V_alpha, name="Damage perturbation")
+        v_n = dolfinx.fem.Function(self.V_u, name="Displacement_perturbation")
+        β_n = dolfinx.fem.Function(self.V_alpha, name="Damage_perturbation")
         _u = create_vector_block(self.F)
         eigval, ur, _ = eigen.getEigenpair(i)
-        _ = self.normalise_eigen(ur)
 
         functions_to_vec(ur, _u)
 
-        with ur[0].vector.localForm() as v_loc, v_n.vector.localForm() as v_n_loc:
-            v_loc.copy(result=v_n_loc)
+        _u = self.normalise_eigenmode(_u, mode="functional")
 
-        v_n.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        )
+        for u, component in zip(ur, [v_n, β_n]):
+            with u.vector.localForm() as u_loc, component.vector.localForm() as c_loc:
+                u_loc.copy(result=c_loc)
+            component.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
 
-        with ur[1].vector.localForm() as b_loc, beta_n.vector.localForm() as b_n_loc:
-            b_loc.copy(result=b_n_loc)
-
-        beta_n.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        )
-
-        logging.debug(f"mode {i} {ur[0].name}-norm {ur[0].vector.norm()}")
-        logging.debug(f"mode {i} {ur[1].name}-norm {ur[1].vector.norm()}")
-        logging.debug(f"mode {i} beta_n-norm {beta_n.vector.norm()}")
-        logging.debug("")
-
-        return v_n, beta_n, eigval, _u
+        return v_n, β_n, eigval, _u
 
     def store_results(self, eigen, spectrum):
         """Store eigenmodes and results."""
@@ -553,6 +563,12 @@ class SecondOrderSolver:
             "perturbations_beta": perturbations_beta,
             "perturbations_v": perturbations_v,
             "stable": bool(stable),
+        }
+        # store the first perturbation mode
+        self.perturbation = {
+            "v": spectrum[0]["v"],
+            "β": spectrum[0]["beta"],
+            "λ": spectrum[0]["lambda"],
         }
 
         return stable
@@ -690,13 +706,11 @@ class StabilitySolver(SecondOrderSolver):
         self.alpha_old = alpha_old
 
         self.data = {
-            # "iterations": [],
             "error_x_L2": [],
             "lambda_k": [],
-            # "lambda_0": [],
             "y_norm_L2": [],
-            # "x_norm_L2": [],
         }
+        self.solution = {"lambda_t": np.nan, "xt": None, "yt": None}
 
         if not self._is_critical(alpha_old):
             _logger.info(
@@ -710,18 +724,18 @@ class StabilitySolver(SecondOrderSolver):
             )
             return True
         else:
-            assert len(eig0) > 0
+            # assert len(eig0) > 0
             # assert that there is at least one negative or zero eigenvalue
             assert inertia[0] > 0 or inertia[1] > 0
 
             _x, _y, _Ax, self._xold = self.initialize_full_vectors()
 
-            x0 = eig0[0].get("xk")
+            # x0 = eig0[0].get("xk")
+            x0 = eig0
             x0.copy(result=_x).normalize()
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             _logger.debug(f"initial guess x0: {x0.array}")
-            x0.copy(self._xold)
             self.x0 = x0.copy()
 
         errors = []
@@ -747,10 +761,15 @@ class StabilitySolver(SecondOrderSolver):
             self._residual_norm = 1.0
 
             self.Ar_matrix = _Ar.copy()
-
             _y, _xk, _lmbda_k = self.convergence_loop(errors, _Ar, _xk)
 
-            self.store_results(_lmbda_k, _xk, _y)
+            # process eigenmode
+            # ... normalise ...
+            y = self.normalise_eigenmode(_y, mode="functional")
+            xk = self.normalise_eigenmode(_xk, mode="functional")
+
+            # store
+            self.store_results(_lmbda_k, xk, y)
             stable = self.check_stability(_lmbda_k)
 
         return stable
@@ -801,11 +820,11 @@ class StabilitySolver(SecondOrderSolver):
 
         return _cone_restricted
 
-    def log_data(self, xk, lmbda_t, y):
+    def log_data(self, xk, lmbda_k, y):
         # Update SPA data during each iteration
         # self.iterations += 1
         # self.data["iterations"].append(self.iterations)
-        self.data["lambda_k"].append(lmbda_t)
+        self.data["lambda_k"].append(lmbda_k)
         self.data["y_norm_L2"].append(y.norm())
         # self.data["x_norm_L2"].append(xk.norm())
         self.data["error_x_L2"].append(self.error)
@@ -846,18 +865,29 @@ class StabilitySolver(SecondOrderSolver):
 
         return _xk, _y, _xoldr, _Axr
 
-    def finalise_eigenmode(self, xk):
+    def finalise_eigenmode(self, xt, yt, lmbda_t):
         # Extract, extend, and finalize the converged eigenmode
-        self._xk = xk
-        self._extend_vector(xk, self._v)
+        self._xk = xt
+        self._extend_vector(xt, self._v)
 
         (v, β) = (
-            Function(self.V_u, name="Displacement perturbation"),
-            Function(self.V_alpha, name="Damage perturbation"),
+            Function(self.V_u, name="Displacement_perturbation"),
+            Function(self.V_alpha, name="Damage_perturbation"),
         )
 
         vec_to_functions(self._v, [v, β])
-        self.perturbation = {"v": v, "beta": β}
+        self.perturbation = {"v": v, "β": β, "λ": lmbda_t}
+
+        self._y = create_vector_block(self.F)
+
+        (w, ζ) = (
+            Function(self.V_u, name="Displacement_residual"),
+            Function(self.V_alpha, name="Damage_residual"),
+        )
+
+        self._extend_vector(yt, self._y)
+        vec_to_functions(self._y, [w, ζ])
+        self.residual = {"w": w, "ζ": ζ}
 
         return self.perturbation
 
@@ -1066,19 +1096,21 @@ class StabilitySolver(SecondOrderSolver):
             self.parameters.get("cone").get("cone_rtol")
         ):
             return False
-        else:
+        elif self._converged and lmbda_t > float(
+            self.parameters.get("cone").get("cone_rtol")
+        ):
             return True
 
-    def store_results(self, lmbda_t, _xt, _yt):
+    def store_results(self, lmbda_t, xt, yt):
         # Store SPA results and log convergence information
-        perturbation = self.finalise_eigenmode(_xt)
+        perturbation = self.finalise_eigenmode(xt, yt, lmbda_t)
         # self.data["lambda_0"] = lmbda_t
-        self.solution = {"lambda_t": lmbda_t, "xt": _xt, "yt": _yt}
+        self.solution = {"lambda_t": lmbda_t, "xt": xt, "yt": yt}
         self.perturbation = perturbation
         _logger.info(
             f"Convergence of SPA algorithm within {self.iterations} iterations"
         )
-        _logger.info(f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(_xt)}")
+        _logger.info(f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(xt)}")
 
         _logger.critical(f"Restricted Eigenvalue {lmbda_t:.4e}")
         _logger.info(f"Restricted Eigenvalue is positive {lmbda_t > 0}")

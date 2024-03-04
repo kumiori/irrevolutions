@@ -33,7 +33,7 @@ from petsc4py import PETSc
 
 sys.path.append("../")
 from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridFractureSolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so_merged import BifurcationSolver, StabilitySolver
 from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi

@@ -222,8 +222,7 @@ class _AlternateMinimisation:
 from utils import set_vector_to_constant, ColorPrint
 from solvers.snesblockproblem import SNESBlockProblem
 
-
-class HybridFractureSolver(_AlternateMinimisation):
+class HybridSolver(_AlternateMinimisation):
     """Hybrid (AltMin+Newton) solver for fracture"""
 
     def __init__(
@@ -235,7 +234,7 @@ class HybridFractureSolver(_AlternateMinimisation):
         bounds=(dolfinx.fem.function.Function, dolfinx.fem.function.Function),
         monitor=None,
     ):
-        super(HybridFractureSolver, self).__init__(
+        super(HybridSolver, self).__init__(
             total_energy, state, bcs, solver_parameters, bounds, monitor
         )
 
@@ -620,7 +619,7 @@ def discrete_atk(arg_N=2):
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 
-    hybrid = HybridFractureSolver(
+    hybrid = HybridSolver(
         total_energy,
         state,
         bcs,

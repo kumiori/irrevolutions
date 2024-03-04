@@ -47,7 +47,7 @@ from dolfinx.common import Timer, list_timings, TimingType, timing
 
 sys.path.append("../")
 from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridFractureSolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
@@ -265,7 +265,7 @@ def pacman_cone(resolution=2, slug='pacman'):
         bounds=(alpha_lb, alpha_ub)
     )
 
-    hybrid = HybridFractureSolver(
+    hybrid = HybridSolver(
         total_energy,
         state,
         bcs,
