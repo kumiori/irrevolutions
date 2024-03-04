@@ -215,7 +215,6 @@ for i_t, t in enumerate(loads):
 
     logging.critical(f"-- Solving for t = {t:3.2f} --")
 
-    # solver.solve()
     hybrid.solve(alpha_lb)
 
     fracture_energy = comm.allreduce(
@@ -237,7 +236,6 @@ for i_t, t in enumerate(loads):
     history_data["elastic_energy"].append(elastic_energy)
     history_data["total_energy"].append(elastic_energy+fracture_energy)
     history_data["solver_data"].append([])
-    # history_data["solver_data"].append(solver.data)
     history_data["solver_HY_data"].append(hybrid.newton_data)
     history_data["F"].append(stress)
 
