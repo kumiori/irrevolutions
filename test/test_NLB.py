@@ -32,7 +32,7 @@ import pandas as pd
 
 # import pyvista
 import yaml
-from algorithms.am import AlternateMinimisation as AM, HybridFractureSolver
+from algorithms.am import AlternateMinimisation as AM, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from models import DamageElasticityModel as Brittle
 from utils import ColorPrint, set_vector_to_constant
@@ -494,7 +494,7 @@ def test_NLB(nest):
 
     parameters.get("solvers")['newton'] = block_params
 
-    hybrid = HybridFractureSolver(
+    hybrid = HybridSolver(
         total_energy,
         state,
         bcs,

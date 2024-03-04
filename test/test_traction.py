@@ -16,7 +16,7 @@ import numpy as np
 sys.path.append("../")
 
 from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridFractureSolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 
 from meshes.primitives import mesh_bar_gmshapi
 from dolfinx.common import Timer, list_timings, TimingType
@@ -184,7 +184,7 @@ solver = AlternateMinimisation(
     total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
 )
 
-hybrid = HybridFractureSolver(
+hybrid = HybridSolver(
     total_energy,
     state,
     bcs,
@@ -215,7 +215,6 @@ for i_t, t in enumerate(loads):
 
     logging.critical(f"-- Solving for t = {t:3.2f} --")
 
-    # solver.solve()
     hybrid.solve(alpha_lb)
 
     fracture_energy = comm.allreduce(
@@ -237,7 +236,6 @@ for i_t, t in enumerate(loads):
     history_data["elastic_energy"].append(elastic_energy)
     history_data["total_energy"].append(elastic_energy+fracture_energy)
     history_data["solver_data"].append([])
-    # history_data["solver_data"].append(solver.data)
     history_data["solver_HY_data"].append(hybrid.newton_data)
     history_data["F"].append(stress)
 

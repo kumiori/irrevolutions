@@ -46,7 +46,7 @@ from dolfinx.common import Timer, list_timings, TimingType
 
 sys.path.append("../")
 from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridFractureSolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint

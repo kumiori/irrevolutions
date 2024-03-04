@@ -40,7 +40,7 @@ from dolfinx.common import Timer, list_timings, TimingType
 
 sys.path.append("../")
 from algorithms.so import BifurcationSolver, StabilitySolver
-from algorithms.am import AlternateMinimisation, HybridFractureSolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 from meshes.primitives import mesh_bar_gmshapi
 from utils import ColorPrint
 from utils.plots import plot_energies
@@ -445,7 +445,7 @@ def main(parameters, storage=None):
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 
-    hybrid = HybridFractureSolver(
+    hybrid = HybridSolver(
         total_energy,
         state,
         bcs,
@@ -505,8 +505,10 @@ def main(parameters, storage=None):
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
 
-        stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
-        # pdb.set_trace()
+        z0 = bifurcation._spectrum[0]['xk'] if bifurcation._spectrum and 'xk' in bifurcation._spectrum[0] else None
+
+        stable = stability.solve(alpha_lb, eig0=z0, inertia = inertia)
+
         with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
             if comm.Get_size() == 1:
 
@@ -551,7 +553,7 @@ def main(parameters, storage=None):
                     # )
 
                     _plt, data_stability = plot_profile(
-                        stability.perturbation['beta'],
+                        stability.perturbation['β'],
                         points,
                         plotter,
                         subplot=(1, 2),

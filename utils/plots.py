@@ -62,7 +62,7 @@ def plot_AMit_load(history_data, title="AM max it - Load", file=None):
     t = np.array(history_data["load"])
     it = np.zeros_like(t)
     for i, load in enumerate(t):
-        it[i] = np.array(history_data["solver_data"][i]["iteration"][-1])
+        it[i] = np.array(history_data["equilibrium_data"][i]["iteration"][-1])
 
     # stress-strain curve
     ax1.plot(
@@ -125,11 +125,11 @@ def plot_residual_AMit(
     ax1.grid(linewidth=0.25)
     fig.tight_layout()
 
-    it = np.array(history_data["solver_data"][load_check]["iteration"])
+    it = np.array(history_data["equilibrium_data"][load_check]["iteration"])
     if criterion == "residaul_u":
-        R = np.array(history_data["solver_data"][load_check]["error_residual_u"])
+        R = np.array(history_data["equilibrium_data"][load_check]["error_residual_u"])
     if criterion == "alpha_H1":
-        R = np.array(history_data["solver_data"][load_check]["error_alpha_H1"])
+        R = np.array(history_data["equilibrium_data"][load_check]["error_alpha_H1"])
 
     # stress-strain curve
     ax1.plot(
@@ -159,8 +159,8 @@ def plot_energy_AMit(history_data, load_check, title="Total energy - AM it", fil
     ax1.grid(linewidth=0.25)
     fig.tight_layout()
 
-    it = np.array(history_data["solver_data"][load_check]["iteration"])
-    E = np.array(history_data["solver_data"][load_check]["total_energy"])
+    it = np.array(history_data["equilibrium_data"][load_check]["iteration"])
+    E = np.array(history_data["equilibrium_data"][load_check]["total_energy"])
 
     # stress-strain curve
     ax1.plot(

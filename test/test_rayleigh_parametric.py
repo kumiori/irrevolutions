@@ -2,6 +2,7 @@ import os
 import sys
 sys.path.append("../")
 sys.path.append("../playground/nb")
+
 import test_binarydataio as bio
 # from test_extend import test_extend_vector
 # from test_cone_project import _cone_project_restricted
@@ -27,12 +28,41 @@ from pyvista.utilities import xvfb
 from utils.viz import plot_profile
 from pathlib import Path
 import matplotlib.pyplot as plt
-from utils.viz import get_datapoints
+from dolfinx.fem import form, assemble_scalar
 import eigenspace as eig
 from utils import indicator_function
 
 _logger.setLevel(logging.CRITICAL)
 
+def rayleigh_ratio_reduced(β, parameters):
+
+    dx = ufl.Measure("dx", β.function_space.mesh)
+    a, b, c = parameters['model']['a'], parameters['model']['b'], parameters['model']['c']
+    
+    sq_int_beta = (β * dx)**2
+    numerator = (a * β.dx(0)**2 * dx) +  b * c**2 * sq_int_beta
+    denominator = ufl.inner(β, β) * dx
+
+    R = assemble_scalar(form(numerator))  \
+            / assemble_scalar(form(denominator))
+    
+    # Create the dolfinx form
+
+    return R
+
+def rayleigh_ratio(z, parameters):
+    (v, β) = z
+    dx = ufl.Measure("dx", v.function_space.mesh)
+
+    a, b, c = parameters['model']['a'], parameters['model']['b'], parameters['model']['c']
+    
+    numerator = (a * ufl.inner(β.dx(0), β.dx(0)) + b * ufl.inner(v.dx(0) - c * β, v.dx(0) - c * β)) * dx
+    denominator = ufl.inner(β, β) * dx
+
+    R = assemble_scalar(form(numerator))  \
+            / assemble_scalar(form(denominator))
+    
+    return R
 
 def rayleigh(parameters, storage=None):
     comm = MPI.COMM_WORLD
@@ -41,8 +71,8 @@ def rayleigh(parameters, storage=None):
 
     # with XDMFFile(comm, "data/input_data.xdmf", "r") as file: 
     #     mesh = file.read_mesh(name='mesh')
-    N = parameters['geometry']['N']
-    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, N)
+
+    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, 30)
 
     if storage is None:
         prefix = "output/rayleigh-benchmark"
@@ -70,7 +100,7 @@ def rayleigh(parameters, storage=None):
     
     # (size of the) support of the cone-eigenfunction - if any.
     # 
-    _D = (np.pi**2 * _a/(_b*_c**2) )**(1/3)
+    _D = (np.pi**2 * _a/(_b*_c**2) )**(1/3) if np.pi**2 * _a - _b * _c**2 < 0 else 1
 
     element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
     element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
@@ -98,19 +128,12 @@ def rayleigh(parameters, storage=None):
 
     dx = ufl.Measure("dx", alpha.function_space.mesh)
 
+    # G = 1/2 * (a * alpha.dx(0)**2 + b * (u.dx(0) - c * alpha)**2) \
+    #         * dx
+
     G = 1/2 * (a * alpha.dx(0)**2 + b * (u.dx(0) - c * alpha)**2) \
             * dx
 
-    F_ = [
-        ufl.derivative(
-            G, u, ufl.TestFunction(u.ufl_function_space())
-        ),
-        ufl.derivative(
-            G, alpha, ufl.TestFunction(alpha.ufl_function_space()),
-        ),
-    ]
-    F = dolfinx.fem.form(F_)
-    
     dofs_alpha_left = locate_dofs_geometrical(
         V_alpha, lambda x: np.isclose(x[0], 0.))
     dofs_alpha_right = locate_dofs_geometrical(
@@ -132,7 +155,6 @@ def rayleigh(parameters, storage=None):
     # Perturbations
     β = dolfinx.fem.Function(V_alpha, name="DamagePerturbation")
     v = dolfinx.fem.Function(V_u, name="DisplacementPerturbation")
-    perturbation = {"v": v, "β": β}
     
     # Pack state
     state = {"u": u, "alpha": alpha}
@@ -159,171 +181,56 @@ def rayleigh(parameters, storage=None):
         G, state, bcs,
         bifurcation_parameters=parameters.get("stability")
     )
+
     stability = StabilitySolver(
         G, state, bcs,
         cone_parameters=parameters.get("stability")
     )
+
     is_unique = bifurcation.solve(zero_alpha)
     inertia = bifurcation.get_inertia()
-    stable = stability.solve(zero_alpha, eig0=bifurcation.spectrum[0]['xk'], inertia = (1, 0, 10))
-    
+    stable = stability.solve(zero_alpha, eig0=bifurcation.spectrum, inertia = (1, 0, 10))
+    # (size of the) support of the cone-eigenfunction - if any.
+    # 
+
     _logger.setLevel(level=logging.INFO)
     
+    from utils.viz import get_datapoints
+    
     if bifurcation.spectrum:
-        vec_to_functions(bifurcation.spectrum[0]['xk'], [v, β])
-        
-        _support = indicator_function(stability.perturbation['β'])
-        D_support = dolfinx.fem.assemble_scalar(dolfinx.fem.form(_support * dx))
+        # vec_to_functions(bifurcation.spectrum[0]['xk'], [v, β])   
         
         tol = 1e-3
         xs = np.linspace(0 + tol, 1 - tol, 101)
         points = np.zeros((3, 101))
         points[0] = xs
+
+        data_bifurcation_v = get_datapoints(bifurcation.perturbation['v'], points)
+        data_bifurcation_β = get_datapoints(bifurcation.perturbation['β'], points)
+        data_stability_v = get_datapoints(stability.perturbation['v'], points)
+        data_stability_β = get_datapoints(stability.perturbation['β'], points)
+        data_stability_residual_w = get_datapoints(stability.residual['w'], points)
+        data_stability_residual_ζ = get_datapoints(stability.residual['ζ'], points)
         
-        plotter = pyvista.Plotter(
-            title="Perturbation profile",
-            window_size=[1000, 600],
-            shape=(1, 3),
-        )
-        fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(15, 5))
+        mode_shapes_data['time_steps'].append(0)
+        mode_shapes_data['mesh'] = data_stability_β[0][:, 0]
 
-        _plt, data_bifurcation = plot_profile(
-            β,
-            points,
-            plotter,
-            subplot=(1, 3),
-            fig = fig,
-            ax = axes[0],
-            lineproperties={
-                "c": "k",
-                "label": f"$\\beta$"
-            },
-            subplotnumber=1
-        )
-        axes[0] = _plt.gca()
-        axes[0].set_xlabel('x')
-        axes[0].set_yticks([-1, 0, 1])
+        _R_vector = rayleigh_ratio((bifurcation.perturbation['v'], bifurcation.perturbation['β']), parameters)
+        _R_cone = rayleigh_ratio((stability.perturbation['v'], stability.perturbation['β']), parameters)
         
-        _plt.legend()
-        _plt.fill_between(data_bifurcation[0], data_bifurcation[1].reshape(len(data_bifurcation[1])))
-        _plt.title("Perurbation in Vector Space")
-
-        _plt, data_bifurcation = plot_profile(
-            v,
-            points,
-            plotter,
-            subplot=(1, 3),
-            fig = fig,
-            ax = axes[0],
-            lineproperties={
-                "c": "k",
-                "label": f"$v$",
-                "ls": "--"
-            },
-            subplotnumber=1
-        )
-        axes[0].set_ylabel('$v,\\beta$')
-
-        _plt, data_stability = plot_profile(
-            stability.perturbation['β'],
-            points,
-            plotter,
-            fig = fig,
-            ax = axes[1],
-            subplot=(1, 3),
-            lineproperties={
-                "c": "k",
-                "label": f"$\\beta$"
-            },
-            subplotnumber=2,
-        )
-        _plt.fill_between(data_stability[0], data_stability[1].reshape(len(data_stability[1])))
-
-        _plt, data_stability = plot_profile(
-            stability.perturbation['v'],
-            points,
-            plotter,
-            fig = fig,
-            ax = axes[1],
-            subplot=(1, 3),
-            lineproperties={
-                "c": "k",
-                "label": f"$v$",
-                "ls": "--"
-            },
-            subplotnumber=2,
-        )
-
-        axes[1] = _plt.gca()
-        axes[1].set_xlabel('x')
-        axes[1].set_xticks([0, _D, D_support, 1-_D, 1], [0, r"$D$", r"D^*", r"$1-D$", 1])
-        axes[1].set_yticks([0], [0])
-        axes[1].set_ylabel('$v,\\beta$')
-        _plt.legend()
-        _plt.title("Perurbation in the Cone")
+        _support = indicator_function(stability.perturbation['β'])
+        D_support = dolfinx.fem.assemble_scalar(dolfinx.fem.form(_support * dx))  
         
-
-        _plt, data_stability = plot_profile(
-            stability.residual['ζ'],
-            points,
-            plotter,
-            fig = fig,
-            ax = axes[2],
-            subplot=(1, 3),
-            lineproperties={
-                "c": "k",
-                "label": f"$\\zeta$"
-            },
-            subplotnumber=3,
-        )
-        _plt.fill_between(data_stability[0], data_stability[1].reshape(len(data_stability[1])))
-
-        _plt, data_stability = plot_profile(
-            stability.residual['w'],
-            points,
-            plotter,
-            fig = fig,
-            ax = axes[2],
-            subplot=(1, 3),
-            lineproperties={
-                "c": "k",
-                "label": f"$w$",
-                "ls": "--"
-            },
-            subplotnumber=3,
-        )
-
-        axes[2] = _plt.gca()
-        axes[2].set_xlabel('x')
-        axes[2].set_xticks([0, _D, D_support, 1-_D, 1], [0, r"$D$", r"D^*", r"$1-D$", 1])
-        axes[2].set_yticks([0], [0])
-
-        _plt.title("Residual in the Cone")
-
-
-
-
-        _plt.savefig(f"{prefix}/rayleigh-benchmark.png")
-        _plt.close()
-
-    data_bifurcation_v = get_datapoints(bifurcation.perturbation['v'], points)
-    data_bifurcation_β = get_datapoints(bifurcation.perturbation['β'], points)
-    data_stability_v = get_datapoints(stability.perturbation['v'], points)
-    data_stability_β = get_datapoints(stability.perturbation['β'], points)
-    data_stability_residual_w = get_datapoints(stability.residual['w'], points)
-    data_stability_residual_ζ = get_datapoints(stability.residual['ζ'], points)
-    
-    mode_shapes_data['time_steps'].append(0)
-    mode_shapes_data['point_values']['x_values'] = data_stability[0]
-                    
-    for mode in range(1, num_modes + 1):
+        # for mode in range(1, num_modes + 1):
+        mode = 1
+        
         bifurcation_values_mode_β = data_bifurcation_β[1].flatten()  
         bifurcation_values_mode_v = data_bifurcation_v[1].flatten()  
         stability_values_mode_β = data_stability_β[1].flatten() 
         stability_values_mode_v = data_stability_v[1].flatten() 
         stability_values_residual_w = data_stability_residual_w[1].flatten() 
         stability_values_residual_ζ = data_stability_residual_ζ[1].flatten() 
-
+         
         # Append mode-specific fields to the data structure
         mode_key = f'mode_{mode}'
         mode_shapes_data['point_values'][mode_key] = {
@@ -340,19 +247,17 @@ def rayleigh(parameters, storage=None):
         mode_shapes_data['point_values'][mode_key]['stability_v'].append(stability_values_mode_v)
         mode_shapes_data['point_values'][mode_key]['stability_residual_w'].append(stability_values_residual_w)
         mode_shapes_data['point_values'][mode_key]['stability_residual_ζ'].append(stability_values_residual_ζ)
-        mode_shapes_data['mesh'] = data_stability_β[0][:, 0]
         
-        # mode_shapes_data['global_values']['R_vector'] = _R_vector
-        # mode_shapes_data['global_values']['R_cone'] = _R_cone
+        mode_shapes_data['global_values']['R_vector'] = _R_vector
+        mode_shapes_data['global_values']['R_cone'] = _R_cone
         mode_shapes_data['global_values']['D_theory'] = _D
         mode_shapes_data['global_values']['D_support'] = D_support
-            
-    print(mode_shapes_data['global_values'])
+        
     np.savez(f'{prefix}/mode_shapes_data.npz', **mode_shapes_data)
 
     return None, None, None
 
-def load_parameters(file_path, ndofs, model='at1'):
+def load_parameters(file_path, ndofs, model='rayleigh'):
     """
     Load parameters from a YAML file.
 
@@ -370,16 +275,17 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["model"] = {}
     parameters["model"]["model_dimension"] = 1
     parameters["model"]["model_type"] = '1D'
-    parameters["model"].update({'a': 1,
-                                'b': 5,
-                                'c': 2})
-    # _numerical_parameters = eig.book_of_the_numbers()
-    # parameters["model"].update(_numerical_parameters)
 
+    _numerical_parameters = eig.book_of_the_numbers(scale_c=2, scale_b=3)
+
+    # parameters["model"].update({'a': 1,
+    #                             'b': 1,
+    #                             'c': 8})
+    
+    parameters["model"].update(_numerical_parameters)
     parameters["geometry"]["geom_type"] = "infinite-dimensional-unit-test"
-    # Get mesh parameters
 
-    parameters["geometry"]["geom_type"] = "traction-bar"
+    # Get mesh parameters
     parameters["geometry"]["mesh_size_factor"] = 4
     parameters["geometry"]["N"] = ndofs
 
@@ -395,15 +301,23 @@ def load_parameters(file_path, ndofs, model='at1'):
     return parameters, signature
 
 if __name__ == "__main__":
+    
     parser = argparse.ArgumentParser(description='Process evolution.')
     parser.add_argument("-N", help="The number of dofs.", type=int, default=50)
+    parser.add_argument("-M", help="The number of simulation runs.", type=int, default=10)
+    
     args = parser.parse_args()
-    parameters, signature = load_parameters("parameters.yml", ndofs=args.N)
-    pretty_parameters = json.dumps(parameters, indent=2)
 
+    # run M simulations:
+        
+    input(f"About to run {args.M} random tests, from the Book of the Numbers \nPress any key to continue...")
+    
+    for i in range(args.M):
+        parameters, signature = load_parameters("parameters.yml", ndofs=args.N)
+        pretty_parameters = json.dumps(parameters, indent=2)
 
-    _storage = f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
-    ColorPrint.print_bold(f"===================-{_storage}-=================")
+        _storage = f"output/rayleigh-benchmark-parametric/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+        ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
-        history_data, stability_data, state = rayleigh(parameters, _storage)
+        with dolfinx.common.Timer(f"~Random Computation Experiment") as timer:
+            history_data, stability_data, state = rayleigh(parameters, _storage)

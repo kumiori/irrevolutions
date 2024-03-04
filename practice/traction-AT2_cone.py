@@ -34,7 +34,7 @@ from petsc4py import PETSc
 
 sys.path.append("../")
 from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridFractureSolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so_merged import BifurcationSolver, StabilitySolver
 from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi
@@ -171,7 +171,7 @@ solver = AlternateMinimisation(
     total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
 )
 
-hybrid = HybridFractureSolver(
+hybrid = HybridSolver(
     total_energy,
     state,
     bcs,
