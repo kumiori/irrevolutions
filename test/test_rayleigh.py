@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt
 from utils.viz import get_datapoints
 import eigenspace as eig
 from utils import indicator_function
+from test_rayleigh_parametric import rayleigh_ratio
 
 _logger.setLevel(logging.CRITICAL)
 
@@ -315,6 +316,10 @@ def rayleigh(parameters, storage=None):
     
     mode_shapes_data['time_steps'].append(0)
     mode_shapes_data['point_values']['x_values'] = data_stability[0]
+
+    _R_vector = rayleigh_ratio((bifurcation.perturbation['v'], bifurcation.perturbation['β']), parameters)
+    _R_cone = rayleigh_ratio((stability.perturbation['v'], stability.perturbation['β']), parameters)
+
                     
     for mode in range(1, num_modes + 1):
         bifurcation_values_mode_β = data_bifurcation_β[1].flatten()  
@@ -342,8 +347,8 @@ def rayleigh(parameters, storage=None):
         mode_shapes_data['point_values'][mode_key]['stability_residual_ζ'].append(stability_values_residual_ζ)
         mode_shapes_data['mesh'] = data_stability_β[0][:, 0]
         
-        # mode_shapes_data['global_values']['R_vector'] = _R_vector
-        # mode_shapes_data['global_values']['R_cone'] = _R_cone
+        mode_shapes_data['global_values']['R_vector'] = _R_vector
+        mode_shapes_data['global_values']['R_cone'] = _R_cone
         mode_shapes_data['global_values']['D_theory'] = _D
         mode_shapes_data['global_values']['D_support'] = D_support
             
@@ -370,9 +375,9 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["model"] = {}
     parameters["model"]["model_dimension"] = 1
     parameters["model"]["model_type"] = '1D'
-    parameters["model"].update({'a': 1,
-                                'b': 5,
-                                'c': 2})
+    parameters["model"].update({'a': .75,
+                                'b': 2,
+                                'c': -2})
     # _numerical_parameters = eig.book_of_the_numbers()
     # parameters["model"].update(_numerical_parameters)
 
@@ -386,8 +391,8 @@ def load_parameters(file_path, ndofs, model='at1'):
     parameters["stability"]["inactiveset_gatol"] = 1e-1
     
     parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-6
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
+    parameters["stability"]["cone"]["cone_atol"] = 1e-10
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-10
     parameters["stability"]["cone"]["scaling"] = 1e-3
     
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
