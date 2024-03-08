@@ -20,9 +20,9 @@ authors:
     equal-contrib: false
     affiliation: 2
 affiliations:
- - name: $\partial$'Alembert Institute, CNRS, Sorbonne Universités, France
+ - name: $\partial$'Alembert Institute, CNRS, Sorbonne Universités, Place Jussieu 75252 Paris Cedex 05, France
    index: 1
- - name: Kyushu University, Fukuoka, Japan
+ - name: Institute of Mathematics for Industry, Kyushu University, 744 Motooka, Nishi-ku, Fukuoka, 819-0395, Japan.
    index: 2
 date: 4 March 2024
 bibliography: paper.bib
@@ -31,8 +31,7 @@ bibliography: paper.bib
 
 # Summary
 
-We study irreversible evolutionary processes with a general energetic notion of stability.
-dedicate this contribution to releasing three nonlinear variational solvers as modular components that address mathematical problems that are general enough to apply, in principle, to systems with instabilities, jumps, and emergence of patterns which are commonplace in diverse arenas, spanning from quantum to continuum mechanics, economy, social sciences, and ecology. Our motivation proceeds from fracture mechanics, with the ultimate goal of deploying a transparent numerical platform for scientific validation and prediction of large scale natural fracture phenomena. Our solvers are used to compute _one_ solution to a problem encoded in a system of two inequalities: one (pointwise almost-everywhere) constraint of irreversibility and one global energy statement. As part of our commitment to open science, our solvers are released as free software.
+We study irreversible evolutionary processes with a general energetic notion of stability. We dedicate this contribution to releasing three nonlinear variational solvers as modular components that address mathematical problems that are general enough to apply, in principle, to systems with instabilities, jumps, and emergence of patterns which is commonplace in diverse arenas spanning from quantum to continuum mechanics, economy, social sciences, and ecology. Our motivation proceeds from fracture mechanics, with the ultimate goal of deploying a transparent numerical platform for scientific validation and prediction of large scale natural fracture phenomena. Our solvers are used to compute _one_ solution to a problem encoded in a system of two inequalities: one (pointwise almost-everywhere) constraint of irreversibility and one global energy statement. As part of our commitment to open science, our solvers are released as free software.
 
 # Statement of need
 
@@ -107,5 +106,6 @@ $$\mathcal R(z):= \dfrac{\int_0^1 a(\beta'(x))^2dx+\int_0^1 b(v'(x) -c\beta(x))^
 # Acknowledgements
 
 ALB acknowledges the students of MEC647 20••-•• for motivation and feedback; Yves Capdeboscq, Jean-Jacques Marigo, Sebastien Neukirch, and Luc Nguyen, for constructive discussions and one key insight that was crucial for this project.
+P.C. is a member of the Gruppo Nazionale per l’Analisi Matematica, la Probabilità e le loro Applicazioni (GNAMPA) of the Istituto Nazionale di Alta Matematica (INdAM). P.C. holds an honorary appointment at La Trobe University and is supported by JSPS Innovative Area Grant JP21H00102.
 
 <!-- to compile: docker run --rm --volume $PWD:/data --user $(id -u):$(id -g) --env JOURNAL=joss openjournals/inara -->
