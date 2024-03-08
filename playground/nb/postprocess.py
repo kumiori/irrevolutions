@@ -425,12 +425,12 @@ def plot_fields_for_time_step(mode_shapes_data):
 
         fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
-        axes[0].plot(x_values, bifurcation_values, label='Bifurcation Mode', marker = 'o')
-        axes[0].plot(x_values, bifurcation_values_v, label='Bifurcation Mode', marker = 'o')
+        axes[0].plot(x_values, bifurcation_values, label='numerical value', marker = 'o')
+        axes[0].plot(x_values, bifurcation_values_v, label='numerical value', marker = 'o')
         axes[0].set_title(f'Bifurcation')
 
-        axes[1].plot(x_values, stability_values, label='Stability Mode', marker = 'o')
-        axes[1].plot(x_values, stability_values_v, label='Stability Mode', marker = 'o')
+        axes[1].plot(x_values, stability_values, label='numerical value', marker = 'o')
+        axes[1].plot(x_values, stability_values_v, label='numerical value', marker = 'o')
         axes[1].set_title(f'Stability')
 
         for axis in axes:
