@@ -1,5 +1,5 @@
 ---
-title: 'Variational Solvers for Irreversile Evolutionary Systems'
+title: 'Variational Solvers for Irreversible Evolutionary Systems'
 tags:
   - Python
   - evolutions
@@ -16,6 +16,7 @@ authors:
     equal-contrib: false
     affiliation: 1
   - name: Pierluigi Cesana
+    orcid: 0000-0002-0304-9382
     corresponding: true
     equal-contrib: false
     affiliation: 2
