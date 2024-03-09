@@ -1,5 +1,5 @@
-# Complex Crack Propagation in Brittle Materials
-## 202* Forall T
+# Crack Propagation in Brittle Materials
+## 2024
 
 From little or nothing, to experimental verification of a complex fracture experiment.
 We solve the following (difficult) problem:

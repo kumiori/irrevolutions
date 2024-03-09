@@ -44,3 +44,6 @@
 
 # sphinx
 docs/build/
+
+# branch-specific tests
+test_*/

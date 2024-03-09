@@ -16,6 +16,7 @@ authors:
     equal-contrib: false
     affiliation: 1
   - name: Pierluigi Cesana
+    orcid: 0000-0002-0304-9382
     corresponding: true
     equal-contrib: false
     affiliation: 2
@@ -44,14 +45,12 @@ To fill this gap, our nonlinear solvers offer a flexible toolkit for advanced st
 
 `HybridSolver` (1) `BifurcationSolver,` (2) and `StabilitySolver` (3) implement the solution of three general purpose variational problems: 
 
-1. A constrained variational inequality; that is
-    first order necessary conditions for unilateral equilibrium.
+1. A constrained variational inequality; that is first order necessary conditions for unilateral equilibrium.
 
 2. A singular variational eigen-problem in a vector space; that is
     a bifurcation problem indicating uniqueness (or lack thereof) of the evolution path.
     
-3. A constrained eigen-inequality in a convex cone;  
-    originating from a second order eigenvalue problem indicating stabilty of the system (or lack thereof).
+3. A constrained eigen-inequality in a convex cone; originating from a second order eigenvalue problem indicating stabilty of the system (or lack thereof).
 
 These numerical tools can be used to study general evolutionary problems formulated in terms of fully nonlinear functional operators in spaces of high or infinite dimension. In this context, systems can have surprising and complicated behaviours such as symmetry breaking bifurcations, endogenous pattern formation, localisations, and separation of scales. Our solvers can be extended or adapted to a variety of systems described by an energetic principle (or unilateral stability law, see [1] below).
 
