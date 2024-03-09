@@ -19,7 +19,7 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
+from dolfinx import log, plot
 import ufl
 from ufl import (CellDiameter, FacetNormal, SpatialCoordinate, TestFunction,
                  TrialFunction, avg, div, ds, dS, dx, grad, inner, jump)
@@ -63,7 +63,8 @@ import petsc4py
 from petsc4py import PETSc
 import sys
 import yaml
-
+from ufl import (CellDiameter, FacetNormal, avg, div, dS, dx, grad, inner,
+                 jump, pi, sin)
 sys.path.append("../")
 from solvers import SNESSolver
 
@@ -73,7 +74,7 @@ log.set_log_level(log.LogLevel.WARNING)
 
 comm = MPI.COMM_WORLD
 
-outdir = './output/plate'
+outdir = 'output'
 if comm.rank == 0:
     Path(outdir).mkdir(parents=True, exist_ok=True)
 
@@ -99,7 +100,6 @@ geom_type = parameters["geometry"]["geom_type"]
 gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
 
 # Get mesh and meshtags
-
 mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, 0, tdim)
 
 with XDMFFile(comm, f"{outdir}/mesh.xdmf", "w",
@@ -149,7 +149,10 @@ def b(tau_S, v):
 
 sigma_S = S(sigma)
 tau_S = S(tau)
-f_exact = Constant(mesh, np.array(-1., dtype=PETSc.ScalarType))
+f_exact = Constant(mesh, np.array(100., dtype=PETSc.ScalarType))
+
+x = ufl.SpatialCoordinate(mesh)
+f_exact = 4.0 * pi**4 * sin(pi * x[0]) * sin(pi * x[1])
 
 # Non-symmetric formulation
 a = form(ufl.inner(sigma_S, tau_S) * dx - b(tau_S, u) + b(sigma_S, v))
@@ -197,10 +200,6 @@ with XDMFFile(comm, f"{outdir}/output.xdmf", "a",
                 encoding=XDMFFile.Encoding.HDF5) as file:
     file.write_function(v)
 
-
-
-
-
 # Viz
 
 xvfb.start_xvfb(wait=0.05)
@@ -219,58 +218,36 @@ _plt.screenshot(f"{outdir}/plate_regge_displacement.png")
 if not pyvista.OFF_SCREEN:
     plotter.show()
 
-
 dofs_u_left = dolfinx.fem.locate_dofs_geometrical(
     (V.sub(1), V_1), lambda x: np.isclose(x[0], 0.0))
 dofs_u_right = dolfinx.fem.locate_dofs_geometrical(
     (V.sub(1), V_1), lambda x: np.isclose(x[0], Lx))
 
-sys.exit()
 
 
-pdb.set_trace()
-bcs = {"bcs_u": bcs_u}
+V1 = dolfinx.fem.functionspace(mesh, ("Lagrange", 1))
+u1 = dolfinx.fem.Function(V1)
+u1.interpolate(v)
 
-# Define the model
-model = ElasticityModel(parameters["model"])
 
-solver = ElasticitySolver(
-    energy_u,
-    u,
-    bcs_u,
-    bounds=None,
-    petsc_options=parameters.get("solvers").get("elasticity").get("snes"),
-    prefix=parameters.get("solvers").get("elasticity").get("prefix"),
-)
 
-history_data = {
-    "load": [],
-    "elastic_energy": [],
-}
-
-for i_t, t in enumerate(loads):
-    u_.interpolate(lambda x: (t * np.ones_like(x[0]), 0 * np.ones_like(x[1])))
-    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                          mode=PETSc.ScatterMode.FORWARD)
-
-    logging.info(f"-- Solving for t = {t:3.2f} --")
-
-    solver.solve()
-
-    elastic_energy = comm.allreduce(
-        dolfinx.fem.assemble_scalar(
-            dolfinx.fem.form(model.elastic_energy_density(state) * dx)),
-        op=MPI.SUM,
-    )
-
-    history_data["load"].append(t)
-    history_data["elastic_energy"].append(elastic_energy)
-
-    with XDMFFile(comm, f"{prefix}.xdmf", "a",
-                  encoding=XDMFFile.Encoding.HDF5) as file:
-        file.write_function(u, t)
-
-    if comm.rank == 0:
-        a_file = open(f"{prefix}_data.json", "w")
-        json.dump(history_data, a_file)
-        a_file.close()
+try:
+    import pyvista
+    pyvista.OFF_SCREEN = True
+    cells, types, x = plot.vtk_mesh(V1)
+    grid = pyvista.UnstructuredGrid(cells, types, x)
+    grid.point_data["u"] = u1.x.array.real
+    grid.set_active_scalars("u")
+    plotter = pyvista.Plotter()
+    plotter.add_mesh(grid, show_edges=True)
+    warped = grid.warp_by_scalar()
+    plotter.add_mesh(warped, show_edges=True)
+    
+    if pyvista.OFF_SCREEN:
+        pyvista.start_xvfb(wait=0.1)
+        plotter.screenshot(f"{outdir}/plate.png")
+    else:
+        plotter.show()
+except ModuleNotFoundError:
+    print("'pyvista' is required to visualise the solution")
+    print("Install 'pyvista' with pip: 'python3 -m pip install pyvista'")

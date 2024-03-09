@@ -21,7 +21,7 @@ import pdb
 
 import numpy as np
 from dolfinx.io import XDMFFile
-from meshes import gmsh_model_to_mesh, mesh_bounding_box
+from meshes import mesh_bounding_box
 from meshes.primitives import mesh_bar_gmshapi
 # from damage.utils import ColorPrint
 from models import ElasticityModel
@@ -36,6 +36,7 @@ import dolfinx.mesh
 import dolfinx.plot
 import ufl
 import yaml
+from dolfinx.io import XDMFFile, gmshio
 from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
                          dirichletbc, form, locate_dofs_geometrical, set_bc)
 from dolfinx.mesh import CellType
@@ -72,15 +73,27 @@ lc = parameters["geometry"]["lc"]
 
 # Get geometry model
 geom_type = parameters["geometry"]["geom_type"]
+model_rank = 0
+
+# Create the mesh of the specimen with given dimensions
+gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
+
+# # Get mesh and meshtags
+# mesh, mts = gmsh_model_to_mesh(gmsh_model,
+#                                cell_data=False,
+#                                facet_data=True,
+#                                gdim=2)
+
+# mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
+
 
 # Create the mesh of the specimen with given dimensions
 gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
 
 # Get mesh and meshtags
-mesh, mts = gmsh_model_to_mesh(gmsh_model,
-                               cell_data=False,
-                               facet_data=True,
-                               gdim=2)
+mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
+
+
 
 outdir = "output"
 if comm.rank == 0:
@@ -105,7 +118,7 @@ V_w = dolfinx.fem.FunctionSpace(mesh, element_w)
 
 u = dolfinx.fem.Function(V_u, name="Displacement")
 u_ = dolfinx.fem.Function(V_u, name="Boundary Displacement")
-ux_ = dolfinx.fem.Function(V_u.sub(0).collapse(), name="Boundary Displacement")
+ux_ = dolfinx.fem.Function(V_u.sub(0).collapse()[0], name="Boundary Displacement")
 zero_u = dolfinx.fem.Function(V_u, name="   Boundary Displacement")
 
 w_ = dolfinx.fem.Function(V_w)
@@ -136,7 +149,6 @@ psi_b = 1.0 / 12.0 * A_inner(k, k)
 psi = psi_b
 M = ufl.diff(psi, k)
 
-
 alpha = E * t ** 3
 h = CellDiameter(mesh)
 
@@ -156,7 +168,7 @@ dofs_u_left = dolfinx.fem.locate_dofs_geometrical(
 dofs_u_right = dolfinx.fem.locate_dofs_geometrical(
     V_u, lambda x: np.isclose(x[0], Lx))
 dofs_ux_right = dolfinx.fem.locate_dofs_geometrical(
-    (V_u.sub(0), V_u.sub(0).collapse()), lambda x: np.isclose(x[0], Lx))
+    (V_u.sub(0), V_u.sub(0).collapse()[0]), lambda x: np.isclose(x[0], Lx))
 
 # Bcs
 
@@ -193,7 +205,6 @@ DL_BC = ufl.derivative(L_BC, w_, TrialFunction(V_w))
 F = ufl.derivative(L, w_, TestFunction(V_w))
 J = ufl.derivative(F, w_, TrialFunction(V_w))
 
-
 state = {"u": u}
 
 # Set Bcs Function
@@ -214,16 +225,12 @@ bcs = {"bcs_u": bcs_u}
 
 # Define the model
 
-# model = ElasticityModel(parameters["model"])
-
-# Energy functional
-# f = dolfinx.fem.Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
-
 loads = np.linspace(
     parameters.get('loading').get("min"),
     parameters.get('loading').get("max"),
     parameters.get('loading').get("steps")
     )
+
 pdb.set_trace()
 
 solver = PlateSolver(

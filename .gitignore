@@ -41,3 +41,4 @@
 **/*.npz*
 **/*.mat*
 **/.DS_Store
+docs/build/*
