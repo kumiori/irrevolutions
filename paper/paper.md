@@ -1,5 +1,5 @@
 ---
-title: 'Variational Solvers for Irreversile Evolutionary Systems'
+title: 'Variational Solvers for Irreversible Evolutionary Systems'
 tags:
   - Python
   - evolutions
@@ -17,6 +17,7 @@ authors:
     affiliation: 1
   - name: Pierluigi Cesana
     corresponding: true
+    orcid: 0000-0002-0304-9382
     equal-contrib: false
     affiliation: 2
 affiliations:
@@ -24,7 +25,7 @@ affiliations:
    index: 1
  - name: Institute of Mathematics for Industry, Kyushu University, 744 Motooka, Nishi-ku, Fukuoka, 819-0395, Japan.
    index: 2
-date: 4 March 2024
+date: 8 March 2024
 bibliography: paper.bib
 
 ---
@@ -101,9 +102,11 @@ $$\mathcal R(z):= \dfrac{\int_0^1 a(\beta'(x))^2dx+\int_0^1 b(v'(x) -c\beta(x))^
 ![Minimum value of $\mathcal R$ in $\mathcal K^+_0$, numerical computation vs. closed form results. The outlier $(\pi^2a, bc^2)\sim (4, 0)$ represents a computation which did not reach convergence. The mechanical interpretation is that only states with $R>1$ are energetically stable.\label{fig:phase_diag_cone}](media/phase_diagram_R_cone.pdf)
 
 
-# Acknowledgements
+## Acknowledgements
 
-A.L.B. acknowledges the students of MEC647 for their work, motivation, and feedback; Yves Capdeboscq, Jean-Jacques Marigo, Sebastien Neukirch, and Luc Nguyen, for constructive discussions and one key insight that was crucial for this project.
+A.L.B. acknowledges the students of MEC647 (Complex Crack Propagation in Brittle Materials) of the `Modélisation Multiphysique Multiéchelle des Matériaux et des Structures` master program at ENSTA Paris Tech/École Polytechnique for their contributions, motivation, and feedback; Yves Capdeboscq, Jean-Jacques Marigo, Sebastien Neukirch, and Luc Nguyen, for constructive discussions and one key insight that was crucial for this project.
 P.C. is a member of the Gruppo Nazionale per l’Analisi Matematica, la Probabilità e le loro Applicazioni (GNAMPA) of the Istituto Nazionale di Alta Matematica (INdAM). P.C. holds an honorary appointment at La Trobe University and is supported by JSPS Innovative Area Grant JP21H00102.
+
+## References
 
 <!-- to compile: docker run --rm --volume $PWD:/data --user $(id -u):$(id -g) --env JOURNAL=joss openjournals/inara -->
