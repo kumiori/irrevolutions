@@ -1,0 +1,37 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Variational Solvers for Irreversible Evolutionary Systems
+message: >-
+  Three solvers for irreversible evolutionary processes with
+  a general energetic notion of stability.
+type: software
+authors:
+  - given-names: Andrés A
+    family-names: León Baldelli
+    email: leon.baldelli@cnrs.fr
+    affiliation: '∂’Alembert Institute, CNRS, Sorbonne Universités'
+    orcid: 'https://orcid.org/0000-0002-3019-602X'
+repository-code: 'https://github.com/kumiori/mec647/'
+url: 'https://irreversible-variational-solvers.readthedocs.io/'
+abstract: >-
+  To study irreversible evolutionary processes with a
+  general energetic notion of stability, three nonlinear
+  variational solvers are modular components that address
+  mathematical problems that are general enough to apply, in
+  principle, to systems with instabilities, jumps, and
+  emergence of patterns which is commonplace in diverse
+  arenas spanning from quantum to continuum mechanics,
+  economy, social sciences, and ecology. Our motivation
+  proceeds from fracture mechanics, with the ultimate goal
+  of deploying a transparent numerical platform for
+  scientific validation and prediction of large scale
+  natural fracture phenomena. 
+keywords:
+  - stability
+  - bifurcation
+  - irreversibility
+  - singular perturbations
+  - fracture
+license: GPL-3.0
