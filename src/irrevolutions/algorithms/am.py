@@ -1,10 +1,9 @@
-from utils import norm_H1, norm_L2
+from irrevolution.utils import norm_H1, norm_L2, set_vector_to_constant, ColorPrint
 import logging
 import dolfinx
 from solvers import SNESSolver
 from solvers.snesblockproblem import SNESBlockProblem
 from solvers.function import functions_to_vec
-from utils import set_vector_to_constant, ColorPrint
 
 from dolfinx.fem import (
     Constant,

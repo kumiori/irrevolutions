@@ -1,5 +1,5 @@
 # content of test_example.py
-from .. import solvers
+import irrevolution
  
 def add(x, y):
     return x + y
