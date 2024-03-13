@@ -16,6 +16,7 @@ authors:
     equal-contrib: false
     affiliation: 1
   - name: Pierluigi Cesana
+    orcid: 0000-0002-0304-9382
     corresponding: true
     orcid: 0000-0002-0304-9382
     equal-contrib: false
