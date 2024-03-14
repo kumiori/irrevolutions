@@ -49,7 +49,7 @@ import meshes
 from meshes import primitives
 
 # visualisation
-from utils import viz
+from irrevolutions.utils import viz
 import matplotlib.pyplot as plt
 from utils.viz import plot_mesh, plot_vector, plot_scalar
 
