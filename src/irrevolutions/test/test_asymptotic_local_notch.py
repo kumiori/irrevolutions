@@ -16,7 +16,7 @@ import ufl
 import numpy as np
 sys.path.append("../")
 from utils.plots import plot_energies
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 
@@ -100,7 +100,7 @@ from dolfinx.mesh import CellType, create_unit_square
 # mesh = create_unit_square(MPI.COMM_WORLD, 3, 3, CellType.triangle)
 
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "test_notch")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)

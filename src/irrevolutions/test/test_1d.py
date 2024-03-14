@@ -38,21 +38,18 @@ from dolfinx.io import XDMFFile, gmshio
 import logging
 from dolfinx.common import Timer, list_timings, TimingType
 
-sys.path.append("../")
-from algorithms.so import BifurcationSolver, StabilitySolver
-from algorithms.am import AlternateMinimisation, HybridSolver
-from meshes.primitives import mesh_bar_gmshapi
-from utils import ColorPrint
-from utils.plots import plot_energies
-from utils import norm_H1, norm_L2
-from solvers import SNESSolver
-from utils import _logger
-from utils import history_data, _write_history_data
 import pyvista
 from pyvista.utilities import xvfb
+
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.algorithms.am import AlternateMinimisation, HybridSolver
+from irrevolutions.meshes.primitives import mesh_bar_gmshapi
+from irrevolutions.utils.plots import plot_energies
+from irrevolutions.solvers import SNESSolver
+from irrevolutions.utils import norm_H1, norm_L2, ColorPrint, _logger, history_data, _write_history_data
 # 
-from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
-from solvers.function import vec_to_functions
+from irrevolutions.utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
+from irrevolutions.solvers.function import vec_to_functions
 
 
 """The fundamental problem of a 1d bar in traction.
@@ -63,7 +60,6 @@ load: displacement hard-t
 """
 
 
-from solvers.function import functions_to_vec
 # logging.getLogger().setLevel(logging.INFO)
 
 class _AlternateMinimisation1D:
@@ -246,7 +242,7 @@ def main(parameters, storage=None):
     # Create the mesh of the specimen with given dimensions
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
     if storage is None:
         prefix = os.path.join(outdir, f"test_1d-N{parameters['model']['N']}")
     else:
@@ -714,7 +710,7 @@ if __name__ == "__main__":
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
         history_data, stability_data, state = main(parameters, _storage)
 
-    from utils import ResultsStorage, Visualization
+    from irrevolutions.utils import ResultsStorage, Visualization
     storage = ResultsStorage(MPI.COMM_WORLD, _storage)
     storage.store_results(parameters, history_data, state)
     visualization = Visualization(_storage)
@@ -727,7 +723,7 @@ if __name__ == "__main__":
     ColorPrint.print_bold(f"===================-{_storage}-=================")
     # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
-    # from utils import table_timing_data
+    # from irrevolutions.utils import table_timing_data
     # _timings = table_timing_data()
 
     # visualization.save_table(_timings, "timing_data")

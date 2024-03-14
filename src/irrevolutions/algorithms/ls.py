@@ -1,7 +1,7 @@
 import logging
 from pydoc import cli
 from time import clock_settime
-from utils import norm_H1, norm_L2
+from irrevolutions.utils import norm_H1, norm_L2
 
 import dolfinx
 from dolfinx.fem import (

@@ -42,9 +42,9 @@ sys.path.append("../")
 from algorithms.so import BifurcationSolver, StabilitySolver
 from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
-from utils import norm_H1, norm_L2
+from irrevolutions.utils import norm_H1, norm_L2
 
 
 
@@ -275,7 +275,7 @@ def discrete_atk(arg_N=2):
     import hashlib
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
     prefix = os.path.join(outdir, f"discrete-atk-N{parameters['model']['N']}")
 
     if comm.rank == 0:

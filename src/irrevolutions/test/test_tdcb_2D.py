@@ -26,7 +26,7 @@ comm = MPI.COMM_WORLD
 
 import yaml
 
-with open("parameters.yml") as f:
+with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
 _tdcb_params = """

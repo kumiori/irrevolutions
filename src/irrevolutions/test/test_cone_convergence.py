@@ -64,7 +64,7 @@ class StabilitySolverTester(StabilitySolver):
         return self.convergence_loop(self.errors, self.Ar, self.xk)
 
 
-with XDMFFile(comm, "data/input_data.xdmf", "r") as file: 
+with XDMFFile(comm, os.path.join(os.path.dirname(__file__), "data/input_data.xdmf"), "r") as file: 
     mesh = file.read_mesh(name='mesh')
 
 element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
@@ -91,10 +91,10 @@ F_ = [
 ]
 F = dolfinx.fem.form(F_)
 
-constraints = load_minimal_constraints('data/constraints.pkl', [V_u, V_alpha])
-A = bio.load_binary_matrix('data/A_hessian.mat')
-Ar = bio.load_binary_matrix('data/Ar_hessian.mat')
-x0 = bio.load_binary_vector('data/x0.vec')
+constraints = load_minimal_constraints(os.path.join(os.path.dirname(__file__), 'data/constraints.pkl'), [V_u, V_alpha])
+A = bio.load_binary_matrix(os.path.join(os.path.dirname(__file__), 'data/A_hessian.mat'))
+Ar = bio.load_binary_matrix(os.path.join(os.path.dirname(__file__), 'data/Ar_hessian.mat'))
+x0 = bio.load_binary_vector(os.path.join(os.path.dirname(__file__), 'data/x0.vec'))
 
 # zero vector, compatible with the linear system
 _x = x0.duplicate()

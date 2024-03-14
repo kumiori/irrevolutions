@@ -13,14 +13,6 @@ import dolfinx.plot
 from dolfinx import log
 import ufl
 import numpy as np
-sys.path.append("../")
-from utils.plots import plot_energies
-from utils import ColorPrint
-
-from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation
-
-from meshes.primitives import mesh_bar_gmshapi
 from dolfinx.common import Timer, list_timings, TimingType
 
 import logging
@@ -50,9 +42,12 @@ from petsc4py import PETSc
 import sys
 import yaml
 
-sys.path.append("../")
-from solvers import SNESSolver
-from algorithms.so import BifurcationSolver
+from irrevolutions.models import DamageElasticityModel as Brittle
+from irrevolutions.algorithms.am import AlternateMinimisation
+from irrevolutions.algorithms.so import BifurcationSolver
+from irrevolutions.meshes.primitives import mesh_bar_gmshapi
+from irrevolutions.utils.plots import plot_energies
+from irrevolutions.utils import ColorPrint
 
 # ///////////
 
@@ -66,7 +61,7 @@ comm = MPI.COMM_WORLD
 model_rank = 0
 
 
-with open("parameters.yml") as f:
+with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
 # Get mesh parameters
@@ -88,7 +83,7 @@ gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
 mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "traction")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)

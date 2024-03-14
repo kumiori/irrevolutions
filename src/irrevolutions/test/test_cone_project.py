@@ -1,8 +1,8 @@
 import os
 import sys
 sys.path.append("../")
-import solvers.restriction as restriction
-from utils import _logger
+import irrevolutions.solvers.restriction as restriction
+from irrevolutions.utils import _logger
 import dolfinx
 import ufl
 import numpy as np
@@ -11,20 +11,20 @@ import random
 from petsc4py import PETSc
 from mpi4py import MPI
 
-import test_binarydataio
-from test_extend import test_extend_vector
+from . import test_binarydataio
+from .test_extend import test_extend_vector
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-from test_restriction import (
+from .test_restriction import (
     __log_incipit,
     get_inactive_dofset,
 )
 
 from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
-from test_sample_data import init_data  
+from .test_sample_data import init_data  
 
     
 def _cone_project_restricted(v, _x, constraints):

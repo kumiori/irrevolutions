@@ -41,9 +41,9 @@ from dolfinx.common import Timer, list_timings, TimingType, timing
 
 sys.path.append("../")
 
-from utils import norm_H1, norm_L2
+from irrevolutions.utils import norm_H1, norm_L2
 from utils.plots import plot_energies
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 from meshes.primitives import mesh_bar_gmshapi
 from algorithms.so import BifurcationSolver, StabilitySolver
 from algorithms.am import AlternateMinimisation, HybridSolver
@@ -812,7 +812,7 @@ def param_s():
 
 if __name__ == "__main__":
 
-    from utils import ColorPrint
+    from irrevolutions.utils import ColorPrint
 
     logging.getLogger().setLevel(logging.ERROR)
 

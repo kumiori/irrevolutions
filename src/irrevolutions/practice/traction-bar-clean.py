@@ -39,10 +39,10 @@ import pyvista
 from pyvista.utilities import xvfb
 from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 import hashlib
-from utils import norm_H1, norm_L2
+from irrevolutions.utils import norm_H1, norm_L2
 from utils.plots import plot_energies
-from utils import ColorPrint
-from utils import _logger, simulation_info
+from irrevolutions.utils import ColorPrint
+from irrevolutions.utils import _logger, simulation_info
 from meshes.primitives import mesh_bar_gmshapi
 from solvers import SNESSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
@@ -151,7 +151,7 @@ def main(parameters, model='at2', storage=None):
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
     if storage is None:
         prefix = os.path.join(outdir, "traction_AT2_cone", signature)
     else:
@@ -561,7 +561,7 @@ if __name__ == "__main__":
 
     # timings
 
-    from utils import table_timing_data
+    from irrevolutions.utils import table_timing_data
     _timings = table_timing_data()
 
     visualization.save_table(_timings, "timing_data")

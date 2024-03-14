@@ -38,9 +38,9 @@ from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so_merged import BifurcationSolver, StabilitySolver
 from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
-from utils import norm_H1, norm_L2
+from irrevolutions.utils import norm_H1, norm_L2
 import logging
 
 sys.path.append("../")
@@ -94,7 +94,7 @@ mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
 import hashlib
 signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "traction_AT2_cone", signature)
 
 if comm.rank == 0:

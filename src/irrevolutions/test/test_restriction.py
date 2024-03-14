@@ -1,4 +1,4 @@
-from test_scatter_MPI import (
+from .test_scatter_MPI import (
     mesh,
     element_alpha,
     element_u,
@@ -13,13 +13,13 @@ from test_scatter_MPI import (
 import os
 import sys
 sys.path.append("../")
-import solvers.restriction as restriction
-from utils import _logger
+import irrevolutions.solvers.restriction as restriction
+from irrevolutions.utils import _logger
 import dolfinx
 import ufl
 import numpy as np
 import random
-from test_sample_data import init_data  
+from .test_sample_data import init_data  
 
 from petsc4py import PETSc
 from mpi4py import MPI

@@ -1,4 +1,4 @@
-from irrevolution.utils import norm_H1, norm_L2, set_vector_to_constant, ColorPrint
+from irrevolutions.utils import norm_H1, norm_L2, set_vector_to_constant, ColorPrint
 import logging
 import dolfinx
 from irrevolutions.solvers import SNESSolver

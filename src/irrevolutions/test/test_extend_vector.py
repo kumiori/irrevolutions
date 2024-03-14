@@ -16,8 +16,8 @@ from test_scatter_MPI import (
 import os
 import sys
 sys.path.append("../")
-import solvers.restriction as restriction
-from utils import _logger
+import irrevolutions.solvers.restriction as restriction
+from irrevolutions.utils import _logger
 # from algorithms.so import _extend_vector
 import dolfinx
 import ufl

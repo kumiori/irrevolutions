@@ -23,9 +23,9 @@ from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver, BifurcationSolver
 from algorithms.ls import LineSearch
 from meshes.primitives import mesh_bar_gmshapi
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
-from utils import norm_H1, norm_L2, seminorm_H1
+from irrevolutions.utils import norm_H1, norm_L2, seminorm_H1
 
 from meshes.primitives import mesh_bar_gmshapi
 from dolfinx.common import Timer, list_timings, TimingType
@@ -35,10 +35,10 @@ from pyvista.utilities import xvfb
 import pyvista
 import sys
 from utils.viz import plot_vector, plot_scalar, plot_profile
-from utils import history_data, _write_history_data
+from irrevolutions.utils import history_data, _write_history_data
 
 from utils.viz import plot_vector, plot_scalar, plot_profile
-from utils import history_data, _write_history_data
+from irrevolutions.utils import history_data, _write_history_data
 
 import logging
 
@@ -93,7 +93,7 @@ def test_linsearch(parameters, storage):
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
     
     if storage is None:
         prefix = os.path.join(outdir, "traction_AT2_cone", signature)

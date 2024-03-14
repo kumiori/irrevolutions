@@ -5,8 +5,8 @@ from petsc4py import PETSc
 import os
 import sys
 sys.path.append("../")
-import solvers.restriction as restriction
-# from utils import _logger
+import irrevolutions.solvers.restriction as restriction
+# from irrevolutions.utils import _logger
 import dolfinx
 import ufl
 import numpy as np

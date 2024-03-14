@@ -1,13 +1,13 @@
 import os
 import sys
 sys.path.append("../")
-import solvers.restriction as restriction
+import irrevolutions.solvers.restriction as restriction
 from algorithms.so import BifurcationSolver
 import test_binarydataio as bio
 from test_extend import test_extend_vector
 from test_cone_project import _cone_project_restricted
 from test_spa import load_minimal_constraints
-from utils import _logger
+from irrevolutions.utils import _logger
 import dolfinx
 import ufl
 import numpy as np

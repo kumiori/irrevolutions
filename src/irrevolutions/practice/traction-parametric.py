@@ -40,9 +40,9 @@ import pyvista
 from pyvista.utilities import xvfb
 from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 import hashlib
-from utils import norm_H1, norm_L2
+from irrevolutions.utils import norm_H1, norm_L2
 from utils.plots import plot_energies
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 from meshes.primitives import mesh_bar_gmshapi
 from solvers import SNESSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
@@ -166,7 +166,7 @@ def main(parameters, model='at2', storage=None):
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
 
     if storage is None:
         prefix = os.path.join(outdir, "traction_AT2_cone", signature)
@@ -480,7 +480,7 @@ def param_vs_s(base_parameters, base_signature):
     # s_list = [1.e-08, 1.e-07, 1e-6, 1e-5, 2e-5, 5e-5, 1e-4, 0.001, 0.003, 0.005, 0.01, 0.02, 0.05, 0.1]
     s_list = np.logspace(-9, -1, 9).tolist()
     
-    from utils import table_timing_data
+    from irrevolutions.utils import table_timing_data
 
     _rootdir = f"output/parametric/traction-bar/vs_s/{base_signature}"
 
@@ -532,7 +532,7 @@ def param_vs_dry(base_parameters, base_signature):
     # s_list = [1.e-08, 1.e-07, 1e-6, 1e-5, 2e-5, 5e-5, 1e-4, 0.001, 0.003, 0.005, 0.01, 0.02, 0.05, 0.1]
     s_list = np.arange(0, 10).tolist()
     
-    from utils import table_timing_data
+    from irrevolutions.utils import table_timing_data
 
     _rootdir = f"output/parametric/traction-bar/vs_s/{base_signature}"
 
@@ -635,7 +635,7 @@ if __name__ == "__main__":
 
     # timings
 
-    from utils import table_timing_data
+    from irrevolutions.utils import table_timing_data
     _timings = table_timing_data()
 
     visualization.save_table(pd.DataFrame(history_data), "_history_data.json")

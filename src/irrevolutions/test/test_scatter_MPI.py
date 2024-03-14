@@ -12,12 +12,12 @@ import numpy as np
 import random
 
 sys.path.append("../")
-import solvers.restriction as restriction
+import irrevolutions.solvers.restriction as restriction
 _N = 3
 
 mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()

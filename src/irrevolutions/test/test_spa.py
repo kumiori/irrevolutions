@@ -1,11 +1,11 @@
 import os
 import sys
 sys.path.append("../")
-import solvers.restriction as restriction
-import test_binarydataio as bio
-from test_extend import test_extend_vector
-from test_cone_project import _cone_project_restricted
-from utils import _logger
+import irrevolutions.solvers.restriction as restriction
+from . import test_binarydataio as bio
+from .test_extend import test_extend_vector
+from .test_cone_project import _cone_project_restricted
+from irrevolutions.utils import _logger
 import dolfinx
 import ufl
 import numpy as np
@@ -156,7 +156,7 @@ def spa():
 
     _s = 1e-3
 
-    with XDMFFile(comm, "data/input_data.xdmf", "r") as file: 
+    with XDMFFile(comm, os.path.join(os.path.dirname(__file__), "data/input_data.xdmf"), "r") as file: 
         mesh = file.read_mesh(name='mesh')
 
     element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)

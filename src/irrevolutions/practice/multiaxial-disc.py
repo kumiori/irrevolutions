@@ -49,9 +49,9 @@ from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from meshes.primitives import mesh_bar_gmshapi
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
-from utils import norm_H1, norm_L2
+from irrevolutions.utils import norm_H1, norm_L2
 from meshes.pacman import mesh_pacman
 from utils.viz import plot_mesh, plot_vector, plot_scalar
 from utils.lib import _local_notch_asymptotic
@@ -107,7 +107,7 @@ def check_snes_convergence(snes):
 comm = MPI.COMM_WORLD
 
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "multiaxial-disc")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)

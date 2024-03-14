@@ -23,7 +23,7 @@ import dolfinx.plot
 
 
 sys.path.append("../")
-from utils import ColorPrint, set_vector_to_constant
+from irrevolutions.utils import ColorPrint, set_vector_to_constant
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation as AM, HybridSolver
 
@@ -106,7 +106,7 @@ def check_snes_convergence(snes):
         )
 
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "pacman")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)

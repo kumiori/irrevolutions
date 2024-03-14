@@ -47,16 +47,16 @@ from meshes.primitives import mesh_bar_gmshapi
 from models import DamageElasticityModel as Brittle
 from models import ElasticityModel as Elastic
 from meshes.extended_pacman import mesh_extended_pacman as mesh_pacman
-from utils import ColorPrint, set_vector_to_constant
+from irrevolutions.utils import ColorPrint, set_vector_to_constant
 from utils.lib import _local_notch_asymptotic
 from utils.viz import plot_mesh
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
-from utils import norm_H1, norm_L2
-from utils import history_data, _write_history_data
-from utils import _logger
+from irrevolutions.utils import norm_H1, norm_L2
+from irrevolutions.utils import history_data, _write_history_data
+from irrevolutions.utils import _logger
 from solvers import SNESSolver
-from utils import _logger
+from irrevolutions.utils import _logger
 import pyvista
 from pyvista.utilities import xvfb
 from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
@@ -137,7 +137,7 @@ def main(parameters, storage):
         else:
             cell_tag_fig = plotter.screenshot("cell_tags.png")    
     
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
     if storage is None:
         prefix = os.path.join(outdir, f"test_boundary_cracks/{_nameExp}")
     else:
@@ -440,7 +440,7 @@ if __name__ == "__main__":
         history_data, stability_data, state = main(parameters, _storage)
 
     ColorPrint.print_bold(history_data["eigs-cone"])
-    from utils import ResultsStorage, Visualization
+    from irrevolutions.utils import ResultsStorage, Visualization
     storage = ResultsStorage(MPI.COMM_WORLD, _storage)
     # storage.store_results(parameters, history_data, state)
     visualization = Visualization(_storage)
@@ -459,7 +459,7 @@ if __name__ == "__main__":
     __import__('pdb').set_trace()
     # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
-    # from utils import table_timing_data
+    # from irrevolutions.utils import table_timing_data
     # _timings = table_timing_data()
 
     # visualization.save_table(_timings, "timing_data")

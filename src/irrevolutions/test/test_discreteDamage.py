@@ -42,9 +42,9 @@ sys.path.append("../")
 from algorithms.so import BifurcationSolver
 from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
-from utils import norm_H1, norm_L2
+from irrevolutions.utils import norm_H1, norm_L2
 
 
 
@@ -486,7 +486,7 @@ comm = MPI.COMM_WORLD
 model_rank = 0
 
 
-with open("parameters.yml") as f:
+with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
 parameters["stability"]["cone"] = {            
@@ -526,7 +526,7 @@ _N = parameters["model"]["N"]
 # Create the mesh of the specimen with given dimensions
 mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "test_cone")
 
 if comm.rank == 0:

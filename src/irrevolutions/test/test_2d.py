@@ -40,28 +40,23 @@ from dolfinx.io import XDMFFile, gmshio
 import logging
 from dolfinx.common import Timer, list_timings, TimingType
 
-sys.path.append("../")
-from algorithms.so import BifurcationSolver, StabilitySolver
-from algorithms.am import AlternateMinimisation, HybridSolver
-from meshes.primitives import mesh_bar_gmshapi
-from models import DamageElasticityModel as Brittle
-from meshes.pacman import mesh_pacman
-from utils import ColorPrint, set_vector_to_constant
-from utils.lib import _local_notch_asymptotic
-from utils.viz import plot_mesh
-from utils import ColorPrint
-from utils.plots import plot_energies
-from utils import norm_H1, norm_L2
-from utils import history_data, _write_history_data
-from solvers import SNESSolver
-from utils import _logger
 import pyvista
 from pyvista.utilities import xvfb
 from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
 from dolfinx.fem import locate_dofs_topological
-# 
-from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
-from solvers.function import vec_to_functions
+
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.algorithms.am import AlternateMinimisation, HybridSolver
+from irrevolutions.meshes.primitives import mesh_bar_gmshapi
+from irrevolutions.models import DamageElasticityModel as Brittle
+from irrevolutions.meshes.pacman import mesh_pacman
+from irrevolutions.utils import ColorPrint, set_vector_to_constant, norm_H1, norm_L2, history_data, _write_history_data
+from irrevolutions.utils import _logger
+from irrevolutions.utils.lib import _local_notch_asymptotic
+from irrevolutions.utils.viz import plot_mesh
+from irrevolutions.utils.plots import plot_energies
+from irrevolutions.utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
+from irrevolutions.solvers.function import vec_to_functions
 
 description = """We solve here a basic 2d of a notched specimen.
 Imagine a dinner a pizza which is missing a slice, and lots of hungry friends
@@ -92,7 +87,7 @@ def main(parameters, storage):
     # Get mesh and meshtags
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
     if storage is None:
         prefix = os.path.join(outdir, f"test_1d-N{parameters['model']['N']}")
     else:
@@ -380,7 +375,7 @@ if __name__ == "__main__":
         history_data, stability_data, state = main(parameters, _storage)
 
     ColorPrint.print_bold(history_data["eigs-cone"])
-    from utils import ResultsStorage, Visualization
+    from irrevolutions.utils import ResultsStorage, Visualization
     storage = ResultsStorage(MPI.COMM_WORLD, _storage)
     storage.store_results(parameters, history_data, state)
     visualization = Visualization(_storage)
@@ -399,7 +394,7 @@ if __name__ == "__main__":
     __import__('pdb').set_trace()
     # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
-    # from utils import table_timing_data
+    # from irrevolutions.utils import table_timing_data
     # _timings = table_timing_data()
 
     # visualization.save_table(_timings, "timing_data")

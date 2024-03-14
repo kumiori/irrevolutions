@@ -31,7 +31,7 @@ import dolfinx.plot
 import yaml
 from algorithms.am import AlternateMinimisation as AM
 from models import DamageElasticityModel as Brittle
-from utils import ColorPrint, set_vector_to_constant
+from irrevolutions.utils import ColorPrint, set_vector_to_constant
 from dolfinx.fem import locate_dofs_topological
 from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
 
@@ -85,7 +85,7 @@ def check_snes_convergence(snes):
 import os
 from pathlib import Path
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "hybrid")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)

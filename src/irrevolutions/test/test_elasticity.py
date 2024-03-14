@@ -12,15 +12,13 @@ import dolfinx
 import dolfinx.plot
 from dolfinx import log
 import ufl
-sys.path.append("../")
+
 from pyvista.utilities import xvfb
 
-# from meshes import gmsh_model_to_mesh
-# from damage.utils import ColorPrint
-from models import ElasticityModel
-from solvers import SNESSolver as ElasticitySolver
-
-from meshes.primitives import mesh_bar_gmshapi
+from irrevolutions.models import ElasticityModel
+from irrevolutions.solvers import SNESSolver as ElasticitySolver
+from irrevolutions.meshes.primitives import mesh_bar_gmshapi
+from irrevolutions.utils.viz import plot_mesh, plot_vector, plot_scalar
 
 import numpy as np
 import logging
@@ -50,9 +48,6 @@ from petsc4py import PETSc
 import sys
 import yaml
 
-sys.path.append("../")
-from solvers import SNESSolver
-
 
 
 
@@ -77,7 +72,7 @@ comm = MPI.COMM_WORLD
 # Mesh on node model_rank and then distribute
 model_rank = 0
 
-with open("parameters.yml") as f:
+with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
 # Get mesh parameters
@@ -95,7 +90,7 @@ gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
 # Get mesh and meshtags
 mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 if comm.rank == 0:
     Path(outdir).mkdir(parents=True, exist_ok=True)
 
@@ -200,7 +195,6 @@ for i_t, t in enumerate(loads):
         json.dump(history_data, a_file)
         a_file.close()
 
-from utils.viz import plot_mesh, plot_vector, plot_scalar
 import pyvista 
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
@@ -213,4 +207,4 @@ plotter = pyvista.Plotter(
 
 # _plt = plot_scalar(u_.sub(0), plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 1))
-_plt.screenshot(f"output/elasticity/elasticity_displacement_MPI{comm.size}.png")
+_plt.screenshot(os.path.join(prefix, f"elasticity_displacement_MPI{comm.size}.png"))

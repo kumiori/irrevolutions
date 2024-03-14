@@ -42,9 +42,9 @@ from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from meshes.primitives import mesh_bar_gmshapi
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
-from utils import norm_H1, norm_L2
+from irrevolutions.utils import norm_H1, norm_L2
 
 
 
@@ -104,7 +104,7 @@ geom_type = parameters["geometry"]["geom_type"]
 
 # Create the mesh of the specimen with given dimensions
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "traction_AT1_first_order")
 
 if comm.rank == 0:

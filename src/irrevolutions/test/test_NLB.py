@@ -27,7 +27,7 @@ from utils.viz import plot_mesh, plot_vector, plot_scalar
 comm = MPI.COMM_WORLD
 # import pdb
 import dolfinx.plot
-from utils import norm_H1, norm_L2
+from irrevolutions.utils import norm_H1, norm_L2
 import pandas as pd
 
 # import pyvista
@@ -35,7 +35,7 @@ import yaml
 from algorithms.am import AlternateMinimisation as AM, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from models import DamageElasticityModel as Brittle
-from utils import ColorPrint, set_vector_to_constant
+from irrevolutions.utils import ColorPrint, set_vector_to_constant
 from dolfinx.fem import locate_dofs_topological
 from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
 from dolfinx.io import XDMFFile, gmshio
@@ -61,7 +61,7 @@ from dolfinx.fem import (
 
 from utils.viz import plot_matrix
 
-import solvers.restriction as restriction
+import irrevolutions.solvers.restriction as restriction
 
 
 
@@ -313,14 +313,14 @@ def check_snes_convergence(snes):
 import os
 from pathlib import Path
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "test_NLB")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
 def test_NLB(nest):
 
-    with open("parameters.yml") as f:
+    with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     parameters["model"]["model_dimension"] = 1
@@ -351,7 +351,7 @@ def test_NLB(nest):
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
 
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
     prefix = os.path.join(outdir, f"test_cone-N{parameters['model']['N']}")
 
     if comm.rank == 0:
@@ -830,7 +830,7 @@ def test_cone():
     model_rank = 0
 
 
-    with open("parameters.yml") as f:
+    with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     # parameters["stability"]["cone"] = ""
@@ -863,7 +863,7 @@ def test_cone():
     # Create the mesh of the specimen with given dimensions
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
     prefix = os.path.join(outdir, f"test_NLB")
 
     if comm.rank == 0:

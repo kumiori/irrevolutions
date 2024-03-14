@@ -10,7 +10,7 @@ from petsc4py import PETSc
 import dolfinx
 import ufl
 sys.path.append("../")
-import solvers.restriction as restriction
+import irrevolutions.solvers.restriction as restriction
 
 """Discrete endommageable springs in series
         1         2        i        k
@@ -26,7 +26,7 @@ _N = 10
 
 mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "test_cone")
 
 element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),

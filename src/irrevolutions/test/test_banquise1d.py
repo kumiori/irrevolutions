@@ -82,7 +82,7 @@ gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
 mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "banquise1d")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)

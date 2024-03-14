@@ -37,9 +37,9 @@ from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so_merged import BifurcationSolver, StabilitySolver
 from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
-from utils import norm_H1, norm_L2
+from irrevolutions.utils import norm_H1, norm_L2
 
 # Define the Computation class
 class Computation:

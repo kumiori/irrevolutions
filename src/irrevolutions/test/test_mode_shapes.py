@@ -1,6 +1,6 @@
+import os
 import pandas as pd
 import numpy as np
-
 # Example parameters
 L = 10  # Replace with actual length
 num_points = 10  # Replace with actual number of points
@@ -39,5 +39,6 @@ for current_time_step in range(num_time_steps):
         mode_shapes_data['point_values'][mode_key]['field_2'].append(field_2_values_mode)
 
 # Save the mode_shapes_data dictionary to a file (e.g., using np.savez or pickle)
-np.savez('data/mode_shapes_data.npz', **mode_shapes_data)
+np.savez(os.path.join(os.path.dirname(__file__), 
+                      'data/mode_shapes_data.npz'), **mode_shapes_data)
 

@@ -22,7 +22,7 @@ from petsc4py import PETSc
 from sympy import derive_by_array
 
 sys.path.append("../")
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 
 
 
@@ -56,7 +56,7 @@ def setup(custom_parameters):
     from dolfinx.fem.FunctionSpace import Function
     import ufl
 
-    with open("parameters.yml") as f:
+    with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     parameters["cone"] = ""
@@ -91,7 +91,7 @@ def setup(custom_parameters):
     # Create the mesh of the specimen with given dimensions
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
     prefix = os.path.join(outdir, "test_cone")
 
     if comm.rank == 0:
@@ -204,7 +204,7 @@ def main(custom_parameters):
         )
     print("")
     print("")
-    with open("parameters.yml") as f:
+    with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
     # solvers, cts = ConstrainedEvolution(parameters)
@@ -216,7 +216,7 @@ def main(custom_parameters):
 
     _nameExp = parameters["geometry"]["geom_type"]
 
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
     prefix = os.path.join(outdir, "test_discrete-damage")
 
     if comm.rank == 0:

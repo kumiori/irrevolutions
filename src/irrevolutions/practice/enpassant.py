@@ -16,7 +16,7 @@ import os
 import pyvista
 from utils.viz import plot_mesh
 from utils.viz import plot_mesh, plot_vector, plot_scalar
-from utils import viz
+from irrevolutions.utils import viz
 from meshes import primitives
 import meshes
 from pyvista.utilities import xvfb

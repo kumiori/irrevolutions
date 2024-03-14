@@ -16,7 +16,7 @@ import ufl
 import numpy as np
 sys.path.append("../")
 from utils.plots import plot_energies
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 
@@ -80,7 +80,7 @@ comm = MPI.COMM_WORLD
 # Mesh on node model_rank and then distribute
 model_rank = 0
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "test_notch")
 
 

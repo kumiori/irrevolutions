@@ -49,20 +49,20 @@ from models import BrittleMembraneOverElasticFoundation as ThinFilm
 from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from meshes.primitives import mesh_bar_gmshapi
-from utils import ColorPrint
+from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
-from utils import norm_H1, norm_L2
+from irrevolutions.utils import norm_H1, norm_L2
 # from meshes.pacman import mesh_pacman
 from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
 from utils.lib import _local_notch_asymptotic
 from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
-from utils import table_timing_data
+from irrevolutions.utils import table_timing_data
 from utils.parametric import parameters_vs_elle
 from solvers.function import vec_to_functions
 
 # logging.basicConfig(level=logging.DEBUG)
 
-from utils import setup_logger_mpi
+from irrevolutions.utils import setup_logger_mpi
 
 
 from default import ResultsStorage, Visualization
@@ -116,7 +116,7 @@ comm = MPI.COMM_WORLD
 
 logger = setup_logger_mpi(logging.INFO)
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "thinfilm-bar")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
@@ -136,7 +136,7 @@ def main(parameters, storage=None):
     import hashlib
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
     if storage is None:
         prefix = os.path.join(outdir, "thinfilm-bar", signature)
     else:

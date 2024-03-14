@@ -2,11 +2,9 @@ import os
 import sys
 sys.path.append("../")
 sys.path.append("../playground/nb")
-import test_binarydataio as bio
+from . import test_binarydataio as bio
 # from test_extend import test_extend_vector
 # from test_cone_project import _cone_project_restricted
-from algorithms.so import BifurcationSolver, StabilitySolver
-from utils import _logger
 import dolfinx
 import ufl
 import numpy as np
@@ -19,18 +17,20 @@ from mpi4py import MPI
 import pickle 
 import logging
 import argparse
-from utils import ColorPrint
 import json
-from solvers.function import vec_to_functions
 import pyvista
 from pyvista.utilities import xvfb
-from utils.viz import plot_profile
 from pathlib import Path
 import matplotlib.pyplot as plt
-from utils.viz import get_datapoints
-import eigenspace as eig
-from utils import indicator_function
-from test_rayleigh_parametric import rayleigh_ratio
+
+
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.utils import _logger, ColorPrint
+from irrevolutions.solvers.function import vec_to_functions
+from irrevolutions.utils.viz import plot_profile, get_datapoints
+from irrevolutions.utils import indicator_function
+
+from .test_rayleigh_parametric import rayleigh_ratio
 
 _logger.setLevel(logging.CRITICAL)
 
