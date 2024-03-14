@@ -4,7 +4,7 @@ from time import clock_settime
 
 from matplotlib.pyplot import cla
 import dolfinx
-from solvers import SNESSolver
+from irrevolutions.solvers import SNESSolver
 from dolfinx.fem import (
     Constant,
     Function,
@@ -23,21 +23,18 @@ import numpy as np
 from pathlib import Path
 from dolfinx.io import XDMFFile, gmshio
 import logging
-from solvers.function import vec_to_functions
+from irrevolutions.solvers.function import vec_to_functions
 
 from mpi4py import MPI
 
 from dolfinx.fem.petsc import create_vector_block
 
-from utils import norm_H1, norm_L2, ColorPrint
+from irrevolutions.utils import norm_H1, norm_L2, ColorPrint, _logger
 import sys
 
-sys.path.append("../")
-sys.path.append("../test")
-import solvers.restriction as restriction
-import solvers.slepcblockproblem as eigenblockproblem
-from solvers.function import functions_to_vec
-from utils import _logger
+import irrevolutions.solvers.restriction as restriction
+import irrevolutions.solvers.slepcblockproblem as eigenblockproblem
+from irrevolutions.solvers.function import functions_to_vec
 
 comm = MPI.COMM_WORLD
 

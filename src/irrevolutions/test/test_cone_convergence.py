@@ -1,13 +1,14 @@
 import os
 import sys
-sys.path.append("../")
-import solvers.restriction as restriction
-from algorithms.so import StabilitySolver
-import test_binarydataio as bio
-from test_extend import test_extend_vector
-from test_cone_project import _cone_project_restricted
-from test_spa import load_minimal_constraints
-from utils import _logger
+
+import irrevolutions.solvers.restriction as restriction
+from irrevolutions.algorithms.so import StabilitySolver
+
+from . import test_binarydataio as bio
+from .test_extend import test_extend_vector
+from .test_cone_project import _cone_project_restricted
+from .test_spa import load_minimal_constraints
+from irrevolutions.utils import _logger
 import dolfinx
 import ufl
 import numpy as np

@@ -1,9 +1,10 @@
 from irrevolution.utils import norm_H1, norm_L2, set_vector_to_constant, ColorPrint
 import logging
 import dolfinx
-from solvers import SNESSolver
-from solvers.snesblockproblem import SNESBlockProblem
-from solvers.function import functions_to_vec
+from irrevolutions.solvers import SNESSolver
+from irrevolutions.solvers.snesblockproblem import SNESBlockProblem
+from irrevolutions.solvers.function import functions_to_vec
+import irrevolutions.solvers.restriction as restriction
 
 from dolfinx.fem import (
     Constant,
@@ -228,7 +229,6 @@ class AlternateMinimisation:
         )
 
 
-import solvers.restriction as restriction
 
 
 class HybridSolver(AlternateMinimisation):

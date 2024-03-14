@@ -25,9 +25,13 @@ import yaml
 import pdb
 import os
 from pathlib import Path
-pdb.set_trace()
-sys.path.append("../")
-from solvers import SNESSolver
+import pyvista
+from pyvista.utilities import xvfb
+
+import dolfinx.plot
+
+from irrevolutions.solvers import SNESSolver
+from irrevolutions.utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
 
 petsc4py.init(sys.argv)
 
@@ -35,7 +39,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-with open("parameters.yml") as f:
+with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
 Lx = parameters.get("geometry").get("Lx")
@@ -124,14 +128,6 @@ Path(prefix).mkdir(parents=True, exist_ok=True)
 with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "output/u.xdmf", "w") as f:
     f.write_mesh(mesh)
     f.write_function(u)
-
-import pyvista
-from pyvista.utilities import xvfb
-
-import dolfinx.plot
-
-sys.path.append("../../test")
-from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
 
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True

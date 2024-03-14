@@ -15,7 +15,7 @@ def save_binary_data(filename, data):
     else:
         raise ValueError("Unsupported data type for saving")
 
-from test_errorcodes import translatePETScERROR
+from .test_errorcodes import translatePETScERROR
 
 def load_binary_data(filename):
     viewer = PETSc.Viewer().createBinary(filename, "r")

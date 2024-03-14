@@ -6,7 +6,7 @@ import dolfinx
 import ufl
 from .function import vec_to_functions
 from slepc4py import SLEPc
-from utils.viz import plot_matrix
+from irrevolutions.utils.viz import plot_matrix
 
 # plot_matrix
 
