@@ -1,41 +1,37 @@
+import json
 import logging
+import os
 import sys
-
-import numpy as np
-
-logging.basicConfig(level=logging.INFO)
 from datetime import date
-
-today = date.today()
-sys.path.append("../")
+from pathlib import Path
 
 import dolfinx
+import dolfinx.plot
+import numpy as np
 import petsc4py
+import pyvista
 import ufl
-from dolfinx.fem import FunctionSpace
-from solvers.function import functions_to_vec
+import yaml
+from dolfinx.fem import FunctionSpace, locate_dofs_topological
+from dolfinx.mesh import CellType, create_rectangle, locate_entities_boundary
+from models import DamageElasticityModel as Brittle
+from mpi4py import MPI
 from petsc4py import PETSc
-import json
+from pyvista.utilities import xvfb
+
+from irrevolutions.algorithms.am import HybridSolver
+from irrevolutions.solvers.function import functions_to_vec
+from irrevolutions.utils import ColorPrint, set_vector_to_constant
+from irrevolutions.utils.viz import plot_scalar, plot_vector
+
+logging.basicConfig(level=logging.INFO)
+
+today = date.today()
 
 petsc4py.init(sys.argv)
 
-from mpi4py import MPI
-from utils.viz import plot_scalar, plot_vector
 
 comm = MPI.COMM_WORLD
-# import pdb
-import dolfinx.plot
-
-# import pyvista
-import yaml
-from algorithms.am import HybridSolver
-from models import DamageElasticityModel as Brittle
-from irrevolutions.utils import ColorPrint, set_vector_to_constant
-from dolfinx.fem import locate_dofs_topological
-from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
-
-import pyvista
-from pyvista.utilities import xvfb
 
 
 class ConvergenceError(Exception):
@@ -81,13 +77,11 @@ def check_snes_convergence(snes):
         )
 
 
-import os
-from pathlib import Path
-
 outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "test_hybrid")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
+
 
 def test_hybrid(nest):
     Lx = 1.0
@@ -214,7 +208,7 @@ def test_hybrid(nest):
         block_params["pc_type"] = "lu"
         block_params["pc_factor_mat_solver_type"] = "mumps"
 
-    parameters.get("solvers")['newton'] = block_params
+    parameters.get("solvers")["newton"] = block_params
 
     hybrid = HybridSolver(
         total_energy,
@@ -225,9 +219,8 @@ def test_hybrid(nest):
     )
 
     if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
-
 
     hybrid.newton.snes
 
@@ -240,9 +233,14 @@ def test_hybrid(nest):
     # loads = np.linspace(0.0, 1.3, 10)
 
     data = []
-    
+
     norm_12_form = dolfinx.fem.form(
-        (ufl.inner(alpha, alpha) + parameters["model"]["ell"] * ufl.inner(ufl.grad(alpha), ufl.grad(alpha))) * dx)
+        (
+            ufl.inner(alpha, alpha)
+            + parameters["model"]["ell"] * ufl.inner(ufl.grad(alpha), ufl.grad(alpha))
+        )
+        * dx
+    )
 
     for i_t, t in enumerate(loads):
 
@@ -264,27 +262,33 @@ def test_hybrid(nest):
         alpha.vector.copy(alphadot.vector)
         alphadot.vector.axpy(-1, alpha_lb.vector)
         alphadot.vector.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         logging.info(f"alpha vector norm: {alpha.vector.norm()}")
         logging.info(f"alpha lb norm: {alpha_lb.vector.norm()}")
         logging.info(f"alphadot norm: {alphadot.vector.norm()}")
         logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
 
-        rate_12_norm = np.sqrt(comm.allreduce(
-            dolfinx.fem.assemble_scalar(
-                hybrid.scaled_rate_norm(alpha, parameters))
-                , op=MPI.SUM))
-        
+        rate_12_norm = np.sqrt(
+            comm.allreduce(
+                dolfinx.fem.assemble_scalar(hybrid.scaled_rate_norm(alpha, parameters)),
+                op=MPI.SUM,
+            )
+        )
+
         logging.info(f"rate scaled alpha_12 norm: {rate_12_norm}")
 
         dissipated_energy = comm.allreduce(
-            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state) * dx)),
+            dolfinx.fem.assemble_scalar(
+                dolfinx.fem.form(model.damage_energy_density(state) * dx)
+            ),
             op=MPI.SUM,
         )
         elastic_energy = comm.allreduce(
-            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.elastic_energy_density(state) * dx)),
+            dolfinx.fem.assemble_scalar(
+                dolfinx.fem.form(model.elastic_energy_density(state) * dx)
+            ),
             op=MPI.SUM,
         )
 
@@ -293,19 +297,18 @@ def test_hybrid(nest):
             "AM_F_alpha_H1": hybrid.data["error_alpha_H1"][-1],
             "AM_Fnorm": hybrid.data["error_residual_F"][-1],
             "NE_Fnorm": hybrid.newton.snes.getFunctionNorm(),
-            "load" : t,
-            "dissipated_energy" : dissipated_energy,
-            "elastic_energy" : elastic_energy,
-            "total_energy" : elastic_energy+dissipated_energy,
-            "solver_data" : hybrid.data,
+            "load": t,
+            "dissipated_energy": dissipated_energy,
+            "elastic_energy": elastic_energy,
+            "total_energy": elastic_energy + dissipated_energy,
+            "solver_data": hybrid.data,
             "alphadot_norm": alphadot.vector.norm(),
-            "rate_12_norm": rate_12_norm
+            "rate_12_norm": rate_12_norm,
             # "eigs" : stability.data["eigs"],
             # "stable" : stability.data["stable"],
             # "F" : _F
         }
         data.append(datai)
-
 
         # logging.info(f"getConvergedReason() {newton.snes.getConvergedReason()}")
         # logging.info(f"getFunctionNorm() {newton.snes.getFunctionNorm():.5e}")
@@ -337,7 +340,6 @@ def test_hybrid(nest):
         _plt.close()
 
     print(data)
-
 
     if comm.rank == 0:
         a_file = open(f"{prefix}/time_data.json", "w")

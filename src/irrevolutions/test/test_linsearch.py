@@ -1,4 +1,29 @@
 #!/usr/bin/env python3
+import dolfinx.mesh
+from dolfinx.fem import (
+    Constant,
+    Function,
+    FunctionSpace,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
+from dolfinx.io import XDMFFile, gmshio
+import logging
+from irrevolutions.utils import history_data, _write_history_data
+from utils.viz import plot_profile
+from solvers.function import vec_to_functions
+from dolfinx.common import list_timings
+from irrevolutions.utils import norm_H1
+from irrevolutions.utils import ColorPrint
+from meshes.primitives import mesh_bar_gmshapi
+from algorithms.ls import LineSearch
+from algorithms.so import BifurcationSolver, StabilitySolver, BifurcationSolver
+from algorithms.am import AlternateMinimisation, HybridSolver
+from models import DamageElasticityModel as Brittle
+import matplotlib.pyplot as plt
 import hashlib
 import numpy as np
 import yaml
@@ -13,52 +38,12 @@ import dolfinx
 import dolfinx.plot
 import ufl
 import numpy as np
+
 sys.path.append("../")
 
-import matplotlib.pyplot as plt
-
-from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver, BifurcationSolver
-from algorithms.ls import LineSearch
-from meshes.primitives import mesh_bar_gmshapi
-from irrevolutions.utils import ColorPrint
-from irrevolutions.utils import norm_H1
-
-from meshes.primitives import mesh_bar_gmshapi
-from dolfinx.common import list_timings
-
-from solvers.function import vec_to_functions
-import sys
-from utils.viz import plot_profile
-from irrevolutions.utils import history_data, _write_history_data
-
-from utils.viz import plot_profile
-from irrevolutions.utils import history_data, _write_history_data
-
-import logging
 
 logging.basicConfig(level=logging.INFO)
 
-from dolfinx.io import XDMFFile, gmshio
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
-import dolfinx.mesh
-import ufl
-
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import sys
-import yaml
 
 sys.path.append("../")
 
@@ -67,6 +52,7 @@ comm = MPI.COMM_WORLD
 size = comm.Get_size()
 
 model_rank = 0
+
 
 def test_linsearch(parameters, storage):
 
@@ -86,26 +72,28 @@ def test_linsearch(parameters, storage):
     gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
     outdir = os.path.join(os.path.dirname(__file__), "output")
-    
+
     if storage is None:
         prefix = os.path.join(outdir, "traction_AT2_cone", signature)
     else:
         prefix = storage
-    
+
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
-        with open(f"{prefix}/signature.md5", 'w') as f:
+        with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
 
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
 
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_mesh(mesh)
-        
+
     # Function spaces
     element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
     V_u = FunctionSpace(mesh, element_u)
@@ -134,10 +122,8 @@ def test_linsearch(parameters, storage):
     dx = ufl.Measure("dx", domain=mesh)
     ds = ufl.Measure("ds", domain=mesh)
 
-    dofs_alpha_left = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], Lx))
+    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -149,14 +135,13 @@ def test_linsearch(parameters, storage):
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+        f.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
-    bc_u_left = dirichletbc(
-        np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
+    bc_u_left = dirichletbc(np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
-    bc_u_right = dirichletbc(
-        u_, dofs_u_right)
+    bc_u_right = dirichletbc(u_, dofs_u_right)
     bcs_u = [bc_u_left, bc_u_right]
 
     bcs_alpha = [
@@ -184,8 +169,7 @@ def test_linsearch(parameters, storage):
     total_energy = model.total_energy_density(state) * dx - external_work
 
     load_par = parameters["loading"]
-    loads = np.linspace(load_par["min"],
-                        load_par["max"], load_par["steps"])
+    loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
     equilibrium = AlternateMinimisation(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
@@ -204,19 +188,22 @@ def test_linsearch(parameters, storage):
     )
 
     stability = StabilitySolver(
-        total_energy, state, bcs,
-        cone_parameters=parameters.get("stability")
+        total_energy, state, bcs, cone_parameters=parameters.get("stability")
     )
 
-    linesearch = LineSearch(total_energy, state, linesearch_parameters=parameters.get("stability").get("linesearch"))
-
+    linesearch = LineSearch(
+        total_energy,
+        state,
+        linesearch_parameters=parameters.get("stability").get("linesearch"),
+    )
 
     history_data.update({"F": []})
-    
+
     for i_t, t in enumerate(loads):
-        u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
-        u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+        u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
+        u_.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         # update the lower bound
         alpha.vector.copy(alpha_lb.vector)
@@ -241,8 +228,8 @@ def test_linsearch(parameters, storage):
         alpha.vector.copy(alphadot.vector)
         alphadot.vector.axpy(-1, alpha_lb.vector)
         alphadot.vector.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
         urate_12_norm = hybrid.unscaled_rate_norm(alpha)
@@ -254,94 +241,97 @@ def test_linsearch(parameters, storage):
         is_unique = bifurcation.solve(alpha_lb)
         is_elastic = not bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
-        
+
         ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
-        
-        stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
+
+        stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia=inertia)
 
         if not stable:
             import pyvista
             from pyvista.utilities import xvfb
 
-            vec_to_functions(stability.solution['xt'], [v, β])
+            vec_to_functions(stability.solution["xt"], [v, β])
             perturbation = {"v": v, "beta": β}
 
             interval = linesearch.get_unilateral_interval(state, perturbation)
 
             order = 3
-            h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
+            h_opt, energies_1d, p, _ = linesearch.search(
+                state, perturbation, interval, m=order
+            )
             logging.critical(f" *> State is unstable: {not stable}")
             logging.critical(f"line search interval is {interval}")
             logging.critical(f"perturbation energies: {energies_1d}")
             logging.critical(f"hopt: {h_opt}")
             logging.critical(f"lambda_t: {stability.solution['lambda_t']}")
-            x_plot = np.linspace(interval[0], interval[1], order+1)
+            x_plot = np.linspace(interval[0], interval[1], order + 1)
             fig, axes = plt.subplots(1, 1)
             plt.scatter(x_plot, energies_1d)
-            plt.scatter(h_opt, 0, c='k', s=40, marker='|', label=f'$h^*={h_opt:.2f}$')
-            plt.scatter(h_opt, p(h_opt), c='k', s=40, alpha=.5)
+            plt.scatter(h_opt, 0, c="k", s=40, marker="|", label=f"$h^*={h_opt:.2f}$")
+            plt.scatter(h_opt, p(h_opt), c="k", s=40, alpha=0.5)
             xs = np.linspace(interval[0], interval[1], 30)
-            axes.plot(xs, p(xs), label='Energy slice along perturbation')
-            axes.set_xlabel('h')
-            axes.set_ylabel('$E_h - E_0$')
-            axes.set_title(f'Polynomial Interpolation - order {order}')
+            axes.plot(xs, p(xs), label="Energy slice along perturbation")
+            axes.set_xlabel("h")
+            axes.set_ylabel("$E_h - E_0$")
+            axes.set_title(f"Polynomial Interpolation - order {order}")
             axes.legend()
-            axes.spines['top'].set_visible(False)
-            axes.spines['right'].set_visible(False)
-            axes.spines['left'].set_visible(False)
-            axes.spines['bottom'].set_visible(False)
+            axes.spines["top"].set_visible(False)
+            axes.spines["right"].set_visible(False)
+            axes.spines["left"].set_visible(False)
+            axes.spines["bottom"].set_visible(False)
             axes.set_yticks([0])
-            axes.axhline(0, c='k')
+            axes.axhline(0, c="k")
             fig.savefig(f"{prefix}/energy_interpolation-{order}.png")
             plt.close()
-            
+
             orders = [2, 3, 4, 10, 30]
 
-            fig, axes = plt.subplots(1, 1, figsize = (5, 8))
+            fig, axes = plt.subplots(1, 1, figsize=(5, 8))
 
             for order in orders:
-                x_plot = np.linspace(interval[0], interval[1], order+1)
-                h_opt, energies_1d, p, _ = linesearch.search(state, perturbation, interval, m=order)
+                x_plot = np.linspace(interval[0], interval[1], order + 1)
+                h_opt, energies_1d, p, _ = linesearch.search(
+                    state, perturbation, interval, m=order
+                )
                 xs = np.linspace(interval[0], interval[1], 30)
-    
+
                 plt.scatter(x_plot, energies_1d)
-                axes.plot(xs, p(xs), label=f'Energy slice order {order}')
-                plt.scatter(h_opt, 0, s=60, label=f'$h^*-{ order }={h_opt:.2f}$', alpha=.5)
-                plt.scatter(h_opt, p(h_opt), c='k', s=40, alpha=.5)
-    
+                axes.plot(xs, p(xs), label=f"Energy slice order {order}")
+                plt.scatter(
+                    h_opt, 0, s=60, label=f"$h^*-{ order }={h_opt:.2f}$", alpha=0.5
+                )
+                plt.scatter(h_opt, p(h_opt), c="k", s=40, alpha=0.5)
+
             axes.legend()
-            axes.spines['top'].set_visible(False)
-            axes.spines['right'].set_visible(False)
-            axes.spines['left'].set_visible(False)
-            axes.spines['bottom'].set_visible(False)
+            axes.spines["top"].set_visible(False)
+            axes.spines["right"].set_visible(False)
+            axes.spines["left"].set_visible(False)
+            axes.spines["bottom"].set_visible(False)
             axes.set_yticks([0])
-            axes.set_xlabel('h')
-            axes.set_ylabel('$E_h - E_0$')
-            axes.axhline(0, c='k')
+            axes.set_xlabel("h")
+            axes.set_ylabel("$E_h - E_0$")
+            axes.axhline(0, c="k")
             fig.savefig(f"{prefix}/energy_interpolation-orders.png")
-    
+
             plt.close()
 
             tol = 1e-3
             xs = np.linspace(0 + tol, Lx - tol, 101)
             points = np.zeros((3, 101))
             points[0] = xs
-            
+
             plotter = pyvista.Plotter(
                 title="Perturbation profile",
                 window_size=[800, 600],
                 shape=(1, 1),
             )
-            
+
             _plt, data = plot_profile(
                 β,
                 points,
                 plotter,
-                lineproperties={
-                    "c": "k",
-                    "label": f"$\\beta$"
-                },
+                lineproperties={"c": "k", "label": f"$\\beta$"},
             )
             _plt.gca()
             _plt.legend()
@@ -349,21 +339,23 @@ def test_linsearch(parameters, storage):
             _plt.title("Perurbation")
             _plt.savefig(f"{prefix}/perturbation-profile.png")
             _plt.close()
-            
+
             # perturb the state
             # compute norm of state
             norm_state_pre = sum([norm_H1(v) for v in state.values()])
-        
+
             if kick:
                 linesearch.perturb(state, perturbation, h_opt)
                 hybrid.solve(alpha_lb)
-        
+
             norm_state_post = sum([norm_H1(v) for v in state.values()])
             # print norms and relative norms difference
             logging.critical(f"norm state pre: {norm_state_pre}")
             logging.critical(f"norm state post: {norm_state_post}")
-            logging.critical(f"relative norm difference: {(norm_state_post-norm_state_pre) / norm_state_pre}")
-            
+            logging.critical(
+                f"relative norm difference: {(norm_state_post-norm_state_pre) / norm_state_pre}"
+            )
+
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
         ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
@@ -373,7 +365,6 @@ def test_linsearch(parameters, storage):
         logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
         logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
-
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
@@ -402,10 +393,12 @@ def test_linsearch(parameters, storage):
             t,
             inertia,
             stable,
-            [fracture_energy, elastic_energy])
-        
+            [fracture_energy, elastic_energy],
+        )
 
-        with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+        with XDMFFile(
+            comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+        ) as file:
             file.write_function(u, t)
             file.write_function(alpha, t)
 
@@ -419,14 +412,16 @@ def test_linsearch(parameters, storage):
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     import pandas as pd
+
     df = pd.DataFrame(history_data)
-    print(df.drop(['equilibrium_data', 'cone_data'], axis=1))
+    print(df.drop(["equilibrium_data", "cone_data"], axis=1))
 
     # Viz
     from pyvista.utilities import xvfb
     import pyvista
     from utils.viz import plot_scalar, plot_vector
-    # 
+
+    #
     xvfb.start_xvfb(wait=0.05)
     pyvista.OFF_SCREEN = True
 
@@ -441,13 +436,15 @@ def test_linsearch(parameters, storage):
         _plt = plot_vector(u, plotter, subplot=(0, 1))
         _plt.screenshot(f"{prefix}/traction-state.png")
 
-
     from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
         plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-        plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
+        plot_force_displacement(
+            history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
+        )
+
 
 def load_parameters(file_path):
     """
@@ -471,17 +468,18 @@ def load_parameters(file_path):
     parameters["stability"]["continuation"] = True
 
     parameters["model"]["model_dimension"] = 2
-    parameters["model"]["model_type"] = '2D'
+    parameters["model"]["model_type"] = "2D"
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = .1
-    parameters["model"]["k_res"] = 0.
-    parameters["loading"]["min"] = .0
+    parameters["model"]["ell"] = 0.1
+    parameters["model"]["k_res"] = 0.0
+    parameters["loading"]["min"] = 0.0
     parameters["loading"]["max"] = 1.3
     parameters["loading"]["steps"] = 30
 
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     return parameters, signature
+
 
 if __name__ == "__main__":
     parameters, signature = load_parameters("../test/parameters.yml")

@@ -1,15 +1,15 @@
 import json
-import yaml
-
-import ufl
-from dolfinx.fem import assemble_scalar, form
-import numpy as np
-import mpi4py
-import sys
-from petsc4py import PETSc
 import logging
-from mpi4py import MPI
+import sys
 from typing import List
+
+import mpi4py
+import numpy as np
+import ufl
+import yaml
+from dolfinx.fem import assemble_scalar, form
+from mpi4py import MPI
+from petsc4py import PETSc
 
 comm = MPI.COMM_WORLD
 
@@ -68,8 +68,8 @@ class ColorPrint:
             sys.stdout.flush()
 
 def setup_logger_mpi(root_priority: int = logging.INFO):
-    from mpi4py import MPI
     import dolfinx
+    from mpi4py import MPI
     class MPIFormatter(logging.Formatter):
         def format(self, record):
             record.rank = MPI.COMM_WORLD.Get_rank()
@@ -133,9 +133,9 @@ code_info = {
     "commit_hash": commit_hash,
 }
 
-from slepc4py import __version__ as slepc_version
 from dolfinx import __version__ as dolfinx_version
 from petsc4py import __version__ as petsc_version
+from slepc4py import __version__ as slepc_version
 
 library_info = {
     "dolfinx_version": dolfinx_version,
@@ -211,6 +211,7 @@ def table_timing_data():
     return df
 
 from dolfinx.io import XDMFFile
+
 
 class ResultsStorage:
     """
@@ -320,6 +321,7 @@ def _write_history_data(equilibrium, bifurcation, stability, history_data, t, in
 
 def indicator_function(v):
     import dolfinx
+
     # Create the indicator function
     w = dolfinx.fem.Function(v.function_space)
     with w.vector.localForm() as w_loc, v.vector.localForm() as v_loc:

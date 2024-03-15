@@ -14,8 +14,15 @@ import petsc4py
 import pyvista
 import ufl
 import yaml
-from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
-                         form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.fem.petsc import assemble_vector, set_bc
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
@@ -25,10 +32,20 @@ from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import vec_to_functions
-from irrevolutions.utils import (ColorPrint, _logger, _write_history_data,
-                                 history_data, norm_H1, norm_L2)
-from irrevolutions.utils.plots import (plot_AMit_load, plot_energies,
-                                       plot_force_displacement)
+from irrevolutions.utils import (
+    ColorPrint,
+    _logger,
+    _write_history_data,
+    history_data,
+    norm_H1,
+    norm_L2,
+)
+from irrevolutions.utils.plots import (
+    plot_AMit_load,
+    plot_energies,
+    plot_force_displacement,
+)
+
 #
 from irrevolutions.utils.viz import plot_profile
 
@@ -55,8 +72,7 @@ class _AlternateMinimisation1D:
     ):
         self.state = state
         self.alpha = state["alpha"]
-        self.alpha_old = dolfinx.fem.function.Function(
-            self.alpha.function_space)
+        self.alpha_old = dolfinx.fem.function.Function(self.alpha.function_space)
         self.u = state["u"]
         self.alpha_lb = bounds[0]
         self.alpha_ub = bounds[1]
@@ -66,8 +82,7 @@ class _AlternateMinimisation1D:
         V_u = state["u"].function_space
         V_alpha = state["alpha"].function_space
 
-        energy_u = ufl.derivative(
-            self.total_energy, self.u, ufl.TestFunction(V_u))
+        energy_u = ufl.derivative(self.total_energy, self.u, ufl.TestFunction(V_u))
         energy_alpha = ufl.derivative(
             self.total_energy, self.alpha, ufl.TestFunction(V_alpha)
         )
@@ -134,8 +149,7 @@ class _AlternateMinimisation1D:
             Fv = [assemble_vector(form(F)) for F in self.F]
 
             Fnorm = np.sqrt(
-                np.array([comm.allreduce(Fvi.norm(), op=MPI.SUM)
-                         for Fvi in Fv]).sum()
+                np.array([comm.allreduce(Fvi.norm(), op=MPI.SUM) for Fvi in Fv]).sum()
             )
 
             error_alpha_max = alpha_diff.vector.max()[1]
@@ -183,8 +197,7 @@ class _AlternateMinimisation1D:
             self.data["total_energy"].append(total_energy_int)
 
             if (
-                self.solver_parameters.get(
-                    "damage_elasticity").get("criterion")
+                self.solver_parameters.get("damage_elasticity").get("criterion")
                 == "residual_u"
             ):
                 if error_residual_F <= self.solver_parameters.get(
@@ -192,8 +205,7 @@ class _AlternateMinimisation1D:
                 ).get("alpha_rtol"):
                     break
             if (
-                self.solver_parameters.get(
-                    "damage_elasticity").get("criterion")
+                self.solver_parameters.get("damage_elasticity").get("criterion")
                 == "alpha_H1"
             ):
                 if error_alpha_H1 <= self.solver_parameters.get(
@@ -317,8 +329,7 @@ def main(parameters, storage=None):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-    bc_u_left = dirichletbc(
-        np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u)
+    bc_u_left = dirichletbc(np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
     bc_u_right = dirichletbc(u_, dofs_u_right)
     bcs_u = [bc_u_left, bc_u_right]
@@ -398,8 +409,7 @@ def main(parameters, storage=None):
 
         return parameters["model"]["E"] * a(alpha) * u.dx() * dx
 
-    total_energy = (elastic_energy_density(state) +
-                    damage_energy_density(state)) * dx
+    total_energy = (elastic_energy_density(state) + damage_energy_density(state)) * dx
 
     # Energy functional
     # f = Constant(mesh, 0)
@@ -411,13 +421,8 @@ def main(parameters, storage=None):
     loads = [0.0, 0.5, 0.99, 1.01, 1.3]
 
     equilibrium = _AlternateMinimisation1D(
-        total_energy,
-        state,
-        bcs,
-        parameters.get("solvers"),
-        bounds=(
-            alpha_lb,
-            alpha_ub))
+        total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
+    )
 
     hybrid = HybridSolver(
         total_energy,
@@ -428,8 +433,7 @@ def main(parameters, storage=None):
     )
 
     bifurcation = BifurcationSolver(
-        total_energy, state, bcs, bifurcation_parameters=parameters.get(
-            "stability")
+        total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
     )
 
     stability = StabilitySolver(
@@ -553,8 +557,7 @@ def main(parameters, storage=None):
                     )
                     _plt.title("Perurbation in the Cone")
                     # _plt.screenshot(f"{prefix}/perturbations-{i_t}.png")
-                    _plt.savefig(
-                        f"{prefix}/perturbation-profile-cone-{i_t}.png")
+                    _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
                     _plt.close()
 
                     len(data_stability[0])
@@ -583,7 +586,8 @@ def main(parameters, storage=None):
                             "bifurcation"
                         ].append(bifurcation_values_mode)
                         mode_shapes_data["point_values"][mode_key]["stability"].append(
-                            stability_values_mode)
+                            stability_values_mode
+                        )
 
         np.savez(f"{prefix}/mode_shapes_data.npz", **mode_shapes_data)
 

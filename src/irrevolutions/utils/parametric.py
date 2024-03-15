@@ -1,5 +1,7 @@
-import yaml
 import hashlib
+
+import yaml
+
 
 def parameters_vs_ell(parameters = None, ell = 0.1):
     if parameters is None:    

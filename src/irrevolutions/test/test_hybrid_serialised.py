@@ -1,42 +1,43 @@
+from pathlib import Path
+import os
+from pyvista.utilities import xvfb
+import pyvista
+from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
+from dolfinx.fem import locate_dofs_topological
+from irrevolutions.utils import ColorPrint, set_vector_to_constant
+from models import DamageElasticityModel as Brittle
+from algorithms.am import AlternateMinimisation as AM
+import yaml
+import dolfinx.plot
+from utils.viz import plot_scalar, plot_vector
+from mpi4py import MPI
+import json
+from petsc4py import PETSc
+from solvers.function import functions_to_vec
+from dolfinx.fem import FunctionSpace
+import ufl
+import petsc4py
+from solvers.snesblockproblem import SNESBlockProblem
+import dolfinx
+from datetime import date
 import logging
 import sys
 
 import numpy as np
 
 logging.basicConfig(level=logging.INFO)
-from datetime import date
 
 today = date.today()
 sys.path.append("../")
 
-import dolfinx
-from solvers.snesblockproblem import SNESBlockProblem
-import petsc4py
-import ufl
-from dolfinx.fem import FunctionSpace
-from solvers.function import functions_to_vec
-from petsc4py import PETSc
-import json
 
 petsc4py.init(sys.argv)
 
-from mpi4py import MPI
-from utils.viz import plot_scalar, plot_vector
 
 comm = MPI.COMM_WORLD
 # import pdb
-import dolfinx.plot
 
 # import pyvista
-import yaml
-from algorithms.am import AlternateMinimisation as AM
-from models import DamageElasticityModel as Brittle
-from irrevolutions.utils import ColorPrint, set_vector_to_constant
-from dolfinx.fem import locate_dofs_topological
-from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
-
-import pyvista
-from pyvista.utilities import xvfb
 
 
 class ConvergenceError(Exception):
@@ -82,14 +83,10 @@ def check_snes_convergence(snes):
         )
 
 
-import os
-from pathlib import Path
-
 outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "hybrid")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
-
 
 
 def test_newtonblock(nest):
@@ -219,7 +216,6 @@ def test_newtonblock(nest):
         block_params["pc_type"] = "lu"
         block_params["pc_factor_mat_solver_type"] = "mumps"
 
-
     opts = PETSc.Options("block")
 
     opts.setValue("snes_type", "vinewtonrsls")
@@ -240,14 +236,11 @@ def test_newtonblock(nest):
         opts.setValue("pc_type", "lu")
         opts.setValue("pc_factor_mat_solver_type", "mumps")
 
-    newton = SNESBlockProblem(
-        F, z, bcs=bcs_z, nest=nest, prefix="block"
-    )
+    newton = SNESBlockProblem(F, z, bcs=bcs_z, nest=nest, prefix="block")
 
     if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
-
 
     snes = newton.snes
 
@@ -279,13 +272,16 @@ def test_newtonblock(nest):
 
         equilibrium.solve()
 
-
         dissipated_energy = comm.allreduce(
-            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state) * dx)),
+            dolfinx.fem.assemble_scalar(
+                dolfinx.fem.form(model.damage_energy_density(state) * dx)
+            ),
             op=MPI.SUM,
         )
         elastic_energy = comm.allreduce(
-            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.elastic_energy_density(state) * dx)),
+            dolfinx.fem.assemble_scalar(
+                dolfinx.fem.form(model.elastic_energy_density(state) * dx)
+            ),
             op=MPI.SUM,
         )
         datai = {
@@ -293,12 +289,11 @@ def test_newtonblock(nest):
             "AM_F_alpha_H1": equilibrium.data["error_alpha_H1"][-1],
             "AM_Fnorm": equilibrium.data["error_residual_F"][-1],
             "NE_Fnorm": newton.snes.getFunctionNorm(),
-
-            "load" : t,
-            "dissipated_energy" : dissipated_energy,
-            "elastic_energy" : elastic_energy,
-            "total_energy" : elastic_energy+dissipated_energy,
-            "solver_data" : equilibrium.data,
+            "load": t,
+            "dissipated_energy": dissipated_energy,
+            "elastic_energy": elastic_energy,
+            "total_energy": elastic_energy + dissipated_energy,
+            "solver_data": equilibrium.data,
             # "eigs" : stability.data["eigs"],
             # "stable" : stability.data["stable"],
             # "F" : _F
@@ -339,7 +334,6 @@ def test_newtonblock(nest):
         _plt.close()
 
     print(data)
-
 
     if comm.rank == 0:
         a_file = open(f"{prefix}/time_data.json", "w")

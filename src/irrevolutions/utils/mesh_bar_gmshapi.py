@@ -66,18 +66,16 @@ def mesh_bar_gmshapi(
 
 
 if __name__ == "__main__":
-    import sys
     import os
+    import sys
 
     sys.path.append("../../damage")
+    import dolfinx.plot
     from dolfinx.io import XDMFFile
-
+    from gmsh_mesh import gmsh_model_to_mesh
     # from mesh import gmsh_to_dolfin
-
     # , merge_meshtags, locate_dofs_topological
     from mpi4py import MPI
-    import dolfinx.plot
-    from gmsh_mesh import gmsh_model_to_mesh
 
     gmsh_model, tdim = mesh_bar_gmshapi(
         "bar", 1, 0.1, 0.01, 2, msh_file="output/bar.msh"

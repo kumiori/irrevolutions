@@ -1,13 +1,15 @@
-import numpy as np
 import sys
 from datetime import date
+
+import numpy as np
 
 today = date.today()
 
 sys.path.append("../")
 
-import dolfinx
 import logging
+
+import dolfinx
 
 logging.basicConfig(level=logging.INFO)
 
@@ -21,21 +23,18 @@ from pyvista.utilities import xvfb
 xvfb.start_xvfb(wait=0.05)
 
 import dolfinx.plot
-
 import matplotlib
 import matplotlib.collections
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
+from dolfinx.plot import vtk_mesh as compute_topology
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-import matplotlib.pyplot as plt
 
 # try:
 #     from dolfinx.plot import create_vtk_mesh as compute_topology
 # except ImportError:
 #     from dolfinx.plot import create_vtk_topology as compute_topology
 
-from dolfinx.plot import vtk_mesh as compute_topology
 
 def plot_vector(u, plotter, subplot=None, scale=1.):
     if subplot:
@@ -235,9 +234,10 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
 
 import scipy
 
+
 def plot_matrix(M):
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
 
     fig, ax = plt.subplots()
     indptr, indices, data = M.getValuesCSR()

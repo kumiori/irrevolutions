@@ -1,5 +1,5 @@
-import numpy as np
 import matplotlib.pyplot
+import numpy as np
 
 
 def plot_energies(history_data, title="Evolution", file=None):

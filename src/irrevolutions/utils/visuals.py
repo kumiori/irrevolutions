@@ -1,7 +1,8 @@
 import json
 
+
 def matplotlibdefaults(palette='medium',useTex=False):
-    from matplotlib import rcParams, cycler
+    from matplotlib import cycler, rcParams
     lightgrey = '#CBCBCB'
     grey = '#8C8C8C'
     darkgrey  = '#4D4D4D'

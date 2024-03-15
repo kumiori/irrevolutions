@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+from utils.plots import plot_energies
+from irrevolutions.utils import ColorPrint
+from meshes.primitives import mesh_bar_gmshapi
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import AlternateMinimisation, HybridSolver
+from models import DamageElasticityModel as Brittle
 import logging
 import json
 import numpy as np
@@ -29,18 +35,14 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 sys.path.append("../")
-from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from meshes.primitives import mesh_bar_gmshapi
-from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
 
 sys.path.append("../")
+
 
 class BrittleAT2(Brittle):
     def w(self, alpha):
         return self.w1 * alpha**2
+
 
 def initialize_parameters():
     with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
@@ -52,11 +54,11 @@ def initialize_parameters():
     parameters["stability"]["cone"]["scaling"] = 0.3
 
     parameters["model"]["model_dimension"] = 2
-    parameters["model"]["model_type"] = '1D'
+    parameters["model"]["model_type"] = "1D"
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = .1
-    parameters["model"]["k_res"] = 0.
-    parameters["loading"]["min"] = .8
+    parameters["model"]["ell"] = 0.1
+    parameters["model"]["k_res"] = 0.0
+    parameters["loading"]["min"] = 0.8
     parameters["loading"]["max"] = 1.5
     parameters["loading"]["steps"] = 10
 
@@ -64,6 +66,7 @@ def initialize_parameters():
     parameters["geometry"]["ell_lc"] = 5
 
     return parameters
+
 
 def create_mesh_and_files(parameters):
     Lx = parameters["geometry"]["Lx"]
@@ -77,7 +80,7 @@ def create_mesh_and_files(parameters):
     gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
     outdir = os.path.join(os.path.dirname(__file__), "output")
     prefix = os.path.join(outdir, "traction_AT2_cone", signature)
 
@@ -85,17 +88,20 @@ def create_mesh_and_files(parameters):
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
     if comm.rank == 0:
-        with open(f"{prefix}/signature.md5", 'w') as f:
+        with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
 
     if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
 
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_mesh(mesh)
 
     return mesh, prefix
+
 
 def create_function_spaces(mesh):
     element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
@@ -105,6 +111,7 @@ def create_function_spaces(mesh):
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     return V_u, V_alpha
+
 
 def create_functions(V_u, V_alpha):
     u = Function(V_u, name="Displacement")
@@ -118,6 +125,7 @@ def create_functions(V_u, V_alpha):
     alpha_ub = Function(V_alpha, name="Upper bound")
 
     return u, u_, zero_u, alpha, zero_alpha, alphadot, alpha_lb, alpha_ub
+
 
 def create_boundary_conditions(V_u, V_alpha, u_, alpha_lb):
     dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
@@ -133,7 +141,9 @@ def create_boundary_conditions(V_u, V_alpha, u_, alpha_lb):
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        f.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
     bc_u_left = dirichletbc(np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
     bc_u_right = dirichletbc(u_, dofs_u_right)
@@ -141,13 +151,17 @@ def create_boundary_conditions(V_u, V_alpha, u_, alpha_lb):
     bcs_alpha = []
 
     set_bc(alpha_ub.vector, bcs_alpha)
-    alpha_ub.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-    
+    alpha_ub.vector.ghostUpdate(
+        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    )
+
     return bcs_u, bcs_alpha
+
 
 def setup_model(parameters):
     model = BrittleAT2(parameters["model"])
     return model
+
 
 def setup_energy_terms(V_alpha, V_u, u, alpha, state, model):
     dx = ufl.Measure("dx", domain=mesh)
@@ -179,7 +193,9 @@ def setup_energy_terms(V_alpha, V_u, u, alpha, state, model):
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        f.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
     bc_u_left = dirichletbc(np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
     bc_u_right = dirichletbc(u_, dofs_u_right)
@@ -187,7 +203,9 @@ def setup_energy_terms(V_alpha, V_u, u, alpha, state, model):
     bcs_alpha = []
 
     set_bc(alpha_ub.vector, bcs_alpha)
-    alpha_ub.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    alpha_ub.vector.ghostUpdate(
+        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    )
 
     model = BrittleAT2(parameters["model"])
     state = {"u": u, "alpha": alpha}
@@ -197,6 +215,7 @@ def setup_energy_terms(V_alpha, V_u, u, alpha, state, model):
     external_work = ufl.dot(f, state["u"]) * dx
     total_energy = model.total_energy_density(state) * dx - external_work
     return external_work, total_energy, model
+
 
 def create_solvers(total_energy, state, bcs, parameters):
     solver = AlternateMinimisation(
@@ -221,24 +240,32 @@ def create_solvers(total_energy, state, bcs, parameters):
 
     return solver, hybrid, bifurcation, cone
 
+
 def run_load_steps(loads, u_, alpha_lb, alpha, alphadot, history_data, parameters):
     check_stability = []
     for i_t, t in enumerate(loads):
         u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
-        u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        u_.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        alpha_lb.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         solve_first_order_AM(t, i_t, loads, u_, alpha, alpha_lb, alphadot, history_data)
 
-        solve_first_order_hybrid(t, i_t, loads, alpha_lb, alphadot, history_data, parameters)
+        solve_first_order_hybrid(
+            t, i_t, loads, alpha_lb, alphadot, history_data, parameters
+        )
 
         solve_second_order_rate_PB(alpha_lb, alpha, history_data, parameters)
 
         check_stability.append(is_stable)
 
         solve_second_order_cone_PB(alpha_lb, alpha, history_data, parameters)
+
 
 def solve_first_order_AM(t, i_t, loads, u_, alpha, alpha_lb, alphadot, history_data):
     ColorPrint.print_bold(f"   Solving first order: AM   ")
@@ -263,12 +290,16 @@ def solve_first_order_AM(t, i_t, loads, u_, alpha, alpha_lb, alphadot, history_d
     logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
     logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
-def solve_first_order_hybrid(t, i_t, loads, alpha_lb, alphadot, history_data, parameters):
+
+def solve_first_order_hybrid(
+    t, i_t, loads, alpha_lb, alphadot, history_data, parameters
+):
     ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
     ColorPrint.print_bold(f"===================-=============")
 
     logging.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
     hybrid.solve(alpha_lb)
+
 
 def solve_second_order_rate_PB(alpha_lb, alpha, history_data, parameters):
     ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
@@ -284,6 +315,7 @@ def solve_second_order_rate_PB(alpha_lb, alpha, history_data, parameters):
     ColorPrint.print_bold(f"State's inertia: {inertia}")
 
     return rate_12_norm
+
 
 def solve_second_order_cone_PB(alpha_lb, alpha, history_data, parameters):
     ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
@@ -310,7 +342,7 @@ def solve_second_order_cone_PB(alpha_lb, alpha, history_data, parameters):
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
-    history_data["total_energy"].append(elastic_energy+fracture_energy)
+    history_data["total_energy"].append(elastic_energy + fracture_energy)
     history_data["solver_data"].append(solver.data)
     history_data["eigs"].append(bifurcation.data["eigs"])
     history_data["F"].append(stress)
@@ -323,7 +355,9 @@ def solve_second_order_cone_PB(alpha_lb, alpha, history_data, parameters):
     history_data["uniqueness"].append(_unique)
     history_data["inertia"].append(inertia)
 
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_function(u, t)
         file.write_function(alpha, t)
 
@@ -334,17 +368,28 @@ def solve_second_order_cone_PB(alpha_lb, alpha, history_data, parameters):
 
     ColorPrint.print_bold(f"   Written timely data.    ")
 
+
 def main():
     parameters = initialize_parameters()
     mesh, prefix = create_mesh_and_files(parameters)
     V_u, V_alpha = create_function_spaces(mesh)
-    u, u_, zero_u, alpha, zero_alpha, alphadot, alpha_lb, alpha_ub = create_functions(V_u, V_alpha)
+    u, u_, zero_u, alpha, zero_alpha, alphadot, alpha_lb, alpha_ub = create_functions(
+        V_u, V_alpha
+    )
     bcs_u, bcs_alpha = create_boundary_conditions(V_u, V_alpha, u_, alpha_lb)
-    external_work, total_energy, model = setup_energy_terms(V_alpha, V_u, u, alpha, state, model)
-    solver, hybrid, bifurcation, cone = create_solvers(total_energy, state, bcs, parameters)
+    external_work, total_energy, model = setup_energy_terms(
+        V_alpha, V_u, u, alpha, state, model
+    )
+    solver, hybrid, bifurcation, cone = create_solvers(
+        total_energy, state, bcs, parameters
+    )
 
-    loads = np.linspace(parameters["loading"]["min"], parameters["loading"]["max"], parameters["loading"]["steps"])
-    
+    loads = np.linspace(
+        parameters["loading"]["min"],
+        parameters["loading"]["max"],
+        parameters["loading"]["steps"],
+    )
+
     history_data = {
         "load": [],
         "elastic_energy": [],
@@ -357,21 +402,23 @@ def main():
         "uniqueness": [],
         "inertia": [],
         "F": [],
-        "alphadot_norm" : [],
-        "rate_12_norm" : [],
-        "unscaled_rate_12_norm" : [],
-        "cone-stable": []
+        "alphadot_norm": [],
+        "rate_12_norm": [],
+        "unscaled_rate_12_norm": [],
+        "cone-stable": [],
     }
 
     run_load_steps(loads, u_, alpha_lb, alpha, alphadot, history_data, parameters)
 
     df = pd.DataFrame(history_data)
-    print(df.drop(['solver_data', 'cone_data'], axis=1))
+    print(df.drop(["solver_data", "cone_data"], axis=1))
 
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
         plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-        plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
+        plot_force_displacement(
+            history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
+        )
 
     from pyvista.utilities import xvfb
     import pyvista
@@ -391,6 +438,7 @@ def main():
 
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"   Done!    ")
+
 
 if __name__ == "__main__":
     main()

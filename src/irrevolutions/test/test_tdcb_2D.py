@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
+from utils.viz import plot_mesh
+import matplotlib.pyplot as plt
+import yaml
+from meshes import gmsh_model_to_mesh
+from meshes.tdcb_2D import mesh_tdcb
 import sys
 from mpi4py import MPI
 import petsc4py
 from dolfinx import log
 
 sys.path.append("../")
-from meshes.tdcb_2D import mesh_tdcb
 
 # sys.path.append("../../damage")
 # from mesh import gmsh_to_dolfin, merge_meshtags
-from meshes import gmsh_model_to_mesh
 
 petsc4py.init(sys.argv)
 log.set_log_level(log.LogLevel.WARNING)
@@ -20,7 +23,6 @@ comm = MPI.COMM_WORLD
 
 # Get mesh parameters
 
-import yaml
 
 with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
@@ -51,13 +53,13 @@ gmsh_model, tdim, tag_names = mesh_tdcb(
     _tdcb.get("geometry").get("geom_type"),
     _tdcb.get("geometry"),
     lc,
-    msh_file="output/tdcb2d.msh")
+    msh_file="output/tdcb2d.msh",
+)
 
 # Get mesh and meshtags
-mesh, cell_tags, facet_tags = gmsh_model_to_mesh(gmsh_model,
-                                                 cell_data=True,
-                                                 facet_data=True,
-                                                 gdim=2)
+mesh, cell_tags, facet_tags = gmsh_model_to_mesh(
+    gmsh_model, cell_data=True, facet_data=True, gdim=2
+)
 
 # domains_keys = tag_names["cells"]
 # boundary_keys = tag_names["facets"]
@@ -65,8 +67,6 @@ mesh, cell_tags, facet_tags = gmsh_model_to_mesh(gmsh_model,
 # dx = ufl.Measure("dx", subdomain_data=cell_tags, domain=mesh)
 # ds = ufl.Measure("ds", subdomain_data=facet_tags, domain=mesh)
 
-import matplotlib.pyplot as plt
-from utils.viz import plot_mesh
 plt.figure()
 ax = plot_mesh(mesh)
 fig = ax.get_figure()

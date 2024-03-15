@@ -16,7 +16,7 @@ def singularity_exp(omega):
 
 #  = parameters["material"]
 def _local_notch_asymptotic(x, ω=45, t=1., par={}):
-    from sympy import pi, sin, cos, pi, symbols
+    from sympy import cos, pi, sin, symbols
     λ = singularity_exp(ω)
     Θ = symbols('Θ')
     _E = par['E']

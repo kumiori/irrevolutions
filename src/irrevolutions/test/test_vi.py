@@ -1,3 +1,5 @@
+from dolfinx.fem.assemble import assemble_scalar
+import logging
 import numpy as np
 
 import dolfinx
@@ -29,7 +31,6 @@ from irrevolutions.utils.viz import plot_profile, plot_scalar
 
 petsc4py.init(sys.argv)
 
-import logging
 
 logging.basicConfig(level=logging.INFO)
 
@@ -41,10 +42,9 @@ Ly = parameters.get("geometry").get("Ly")
 ell = parameters.get("model").get("ell")
 
 
-
-mesh = dolfinx.mesh.create_rectangle(MPI.COMM_WORLD, [[0.0, 0.0], [Lx, Ly]],
-                                     [100, 10],
-                                     cell_type=CellType.triangle)
+mesh = dolfinx.mesh.create_rectangle(
+    MPI.COMM_WORLD, [[0.0, 0.0], [Lx, Ly]], [100, 10], cell_type=CellType.triangle
+)
 V = FunctionSpace(mesh, ("CG", 1))
 
 zero = Function(V)
@@ -66,17 +66,11 @@ def right(x):
     return is_close
 
 
-left_facets = dolfinx.mesh.locate_entities_boundary(mesh,
-                                                    mesh.topology.dim - 1,
-                                                    left)
-left_dofs = dolfinx.fem.locate_dofs_topological(V, mesh.topology.dim - 1,
-                                                left_facets)
+left_facets = dolfinx.mesh.locate_entities_boundary(mesh, mesh.topology.dim - 1, left)
+left_dofs = dolfinx.fem.locate_dofs_topological(V, mesh.topology.dim - 1, left_facets)
 
-right_facets = dolfinx.mesh.locate_entities_boundary(mesh,
-                                                     mesh.topology.dim - 1,
-                                                     left)
-right_dofs = dolfinx.fem.locate_dofs_topological(V, mesh.topology.dim - 1,
-                                                 right_facets)
+right_facets = dolfinx.mesh.locate_entities_boundary(mesh, mesh.topology.dim - 1, left)
+right_dofs = dolfinx.fem.locate_dofs_topological(V, mesh.topology.dim - 1, right_facets)
 
 bcs = [dirichletbc(zero, left_dofs), dirichletbc(one, right_dofs)]
 
@@ -116,7 +110,6 @@ if MPI.COMM_WORLD.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
 prefix = "output/test-vi"
-from pathlib import Path
 Path(prefix).mkdir(parents=True, exist_ok=True)
 
 with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "output/u.xdmf", "w") as f:
@@ -131,7 +124,7 @@ plotter = pyvista.Plotter(
     window_size=[800, 600],
     shape=(1, 1),
 )
-_props = {"show_edges":True, "show_scalar_bar": True, "clim":[0, 1]}
+_props = {"show_edges": True, "show_scalar_bar": True, "clim": [0, 1]}
 _plt = plot_scalar(u, plotter, subplot=(0, 0), lineproperties=_props)
 
 # _plt = plot_vector(u, plotter, subplot=(0, 1))
@@ -151,21 +144,15 @@ _plt, data = plot_profile(
     points,
     plotter,
     subplotnumber=1,
-    lineproperties={
-        "c": "k",
-        "label": f"$u_\ell$ with $\ell$ = {ell:.2f}"
-    },
+    lineproperties={"c": "k", "label": f"$u_\\ell$ with $\\ell$ = {ell:.2f}"},
 )
 ax = _plt.gca()
 ax.axvline(0.0, c="k")
-ax.axvline(2 * ell, c="k", label='D=$2\ell$')
+ax.axvline(2 * ell, c="k", label="D=$2\\ell$")
 _plt.legend()
 _plt.fill_between(data[0], data[1].reshape(len(data[1])))
 _plt.title("Variational Inequality")
 _plt.savefig(f"{prefix}/test_vi_profile_MPI{MPI.COMM_WORLD.size}-{ell:.3f}.png")
 
-
-
-from dolfinx.fem.assemble import assemble_scalar
 
 min_en = assemble_scalar(dolfinx.fem.form(energy))

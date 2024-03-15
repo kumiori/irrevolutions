@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+import pyvista
+import dolfinx.mesh
+from dolfinx.io import XDMFFile, gmshio
 import numpy as np
 import yaml
 import json
@@ -25,32 +28,8 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-import dolfinx
-import dolfinx.plot
-from dolfinx.io import XDMFFile, gmshio
-import dolfinx.mesh
-import ufl
-
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import sys
-import yaml
-
-
-
-
-
 
 # ///////////
-
-
-
-
-
-
-
-
 
 
 petsc4py.init(sys.argv)
@@ -85,8 +64,7 @@ if comm.rank == 0:
 
 prefix = os.path.join(outdir, "elasticity")
 
-with XDMFFile(comm, f"{prefix}.xdmf", "w",
-              encoding=XDMFFile.Encoding.HDF5) as file:
+with XDMFFile(comm, f"{prefix}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
     file.write_mesh(mesh)
 
 # Function spaces
@@ -108,12 +86,11 @@ state = {"u": u}
 dx = ufl.Measure("dx", domain=mesh)
 ds = ufl.Measure("ds", domain=mesh)
 
-dofs_u_left = dolfinx.fem.locate_dofs_geometrical(
-    V_u, lambda x: np.isclose(x[0], 0.0))
-dofs_u_right = dolfinx.fem.locate_dofs_geometrical(
-    V_u, lambda x: np.isclose(x[0], Lx))
+dofs_u_left = dolfinx.fem.locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
+dofs_u_right = dolfinx.fem.locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
 dofs_ux_right = dolfinx.fem.locate_dofs_geometrical(
-    V_ux, lambda x: np.isclose(x[0], Lx))
+    V_ux, lambda x: np.isclose(x[0], Lx)
+)
 
 # Set Bcs Function
 zero_u.interpolate(lambda x: (np.zeros_like(x[0]), np.zeros_like(x[1])))
@@ -121,8 +98,7 @@ u_.interpolate(lambda x: (np.ones_like(x[0]), 0 * np.ones_like(x[1])))
 ux_.interpolate(lambda x: np.ones_like(x[0]))
 
 for f in [zero_u, ux_]:
-    f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                         mode=PETSc.ScatterMode.FORWARD)
+    f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
 bcs_u = [
     dolfinx.fem.dirichletbc(zero_u, dofs_u_left),
@@ -159,8 +135,7 @@ history_data = {
 
 for i_t, t in enumerate(loads):
     u_.interpolate(lambda x: (t * np.ones_like(x[0]), 0 * np.ones_like(x[1])))
-    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                          mode=PETSc.ScatterMode.FORWARD)
+    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     logging.info(f"-- Solving for t = {t:3.2f} --")
 
@@ -168,15 +143,15 @@ for i_t, t in enumerate(loads):
 
     elastic_energy = comm.allreduce(
         dolfinx.fem.assemble_scalar(
-            dolfinx.fem.form(model.elastic_energy_density(state) * dx)),
+            dolfinx.fem.form(model.elastic_energy_density(state) * dx)
+        ),
         op=MPI.SUM,
     )
 
     history_data["load"].append(t)
     history_data["elastic_energy"].append(elastic_energy)
 
-    with XDMFFile(comm, f"{prefix}.xdmf", "a",
-                  encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(comm, f"{prefix}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)
 
     if comm.rank == 0:
@@ -184,7 +159,6 @@ for i_t, t in enumerate(loads):
         json.dump(history_data, a_file)
         a_file.close()
 
-import pyvista 
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
 

@@ -1,15 +1,16 @@
-import sys
-sys.path.append("../")
-from algorithms.so import BifurcationSolver
-import test_binarydataio as bio
-from test_spa import load_minimal_constraints
-from irrevolutions.utils import _logger
-import dolfinx
-import ufl
-from dolfinx.io import XDMFFile
-
-from mpi4py import MPI
 import logging
+from mpi4py import MPI
+from dolfinx.io import XDMFFile
+import ufl
+import dolfinx
+from irrevolutions.utils import _logger
+from test_spa import load_minimal_constraints
+import test_binarydataio as bio
+from algorithms.so import BifurcationSolver
+import sys
+
+sys.path.append("../")
+
 
 _logger.setLevel(logging.CRITICAL)
 
@@ -17,6 +18,7 @@ _logger.setLevel(logging.CRITICAL)
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
+
 
 class BifurcationSolverTester(BifurcationSolver):
     def __init__(self, errors, Ar, xk, constraints, F):
@@ -29,35 +31,39 @@ class BifurcationSolverTester(BifurcationSolver):
         self.V_u = self.constraints.function_spaces[0]
         self.V_alpha = self.constraints.function_spaces[1]
         self._xoldr = xk.duplicate()
-        self.parameters = { "eigen": {
-            "eps_type": "krylovschur",
-            # "eps_type": "lanczos",
-            # "eps_monitor": "",
-            "eps_tol": 1.e-5,
-            "eig_rtol": 1.e-8,
-            "eps_max_it": 100} }
-        
-        self._reasons = {'0': 'converged',
-                    '-1': 'non-converged, check the logs',
-                    '1': 'converged atol',
-                    '2': 'converged residual'
-                    }
+        self.parameters = {
+            "eigen": {
+                "eps_type": "krylovschur",
+                # "eps_type": "lanczos",
+                # "eps_monitor": "",
+                "eps_tol": 1.0e-5,
+                "eig_rtol": 1.0e-8,
+                "eps_max_it": 100,
+            }
+        }
+
+        self._reasons = {
+            "0": "converged",
+            "-1": "non-converged, check the logs",
+            "1": "converged atol",
+            "2": "converged residual",
+        }
         self.iterations = 0
         self._aerrors = []
-        self._residual_norm = 1.
+        self._residual_norm = 1.0
         self.data = {
             "error_x_L2": [],
             "lambda_k": [],
             "y_norm_L2": [],
         }
         self._converged = False
-        
+
     def run_convergence_test(self):
         return self.convergence_loop(self.errors, self.Ar, self.xk)
 
 
-with XDMFFile(comm, "data/input_data.xdmf", "r") as file: 
-    mesh = file.read_mesh(name='mesh')
+with XDMFFile(comm, "data/input_data.xdmf", "r") as file:
+    mesh = file.read_mesh(name="mesh")
 
 element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
@@ -72,8 +78,9 @@ state = {"u": u, "alpha": alpha}
 
 F_ = [
     ufl.derivative(
-        (1-alpha)**2. * ufl.inner(ufl.grad(u), ufl.grad(u))* dx , u, ufl.TestFunction(
-            u.ufl_function_space())
+        (1 - alpha) ** 2.0 * ufl.inner(ufl.grad(u), ufl.grad(u)) * dx,
+        u,
+        ufl.TestFunction(u.ufl_function_space()),
     ),
     ufl.derivative(
         (alpha + ufl.dot(ufl.grad(alpha), ufl.grad(alpha))) * dx,
@@ -83,10 +90,10 @@ F_ = [
 ]
 F = dolfinx.fem.form(F_)
 
-constraints = load_minimal_constraints('data/constraints.pkl', [V_u, V_alpha])
-A = bio.load_binary_matrix('data/A_hessian.mat')
-Ar = bio.load_binary_matrix('data/Ar_hessian.mat')
-x0 = bio.load_binary_vector('data/x0.vec')
+constraints = load_minimal_constraints("data/constraints.pkl", [V_u, V_alpha])
+A = bio.load_binary_matrix("data/A_hessian.mat")
+Ar = bio.load_binary_matrix("data/Ar_hessian.mat")
+x0 = bio.load_binary_vector("data/x0.vec")
 
 # zero vector, compatible with the linear system
 _x = x0.duplicate()

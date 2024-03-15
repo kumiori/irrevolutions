@@ -1,4 +1,15 @@
-
+from utils.viz import plot_scalar, plot_vector
+from dolfinx.fem import Function
+import dolfinx.plot
+from pyvista.utilities import xvfb
+import pyvista
+from mpi4py import MPI
+from meshes.primitives import mesh_bar_gmshapi
+import logging
+import petsc4py
+from petsc4py import PETSc
+import ufl
+import dolfinx
 import numpy as np
 import sys
 from datetime import date
@@ -7,48 +18,28 @@ today = date.today()
 
 sys.path.append("../")
 
-import dolfinx
-import ufl
-
-from petsc4py import PETSc
-import petsc4py
 
 petsc4py.init(sys.argv)
 
 opts = PETSc.Options()
 # opts.setValue("help", 1)
-import logging
 
-from meshes.primitives import mesh_bar_gmshapi
 # from meshes import gmsh_model_to_mesh
 
 logging.basicConfig(level=logging.INFO)
 
-from mpi4py import MPI
 
 comm = MPI.COMM_WORLD
 # import pdb
-import pyvista
-from pyvista.utilities import xvfb
-
-import dolfinx.plot
-from dolfinx.fem import Function
-
-
-from utils.viz import (
-    plot_scalar,
-    plot_vector
-)
 
 
 def test_viz():
     Lx = 1.0
     Ly = 0.1
     _nel = 30
-    gmsh_model, tdim = mesh_bar_gmshapi("bar", Lx, Ly, 1/_nel, 2)
+    gmsh_model, tdim = mesh_bar_gmshapi("bar", Lx, Ly, 1 / _nel, 2)
 
-    mesh, mts = gmsh_model_to_mesh(
-        gmsh_model, cell_data=False, facet_data=True, gdim=2)
+    mesh, mts = gmsh_model_to_mesh(gmsh_model, cell_data=False, facet_data=True, gdim=2)
 
     element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
     V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
@@ -82,9 +73,9 @@ def test_viz():
     )
 
     _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-    logging.critical('plotted scalar')
+    logging.critical("plotted scalar")
     _plt = plot_vector(u, plotter, subplot=(0, 1))
-    logging.critical('plotted vector')
+    logging.critical("plotted vector")
 
     _plt.screenshot(f"./output/test_viz/test_viz_MPI{comm.size}-.png")
 

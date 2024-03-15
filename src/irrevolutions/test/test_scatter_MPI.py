@@ -1,17 +1,19 @@
+from dolfinx.fem import locate_dofs_geometrical
+import irrevolutions.solvers.restriction as restriction
+import random
+import numpy as np
+import ufl
+import dolfinx
+from petsc4py import PETSc
 import sys
 import os
 
 from mpi4py import MPI
 import petsc4py
+
 petsc4py.init(sys.argv)
-from petsc4py import PETSc
-import dolfinx
-import ufl
-import numpy as np
-import random
 
 sys.path.append("../")
-import irrevolutions.solvers.restriction as restriction
 _N = 3
 
 mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
@@ -29,27 +31,23 @@ rank = comm.Get_rank()
 
 prefix = os.path.join(outdir, "test_cone")
 
-element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                              degree=1)
+element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                                  degree=1)
+element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
 V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
 V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
 u = dolfinx.fem.Function(V_u, name="Displacement")
 alpha = dolfinx.fem.Function(V_alpha, name="Damage")
-from dolfinx.fem import locate_dofs_geometrical
 
-dofs_alpha_left = locate_dofs_geometrical(
-    V_alpha, lambda x: np.isclose(x[0], 0.))
-dofs_alpha_right = locate_dofs_geometrical(
-    V_alpha, lambda x: np.isclose(x[0], 1.))
+dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 1.0))
 
-dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.))
-dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 1.))
+dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
+dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 1.0))
 
-def get_inactive_dofset(V_u = V_u, V_alpha =  V_alpha):
+
+def get_inactive_dofset(V_u=V_u, V_alpha=V_alpha):
     """docstring for get_inactive_dofset"""
     V_u_size = V_u.dofmap.index_map_bs * (V_u.dofmap.index_map.size_local)
     # simil to: localisation
@@ -58,11 +56,12 @@ def get_inactive_dofset(V_u = V_u, V_alpha =  V_alpha):
     # idx_alpha_local = np.arange(V_alpha_size, dtype=np.int32)
     dofs_u_all = np.arange(V_u_size, dtype=np.int32)
     dofs_alpha_inactive = np.array(list(idx_alpha_local), dtype=np.int32)
-    
+
     restricted_dofs = [dofs_u_all, dofs_alpha_inactive]
-    
+
     return restricted_dofs
-    
+
+
 V_u_size = V_u.dofmap.index_map_bs * (V_u.dofmap.index_map.size_local)
 V_alpha_size = V_alpha.dofmap.index_map_bs * (V_u.dofmap.index_map.size_local)
 
@@ -71,12 +70,10 @@ restricted_dofs = get_inactive_dofset()
 restriction = restriction.Restriction([V_u, V_alpha], restricted_dofs)
 dx = ufl.Measure("dx", alpha.function_space.mesh)
 
-energy = (1-alpha)**2*ufl.inner(u,u) * dx
+energy = (1 - alpha) ** 2 * ufl.inner(u, u) * dx
 
 F_ = [
-    ufl.derivative(
-        energy, u, ufl.TestFunction(u.ufl_function_space())
-    ),
+    ufl.derivative(energy, u, ufl.TestFunction(u.ufl_function_space())),
     ufl.derivative(
         energy,
         alpha,
@@ -84,6 +81,7 @@ F_ = [
     ),
 ]
 F = dolfinx.fem.form(F_)
+
 
 def test():
 
@@ -106,7 +104,13 @@ def test():
     PETSc.IS().createGeneral(alpha_dofs)
     _is = PETSc.IS().createGeneral(alpha_dofs)
 
-    [(form.function_spaces[0].dofmap.index_map, form.function_spaces[0].dofmap.index_map_bs) for form in F]
+    [
+        (
+            form.function_spaces[0].dofmap.index_map,
+            form.function_spaces[0].dofmap.index_map_bs,
+        )
+        for form in F
+    ]
     # this is a pointer
     _sub = v.getSubVector(_is)
 
@@ -126,7 +130,6 @@ def test():
     urandom = v.duplicate()
     urandom.array = [random.uniform(0, 1.5) for r in range(v.local_size)]
 
-
     urandom.copy(v)
 
     for i, space in enumerate([V_u, V_alpha]):
@@ -139,7 +142,6 @@ def test():
         print(f"{rank}) ", i, "bs", bs)
         print(f"{rank}) ", i, "size_local", size_local)
         print(f"{rank}) ", i, "num_ghosts", num_ghosts)
-
 
     v_r = restriction.restrict_vector(v)
     print(f"{rank}) v_restricted.size {v_r.size}")
@@ -157,11 +159,11 @@ def test():
         print(f"{rank}) xold.array {xold.array}")
         diff = xold.duplicate()
         diff.zeroEntries()
-        diff.waxpy(-1., xold, x)
+        diff.waxpy(-1.0, xold, x)
         error_x_L2 = diff.norm()
         print(f"{rank}) err {error_x_L2}")
 
-        # update xold   
+        # update xold
         # x.copy(_xold)
         # x.vector.ghostUpdate(
         #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
@@ -169,7 +171,7 @@ def test():
 
         # if not converged:
         #     its += 1
-        
+
         print("converged" if _converged else f" converging")
 
         return _converged
@@ -177,19 +179,19 @@ def test():
     def _cone_project(v):
         """Projection vector into the cone
 
-            takes arguments:
-            - v: vector in a mixed space
+        takes arguments:
+        - v: vector in a mixed space
 
-            returns
+        returns
         """
 
         _dofs = restriction.bglobal_dofs_vec[1]
         _is = PETSc.IS().createGeneral(_dofs)
-        
+
         # new vector
         w = v.copy()
         _sub = w.getSubVector(_is)
-        
+
         zero = _sub.duplicate()
         zero.zeroEntries()
 
@@ -237,7 +239,9 @@ def test():
     print(f"{rank}) bglobal_dofs_vec[1] {restriction.bglobal_dofs_vec[1]}")
     print(f"{rank}) blocal_dofs[1] {restriction.blocal_dofs[1]}")
 
-    print(f"{rank}) v.array[restriction.blocal_dofs[1]] {v.array[restriction.blocal_dofs[1]]}")
+    print(
+        f"{rank}) v.array[restriction.blocal_dofs[1]] {v.array[restriction.blocal_dofs[1]]}"
+    )
 
     urandom.copy(v)
     zero = urandom.duplicate()
@@ -261,7 +265,7 @@ def test():
     print(f"{rank}) vk.array_r {vk.array_r}")
 
     urandom = v.duplicate()
-    urandom.array = [random.uniform(-1., 1.) for r in range(v.local_size)]
+    urandom.array = [random.uniform(-1.0, 1.0) for r in range(v.local_size)]
 
     v = urandom.copy()
     vk = _cone_rproject(v)
@@ -272,7 +276,6 @@ def test():
 
     print(f"{rank}) v_r.array_r {v_r.array_r}")
 
-
     urandom.copy(x)
     xold = dolfinx.fem.petsc.create_vector_block(F)
 
@@ -282,12 +285,12 @@ def test():
         # update xk
         print(f"{rank}) x.array_r {x.array_r}")
         xk = _cone_rproject(x)
-        urandom.array = [random.uniform(-1., 1.) for r in range(v.local_size)]
+        urandom.array = [random.uniform(-1.0, 1.0) for r in range(v.local_size)]
         xk = urandom.copy()
         xk = _cone_rproject(xk)
 
         print(f"{rank}) xk.array_r {xk.array_r}")
-        xk.array[-1] = 0.
+        xk.array[-1] = 0.0
         print(f"{rank}) xk.array_r {xk.array_r}")
         # update full field
         # update x old full
@@ -323,7 +326,7 @@ def test():
         # v_r.zeroEntries()
         vres.copy(_suball)
         vext.restoreSubVector(_isall, _suball)
-        
+
         return
 
     v = urandom.copy()
@@ -337,20 +340,18 @@ def test():
     xold.zeroEntries()
     extend_vector(vr, xold)
 
-
-
     while not converged(v_r):
         # if restriction is not None:
         # this is the general case
         # update xk
         print(f"{rank}) v_r.array_r {v_r.array_r}")
         _cone_rproject(v_r)
-        urandom.array = [random.uniform(-1., 1.) for r in range(v.local_size)]
+        urandom.array = [random.uniform(-1.0, 1.0) for r in range(v.local_size)]
         xk = urandom.copy()
         xk = _cone_rproject(xk)
 
         print(f"{rank}) xk.array_r {xk.array_r}")
-        xk.array[-1] = 0.
+        xk.array[-1] = 0.0
         print(f"{rank}) xk.array_r {xk.array_r}")
         # update full field
         # update x old full
