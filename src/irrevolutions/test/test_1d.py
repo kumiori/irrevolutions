@@ -23,6 +23,7 @@ from dolfinx.fem import (
     locate_dofs_geometrical,
     set_bc,
 )
+from dolfinx.common import list_timings
 from dolfinx.fem.petsc import assemble_vector, set_bc
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
@@ -225,7 +226,7 @@ comm = MPI.COMM_WORLD
 model_rank = 0
 
 
-def main(parameters, storage=None):
+def run_computation(parameters, storage=None):
     Lx = parameters["geometry"]["Lx"]
 
     _nameExp = parameters["geometry"]["geom_type"]
@@ -695,25 +696,27 @@ def load_parameters(file_path, ndofs, model="at1"):
     return parameters, signature
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
+def test_1d():
     import argparse
 
     from mpi4py import MPI
 
-    parser = argparse.ArgumentParser(description="Process evolution.")
-    parser.add_argument("-N", help="The number of dofs.", type=int, default=10)
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser(description="Process evolution.")
+    # parser.add_argument("-N", help="The number of dofs.", type=int, default=10)
+    # args = parser.parse_args()
+    _N = 30
     parameters, signature = load_parameters(
-        os.path.join(os.path.dirname(__file__), "parameters.yml"), ndofs=args.N
+        os.path.join(os.path.dirname(__file__), "parameters.yml"), ndofs=_N
     )
     pretty_parameters = json.dumps(parameters, indent=2)
     # print(pretty_parameters)
-
-    _storage = f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{args.N}/{signature}"
+    # _storage = f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{args.N}/{signature}"
+    _storage = f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{_N}/{signature}"
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
-        history_data, stability_data, state = main(parameters, _storage)
+        history_data, stability_data, state = run_computation(parameters, _storage)
 
     from irrevolutions.utils import ResultsStorage, Visualization
 
@@ -727,9 +730,18 @@ if __name__ == "__main__":
 
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"===================-{_storage}-=================")
-    # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     from irrevolutions.utils import table_timing_data
     _timings = table_timing_data()
 
     visualization.save_table(_timings, "timing_data")
+    _neg_eigen_ball = [d[0] for d in pd.DataFrame(history_data).inertia.values]
+    _stability = pd.DataFrame(history_data).stable.values
+    _uniqueness = pd.DataFrame(history_data).unique.values
+    
+    np.testing.assert_array_equal(_neg_eigen_ball, [0, 0, 0, 1, 2])
+    np.testing.assert_array_equal(_stability, np.array([True, True, True, False, False]))
+    np.testing.assert_array_equal(_uniqueness, np.array([True, True, True, False, False]))
+ 
+    
