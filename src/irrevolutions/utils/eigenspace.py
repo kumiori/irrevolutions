@@ -15,6 +15,7 @@ def solve_minimum(parameters):
     a = parameters["a"]
     b = parameters["b"]
     c = parameters["c"]
+    A, C = sp.symbols('A C')
     _condition = b * c**2 < np.pi**2 * a 
     print(f"bc**2 = {np.around(b*c**2, 2)}, π**2 * a = {np.around(np.pi**2 * a, 2)}")
     
