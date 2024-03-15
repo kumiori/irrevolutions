@@ -1,18 +1,15 @@
 import logging
-from mpi4py import MPI
-from dolfinx.io import XDMFFile
-import numpy as np
-import ufl
-import dolfinx
-from irrevolutions.utils import _logger
-from .test_spa import load_minimal_constraints
-from tests import test_binarydataio as bio
 import os
 
+import dolfinx
+import irrevolutions.test.test_binarydataio as bio
+import numpy as np
+import ufl
+from dolfinx.io import XDMFFile
 from irrevolutions.algorithms.so import StabilitySolver
-
-__import__("pdb").set_trace()
-
+from irrevolutions.test.test_spa import load_minimal_constraints
+from irrevolutions.utils import _logger
+from mpi4py import MPI
 
 _logger.setLevel(logging.CRITICAL)
 
