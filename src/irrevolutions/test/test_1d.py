@@ -233,10 +233,10 @@ def main(parameters, storage=None):
     Lx = parameters["geometry"]["Lx"]
 
     _nameExp = parameters["geometry"]["geom_type"]
-    ell = parameters["model"]["ell"]
+    parameters["model"]["ell"]
 
     # Get geometry model
-    geom_type = parameters["geometry"]["geom_type"]
+    parameters["geometry"]["geom_type"]
     _N = int(parameters["geometry"]["N"])
 
     # Create the mesh of the specimen with given dimensions
@@ -350,7 +350,7 @@ def main(parameters, storage=None):
         return (1 - alpha) ** 2
 
     def a_atk(alpha):
-        k_res = parameters["model"]["k_res"]
+        parameters["model"]["k_res"]
         _k = parameters["model"]["k"]
         return (1 - alpha) / ((_k - 1) * alpha + 1)
 
@@ -419,7 +419,7 @@ def main(parameters, storage=None):
     # f = Constant(mesh, 0)
     f = Constant(mesh, np.array(0, dtype=PETSc.ScalarType))
 
-    external_work = f * state["u"] * dx
+    f * state["u"] * dx
 
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
@@ -565,7 +565,7 @@ def main(parameters, storage=None):
                     _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
                     _plt.close()
 
-                    num_points = len(data_stability[0])
+                    len(data_stability[0])
 
                     mode_shapes_data["time_steps"].append(t)
                     mode_shapes_data["point_values"]["x_values"] = data_stability[0]
