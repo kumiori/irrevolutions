@@ -729,7 +729,7 @@ if __name__ == "__main__":
     ColorPrint.print_bold(f"===================-{_storage}-=================")
     # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
-    # from irrevolutions.utils import table_timing_data
-    # _timings = table_timing_data()
+    from irrevolutions.utils import table_timing_data
+    _timings = table_timing_data()
 
-    # visualization.save_table(_timings, "timing_data")
+    visualization.save_table(_timings, "timing_data")
