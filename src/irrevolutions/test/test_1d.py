@@ -413,8 +413,13 @@ def main(parameters, storage=None):
     loads = [0.0, 0.5, 0.99, 1.01, 1.3]
 
     equilibrium = _AlternateMinimisation1D(
-        total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
-    )
+        total_energy,
+        state,
+        bcs,
+        parameters.get("solvers"),
+        bounds=(
+            alpha_lb,
+            alpha_ub))
 
     hybrid = HybridSolver(
         total_energy,
@@ -536,7 +541,8 @@ def main(parameters, storage=None):
 
                     # # Set custom ticks and tick locations
                     # plotter.x_tick_labels = np.arange(0, 11, 2)  # Set X-axis tick labels
-                    # plotter.y_tick_locations = np.arange(-5, 6, 1)  # Set Y-axis tick locations
+                    # plotter.y_tick_locations = np.arange(-5, 6, 1)  # Set
+                    # Y-axis tick locations
 
                     ax = _plt.gca()
                     ax.set_xlabel("x")
@@ -579,8 +585,7 @@ def main(parameters, storage=None):
                             "bifurcation"
                         ].append(bifurcation_values_mode)
                         mode_shapes_data["point_values"][mode_key]["stability"].append(
-                            stability_values_mode
-                        )
+                            stability_values_mode)
 
         np.savez(f"{prefix}/mode_shapes_data.npz", **mode_shapes_data)
 
