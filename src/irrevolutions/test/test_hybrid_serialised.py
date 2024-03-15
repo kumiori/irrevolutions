@@ -21,7 +21,7 @@ import json
 petsc4py.init(sys.argv)
 
 from mpi4py import MPI
-from utils.viz import plot_mesh, plot_vector, plot_scalar
+from utils.viz import plot_scalar, plot_vector
 
 comm = MPI.COMM_WORLD
 # import pdb

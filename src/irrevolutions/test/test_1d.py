@@ -405,8 +405,6 @@ def main(parameters, storage=None):
     # f = Constant(mesh, 0)
     f = Constant(mesh, np.array(0, dtype=PETSc.ScalarType))
 
-    f * state["u"] * dx
-
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 

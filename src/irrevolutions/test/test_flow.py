@@ -11,7 +11,6 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 import numpy as np
 sys.path.append("../")
@@ -23,11 +22,9 @@ from algorithms.so import BifurcationSolver, StabilitySolver, BifurcationSolver
 from algorithms.ls import LineSearch
 from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2, seminorm_H1
 
 from meshes.primitives import mesh_bar_gmshapi
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 
 from solvers.function import vec_to_functions
 
@@ -50,7 +47,6 @@ from dolfinx.fem import (
     set_bc,
 )
 import dolfinx.mesh
-from dolfinx.mesh import CellType
 import ufl
 
 from mpi4py import MPI
@@ -60,7 +56,6 @@ import sys
 import yaml
 
 sys.path.append("../")
-from solvers import SNESSolver
 
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
@@ -75,7 +70,7 @@ model_rank = 0
 from pyvista.utilities import xvfb
 import pyvista
 import sys
-from utils.viz import plot_mesh, plot_vector, plot_scalar
+from utils.viz import plot_scalar, plot_vector
 # 
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
@@ -126,7 +121,7 @@ def test_linsearch(parameters, storage):
     _nameExp = parameters["geometry"]["geom_type"]
     _nameExp = "bar"
     ell_ = parameters["model"]["ell"]
-    lc = parameters["geometry"]["lc"]
+    parameters["geometry"]["lc"]
 
     # Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
@@ -172,7 +167,7 @@ def test_linsearch(parameters, storage):
 
     state = {"u": u, "alpha": alpha}
     z = [u, alpha]
-    _z = [v, β]
+    [v, β]
     # need upper/lower bound for the damage field
     alpha_lb = Function(V_alpha, name="Lower bound")
     alpha_ub = Function(V_alpha, name="Upper bound")
@@ -321,7 +316,7 @@ def test_linsearch(parameters, storage):
         ColorPrint.print_bold(f"===================-=================")
 
         # n_eigenvalues = 10
-        is_stable = bifurcation.solve(alpha_lb)
+        bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
         # is_critical = bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
@@ -421,7 +416,7 @@ def test_linsearch(parameters, storage):
                     _plt.screenshot(f"{prefix}/traction-perturbed-state-rnd.png")
 
             hybrid.solve(alpha_lb)
-            is_path = bifurcation.solve(alpha_lb)
+            bifurcation.solve(alpha_lb)
             inertia = bifurcation.get_inertia()
             stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
     

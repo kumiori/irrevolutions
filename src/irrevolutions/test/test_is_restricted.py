@@ -2,15 +2,11 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 
-import os
 import sys
 sys.path.append("../")
 import irrevolutions.solvers.restriction as restriction
 # from irrevolutions.utils import _logger
 import dolfinx
-import ufl
-import numpy as np
-import random
 
 from petsc4py import PETSc
 from mpi4py import MPI
@@ -21,7 +17,6 @@ size = comm.Get_size()
 
 from test_sample_data import init_data
 from test_restriction import (
-    __log_incipit,
     get_inactive_dofset,
 )
 from test_logging_mpi import setup_logger_mpi

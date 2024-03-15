@@ -1,6 +1,5 @@
 import sys
 import os
-from ctypes import c_void_p
 
 import petsc4py
 petsc4py.init(sys.argv)
@@ -39,7 +38,7 @@ V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
 V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
 u = dolfinx.fem.Function(V_u, name="Displacement")
 alpha = dolfinx.fem.Function(V_alpha, name="Damage")
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
+from dolfinx.fem import locate_dofs_geometrical
 import numpy as np
 
 dofs_alpha_left = locate_dofs_geometrical(
@@ -91,7 +90,6 @@ x = dolfinx.fem.petsc.create_vector_block(F)
 #                         [(u.function_space.dofmap.index_map, u.function_space.dofmap.index_map_bs),
 #                         (p.function_space.dofmap.index_map, p.function_space.dofmap.index_map_bs)])
 # x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-from dolfinx.cpp.la.petsc import scatter_local_vectors
 
 print(f"v original (unadmissible!) {v.array}")
 

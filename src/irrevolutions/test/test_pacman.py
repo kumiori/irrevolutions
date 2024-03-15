@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from re import A
 import numpy as np
 import yaml
 import json
@@ -11,22 +10,19 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 import numpy as np
 sys.path.append("../")
 from utils.plots import plot_energies
 from irrevolutions.utils import ColorPrint
 import matplotlib.pyplot as plt
-import matplotlib.tri as tri
 
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation
 
 from meshes.pacman import mesh_pacman
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 
-from ufl import Circumradius, FacetNormal, SpatialCoordinate
 
 import logging
 
@@ -44,11 +40,10 @@ from dolfinx.fem import (
     assemble_scalar,
     dirichletbc,
     form,
-    locate_dofs_geometrical,
     set_bc,
 )
 import dolfinx.mesh
-from dolfinx.mesh import CellType, locate_entities_boundary
+from dolfinx.mesh import locate_entities_boundary
 
 import ufl
 import pyvista
@@ -61,14 +56,12 @@ import sys
 import yaml
 
 sys.path.append("../")
-from solvers import SNESSolver
 from algorithms.so import BifurcationSolver
 
 # ///////////
 
 from utils.viz import (
     plot_mesh,
-    plot_profile,
     plot_scalar,
     plot_vector
 )
@@ -157,7 +150,6 @@ from dolfinx.fem import (
     assemble_scalar,
     dirichletbc,
     form,
-    locate_dofs_geometrical,
     locate_dofs_topological,
     set_bc,
 )
@@ -190,7 +182,7 @@ boundary_dofs_alpha = locate_dofs_topological(V_alpha, mesh.topology.dim - 1, ex
 
 
 def _local_notch_asymptotic(x, ω=np.deg2rad(_omega / 2.), t=1., par = parameters["material"]):
-    from sympy import nsolve, pi, sin, cos, pi, symbols
+    from sympy import cos, pi, pi, sin, symbols
     λ = singularity_exp(ω)
     Θ = symbols('Θ')
     _E = par['E']

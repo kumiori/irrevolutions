@@ -2,7 +2,6 @@
 import json
 import logging
 import os
-import pdb
 import sys
 from pathlib import Path
 
@@ -10,16 +9,14 @@ import dolfinx
 import dolfinx.mesh
 import dolfinx.plot
 import numpy as np
-import pandas as pd
 import yaml
-from dolfinx.common import Timer, TimingType, list_timings
+from dolfinx.common import list_timings
 from dolfinx.fem import (assemble_scalar, form)
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
 
 from petsc4py import PETSc
-from sympy import derive_by_array
 
 sys.path.append("../")
 from irrevolutions.utils import ColorPrint
@@ -76,15 +73,15 @@ def setup(custom_parameters):
 
     # Get mesh parameters
     Lx = parameters["geometry"]["Lx"]
-    Ly = parameters["geometry"]["Ly"]
-    tdim = parameters["geometry"]["geometric_dimension"]
+    parameters["geometry"]["Ly"]
+    parameters["geometry"]["geometric_dimension"]
 
     _nameExp = parameters["geometry"]["geom_type"]
-    ell_ = parameters["model"]["ell"]
+    parameters["model"]["ell"]
     # lc = ell_ / 5.0
 
     # Get geometry model
-    geom_type = parameters["geometry"]["geom_type"]
+    parameters["geometry"]["geom_type"]
     _N = parameters["model"]["N"]
 
 
@@ -263,7 +260,7 @@ def main(custom_parameters):
 
         solver.solve()
 
-        maxmodes = parameters["stability"]["cone"]["maxmodes"]
+        parameters["stability"]["cone"]["maxmodes"]
 
         is_stable = stability.solve(alpha_lb)
         is_elastic = stability.is_elastic()

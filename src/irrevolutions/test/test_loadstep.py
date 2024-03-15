@@ -11,11 +11,9 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 import numpy as np
 sys.path.append("../")
-import matplotlib.pyplot as plt
 
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridSolver
@@ -23,14 +21,12 @@ from algorithms.so import BifurcationSolver, StabilitySolver, BifurcationSolver
 from algorithms.ls import LineSearch
 from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2, seminorm_H1
 
 from meshes.primitives import mesh_bar_gmshapi
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 
 from solvers.function import vec_to_functions
-from utils.viz import plot_vector, plot_scalar, plot_profile
+from utils.viz import plot_profile
 
 
 import logging
@@ -51,7 +47,6 @@ from dolfinx.fem import (
     set_bc,
 )
 import dolfinx.mesh
-from dolfinx.mesh import CellType
 import ufl
 
 from mpi4py import MPI
@@ -61,7 +56,6 @@ import sys
 import yaml
 
 sys.path.append("../")
-from solvers import SNESSolver
 
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
@@ -76,7 +70,6 @@ model_rank = 0
 from pyvista.utilities import xvfb
 import pyvista
 import sys
-from utils.viz import plot_mesh, plot_vector, plot_scalar
 # 
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
@@ -127,7 +120,7 @@ def test_loadstep(parameters, storage):
     _nameExp = parameters["geometry"]["geom_type"]
     _nameExp = "bar"
     ell_ = parameters["model"]["ell"]
-    lc = parameters["geometry"]["lc"]
+    parameters["geometry"]["lc"]
 
     # Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
@@ -173,7 +166,7 @@ def test_loadstep(parameters, storage):
 
     state = {"u": u, "alpha": alpha}
     z = [u, alpha]
-    _z = [v, β]
+    [v, β]
     # need upper/lower bound for the damage field
     alpha_lb = Function(V_alpha, name="Lower bound")
     alpha_ub = Function(V_alpha, name="Upper bound")
@@ -321,7 +314,7 @@ def test_loadstep(parameters, storage):
         ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
 
-        is_stable = bifurcation.solve(alpha_lb)
+        bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
         inertia = bifurcation.get_inertia()
         
@@ -364,7 +357,7 @@ def test_loadstep(parameters, storage):
                     "label": f"$\\beta$"
                 },
             )
-            ax = _plt.gca()
+            _plt.gca()
             _plt.legend()
             _plt.fill_between(data[0], data[1].reshape(len(data[1])))
             _plt.title("Perurbation")
@@ -379,7 +372,7 @@ def test_loadstep(parameters, storage):
             linesearch.perturb(state, perturbation, h_rnd)
 
             hybrid.solve(alpha_lb)
-            is_path = bifurcation.solve(alpha_lb)
+            bifurcation.solve(alpha_lb)
             inertia = bifurcation.get_inertia()
             stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
     

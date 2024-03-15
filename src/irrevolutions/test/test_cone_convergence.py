@@ -1,23 +1,16 @@
 import os
-import sys
 
-import irrevolutions.solvers.restriction as restriction
 from irrevolutions.algorithms.so import StabilitySolver
 
 from . import test_binarydataio as bio
-from .test_extend import test_extend_vector
-from .test_cone_project import _cone_project_restricted
 from .test_spa import load_minimal_constraints
 from irrevolutions.utils import _logger
 import dolfinx
 import ufl
 import numpy as np
 from dolfinx.io import XDMFFile
-import random
 
-from petsc4py import PETSc
 from mpi4py import MPI
-import pickle 
 import logging
 
 _logger.setLevel(logging.CRITICAL)

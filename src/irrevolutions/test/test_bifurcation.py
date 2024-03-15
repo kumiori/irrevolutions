@@ -10,10 +10,9 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 import numpy as np
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 
 import logging
 
@@ -33,7 +32,6 @@ from dolfinx.fem import (
     set_bc,
 )
 import dolfinx.mesh
-from dolfinx.mesh import CellType
 import ufl
 
 from mpi4py import MPI

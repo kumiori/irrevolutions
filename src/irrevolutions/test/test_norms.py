@@ -1,31 +1,18 @@
-import os
 import sys
 sys.path.append("../")
 sys.path.append("../playground/nb")
-import irrevolutions.solvers.restriction as restriction
-from algorithms.so import StabilitySolver
-import test_binarydataio as bio
-from test_extend import test_extend_vector
-from test_cone_project import _cone_project_restricted
-from test_spa import load_minimal_constraints
-from irrevolutions.utils import _logger
 import dolfinx
 import ufl
 import numpy as np
-from dolfinx.io import XDMFFile
-import random
 
 from petsc4py import PETSc
 from mpi4py import MPI
-import pickle 
 import logging
 
-import eigenspace
 
-from dolfinx.fem import Function, functionspace, assemble_scalar, form
+from dolfinx.fem import Function, form, functionspace
 
-from dolfinx.mesh import (CellType, compute_midpoints, create_unit_cube,
-                          create_unit_interval, meshtags)
+from dolfinx.mesh import create_unit_interval
 
 def test_norms(N):
 

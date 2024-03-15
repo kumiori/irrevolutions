@@ -10,7 +10,6 @@ today = date.today()
 sys.path.append("../")
 
 import dolfinx
-from solvers.snesblockproblem import SNESBlockProblem
 import petsc4py
 import ufl
 from dolfinx.fem import FunctionSpace
@@ -30,7 +29,7 @@ import dolfinx.plot
 import matplotlib.pyplot as plt
 # import pyvista
 import yaml
-from algorithms.am import AlternateMinimisation as AM, HybridSolver
+from algorithms.am import HybridSolver
 from models import BrittleMembraneOverElasticFoundation as ThinFilm
 from irrevolutions.utils import ColorPrint, set_vector_to_constant
 from dolfinx.fem import locate_dofs_topological
@@ -172,11 +171,11 @@ def test_multifissa(nest):
         return np.isclose(x[0], Lx)
 
     left_facets = locate_entities_boundary(mesh, mesh.topology.dim - 1, left)
-    left_dofs_1 = locate_dofs_topological(V_u, mesh.topology.dim - 1, left_facets)
+    locate_dofs_topological(V_u, mesh.topology.dim - 1, left_facets)
     left_dofs_2 = locate_dofs_topological(V_alpha, mesh.topology.dim - 1, left_facets)
 
     right_facets = locate_entities_boundary(mesh, mesh.topology.dim - 1, right)
-    right_dofs_1 = locate_dofs_topological(V_u, mesh.topology.dim - 1, right_facets)
+    locate_dofs_topological(V_u, mesh.topology.dim - 1, right_facets)
     right_dofs_2 = locate_dofs_topological(V_alpha, mesh.topology.dim - 1, right_facets)
 
     bcs_u = [
@@ -206,7 +205,7 @@ def test_multifissa(nest):
     Eu = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
     Ealpha = ufl.derivative(total_energy, alpha, ufl.TestFunction(V_alpha))
 
-    F = [Eu, Ealpha]
+    [Eu, Ealpha]
     z = [u, alpha]
 
     hybrid = HybridSolver(
@@ -227,7 +226,7 @@ def test_multifissa(nest):
             yaml.dump(parameters, file)
 
 
-    snes = hybrid.newton.snes
+    hybrid.newton.snes
 
     lb = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
     ub = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)

@@ -18,7 +18,7 @@ from pyvista.utilities import xvfb
 from irrevolutions.models import ElasticityModel
 from irrevolutions.solvers import SNESSolver as ElasticitySolver
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
-from irrevolutions.utils.viz import plot_mesh, plot_vector, plot_scalar
+from irrevolutions.utils.viz import plot_vector
 
 import numpy as np
 import logging
@@ -28,18 +28,7 @@ logging.basicConfig(level=logging.INFO)
 import dolfinx
 import dolfinx.plot
 from dolfinx.io import XDMFFile, gmshio
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
 import dolfinx.mesh
-from dolfinx.mesh import CellType
 import ufl
 
 from mpi4py import MPI

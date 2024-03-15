@@ -10,9 +10,6 @@
 # modelling.
 
 import gmsh
-import math
-import os
-import sys
 
 gmsh.initialize()
 

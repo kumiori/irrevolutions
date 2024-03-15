@@ -1,33 +1,20 @@
 from test_scatter_MPI import (
-    mesh,
-    element_alpha,
-    element_u,
     V_alpha,
     V_u,
     alpha,
     u,
-    dofs_alpha_left,
-    dofs_alpha_right,
-    dofs_u_right,
-    dofs_u_left,
-    get_inactive_dofset,
     energy)
 
-import os
 import sys
 sys.path.append("../")
-import irrevolutions.solvers.restriction as restriction
 from irrevolutions.utils import _logger
 # from algorithms.so import _extend_vector
 import dolfinx
 import ufl
-import numpy as np
-import random
 
 from test_restriction import (
     __log_incipit,
     test_restriction,
-    get_inactive_dofset,
     
 )
 
@@ -39,7 +26,7 @@ rank = comm.Get_rank()
 size = comm.Get_size()
 __log_incipit = f"rank {rank}#{size}/"
 
-from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
+from dolfinx.cpp.la.petsc import get_local_vectors
  
 def _extend_vector(vres, x, constraints):
     """

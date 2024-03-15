@@ -10,11 +10,10 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 import numpy as np
 
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 
 import logging
 
@@ -34,7 +33,6 @@ from dolfinx.fem import (
     set_bc,
 )
 import dolfinx.mesh
-from dolfinx.mesh import CellType
 import ufl
 
 from mpi4py import MPI
@@ -48,9 +46,8 @@ import pyvista
 from irrevolutions.models import DamageElasticityModel as Brittle
 from irrevolutions.algorithms.am import AlternateMinimisation, HybridSolver
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
-from irrevolutions.solvers import SNESSolver
-from irrevolutions.utils.viz import plot_mesh, plot_vector, plot_scalar
-from irrevolutions.utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+from irrevolutions.utils.viz import plot_scalar, plot_vector
+from irrevolutions.utils.plots import plot_energies, plot_force_displacement
 
 
 # ///////////

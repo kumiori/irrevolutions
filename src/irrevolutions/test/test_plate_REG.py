@@ -8,12 +8,11 @@ sys.path.append("../")
 
 import logging
 
-from utils.viz import plot_mesh, plot_vector, plot_scalar
+from utils.viz import plot_scalar
 import numpy as np
 import yaml
 import json
 from pathlib import Path
-import os
 from mpi4py import MPI
 import petsc4py
 from petsc4py import PETSc
@@ -21,8 +20,8 @@ import dolfinx
 import dolfinx.plot
 from dolfinx import log
 import ufl
-from ufl import (CellDiameter, FacetNormal, SpatialCoordinate, TestFunction,
-                 TrialFunction, avg, div, ds, dS, dx, grad, inner, jump)
+from ufl import (FacetNormal, ds, dS, dx,
+                 grad, inner, jump)
 import pdb
 
 from dolfinx.io import XDMFFile
@@ -43,16 +42,13 @@ from dolfinx.fem import (
     Constant,
     Function,
     FunctionSpace,
-    assemble_scalar,
-    assemble_matrix, apply_lifting,
-    assemble_vector,
+    assemble_matrix,
+    apply_lifting, assemble_vector,
     dirichletbc,
     form,
-    locate_dofs_geometrical,
     set_bc,
 )
 import dolfinx.mesh
-from dolfinx.mesh import CellType
 import ufl
 
 from mpi4py import MPI
@@ -62,7 +58,6 @@ import sys
 import yaml
 
 sys.path.append("../")
-from solvers import SNESSolver
 
 
 petsc4py.init(sys.argv)

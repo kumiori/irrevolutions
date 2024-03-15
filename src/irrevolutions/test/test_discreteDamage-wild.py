@@ -1,21 +1,15 @@
 #!/usr/bin/env python3
-import pdb
-import pandas as pd
 import numpy as np
-from sympy import derive_by_array
 import yaml
-import json
 from pathlib import Path
 import sys
 import os
 
 from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
 import dolfinx.mesh
 from dolfinx.fem import (
     Constant,
     Function,
-    FunctionSpace,
     assemble_scalar,
     dirichletbc,
     form,
@@ -27,23 +21,18 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 
 from dolfinx.fem.petsc import (
     set_bc,
     assemble_vector
     )
-from dolfinx.io import XDMFFile, gmshio
+from dolfinx.io import XDMFFile
 import logging
-from dolfinx.common import Timer, list_timings, TimingType
 
 sys.path.append("../")
 from algorithms.so import BifurcationSolver
 from solvers import SNESSolver
-from meshes.primitives import mesh_bar_gmshapi
-from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
 from irrevolutions.utils import norm_H1, norm_L2
 
 
@@ -167,7 +156,7 @@ class StabilitySolver(BifurcationSolver):
                 self._cone_project(_x)
                 
                 # L2-normalise
-                n2 = _x.normalize()
+                _x.normalize()
                 # _x.view()
                 # iterate
                 # x_i+1 = _v 
@@ -436,15 +425,15 @@ def test(comm):
 
 # Get mesh parameters
     Lx = parameters["geometry"]["Lx"]
-    Ly = parameters["geometry"]["Ly"]
-    tdim = parameters["geometry"]["geometric_dimension"]
+    parameters["geometry"]["Ly"]
+    parameters["geometry"]["geometric_dimension"]
 
     _nameExp = parameters["geometry"]["geom_type"]
-    ell_ = parameters["model"]["ell"]
+    parameters["model"]["ell"]
 # lc = ell_ / 5.0
 
 # Get geometry model
-    geom_type = parameters["geometry"]["geom_type"]
+    parameters["geometry"]["geom_type"]
     _N = parameters["model"]["N"]
 
 
@@ -565,7 +554,7 @@ def test(comm):
     # f = Constant(mesh, 0)
     f = Constant(mesh, np.array(0, dtype=PETSc.ScalarType))
 
-    external_work = f * state["u"] * dx
+    f * state["u"] * dx
 
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"],
@@ -597,7 +586,6 @@ def test(comm):
         "F": [],
     }
 
-    check_stability = []
 
     logging.basicConfig(level=logging.INFO)
 
@@ -614,7 +602,7 @@ def a(alpha):
 
 
 def a_atk(alpha):
-    k_res = parameters["model"]['k_res']
+    parameters["model"]['k_res']
     _k = parameters["model"]['k']
     return (1 - alpha) / ((_k-1) * alpha + 1)
 
@@ -670,7 +658,7 @@ def damage_energy_density(state):
     Return the damage dissipation density from the state.
     """
     # Get the material parameters
-    _mu = parameters["model"]["mu"]
+    parameters["model"]["mu"]
     _w1 = parameters["model"]["w1"]
     _ell = parameters["model"]["ell"]
     # Get the damage

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-import pdb
 import pandas as pd
 import numpy as np
-from sympy import derive_by_array
 import yaml
 import json
 from pathlib import Path
@@ -10,12 +8,10 @@ import sys
 import os
 
 from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
 import dolfinx.mesh
 from dolfinx.fem import (
     Constant,
     Function,
-    FunctionSpace,
     assemble_scalar,
     dirichletbc,
     form,
@@ -27,21 +23,19 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 
 from dolfinx.fem.petsc import (
     set_bc,
     assemble_vector
     )
-from dolfinx.io import XDMFFile, gmshio
+from dolfinx.io import XDMFFile
 import logging
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 
 sys.path.append("../")
 from algorithms.so import BifurcationSolver
 from solvers import SNESSolver
-from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
 from irrevolutions.utils import norm_H1, norm_L2
@@ -183,7 +177,7 @@ class StabilitySolver(BifurcationSolver):
                 logging.critical(f"perturbed , projected eigenvalue {_x.array}")
                 
                 # L2-normalise
-                n2 = _x.normalize()
+                _x.normalize()
                 lambda_k.append(_lmbda_t)
                 logging.critical(f"lambda_k 🍦? {lambda_k}")
 
@@ -210,7 +204,6 @@ class StabilitySolver(BifurcationSolver):
         import scipy
 
         def plot_matrix(M):
-            import numpy as np
             import matplotlib.pyplot as plt
 
             fig, ax = plt.subplots()
@@ -230,7 +223,7 @@ class StabilitySolver(BifurcationSolver):
         _fig = plot_matrix(_rA)
         _fig.savefig(f"mat-r-{self.eigen.eps.getOptionsPrefix()}.png")
 
-        _eigs = scipy.sparse.linalg.eigs(_rA.toarray())[0]
+        scipy.sparse.linalg.eigs(_rA.toarray())[0]
 
         logging.critical(f"eigs of sparse? {[np.real(f) for f in np.sort(scipy.sparse.linalg.eigs(_rA.toarray())[0])]}")
 
@@ -637,7 +630,7 @@ def a(alpha):
 
 
 def a_atk(alpha):
-    k_res = parameters["model"]['k_res']
+    parameters["model"]['k_res']
     _k = parameters["model"]['k']
     return (1 - alpha) / ((_k-1) * alpha + 1)
 
@@ -685,7 +678,7 @@ def damage_energy_density(state):
     Return the damage dissipation density from the state.
     """
     # Get the material parameters
-    _mu = parameters["model"]["mu"]
+    parameters["model"]["mu"]
     _w1 = parameters["model"]["w1"]
     _ell = parameters["model"]["ell"]
     # Get the damage

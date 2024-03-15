@@ -1,12 +1,6 @@
-import os
-import sys
 
 import dolfinx
-import ufl
-import numpy as np
-import random
 from logging import getLevelName
-from petsc4py import PETSc
 from mpi4py import MPI
 
 
@@ -22,7 +16,7 @@ from .test_restriction import (
     get_inactive_dofset,
 )
 
-from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
+from dolfinx.cpp.la.petsc import get_local_vectors
 from .test_sample_data import init_data  
 
 def test_extend_vector():

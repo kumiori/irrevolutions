@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
-import pdb
 import pandas as pd
 import numpy as np
-from sympy import derive_by_array
 import yaml
 import json
 from pathlib import Path
 import sys
 import os
-import matplotlib.pyplot as plt
 import hashlib
 
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
+from dolfinx.fem import dirichletbc
 import dolfinx.mesh
 from dolfinx.fem import (
     Constant,
@@ -21,7 +17,6 @@ from dolfinx.fem import (
     assemble_scalar,
     dirichletbc,
     form,
-    locate_dofs_geometrical,
     set_bc,
 )
 from mpi4py import MPI
@@ -29,21 +24,17 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 
 from dolfinx.fem.petsc import (
-    set_bc,
-    assemble_vector
+    set_bc
     )
 from dolfinx.io import XDMFFile, gmshio
 import logging
-from dolfinx.common import Timer, list_timings, TimingType
 
 sys.path.append("../")
 from algorithms.so import BifurcationSolver, StabilitySolver
-from algorithms.am import AlternateMinimisation, HybridSolver
-from meshes.primitives import mesh_bar_gmshapi
+from algorithms.am import HybridSolver
 from models import DamageElasticityModel as Brittle
 from models import ElasticityModel as Elastic
 from meshes.extended_pacman import mesh_extended_pacman as mesh_pacman
@@ -51,19 +42,15 @@ from irrevolutions.utils import ColorPrint, set_vector_to_constant
 from utils.lib import _local_notch_asymptotic
 from utils.viz import plot_mesh
 from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2
 from irrevolutions.utils import history_data, _write_history_data
 from irrevolutions.utils import _logger
-from solvers import SNESSolver
 from irrevolutions.utils import _logger
 import pyvista
 from pyvista.utilities import xvfb
-from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
+from dolfinx.mesh import locate_entities_boundary
 from dolfinx.fem import locate_dofs_topological
 # 
-from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
-from solvers.function import vec_to_functions
+from utils.viz import plot_mesh, plot_scalar, plot_vector
 
 
 xvfb.start_xvfb(wait=0.05)
@@ -89,7 +76,7 @@ model_rank = 0
 def main(parameters, storage):
     # Load mesh
 
-    _radius = parameters["geometry"]["r"]
+    parameters["geometry"]["r"]
     _omega = parameters["geometry"]["omega"]
     _nameExp = parameters["geometry"]["geom_type"]
     tdim = parameters["geometry"]["geometric_dimension"]
@@ -135,7 +122,7 @@ def main(parameters, storage):
         if not pyvista.OFF_SCREEN:
             plotter.show()
         else:
-            cell_tag_fig = plotter.screenshot("cell_tags.png")    
+            plotter.screenshot("cell_tags.png")    
     
     outdir = os.path.join(os.path.dirname(__file__), "output")
     if storage is None:
@@ -153,7 +140,7 @@ def main(parameters, storage):
         ax = plot_mesh(mesh)
         fig = ax.get_figure()
         fig.savefig(f"{prefix}/mesh.png")
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+    hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
     # Function spaces
     element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
@@ -286,7 +273,6 @@ def main(parameters, storage):
             'x_values': [],
         }
     }
-    num_modes = 1
 
     _logger.setLevel(level=logging.CRITICAL)
 
@@ -308,8 +294,8 @@ def main(parameters, storage):
         logging.info(f"-- Solving for t = {t:3.2f} --")
         equilibrium.solve(alpha_lb)
 
-        is_unique = bifurcation.solve(alpha_lb)
-        is_elastic = not bifurcation._is_critical(alpha_lb)
+        bifurcation.solve(alpha_lb)
+        not bifurcation._is_critical(alpha_lb)
 
         inertia = bifurcation.get_inertia()
 
@@ -361,7 +347,7 @@ def main(parameters, storage):
             _plt.screenshot(f"{prefix}/{_nameExp}-{comm.size}-{i_t}.png")
             _plt.close()
 
-    from utils.plots import plot_energies, plot_AMit_load
+    from utils.plots import plot_energies
     
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")

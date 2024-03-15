@@ -36,8 +36,6 @@ from dolfinx.fem import Function
 
 
 from utils.viz import (
-    plot_mesh,
-    plot_profile,
     plot_scalar,
     plot_vector
 )

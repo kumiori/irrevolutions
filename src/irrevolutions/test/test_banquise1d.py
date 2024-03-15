@@ -10,7 +10,6 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 import numpy as np
 sys.path.append("../")
@@ -19,7 +18,7 @@ from models import BrittleMembraneOverElasticFoundation as Banquise
 from algorithms.am import AlternateMinimisation
 
 from meshes.primitives import mesh_bar_gmshapi
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 
 import logging
 
@@ -39,7 +38,6 @@ from dolfinx.fem import (
     set_bc,
 )
 import dolfinx.mesh
-from dolfinx.mesh import CellType
 import ufl
 
 from mpi4py import MPI
@@ -49,7 +47,6 @@ import sys
 import yaml
 
 sys.path.append("../")
-from solvers import SNESSolver
 
 # ///////////
 
@@ -260,7 +257,7 @@ sys.exit()
 from pyvista.utilities import xvfb
 import pyvista
 import sys
-from utils.viz import plot_mesh, plot_vector, plot_scalar
+from utils.viz import plot_scalar, plot_vector
 # 
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True

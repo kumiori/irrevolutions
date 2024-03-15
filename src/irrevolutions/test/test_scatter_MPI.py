@@ -1,4 +1,3 @@
-import pdb
 import sys
 import os
 
@@ -40,7 +39,7 @@ V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
 V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
 u = dolfinx.fem.Function(V_u, name="Displacement")
 alpha = dolfinx.fem.Function(V_alpha, name="Damage")
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
+from dolfinx.fem import locate_dofs_geometrical
 
 dofs_alpha_left = locate_dofs_geometrical(
     V_alpha, lambda x: np.isclose(x[0], 0.))
@@ -94,7 +93,6 @@ def test():
     #                         [(u.function_space.dofmap.index_map, u.function_space.dofmap.index_map_bs),
     #                         (p.function_space.dofmap.index_map, p.function_space.dofmap.index_map_bs)])
     # x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-    from dolfinx.cpp.la.petsc import scatter_local_vectors
 
     print(f"{rank}) v original (unadmissible!) {v.array}")
     print(f"{rank}) V_u_size {V_u_size}")
@@ -105,14 +103,14 @@ def test():
 
     print(f"{rank}) restricted _dofs in state vector {alpha_dofs}")
 
-    _is_alpha = PETSc.IS().createGeneral(alpha_dofs)
+    PETSc.IS().createGeneral(alpha_dofs)
     _is = PETSc.IS().createGeneral(alpha_dofs)
 
-    maps = [(form.function_spaces[0].dofmap.index_map, form.function_spaces[0].dofmap.index_map_bs) for form in F]
+    [(form.function_spaces[0].dofmap.index_map, form.function_spaces[0].dofmap.index_map_bs) for form in F]
     # this is a pointer
     _sub = v.getSubVector(_is)
 
-    a = _sub.duplicate()
+    _sub.duplicate()
     # a.array = [1]*len(alpha_dofs)
     # a.array = [.5*k for k in [-2,.5, -1, 2, 3, 4, 5, 3, ][0:len(alpha_dofs)]]
     # a.assemble()
@@ -146,7 +144,7 @@ def test():
     v_r = restriction.restrict_vector(v)
     print(f"{rank}) v_restricted.size {v_r.size}")
     print(f"{rank}) v_restricted.array_r {v_r.array_r}")
-    c_dofs = restriction.bglobal_dofs_vec[1]
+    restriction.bglobal_dofs_vec[1]
 
     print(f"{rank}) bglobal_dofs_vec {restriction.bglobal_dofs_vec}")
     print(f"{rank}) blocal_dofs {restriction.blocal_dofs}")
@@ -161,7 +159,6 @@ def test():
         diff.zeroEntries()
         diff.waxpy(-1., xold, x)
         error_x_L2 = diff.norm()
-        error = error_x_L2
         print(f"{rank}) err {error_x_L2}")
 
         # update xold   
@@ -347,7 +344,7 @@ def test():
         # this is the general case
         # update xk
         print(f"{rank}) v_r.array_r {v_r.array_r}")
-        v_k = _cone_rproject(v_r)
+        _cone_rproject(v_r)
         urandom.array = [random.uniform(-1., 1.) for r in range(v.local_size)]
         xk = urandom.copy()
         xk = _cone_rproject(xk)

@@ -1,4 +1,4 @@
-from sympy import nsolve, pi, sin, symbols, lambdify, diff, sin, cos
+from sympy import cos, diff, lambdify, symbols
 Θ = symbols('Θ')
 func = Θ**3.
 

@@ -10,7 +10,6 @@ today = date.today()
 sys.path.append("../")
 
 import dolfinx
-from solvers.snesblockproblem import SNESBlockProblem
 import petsc4py
 import ufl
 from dolfinx.fem import FunctionSpace
@@ -21,7 +20,7 @@ import json
 petsc4py.init(sys.argv)
 
 from mpi4py import MPI
-from utils.viz import plot_mesh, plot_vector, plot_scalar
+from utils.viz import plot_scalar, plot_vector
 
 comm = MPI.COMM_WORLD
 # import pdb
@@ -29,7 +28,7 @@ import dolfinx.plot
 
 # import pyvista
 import yaml
-from algorithms.am import AlternateMinimisation as AM, HybridSolver
+from algorithms.am import HybridSolver
 from models import DamageElasticityModel as Brittle
 from irrevolutions.utils import ColorPrint, set_vector_to_constant
 from dolfinx.fem import locate_dofs_topological
@@ -170,7 +169,7 @@ def test_hybrid(nest):
         dolfinx.fem.dirichletbc(zero_alpha, right_dofs_2),
     ]
 
-    bcs_z = bcs_u + bcs_alpha
+    bcs_u + bcs_alpha
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
@@ -192,7 +191,7 @@ def test_hybrid(nest):
     Eu = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
     Ealpha = ufl.derivative(total_energy, alpha, ufl.TestFunction(V_alpha))
 
-    F = [Eu, Ealpha]
+    [Eu, Ealpha]
     z = [u, alpha]
 
     block_params = {}
@@ -230,7 +229,7 @@ def test_hybrid(nest):
             yaml.dump(parameters, file)
 
 
-    snes = hybrid.newton.snes
+    hybrid.newton.snes
 
     lb = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
     ub = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)

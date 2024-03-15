@@ -4,14 +4,10 @@ import dolfinx
 import dolfinx.plot
 import dolfinx.io
 from dolfinx.fem import (
-    Constant,
     Function,
     FunctionSpace,
     assemble_scalar,
     dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
 )
 import dolfinx.mesh
 from dolfinx.mesh import CellType
@@ -19,10 +15,8 @@ import ufl
 
 from mpi4py import MPI
 import petsc4py
-from petsc4py import PETSc
 import sys
 import yaml
-import pdb
 import os
 from pathlib import Path
 import pyvista
@@ -31,7 +25,7 @@ from pyvista.utilities import xvfb
 import dolfinx.plot
 
 from irrevolutions.solvers import SNESSolver
-from irrevolutions.utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
+from irrevolutions.utils.viz import plot_profile, plot_scalar
 
 petsc4py.init(sys.argv)
 

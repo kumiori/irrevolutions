@@ -3,7 +3,6 @@ import numpy as np
 import sys
 from mpi4py import MPI
 import petsc4py
-from petsc4py import PETSc
 from dolfinx import log
 import ufl
 
@@ -16,7 +15,6 @@ from meshes import gmsh_model_to_mesh
 
 petsc4py.init(sys.argv)
 log.set_log_level(log.LogLevel.WARNING)
-import pdb
 
 
 comm = MPI.COMM_WORLD

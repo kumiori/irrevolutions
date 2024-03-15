@@ -1,45 +1,10 @@
-import logging
-import json
-import numpy as np
-import pandas as pd
 import yaml
-from pathlib import Path
 import sys
-import os
 
-import dolfinx
-import dolfinx.plot
-from dolfinx import log
-import ufl
 
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    locate_dofs_geometrical,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    set_bc,
-)
-from dolfinx.fem.petsc import assemble_vector
-from dolfinx.mesh import CellType
-from dolfinx.io import XDMFFile, gmshio
-from dolfinx.common import Timer, list_timings, TimingType
 
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
 
 sys.path.append("../")
-from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so_merged import BifurcationSolver, StabilitySolver
-from solvers import SNESSolver
-from meshes.primitives import mesh_bar_gmshapi
-from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2
 
 # Define the Computation class
 class Computation:

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-import pdb
 import pandas as pd
 import numpy as np
-from sympy import derive_by_array
 import yaml
 import json
 from pathlib import Path
@@ -10,12 +8,10 @@ import sys
 import os
 
 from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
 import dolfinx.mesh
 from dolfinx.fem import (
     Constant,
     Function,
-    FunctionSpace,
     assemble_scalar,
     dirichletbc,
     form,
@@ -27,23 +23,20 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 
 from dolfinx.fem.petsc import (
     set_bc,
     assemble_vector
     )
-from dolfinx.io import XDMFFile, gmshio
+from dolfinx.io import XDMFFile
 import logging
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 
 sys.path.append("../")
 from algorithms.so import BifurcationSolver, StabilitySolver
 from solvers import SNESSolver
-from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
 from irrevolutions.utils import norm_H1, norm_L2
 
 
@@ -356,7 +349,6 @@ class HybridSolver(_AlternateMinimisation):
 
     def monitor(self, its, rnorm):
         logging.critical("Num it, rnorm:", its, rnorm)
-        pass     
 
     def solve(self, outdir=None):
         # Perform AM as customary
@@ -390,7 +382,7 @@ petsc4py.init(sys.argv)
 
 def discrete_atk(arg_N=2):
     # Mesh on node model_rank and then distribute
-    model_rank = 0
+    pass
 
 
     with open("./parameters.yml") as f:
@@ -413,15 +405,15 @@ def discrete_atk(arg_N=2):
     parameters["geometry"]["geom_type"] = "discrete-damageable"
     # Get mesh parameters
     Lx = parameters["geometry"]["Lx"]
-    Ly = parameters["geometry"]["Ly"]
-    tdim = parameters["geometry"]["geometric_dimension"]
+    parameters["geometry"]["Ly"]
+    parameters["geometry"]["geometric_dimension"]
 
     _nameExp = parameters["geometry"]["geom_type"]
-    ell_ = parameters["model"]["ell"]
+    parameters["model"]["ell"]
     # lc = ell_ / 5.0
 
     # Get geometry model
-    geom_type = parameters["geometry"]["geom_type"]
+    parameters["geometry"]["geom_type"]
     _N = parameters["model"]["N"]
 
 
@@ -553,7 +545,7 @@ def discrete_atk(arg_N=2):
 
 
     def a_atk(alpha):
-        k_res = parameters["model"]['k_res']
+        parameters["model"]['k_res']
         _k = parameters["model"]['k']
         return (1 - alpha) / ((_k-1) * alpha + 1)
 
@@ -574,7 +566,7 @@ def discrete_atk(arg_N=2):
         """
         # Parameters
         _mu = parameters["model"]['mu']
-        _N = parameters["model"]['N']
+        parameters["model"]['N']
 
         alpha = state["alpha"]
         u = state["u"]
@@ -589,7 +581,7 @@ def discrete_atk(arg_N=2):
         Return the damage dissipation density from the state.
         """
         # Get the material parameters
-        _mu = parameters["model"]["mu"]
+        parameters["model"]["mu"]
         _w1 = parameters["model"]["w1"]
         _ell = parameters["model"]["ell"]
         # Get the damage
@@ -618,7 +610,7 @@ def discrete_atk(arg_N=2):
     # f = Constant(mesh, 0)
     f = Constant(mesh, np.array(0, dtype=PETSc.ScalarType))
 
-    external_work = f * state["u"] * dx
+    f * state["u"] * dx
 
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"],

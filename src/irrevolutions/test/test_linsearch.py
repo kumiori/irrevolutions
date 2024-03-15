@@ -11,7 +11,6 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 import numpy as np
 sys.path.append("../")
@@ -24,20 +23,17 @@ from algorithms.so import BifurcationSolver, StabilitySolver, BifurcationSolver
 from algorithms.ls import LineSearch
 from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2, seminorm_H1
+from irrevolutions.utils import norm_H1
 
 from meshes.primitives import mesh_bar_gmshapi
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 
 from solvers.function import vec_to_functions
-from pyvista.utilities import xvfb
-import pyvista
 import sys
-from utils.viz import plot_vector, plot_scalar, plot_profile
+from utils.viz import plot_profile
 from irrevolutions.utils import history_data, _write_history_data
 
-from utils.viz import plot_vector, plot_scalar, plot_profile
+from utils.viz import plot_profile
 from irrevolutions.utils import history_data, _write_history_data
 
 import logging
@@ -56,7 +52,6 @@ from dolfinx.fem import (
     set_bc,
 )
 import dolfinx.mesh
-from dolfinx.mesh import CellType
 import ufl
 
 from mpi4py import MPI
@@ -66,7 +61,6 @@ import sys
 import yaml
 
 sys.path.append("../")
-from solvers import SNESSolver
 
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
@@ -349,7 +343,7 @@ def test_linsearch(parameters, storage):
                     "label": f"$\\beta$"
                 },
             )
-            ax = _plt.gca()
+            _plt.gca()
             _plt.legend()
             _plt.fill_between(data[0], data[1].reshape(len(data[1])))
             _plt.title("Perurbation")
@@ -431,8 +425,7 @@ def test_linsearch(parameters, storage):
     # Viz
     from pyvista.utilities import xvfb
     import pyvista
-    import sys
-    from utils.viz import plot_mesh, plot_vector, plot_scalar
+    from utils.viz import plot_scalar, plot_vector
     # 
     xvfb.start_xvfb(wait=0.05)
     pyvista.OFF_SCREEN = True

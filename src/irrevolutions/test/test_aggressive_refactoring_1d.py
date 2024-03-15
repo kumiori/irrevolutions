@@ -11,7 +11,6 @@ from pathlib import Path
 
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 
 from dolfinx.fem import (
@@ -24,24 +23,18 @@ from dolfinx.fem import (
     form,
     set_bc,
 )
-from dolfinx.fem.petsc import assemble_vector
-from dolfinx.mesh import CellType
 from dolfinx.io import XDMFFile, gmshio
-from dolfinx.common import Timer, list_timings, TimingType
 
 from mpi4py import MPI
-import petsc4py
 from petsc4py import PETSc
 
 sys.path.append("../")
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
-from solvers import SNESSolver
 from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2
 
 sys.path.append("../")
 
@@ -190,7 +183,7 @@ def setup_energy_terms(V_alpha, V_u, u, alpha, state, model):
 
     bc_u_left = dirichletbc(np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
     bc_u_right = dirichletbc(u_, dofs_u_right)
-    bcs_u = [bc_u_left, bc_u_right]
+    [bc_u_left, bc_u_right]
     bcs_alpha = []
 
     set_bc(alpha_ub.vector, bcs_alpha)
@@ -198,7 +191,7 @@ def setup_energy_terms(V_alpha, V_u, u, alpha, state, model):
 
     model = BrittleAT2(parameters["model"])
     state = {"u": u, "alpha": alpha}
-    z = [u, alpha]
+    [u, alpha]
 
     f = Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
     external_work = ufl.dot(f, state["u"]) * dx
@@ -241,7 +234,7 @@ def run_load_steps(loads, u_, alpha_lb, alpha, alphadot, history_data, parameter
 
         solve_first_order_hybrid(t, i_t, loads, alpha_lb, alphadot, history_data, parameters)
 
-        rate_12_norm = solve_second_order_rate_PB(alpha_lb, alpha, history_data, parameters)
+        solve_second_order_rate_PB(alpha_lb, alpha, history_data, parameters)
 
         check_stability.append(is_stable)
 
@@ -382,8 +375,7 @@ def main():
 
     from pyvista.utilities import xvfb
     import pyvista
-    import sys
-    from utils.viz import plot_mesh, plot_vector, plot_scalar
+    from utils.viz import plot_scalar, plot_vector
 
     xvfb.start_xvfb(wait=0.05)
     pyvista.OFF_SCREEN = True

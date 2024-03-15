@@ -1,5 +1,4 @@
 import os
-import pandas as pd
 import numpy as np
 # Example parameters
 L = 10  # Replace with actual length

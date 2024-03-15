@@ -1,32 +1,23 @@
-import os
 import sys
 sys.path.append("../")
 sys.path.append("../playground/nb")
 
-from . import test_binarydataio as bio
 # from test_extend import test_extend_vector
 # from test_cone_project import _cone_project_restricted
 import dolfinx
 import ufl
 import numpy as np
-from dolfinx.io import XDMFFile
-import random
 from dolfinx.fem import locate_dofs_geometrical, dirichletbc
 import yaml
 from petsc4py import PETSc
 from mpi4py import MPI
-import pickle 
 import logging
 import argparse
 import json
-import pyvista
-from pyvista.utilities import xvfb
 from pathlib import Path
-import matplotlib.pyplot as plt
 from dolfinx.fem import form, assemble_scalar
 
 
-from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.utils import _logger, ColorPrint, indicator_function 
 from irrevolutions.utils.viz import get_datapoints
@@ -67,8 +58,8 @@ def rayleigh_ratio(z, parameters):
 
 def rayleigh(parameters, storage=None):
     comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
+    comm.Get_rank()
+    comm.Get_size()
 
     # with XDMFFile(comm, "data/input_data.xdmf", "r") as file: 
     #     mesh = file.read_mesh(name='mesh')
@@ -174,7 +165,6 @@ def rayleigh(parameters, storage=None):
         }
         
     }
-    num_modes = 1
     
     _logger.setLevel(level=logging.INFO)
 
@@ -188,8 +178,8 @@ def rayleigh(parameters, storage=None):
         cone_parameters=parameters.get("stability")
     )
 
-    is_unique = bifurcation.solve(zero_alpha)
-    inertia = bifurcation.get_inertia()
+    bifurcation.solve(zero_alpha)
+    bifurcation.get_inertia()
     stable = stability.solve(zero_alpha, eig0=bifurcation.spectrum, inertia = (1, 0, 10))
     # (size of the) support of the cone-eigenfunction - if any.
     # 

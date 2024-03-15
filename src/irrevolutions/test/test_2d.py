@@ -1,27 +1,21 @@
 #!/usr/bin/env python3
-import pdb
 import pandas as pd
 import numpy as np
-from sympy import derive_by_array
 import yaml
 import json
 from pathlib import Path
 import sys
 import os
-import matplotlib.pyplot as plt
 import hashlib
 
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
+from dolfinx.fem import dirichletbc
 import dolfinx.mesh
 from dolfinx.fem import (
-    Constant,
     Function,
     FunctionSpace,
     assemble_scalar,
     dirichletbc,
     form,
-    locate_dofs_geometrical,
     set_bc,
 )
 from mpi4py import MPI
@@ -29,34 +23,28 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 
 from dolfinx.fem.petsc import (
-    set_bc,
-    assemble_vector
+    set_bc
     )
 from dolfinx.io import XDMFFile, gmshio
 import logging
-from dolfinx.common import Timer, list_timings, TimingType
 
 import pyvista
 from pyvista.utilities import xvfb
-from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
+from dolfinx.mesh import locate_entities_boundary
 from dolfinx.fem import locate_dofs_topological
 
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.algorithms.am import AlternateMinimisation, HybridSolver
-from irrevolutions.meshes.primitives import mesh_bar_gmshapi
+from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.models import DamageElasticityModel as Brittle
 from irrevolutions.meshes.pacman import mesh_pacman
-from irrevolutions.utils import ColorPrint, set_vector_to_constant, norm_H1, norm_L2, history_data, _write_history_data
+from irrevolutions.utils import ColorPrint, _write_history_data, history_data, set_vector_to_constant
 from irrevolutions.utils import _logger
 from irrevolutions.utils.lib import _local_notch_asymptotic
 from irrevolutions.utils.viz import plot_mesh
-from irrevolutions.utils.plots import plot_energies
-from irrevolutions.utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
-from irrevolutions.solvers.function import vec_to_functions
+from irrevolutions.utils.viz import plot_mesh, plot_scalar, plot_vector
 
 description = """We solve here a basic 2d of a notched specimen.
 Imagine a dinner a pizza which is missing a slice, and lots of hungry friends
@@ -103,7 +91,7 @@ def main(parameters, storage):
         ax = plot_mesh(mesh)
         fig = ax.get_figure()
         fig.savefig(f"{prefix}/mesh.png")
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+    hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
 
 
@@ -221,7 +209,6 @@ def main(parameters, storage):
             'x_values': [],
         }
     }
-    num_modes = 1
 
     _logger.setLevel(level=logging.CRITICAL)
 
@@ -243,8 +230,8 @@ def main(parameters, storage):
         logging.info(f"-- Solving for t = {t:3.2f} --")
         equilibrium.solve(alpha_lb)
 
-        is_unique = bifurcation.solve(alpha_lb)
-        is_elastic = not bifurcation._is_critical(alpha_lb)
+        bifurcation.solve(alpha_lb)
+        not bifurcation._is_critical(alpha_lb)
 
         inertia = bifurcation.get_inertia()
 
@@ -296,7 +283,7 @@ def main(parameters, storage):
             _plt.screenshot(f"{prefix}/{_nameExp}-{comm.size}-{i_t}.png")
             _plt.close()
 
-    from utils.plots import plot_energies, plot_AMit_load
+    from utils.plots import plot_energies
     
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")

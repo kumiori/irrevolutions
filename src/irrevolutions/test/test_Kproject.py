@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
-import pdb
 import numpy as np
-from sympy import derive_by_array
-import yaml
-import json
-from pathlib import Path
-import sys
-import os
-import petsc4py
 from petsc4py import PETSc
-import dolfinx
 
 COMM = PETSc.COMM_WORLD
 N = 4

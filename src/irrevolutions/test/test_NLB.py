@@ -1,5 +1,4 @@
 import logging
-import pdb
 import sys
 
 import numpy as np
@@ -11,10 +10,8 @@ today = date.today()
 sys.path.append("../")
 
 import dolfinx
-from solvers.snesblockproblem import SNESBlockProblem
 import petsc4py
 import ufl
-from dolfinx.fem import FunctionSpace
 from solvers.function import functions_to_vec
 from petsc4py import PETSc
 import json
@@ -22,7 +19,7 @@ import json
 petsc4py.init(sys.argv)
 
 from mpi4py import MPI
-from utils.viz import plot_mesh, plot_vector, plot_scalar
+from utils.viz import plot_scalar, plot_vector
 
 comm = MPI.COMM_WORLD
 # import pdb
@@ -32,15 +29,13 @@ import pandas as pd
 
 # import pyvista
 import yaml
-from algorithms.am import AlternateMinimisation as AM, HybridSolver
+from algorithms.am import HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
-from models import DamageElasticityModel as Brittle
 from irrevolutions.utils import ColorPrint, set_vector_to_constant
 from dolfinx.fem import locate_dofs_topological
-from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
-from dolfinx.io import XDMFFile, gmshio
+from dolfinx.mesh import locate_entities_boundary
+from dolfinx.io import XDMFFile
 from dolfinx.fem.petsc import (
-    set_bc,
     assemble_vector
     )
 
@@ -49,14 +44,8 @@ from pyvista.utilities import xvfb
 from solvers import SNESSolver
 
 from dolfinx.fem import (
-    Constant,
     Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
     form,
-    locate_dofs_geometrical,
-    set_bc,
 )
 
 from utils.viz import plot_matrix
@@ -106,7 +95,6 @@ class NLBSolver(StabilitySolver):
         self._critical = False
 
         self.bcs = bcs["bcs_alpha"]
-        pass
 
     def get_inactive_dofset(self, a_old) -> set:
         """Computes the set of dofs where damage constraints are inactive
@@ -116,7 +104,7 @@ class NLBSolver(StabilitySolver):
         """
         gtol = self.parameters.get("inactiveset_gatol")
         pwtol = self.parameters.get("inactiveset_pwtol")
-        V_u = self.state[0].function_space
+        self.state[0].function_space
 
         F = dolfinx.fem.petsc.assemble_vector(self.F[0])
         
@@ -177,11 +165,11 @@ class NLBSolver(StabilitySolver):
 
     def _solve(self, alpha_old: dolfinx.fem.function.Function, state: dict, neig=None):
         """Compute derivatives and check positivity"""
-        _u = state["u"]
-        _alpha = state["alpha"]
+        state["u"]
+        state["alpha"]
 
         restricted_dofs = self.get_inactive_dofset(alpha_old)
-        constraints = restriction.Restriction([self.V_alpha], restricted_dofs)
+        restriction.Restriction([self.V_alpha], restricted_dofs)
 
         if len(restricted_dofs[0])==0:
             # no damaging = elastic state
@@ -336,14 +324,14 @@ def test_NLB(nest):
     parameters["geometry"]["geom_type"] = "discrete-damageable"
     # Get mesh parameters
     Lx = parameters["geometry"]["Lx"]
-    Ly = parameters["geometry"]["Ly"]
-    tdim = parameters["geometry"]["geometric_dimension"]
+    parameters["geometry"]["Ly"]
+    parameters["geometry"]["geometric_dimension"]
 
     _nameExp = parameters["geometry"]["geom_type"]
-    ell_ = parameters["model"]["ell"]
+    parameters["model"]["ell"]
 
     # Get geometry model
-    geom_type = parameters["geometry"]["geom_type"]
+    parameters["geometry"]["geom_type"]
     _N = parameters["model"]["N"]
 
 
@@ -452,13 +440,13 @@ def test_NLB(nest):
         dolfinx.fem.dirichletbc(zero_alpha, right_dofs_2),
     ]
 
-    bcs_z = bcs_u + bcs_alpha
+    bcs_u + bcs_alpha
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
     # Energy functional
     f = dolfinx.fem.Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
-    external_work = ufl.dot(f, state["u"]) * dx
+    ufl.dot(f, state["u"]) * dx
     total_energy = (elastic_energy_density_atk(state) +
                     damage_energy_density(state)) * dx
 
@@ -469,7 +457,7 @@ def test_NLB(nest):
     Eu = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
     Ealpha = ufl.derivative(total_energy, alpha, ufl.TestFunction(V_alpha))
 
-    F = [Eu, Ealpha]
+    [Eu, Ealpha]
     z = [u, alpha]
 
     block_params = {}
@@ -507,7 +495,7 @@ def test_NLB(nest):
             yaml.dump(parameters, file)
 
 
-    snes = hybrid.newton.snes
+    hybrid.newton.snes
 
     lb = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
     ub = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
@@ -636,7 +624,6 @@ def test_cone():
     from dolfinx.fem import (
         Constant,
         Function,
-        FunctionSpace,
         assemble_scalar,
         dirichletbc,
         form,
@@ -644,9 +631,9 @@ def test_cone():
         set_bc,
     )
 
-    from dolfinx.io import XDMFFile, gmshio
+    from dolfinx.io import XDMFFile
     import logging
-    from dolfinx.common import Timer, list_timings, TimingType
+    from dolfinx.common import list_timings
 
     """Discrete endommageable springs in series
             1         2        i        k
@@ -660,7 +647,6 @@ def test_cone():
     """
 
 
-    from solvers.function import functions_to_vec
     logging.getLogger().setLevel(logging.CRITICAL)
 
     class _AlternateMinimisation:
@@ -827,7 +813,6 @@ def test_cone():
     comm = MPI.COMM_WORLD
 
     # Mesh on node model_rank and then distribute
-    model_rank = 0
 
 
     with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
@@ -849,14 +834,14 @@ def test_cone():
     parameters["geometry"]["geom_type"] = "discrete-damageable"
     # Get mesh parameters
     Lx = parameters["geometry"]["Lx"]
-    Ly = parameters["geometry"]["Ly"]
-    tdim = parameters["geometry"]["geometric_dimension"]
+    parameters["geometry"]["Ly"]
+    parameters["geometry"]["geometric_dimension"]
 
     _nameExp = parameters["geometry"]["geom_type"]
-    ell_ = parameters["model"]["ell"]
+    parameters["model"]["ell"]
 
     # Get geometry model
-    geom_type = parameters["geometry"]["geom_type"]
+    parameters["geometry"]["geom_type"]
     _N = parameters["model"]["N"]
 
 
@@ -968,7 +953,7 @@ def test_cone():
 
 
     def a_atk(alpha):
-        k_res = parameters["model"]['k_res']
+        parameters["model"]['k_res']
         _k = parameters["model"]['k']
         return (1 - alpha) / ((_k-1) * alpha + 1)
 
@@ -1002,7 +987,7 @@ def test_cone():
         Return the damage dissipation density from the state.
         """
         # Get the material parameters
-        _mu = parameters["model"]["mu"]
+        parameters["model"]["mu"]
         _w1 = parameters["model"]["w1"]
         _ell = parameters["model"]["ell"]
         # Get the damage
@@ -1031,7 +1016,7 @@ def test_cone():
     # f = Constant(mesh, 0)
     f = Constant(mesh, np.array(0, dtype=PETSc.ScalarType))
 
-    external_work = f * state["u"] * dx
+    f * state["u"] * dx
 
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"],
