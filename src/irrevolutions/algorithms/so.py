@@ -1,40 +1,21 @@
 import logging
-from pydoc import cli
-from time import clock_settime
+from pathlib import Path
 
-from matplotlib.pyplot import cla
 import dolfinx
-from irrevolutions.solvers import SNESSolver
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    dirichletbc,
-    form,
-    assemble_scalar,
-    locate_dofs_geometrical,
-)
+import numpy as np
+import ufl
+from dolfinx.cpp.la.petsc import get_local_vectors
+from dolfinx.fem import Function
+from dolfinx.fem.petsc import create_vector_block
+from dolfinx.io import XDMFFile
+from mpi4py import MPI
 from petsc4py import PETSc
 from slepc4py import SLEPc
-from dolfinx.cpp.log import log, LogLevel
-from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
-import ufl
-import numpy as np
-from pathlib import Path
-from dolfinx.io import XDMFFile, gmshio
-import logging
-from irrevolutions.solvers.function import vec_to_functions
-
-from mpi4py import MPI
-
-from dolfinx.fem.petsc import create_vector_block
-
-from irrevolutions.utils import norm_H1, norm_L2, ColorPrint, _logger
-import sys
 
 import irrevolutions.solvers.restriction as restriction
 import irrevolutions.solvers.slepcblockproblem as eigenblockproblem
-from irrevolutions.solvers.function import functions_to_vec
+from irrevolutions.solvers.function import functions_to_vec, vec_to_functions
+from irrevolutions.utils import ColorPrint, _logger, norm_L2
 
 comm = MPI.COMM_WORLD
 
@@ -142,7 +123,6 @@ class SecondOrderSolver:
         self._critical = False
 
         self.bcs = bcs["bcs_u"] + bcs["bcs_alpha"]
-        pass
 
     def is_stable(self) -> bool:
         """
@@ -377,7 +357,6 @@ class SecondOrderSolver:
             eigs: List of computed eigenvalues.
             eigen: Eigenvalue problem instance.
         """
-        pass
 
     def solve(self, alpha_old: dolfinx.fem.function.Function):
         """
@@ -1130,8 +1109,9 @@ class StabilitySolver(SecondOrderSolver):
 
         # Use a try/except block to handle the case when A_matrix is not available
         try:
-            import test_binarydataio as bio
             from os import path
+
+            import test_binarydataio as bio
 
             # Save data if available
             if hasattr(self, "A_matrix") and self.A_matrix is not None:

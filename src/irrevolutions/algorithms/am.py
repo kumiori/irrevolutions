@@ -1,34 +1,26 @@
 from irrevolutions.utils import norm_H1, norm_L2, set_vector_to_constant, ColorPrint
 import logging
 import dolfinx
+from dolfinx.io import XDMFFile
+
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.snesblockproblem import SNESBlockProblem
 from irrevolutions.solvers.function import functions_to_vec
-import irrevolutions.solvers.restriction as restriction
 
 from dolfinx.fem import (
-    Constant,
     Function,
-    FunctionSpace,
-    dirichletbc,
     form,
     assemble_scalar,
-    locate_dofs_geometrical,
 )
 from petsc4py import PETSc
 import ufl
 import numpy as np
-from dolfinx.io import XDMFFile
 
 from mpi4py import MPI
 
 comm = MPI.COMM_WORLD
 
 from dolfinx.fem.petsc import (
-    assemble_matrix,
-    apply_lifting,
-    create_vector,
-    create_matrix,
     set_bc,
     assemble_vector,
 )
@@ -229,8 +221,6 @@ class AlternateMinimisation:
         )
 
 
-
-
 class HybridSolver(AlternateMinimisation):
     """Hybrid (AltMin+Newton) solver for fracture"""
 
@@ -366,7 +356,6 @@ class HybridSolver(AlternateMinimisation):
 
     def monitor(self, its, rnorm):
         logging.info("Num it, rnorm:", its, rnorm)
-        pass
 
     def solve(self, alpha_lb, outdir=None):
         # Perform AM as customary

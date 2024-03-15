@@ -1,28 +1,17 @@
 import logging
-from pydoc import cli
-from time import clock_settime
-from irrevolutions.utils import norm_H1, norm_L2
+from irrevolutions.utils import norm_H1
 
-import dolfinx
 from dolfinx.fem import (
-    Constant,
     Function,
-    FunctionSpace,
-    dirichletbc,
     form,
     assemble_scalar,
-    locate_dofs_geometrical,
 )
 from petsc4py import PETSc
-from slepc4py import SLEPc
 from dolfinx.cpp.log import log, LogLevel
-import ufl
 import numpy as np
-from pathlib import Path
 
 import mpi4py
 import numpy as np
-from ufl import Measure
 import random
 
 
