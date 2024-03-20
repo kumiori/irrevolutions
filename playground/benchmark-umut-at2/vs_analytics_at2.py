@@ -26,14 +26,16 @@ from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.test.test_1d import _AlternateMinimisation1D as am1d
-from irrevolutions.utils import (ColorPrint, _logger, _write_history_data,
-                                 history_data, norm_H1, norm_L2)
+from irrevolutions.utils import (ColorPrint, ResultsStorage, Visualization,
+                                 _logger, _write_history_data, history_data,
+                                 norm_H1, norm_L2)
 from irrevolutions.utils.plots import (plot_AMit_load, plot_energies,
                                        plot_force_displacement)
-from irrevolutions.utils import ResultsStorage, Visualization
-
+from irrevolutions.utils.viz import (plot_mesh, plot_profile, plot_scalar,
+                                     plot_vector)
 from mpi4py import MPI
 from petsc4py import PETSc
+from pyvista.utilities import xvfb
 
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
@@ -46,11 +48,6 @@ def a(alpha):
     # k_res = parameters["model"]['k_res']
     return (1 - alpha) ** 2
 
-def a_atk(alpha):
-    parameters["model"]["k_res"]
-    _k = parameters["model"]["k"]
-    return (1 - alpha) / ((_k - 1) * alpha + 1)
-
 def w(alpha):
     """
     Return the homogeneous damage energy term,
@@ -59,21 +56,10 @@ def w(alpha):
     """
     # Return w(alpha) function
     return alpha**2
+    # return alpha
 
-def elastic_energy_density_atk(state):
-    """
-    Returns the elastic energy density from the state.
-    """
-    # Parameters
-    alpha = state["alpha"]
-    u = state["u"]
-    eps = ufl.grad(u)
-
-    _mu = parameters["model"]["E"]
-    energy_density = _mu / 2.0 * a_atk(alpha) * ufl.inner(eps, eps)
-    return energy_density
-
-def elastic_energy_density(state, u_zero: Optional[dolfinx.fem.function.Function] = None):
+def elastic_energy_density(state, 
+                           u_zero: Optional[dolfinx.fem.function.Function] = None):
     """
     Returns the elastic energy density of the state.
     """
@@ -85,13 +71,11 @@ def elastic_energy_density(state, u_zero: Optional[dolfinx.fem.function.Function
     _mu = parameters["model"]["E"]
     _kappa = parameters["model"].get("kappa", 1.0)
     
+    # energy_density = _mu / 2.0 * ufl.inner(eps, eps)
     energy_density = _mu / 2.0 * a(alpha) * ufl.inner(eps, eps)
     
     if u_zero is None:
         u_zero = Constant(u.function_space.mesh, 0.0)
-        # u_zero.vector.ghostUpdate(
-        #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        # )
 
     substrate_density = _kappa / 2.0 * ufl.inner(u - u_zero, u - u_zero)
 
@@ -101,16 +85,18 @@ def damage_energy_density(state):
     """
     Return the damage energy density of the state.
     """
-    # Get the material parameters
+
     _w1 = parameters["model"]["w1"]
     _ell = parameters["model"]["ell"]
-    # Get the damage
+
     alpha = state["alpha"]
-    # Compute the damage gradient
     grad_alpha = ufl.grad(alpha)
+
     # Compute the damage dissipation density
-    D_d = _w1 * w(alpha) + _w1 * _ell**2 * ufl.dot(grad_alpha, grad_alpha)
-    return D_d
+    damage_density = _w1 * w(alpha) + \
+        _w1 * _ell**2 * ufl.dot(grad_alpha, grad_alpha)
+
+    return damage_density
 
 def stress(state):
     """
@@ -187,8 +173,8 @@ def run_computation(parameters, storage=None):
 
     # Define the state
     u = Function(V_u, name="Unknown")
-    u_zero = Function(V_u, name="Inelastic displacement")
-    zero_u = Function(V_u, name="Boundary Unknown")
+    u_zero = Function(V_u, name="InelasticDisplacement")
+    zero_u = Function(V_u, name="BoundaryUnknown")
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
@@ -200,7 +186,7 @@ def run_computation(parameters, storage=None):
     alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
-    eps_t = dolfinx.fem.Constant(mesh, np.array(0., dtype=PETSc.ScalarType))
+    eps_t = dolfinx.fem.Constant(mesh, np.array(1., dtype=PETSc.ScalarType))
     u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
     
     for f in [zero_u, u_zero, alpha_lb, alpha_ub]:
@@ -208,12 +194,15 @@ def run_computation(parameters, storage=None):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
+    # bcs_u = [dirichletbc(u_zero, dofs_u_right), 
+    #          dirichletbc(u_zero, dofs_u_left)]
+
     bcs_u = []
     bcs_alpha = []
     
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
     
-    total_energy = (elastic_energy_density(state) + damage_energy_density(state)) * dx
+    total_energy = (elastic_energy_density(state, u_zero) + damage_energy_density(state)) * dx
     
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
@@ -240,10 +229,7 @@ def run_computation(parameters, storage=None):
 
 
     for i_t, t in enumerate(loads):
-        
-        
-        # u_zero.interpolate(lambda x: t * np.ones_like(x[0]))
-        
+
         eps_t.value = t
         
         u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
@@ -277,48 +263,120 @@ def run_computation(parameters, storage=None):
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
         with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
-            pass
-        
-        fracture_energy = comm.allreduce(
-            assemble_scalar(form(damage_energy_density(state) * dx)),
-            op=MPI.SUM,
-        )
-        elastic_energy = comm.allreduce(
-            assemble_scalar(form(elastic_energy_density(state) * dx)),
-            op=MPI.SUM,
-        )
-        _F = assemble_scalar(form(stress(state)))
+            if comm.rank == 0:
+                plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+                plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+                plot_force_displacement(
+                    history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
+                )
 
-        _write_history_data(
-            hybrid,
-            bifurcation,
-            stability,
-            history_data,
-            t,
-            inertia,
-            stable,
-            [fracture_energy, elastic_energy],
-        )
-        history_data["F"].append(_F)
-        
-        with XDMFFile(
-            comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
-        ) as file:
-            file.write_function(u, t)
-            file.write_function(alpha, t)
 
-        if comm.rank == 0:
-            a_file = open(f"{prefix}/time_data.json", "w")
-            json.dump(history_data, a_file)
-            a_file.close()
+            xvfb.start_xvfb(wait=0.05)
+            pyvista.OFF_SCREEN = True
+
+            plotter = pyvista.Plotter(
+                title="Thin film",
+                window_size=[1600, 600],
+                shape=(1, 2),
+            )
+            _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+            _plt = plot_scalar(u, plotter, subplot=(0, 1))
+            _plt.screenshot(f"{prefix}/thinfilm-state.png")
+
+            plotter = pyvista.Plotter(
+                title="Test Profile",
+                window_size=[800, 600],
+                shape=(1, 1),
+            )
+
+            tol = 1e-3
+            xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
+            points = np.zeros((3, 101))
+            points[0] = xs
+
+            _plt, data = plot_profile(
+                alpha,
+                points,
+                plotter,
+                lineproperties={
+                    "c": "k",
+                    "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}"
+                },
+            )
+            ax = _plt.gca()
+            _plt.legend()
+            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+            _plt.title("Damage profile")
+            ax.set_ylim(-0.1, 1.1)
+
+            _plt, data = plot_profile(
+                u_zero,
+                points,
+                plotter,
+                fig=_plt,
+                ax=ax,
+                lineproperties={
+                    "c": "r",
+                    "label": "$u_0$"
+                },
+            )
+
+
+            _plt, data = plot_profile(
+                u,
+                points,
+                plotter,
+                fig=_plt,
+                ax=ax,
+                lineproperties={
+                    "c": "g",
+                    "label": "$u$"
+                },
+            )
+
+            _plt.savefig(f"{prefix}/damage_profile-{i_t}.png")
+
+
+            fracture_energy = comm.allreduce(
+                assemble_scalar(form(damage_energy_density(state) * dx)),
+                op=MPI.SUM,
+            )
+            elastic_energy = comm.allreduce(
+                assemble_scalar(form(elastic_energy_density(state, u_zero) * dx)),
+                op=MPI.SUM,
+            )
+            _F = assemble_scalar(form(stress(state)))
+
+            _write_history_data(
+                hybrid,
+                bifurcation,
+                stability,
+                history_data,
+                t,
+                inertia,
+                stable,
+                [fracture_energy, elastic_energy],
+            )
+            history_data["F"].append(_F)
+            
+            with XDMFFile(
+                comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+            ) as file:
+                file.write_function(u, t)
+                file.write_function(alpha, t)
+
+            if comm.rank == 0:
+                a_file = open(f"{prefix}/time_data.json", "w")
+                json.dump(history_data, a_file)
+                a_file.close()
 
     
     # df = pd.DataFrame(history_data)
     print(pd.DataFrame(history_data))
+    
     return history_data, stability.data, state
 
-
-def load_parameters(file_path, ndofs, model="at1"):
+def load_parameters(file_path, ndofs, model="at2"):
     """
     Load parameters from a YAML file.
 
@@ -335,23 +393,16 @@ def load_parameters(file_path, ndofs, model="at1"):
 
     parameters["model"]["model_dimension"] = 1
     parameters["model"]["model_type"] = "1D"
-    # parameters["model"]["mu"] = 1
-    parameters["model"]["w1"] = 1
 
-    parameters["geometry"]["geom_type"] = "discrete-damageable"
+    parameters["geometry"]["geom_type"] = "thinfilm"
     # Get mesh parameters
 
     if model == "at2":
         parameters["loading"]["min"] = 0.0
-        parameters["loading"]["max"] = 3.0
+        parameters["loading"]["max"] = 1.0
         parameters["loading"]["steps"] = 10
 
-    elif model == "at1":
-        parameters["loading"]["min"] = 0.0
-        parameters["loading"]["max"] = 1.5
-        parameters["loading"]["steps"] = 20
-
-    parameters["geometry"]["geom_type"] = "traction-bar"
+    parameters["geometry"]["geom_type"] = "1d-bar"
     parameters["geometry"]["mesh_size_factor"] = 4
     parameters["geometry"]["N"] = ndofs
 
@@ -360,14 +411,15 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
     parameters["stability"]["cone"]["scaling"] = 1e-2
 
-    parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = 0.2
+    parameters["model"]["w1"] = 10000
+    parameters["model"]["ell"] = (0.158114)**2 / 2
     parameters["model"]["k_res"] = 0.0
+    parameters["model"]["mu"] = 1
+    parameters["model"]["kappa"] = (.34)**(-2)
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     return parameters, signature
-
 
 if __name__ == "__main__":
     # Set the logging level
@@ -375,10 +427,12 @@ if __name__ == "__main__":
 
     # Load parameters
     parameters, signature = load_parameters(
-        os.path.join(os.path.dirname(__file__), "parameters.yaml"), 100, "at2")
+        os.path.join(os.path.dirname(__file__), "parameters.yaml"), 
+        ndofs=100, 
+        model="at2")
+    
     # Run computation
-
-    _storage = f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    _storage = f"output/thinfilm-1d/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
     visualization = Visualization(_storage)
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
@@ -388,3 +442,7 @@ if __name__ == "__main__":
     _timings = table_timing_data()
     visualization.save_table(_timings, "timing_data")
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+
+    ColorPrint.print_bold(f"===================- {signature} -=================")
+    ColorPrint.print_bold(f"===================- {_storage} -=================")
+
