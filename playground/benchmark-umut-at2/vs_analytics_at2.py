@@ -30,6 +30,8 @@ from irrevolutions.utils import (ColorPrint, _logger, _write_history_data,
                                  history_data, norm_H1, norm_L2)
 from irrevolutions.utils.plots import (plot_AMit_load, plot_energies,
                                        plot_force_displacement)
+from irrevolutions.utils import ResultsStorage, Visualization
+
 from mpi4py import MPI
 from petsc4py import PETSc
 
@@ -119,13 +121,6 @@ def stress(state):
     dx = ufl.Measure("dx", domain=u.function_space.mesh)
 
     return parameters["model"]["E"] * a(alpha) * u.dx() * dx
-
-
-
-
-
-
-
 
 def run_computation(parameters, storage=None):
     Lx = parameters["geometry"]["Lx"]
@@ -294,8 +289,33 @@ def run_computation(parameters, storage=None):
         )
         _F = assemble_scalar(form(stress(state)))
 
+        _write_history_data(
+            hybrid,
+            bifurcation,
+            stability,
+            history_data,
+            t,
+            inertia,
+            stable,
+            [fracture_energy, elastic_energy],
+        )
+        history_data["F"].append(_F)
+        
+        with XDMFFile(
+            comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+        ) as file:
+            file.write_function(u, t)
+            file.write_function(alpha, t)
 
-    return
+        if comm.rank == 0:
+            a_file = open(f"{prefix}/time_data.json", "w")
+            json.dump(history_data, a_file)
+            a_file.close()
+
+    
+    # df = pd.DataFrame(history_data)
+    print(pd.DataFrame(history_data))
+    return history_data, stability.data, state
 
 
 def load_parameters(file_path, ndofs, model="at1"):
@@ -357,4 +377,14 @@ if __name__ == "__main__":
     parameters, signature = load_parameters(
         os.path.join(os.path.dirname(__file__), "parameters.yaml"), 100, "at2")
     # Run computation
-    run_computation(parameters)
+
+    _storage = f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    visualization = Visualization(_storage)
+
+    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+        history_data, stability_data, state = run_computation(parameters, _storage)
+    
+    from irrevolutions.utils import table_timing_data
+    _timings = table_timing_data()
+    visualization.save_table(_timings, "timing_data")
+    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
