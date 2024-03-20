@@ -45,5 +45,10 @@
 # sphinx
 docs/build/
 
+# Output files
+**/output/*
+
 # branch-specific tests
-test_*/
+build/*
+
+**.egg-info
