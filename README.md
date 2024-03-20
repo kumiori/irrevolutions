@@ -1,5 +1,5 @@
-# Crack Propagation in Brittle Materials
-## 2024
+# Complex Crack Propagation in Brittle Materials
+## 202* Forall T
 
 From little or nothing, to experimental verification of a complex fracture experiment.
 We solve the following (difficult) problem:
@@ -114,3 +114,21 @@ Corrado Maurini, Sorbonne Université.
 ### License
 
 MIT License, see `LICENSE` file.
+
+### Tests
+
+test_1d.py
+test_2d.py
+
+test_cone_convergence.py
+test_cone_project.py
+test_elasticity.py
+test_extend.py
+test_rayleigh.py
+test_vector_info.py
+test_vi.py
+test_traction.py
+test_bifurcation.py
+test_logging_mpi.py
+test_scatter.py
+
