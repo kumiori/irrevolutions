@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+import hashlib
 import json
 import logging
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 import dolfinx
 import dolfinx.mesh
@@ -14,40 +16,22 @@ import petsc4py
 import pyvista
 import ufl
 import yaml
-from dolfinx.fem import (
-    Constant,
-    Function,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
 from dolfinx.common import list_timings
+from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
+                         form, locate_dofs_geometrical, set_bc)
 from dolfinx.fem.petsc import assemble_vector, set_bc
 from dolfinx.io import XDMFFile
-from mpi4py import MPI
-from petsc4py import PETSc
-
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import vec_to_functions
-from irrevolutions.utils import (
-    ColorPrint,
-    _logger,
-    _write_history_data,
-    history_data,
-    norm_H1,
-    norm_L2,
-)
-from irrevolutions.utils.plots import (
-    plot_AMit_load,
-    plot_energies,
-    plot_force_displacement,
-)
-from  irrevolutions.test.test_1d import _AlternateMinimisation1D as am1d
-
+from irrevolutions.test.test_1d import _AlternateMinimisation1D as am1d
+from irrevolutions.utils import (ColorPrint, _logger, _write_history_data,
+                                 history_data, norm_H1, norm_L2)
+from irrevolutions.utils.plots import (plot_AMit_load, plot_energies,
+                                       plot_force_displacement)
+from mpi4py import MPI
+from petsc4py import PETSc
 
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
@@ -55,7 +39,261 @@ comm = MPI.COMM_WORLD
 # Mesh on node model_rank and then distribute
 model_rank = 0
 
+
+def a(alpha):
+    # k_res = parameters["model"]['k_res']
+    return (1 - alpha) ** 2
+
+def a_atk(alpha):
+    parameters["model"]["k_res"]
+    _k = parameters["model"]["k"]
+    return (1 - alpha) / ((_k - 1) * alpha + 1)
+
+def w(alpha):
+    """
+    Return the homogeneous damage energy term,
+    as a function of the state
+    (only depends on damage).
+    """
+    # Return w(alpha) function
+    return alpha**2
+
+def elastic_energy_density_atk(state):
+    """
+    Returns the elastic energy density from the state.
+    """
+    # Parameters
+    alpha = state["alpha"]
+    u = state["u"]
+    eps = ufl.grad(u)
+
+    _mu = parameters["model"]["E"]
+    energy_density = _mu / 2.0 * a_atk(alpha) * ufl.inner(eps, eps)
+    return energy_density
+
+def elastic_energy_density(state, u_zero: Optional[dolfinx.fem.function.Function] = None):
+    """
+    Returns the elastic energy density of the state.
+    """
+    # Parameters
+    alpha = state["alpha"]
+    u = state["u"]
+    eps = ufl.grad(u)
+
+    _mu = parameters["model"]["E"]
+    _kappa = parameters["model"].get("kappa", 1.0)
+    
+    energy_density = _mu / 2.0 * a(alpha) * ufl.inner(eps, eps)
+    
+    if u_zero is None:
+        u_zero = Constant(u.function_space.mesh, 0.0)
+        # u_zero.vector.ghostUpdate(
+        #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        # )
+
+    substrate_density = _kappa / 2.0 * ufl.inner(u - u_zero, u - u_zero)
+
+    return energy_density + substrate_density
+
+def damage_energy_density(state):
+    """
+    Return the damage energy density of the state.
+    """
+    # Get the material parameters
+    _w1 = parameters["model"]["w1"]
+    _ell = parameters["model"]["ell"]
+    # Get the damage
+    alpha = state["alpha"]
+    # Compute the damage gradient
+    grad_alpha = ufl.grad(alpha)
+    # Compute the damage dissipation density
+    D_d = _w1 * w(alpha) + _w1 * _ell**2 * ufl.dot(grad_alpha, grad_alpha)
+    return D_d
+
+def stress(state):
+    """
+    Return the one-dimensional stress
+    """
+    u = state["u"]
+    alpha = state["alpha"]
+    dx = ufl.Measure("dx", domain=u.function_space.mesh)
+
+    return parameters["model"]["E"] * a(alpha) * u.dx() * dx
+
+
+
+
+
+
+
+
 def run_computation(parameters, storage=None):
+    Lx = parameters["geometry"]["Lx"]
+    _nameExp = parameters["geometry"]["geom_type"]
+    parameters["model"]["ell"]
+
+    # Get geometry model
+    parameters["geometry"]["geom_type"]
+    _N = int(parameters["geometry"]["N"])
+
+    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
+    outdir = os.path.join(os.path.dirname(__file__), "output")
+
+    if storage is None:
+        prefix = os.path.join(outdir, f"thin-film-at2")
+    else:
+        prefix = storage
+
+    if comm.rank == 0:
+        Path(prefix).mkdir(parents=True, exist_ok=True)
+
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
+
+    if comm.rank == 0:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
+            yaml.dump(parameters, file)
+
+        with open(f"{prefix}/signature.md5", "w") as f:
+            f.write(signature)
+
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
+        file.write_mesh(mesh)
+
+    # Functional Setting
+    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+
+    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
+    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+
+    u = dolfinx.fem.Function(V_u, name="Displacement")
+    u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
+
+    alpha = dolfinx.fem.Function(V_alpha, name="Damage")
+
+    # Perturbations
+    β = Function(V_alpha, name="DamagePerturbation")
+    v = Function(V_u, name="DisplacementPerturbation")
+
+    # Pack state
+    state = {"u": u, "alpha": alpha}
+
+    # Bounds
+    alpha_ub = dolfinx.fem.Function(V_alpha, name="UpperBoundDamage")
+    alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
+
+    dx = ufl.Measure("dx", domain=mesh)
+    ds = ufl.Measure("ds", domain=mesh)
+
+    # Useful references
+    Lx = parameters.get("geometry").get("Lx")
+
+    # Define the state
+    u = Function(V_u, name="Unknown")
+    u_zero = Function(V_u, name="Inelastic displacement")
+    zero_u = Function(V_u, name="Boundary Unknown")
+
+    # Measures
+    dx = ufl.Measure("dx", domain=mesh)
+    ds = ufl.Measure("ds", domain=mesh)
+
+    dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
+    dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
+
+    alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
+    alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
+
+    eps_t = dolfinx.fem.Constant(mesh, np.array(0., dtype=PETSc.ScalarType))
+    u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
+    
+    for f in [zero_u, u_zero, alpha_lb, alpha_ub]:
+        f.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
+
+    bcs_u = []
+    bcs_alpha = []
+    
+    bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
+    
+    total_energy = (elastic_energy_density(state) + damage_energy_density(state)) * dx
+    
+    load_par = parameters["loading"]
+    loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
+
+    hybrid = HybridSolver(
+        total_energy,
+        state,
+        bcs,
+        bounds=(alpha_lb, alpha_ub),
+        solver_parameters=parameters.get("solvers"),
+    )
+
+    bifurcation = BifurcationSolver(
+        total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
+    )
+
+    stability = StabilitySolver(
+        total_energy, state, bcs, cone_parameters=parameters.get("stability")
+    )
+
+    history_data["F"] = []
+
+    logging.basicConfig(level=logging.INFO)
+
+
+    for i_t, t in enumerate(loads):
+        
+        
+        # u_zero.interpolate(lambda x: t * np.ones_like(x[0]))
+        
+        eps_t.value = t
+        
+        u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
+        u_zero.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
+
+        # update the lower bound
+        alpha.vector.copy(alpha_lb.vector)
+        alpha_lb.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
+
+        _logger.critical(f"-- Solving for t = {t:3.2f} --")
+        hybrid.solve(alpha_lb)
+
+        is_unique = bifurcation.solve(alpha_lb)
+        is_elastic = not bifurcation._is_critical(alpha_lb)
+        inertia = bifurcation.get_inertia()
+
+        ColorPrint.print_bold(f"State is elastic: {is_elastic}")
+        ColorPrint.print_bold(f"State's inertia: {inertia}")
+        ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
+
+        z0 = (
+            bifurcation._spectrum[0]["xk"]
+            if bifurcation._spectrum and "xk" in bifurcation._spectrum[0]
+            else None
+        )
+
+        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
+
+        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+            pass
+        
+        fracture_energy = comm.allreduce(
+            assemble_scalar(form(damage_energy_density(state) * dx)),
+            op=MPI.SUM,
+        )
+        elastic_energy = comm.allreduce(
+            assemble_scalar(form(elastic_energy_density(state) * dx)),
+            op=MPI.SUM,
+        )
+        _F = assemble_scalar(form(stress(state)))
+
 
     return
 
@@ -84,9 +322,9 @@ def load_parameters(file_path, ndofs, model="at1"):
     # Get mesh parameters
 
     if model == "at2":
-        parameters["loading"]["min"] = 0.9
-        parameters["loading"]["max"] = 0.9
-        parameters["loading"]["steps"] = 1
+        parameters["loading"]["min"] = 0.0
+        parameters["loading"]["max"] = 3.0
+        parameters["loading"]["steps"] = 10
 
     elif model == "at1":
         parameters["loading"]["min"] = 0.0
@@ -117,7 +355,6 @@ if __name__ == "__main__":
 
     # Load parameters
     parameters, signature = load_parameters(
-        os.path.join(os.path.dirname(__file__), "parameters.yaml"), 100, "at1")
-
+        os.path.join(os.path.dirname(__file__), "parameters.yaml"), 100, "at2")
     # Run computation
     run_computation(parameters)

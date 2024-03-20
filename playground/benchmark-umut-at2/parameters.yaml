@@ -17,10 +17,10 @@ geometry:
 model:
     E: 1.
     sigma_D0: 1.
-    nu: 0.3
     ell: 0.1
-    model_dimension: 2
-    model_type: "2D"
+    model_dimension: 1
+    model_type: "1D"
+    kappa: 10.
     # could be "2D"/ "3D" / "plane_stress" / "plane_strain"
 # === Solver === #
 solvers:
