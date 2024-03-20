@@ -1,0 +1,36 @@
+[project]
+name = "irreversible-variational-solvers"
+authors = [
+    {name = "Andrés A León Baldelli", email = "leon.baldelli@cnrs.fr"},
+    ]
+version = "2024.0.1"
+requires-python = ">=3.8"
+
+# Short description
+description = "Three solvers for irreversible evolutionary processes with a general energetic notion of stability."
+
+# Path to README.md
+readme = "README.md"
+
+# Path to license file
+license = {file = "LICENSE"}
+
+# Direct dependencies
+dependencies = [
+    "pandas>=2.2",
+    "sympy",
+    "matplotlib",
+    "gmsh>=4.11.0",
+    "PyYAML>=6.0.1",
+    "scipy>=1.12.0",
+    "pyvista>=0.43",
+#    "fenics-dolfinx>=0.8.0.dev0,<0.9.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+#    "numpy>=1.26.0",
+#    "mpi4py>=3.1.5",
+#    "slepc4py==3.20.1",
+#    "petsc4py>=3.20.5",
