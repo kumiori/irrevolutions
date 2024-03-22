@@ -50,3 +50,4 @@ docs/build/
 # branch-specific tests
 test_*/
 src/irrevolutions/test/output/*
+**/output/**
