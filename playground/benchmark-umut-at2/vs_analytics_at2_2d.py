@@ -20,10 +20,12 @@ from dolfinx.common import list_timings
 from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
                          form, locate_dofs_geometrical, set_bc)
 from dolfinx.fem.petsc import assemble_vector, set_bc
-from dolfinx.io import XDMFFile
+from dolfinx.io import XDMFFile, gmshio
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.solvers import SNESSolver
+from irrevolutions.meshes.primitives import mesh_bar_gmshapi
+from irrevolutions.models import \
+    BrittleMembraneOverElasticFoundation as ThinFilm
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.test.test_1d import _AlternateMinimisation1D as am1d
 from irrevolutions.utils import (ColorPrint, ResultsStorage, Visualization,
@@ -43,60 +45,15 @@ comm = MPI.COMM_WORLD
 # Mesh on node model_rank and then distribute
 model_rank = 0
 
-
-def a(alpha):
-    # k_res = parameters["model"]['k_res']
-    return (1 - alpha) ** 2
-
-def w(alpha):
-    """
-    Return the homogeneous damage energy term,
-    as a function of the state
-    (only depends on damage).
-    """
-    # Return w(alpha) function
-    return alpha**2
-    # return alpha
-
-def elastic_energy_density(state, 
-                           u_zero: Optional[dolfinx.fem.function.Function] = None):
-    """
-    Returns the elastic energy density of the state.
-    """
-    # Parameters
-    alpha = state["alpha"]
-    u = state["u"]
-    eps = ufl.grad(u)
-
-    _mu = parameters["model"]["E"]
-    _kappa = parameters["model"].get("kappa", 1.0)
+class ThinFilmAT2(ThinFilm):
     
-    # energy_density = _mu / 2.0 * ufl.inner(eps, eps)
-    energy_density = _mu / 2.0 * a(alpha) * ufl.inner(eps, eps)
-    
-    if u_zero is None:
-        u_zero = Constant(u.function_space.mesh, 0.0)
-
-    substrate_density = _kappa / 2.0 * ufl.inner(u - u_zero, u - u_zero)
-
-    return energy_density + substrate_density
-
-def damage_energy_density(state):
-    """
-    Return the damage energy density of the state.
-    """
-
-    _w1 = parameters["model"]["w1"]
-    _ell = parameters["model"]["ell"]
-
-    alpha = state["alpha"]
-    grad_alpha = ufl.grad(alpha)
-
-    # Compute the damage dissipation density
-    damage_density = _w1 * w(alpha) + \
-        _w1 * _ell**2 * ufl.dot(grad_alpha, grad_alpha)
-
-    return damage_density
+    def w(self, alpha):
+        """
+        Return the dissipated energy function as a function of the state
+        (only depends on damage).
+        """
+        # Return w(alpha) function
+        return alpha**2
 
 def stress(state):
     """
@@ -109,19 +66,20 @@ def stress(state):
     return parameters["model"]["E"] * a(alpha) * u.dx() * dx
 
 def run_computation(parameters, storage=None):
+
     Lx = parameters["geometry"]["Lx"]
+    Ly = parameters["geometry"]["Ly"]
+    geom_type = parameters["geometry"]["geom_type"]
+    tdim = parameters["geometry"]["geometric_dimension"]
+    lc = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]    
+
     _nameExp = parameters["geometry"]["geom_type"]
-    parameters["model"]["ell"]
 
     # Get geometry model
-    parameters["geometry"]["geom_type"]
-    _N = int(parameters["geometry"]["N"])
-
-    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
     outdir = os.path.join(os.path.dirname(__file__), "output")
 
     if storage is None:
-        prefix = os.path.join(outdir, f"thin-film-at2")
+        prefix = os.path.join(outdir, f"thin-film-at2-2d")
     else:
         prefix = storage
 
@@ -136,6 +94,10 @@ def run_computation(parameters, storage=None):
 
         with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
+            
+    gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
+    model_rank = 0
+    mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
     with XDMFFile(
         comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
@@ -143,7 +105,7 @@ def run_computation(parameters, storage=None):
         file.write_mesh(mesh)
 
     # Functional Setting
-    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
     element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
     V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
@@ -151,8 +113,11 @@ def run_computation(parameters, storage=None):
 
     u = dolfinx.fem.Function(V_u, name="Displacement")
     u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
+    u_zero = Function(V_u, name="InelasticDisplacement")
+    zero_u = Function(V_u, name="BoundaryUnknown")
 
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
+    alphadot = dolfinx.fem.Function(V_alpha, name="Damage_rate")
 
     # Perturbations
     β = Function(V_alpha, name="DamagePerturbation")
@@ -171,11 +136,6 @@ def run_computation(parameters, storage=None):
     # Useful references
     Lx = parameters.get("geometry").get("Lx")
 
-    # Define the state
-    u = Function(V_u, name="Unknown")
-    u_zero = Function(V_u, name="InelasticDisplacement")
-    zero_u = Function(V_u, name="BoundaryUnknown")
-
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
     ds = ufl.Measure("ds", domain=mesh)
@@ -186,8 +146,7 @@ def run_computation(parameters, storage=None):
     alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
-    eps_t = dolfinx.fem.Constant(mesh, np.array(1., dtype=PETSc.ScalarType))
-    u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
+    # eps_t = dolfinx.fem.Constant(mesh, np.array(1., dtype=PETSc.ScalarType))
     
     for f in [zero_u, u_zero, alpha_lb, alpha_ub]:
         f.vector.ghostUpdate(
@@ -202,8 +161,16 @@ def run_computation(parameters, storage=None):
     
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
     
-    total_energy = (elastic_energy_density(state, u_zero) + damage_energy_density(state)) * dx
-    
+    tau = Constant(mesh, np.array(0., dtype=PETSc.ScalarType))
+    eps_t = tau * ufl.as_tensor([[1., 0], [0, 0]])
+
+    model = ThinFilmAT2(parameters["model"], eps_0=eps_t)
+
+    f = Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
+    external_work = ufl.dot(f, state["u"]) * dx
+    total_energy = model.total_energy_density(state) * dx - external_work
+    _stress = model.stress(model.eps(u), alpha)
+
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
@@ -227,25 +194,19 @@ def run_computation(parameters, storage=None):
 
     logging.basicConfig(level=logging.INFO)
 
-
     for i_t, t in enumerate(loads):
-
-        eps_t.value = t
+        tau.value = t
         
-        u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
-        u_zero.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        )
-
         # update the lower bound
         alpha.vector.copy(alpha_lb.vector)
         alpha_lb.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        _logger.critical(f"-- Solving for t = {t:3.2f} --")
+        _logger.critical(f"-- Solving Equilibrium (Criticality) for t = {t:3.2f} --")
         hybrid.solve(alpha_lb)
 
+        _logger.critical(f"-- Solving Bifurcation (Uniqueness) for t = {t:3.2f} --")
         is_unique = bifurcation.solve(alpha_lb)
         is_elastic = not bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
@@ -260,6 +221,7 @@ def run_computation(parameters, storage=None):
             else None
         )
 
+        _logger.critical(f"-- Solving Stability (Stability) for t = {t:3.2f} --")
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
         with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
@@ -271,81 +233,85 @@ def run_computation(parameters, storage=None):
                 )
 
 
-            xvfb.start_xvfb(wait=0.05)
-            pyvista.OFF_SCREEN = True
+                xvfb.start_xvfb(wait=0.05)
+                pyvista.OFF_SCREEN = True
 
-            plotter = pyvista.Plotter(
-                title="Thin film",
-                window_size=[1600, 600],
-                shape=(1, 2),
-            )
-            _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-            _plt = plot_scalar(u, plotter, subplot=(0, 1))
-            _plt.screenshot(f"{prefix}/thinfilm-state.png")
+                plotter = pyvista.Plotter(
+                    title="Thin film",
+                    window_size=[1600, 600],
+                    shape=(1, 2),
+                )
+                _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+                _plt = plot_scalar(u, plotter, subplot=(0, 1))
+                _plt.screenshot(f"{prefix}/thinfilm-state.png")
 
-            plotter = pyvista.Plotter(
-                title="Test Profile",
-                window_size=[800, 600],
-                shape=(1, 1),
-            )
+                plotter = pyvista.Plotter(
+                    title="Test Profile",
+                    window_size=[800, 600],
+                    shape=(1, 1),
+                )
 
-            tol = 1e-3
-            xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
-            points = np.zeros((3, 101))
-            points[0] = xs
+                tol = 1e-3
+                xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
+                points = np.zeros((3, 101))
+                points[0] = xs
 
-            _plt, data = plot_profile(
-                alpha,
-                points,
-                plotter,
-                lineproperties={
-                    "c": "k",
-                    "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}"
-                },
-            )
-            ax = _plt.gca()
-            _plt.legend()
-            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-            _plt.title("Damage profile")
-            ax.set_ylim(-0.1, 1.1)
+                _plt, data = plot_profile(
+                    alpha,
+                    points,
+                    plotter,
+                    lineproperties={
+                        "c": "k",
+                        "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}"
+                    },
+                )
+                ax = _plt.gca()
+                _plt.legend()
+                _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+                _plt.title("Damage profile")
+                ax.set_ylim(-0.1, 1.1)
 
-            _plt, data = plot_profile(
-                u_zero,
-                points,
-                plotter,
-                fig=_plt,
-                ax=ax,
-                lineproperties={
-                    "c": "r",
-                    "label": "$u_0$"
-                },
-            )
+                _plt, data = plot_profile(
+                    u_zero,
+                    points,
+                    plotter,
+                    fig=_plt,
+                    ax=ax,
+                    lineproperties={
+                        "c": "r",
+                        "label": "$u_0$"
+                    },
+                )
 
 
-            _plt, data = plot_profile(
-                u,
-                points,
-                plotter,
-                fig=_plt,
-                ax=ax,
-                lineproperties={
-                    "c": "g",
-                    "label": "$u$"
-                },
-            )
+                _plt, data = plot_profile(
+                    u,
+                    points,
+                    plotter,
+                    fig=_plt,
+                    ax=ax,
+                    lineproperties={
+                        "c": "g",
+                        "label": "$u$"
+                    },
+                )
 
-            _plt.savefig(f"{prefix}/damage_profile-{i_t}.png")
-
+                _plt.savefig(f"{prefix}/damage_profile-{i_t}.png")
 
             fracture_energy = comm.allreduce(
-                assemble_scalar(form(damage_energy_density(state) * dx)),
+                assemble_scalar(form(model.damage_energy_density(state) * dx)),
                 op=MPI.SUM,
             )
             elastic_energy = comm.allreduce(
-                assemble_scalar(form(elastic_energy_density(state, u_zero) * dx)),
+                assemble_scalar(form(model.elastic_energy_density(state) * dx)),
                 op=MPI.SUM,
             )
-            _F = assemble_scalar(form(stress(state)))
+            _stress = model.stress(model.eps(u), alpha)
+
+            stress = comm.allreduce(
+                assemble_scalar(form(_stress[0, 0] * dx)),
+                op=MPI.SUM,
+            )
 
             _write_history_data(
                 hybrid,
@@ -357,7 +323,7 @@ def run_computation(parameters, storage=None):
                 stable,
                 [elastic_energy, fracture_energy],
             )
-            history_data["F"].append(_F)
+            history_data["F"].append(stress)
             
             with XDMFFile(
                 comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
@@ -370,7 +336,20 @@ def run_computation(parameters, storage=None):
                 json.dump(history_data, a_file)
                 a_file.close()
 
-    
+                xvfb.start_xvfb(wait=0.05)
+                
+            pyvista.OFF_SCREEN = True
+            plotter = pyvista.Plotter(
+                title="Thin Film",
+                window_size=[1600, 600],
+                shape=(1, 2),
+            )
+            _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+            _plt = plot_vector(u, plotter, subplot=(0, 1))
+            _plt.screenshot(f"{prefix}/traction-state.png")
+
+            _plt.close()
+            
     # df = pd.DataFrame(history_data)
     print(pd.DataFrame(history_data))
     
@@ -391,31 +370,33 @@ def load_parameters(file_path, ndofs, model="at2"):
     with open(file_path) as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-    parameters["model"]["model_dimension"] = 1
-    parameters["model"]["model_type"] = "1D"
+    parameters["model"]["model_dimension"] = 2
+    parameters["model"]["model_type"] = "2d"
 
     parameters["geometry"]["geom_type"] = "thinfilm"
     # Get mesh parameters
 
     if model == "at2":
         parameters["loading"]["min"] = 0.0
-        parameters["loading"]["max"] = 1.0
-        parameters["loading"]["steps"] = 10
+        parameters["loading"]["max"] = 1.5
+        parameters["loading"]["steps"] = 50
 
-    parameters["geometry"]["geom_type"] = "1d-bar"
-    parameters["geometry"]["mesh_size_factor"] = 4
-    parameters["geometry"]["N"] = ndofs
-
+    parameters["geometry"]["geom_type"] = "bar"
+    parameters["geometry"]["mesh_size_factor"] = 3
+    parameters["geometry"]["Lx"] = 3
+    parameters["geometry"]["Ly"] = 5e-2
+    
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
     parameters["stability"]["cone"]["scaling"] = 1e-2
 
-    parameters["model"]["w1"] = 10000
+    parameters["model"]["w1"] = 1
     parameters["model"]["ell"] = (0.158114)**2 / 2
+    # parameters["model"]["ell"] = .1
     parameters["model"]["k_res"] = 0.0
-    parameters["model"]["mu"] = 1
-    parameters["model"]["kappa"] = (.34)**(-2)
+    parameters["model"]["E"] = 1
+    parameters["model"]["ell_e"] = .34
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
@@ -432,8 +413,9 @@ if __name__ == "__main__":
         model="at2")
     
     # Run computation
-    _storage = f"output/thinfilm-1d/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    _storage = f"output/thinfilm-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
     visualization = Visualization(_storage)
+    ColorPrint.print_bold(f"===================- {_storage} -=================")
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
         history_data, stability_data, state = run_computation(parameters, _storage)

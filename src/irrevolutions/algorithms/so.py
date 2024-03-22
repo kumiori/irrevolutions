@@ -513,6 +513,23 @@ class SecondOrderSolver:
 
     def store_results(self, eigen, spectrum):
         """Store eigenmodes and results."""
+
+        if not spectrum:
+            # Spectrum is empty, handle this case accordingly
+            self.spectrum = []
+            self._spectrum = []
+            self.minmode = None
+            self.mineig = None
+            self.data = {
+                "inf_spectrum": [],
+                "eigs": [],
+                "perturbations_beta": [],
+                "perturbations_v": [],
+                "stable": False,
+            }
+            self.perturbation = {}
+            return False
+
         unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
 
         # spectrum = unstable_spectrum
