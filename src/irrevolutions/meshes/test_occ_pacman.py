@@ -1,8 +1,12 @@
 import gmsh
 import numpy as np
-
+import os
+import pytest
+import sys
 
 def create_triangle_with_angle(opening_deg, rotation = 0):
+
+    gmsh.initialize(sys.argv)
 
     # Create a new model
     gmsh.model.add("triangle_with_angle")
@@ -35,6 +39,12 @@ def create_triangle_with_angle(opening_deg, rotation = 0):
 
     domain = gmsh.model.occ.rotate([(2, triangle_surface)], *p0, *_rotation_axis, angle_radians)
     
+    gmsh.model.mesh.generate(2)
+    output_file = os.path.join(os.path.dirname(__file__), "output", "triangle_with_angle.msh")
+    gmsh.write(output_file)
+
+    gmsh.finalize()
+    return output_file
     # gmsh.model.occ.rotate([(2, triangle_surface)], base_point1, 0, 0, 1, angle_radians)
 
     # Generate mesh
@@ -63,7 +73,6 @@ def create_pacman(opening_deg, rotation = 0):
     base_point1 = gmsh.model.occ.addPoint(*p0)
     base_point2 = gmsh.model.occ.addPoint(adjacent_length, 0, 0)
     base_line = gmsh.model.occ.addLine(base_point1, base_point2)
-
 
     # Define the vertex of the triangle
     vertex_point = gmsh.model.occ.addPoint(adjacent_length * np.cos(angle_radians), 
@@ -116,20 +125,20 @@ def create_pacman(opening_deg, rotation = 0):
     occ.synchronize()
     
     gmsh.model.mesh.generate(2)
-    # Write the mesh file
-    gmsh.write("test_occ.msh")
+    output_file = os.path.join(os.path.dirname(__file__), "output", "pacman.msh")
+    gmsh.write(output_file)
 
-    # Finalize Gmsh
-    return True
+    gmsh.finalize()
+    return output_file
 
-# Example: Create a triangle with a 45-degree angle
+
+def test_create_triangle_with_angle():
+    output_file = create_triangle_with_angle(opening_deg=30, rotation=0)
+    assert os.path.isfile(output_file)
+
+def test_create_pacman():
+    output_file = create_pacman(opening_deg=30, rotation=180-30/2)
+    assert os.path.isfile(output_file)
 
 if __name__ == "__main__":
-    gmsh.initialize()
-    
-    # domain = create_triangle_with_angle(opening_deg = 30, rotation = 0)
-    domain = create_pacman(opening_deg = 30, rotation = 180-30/2)
-    
-    gmsh.finalize()
-    
-    pass
+    pytest.main(args=[__file__])
