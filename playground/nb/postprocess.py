@@ -132,9 +132,9 @@ def plot_fills(ax, ell, tc):
 
 
 def plot_spectrum(params, data, tc, ax=None, tol=1e-12):
-    E0 = params['material']['E']
-    w1 = params['material']['sigma_D0']**2 / E0
-    ell = params['material']['ell']
+    E0 = params['model']['E']
+    w1 = params['model']['sigma_D0']**2 / E0
+    ell = params['model']['ell']
     fig = plt.figure()
     for i, d in enumerate(data['eigs']):
         if d is not (None and np.inf and np.nan):
