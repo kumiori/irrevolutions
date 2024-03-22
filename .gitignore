@@ -42,6 +42,8 @@
 **/*.mat*
 **/.DS_Store
 
+build/
+
 # sphinx
 docs/build/
 
@@ -52,3 +54,6 @@ docs/build/
 build/*
 
 **.egg-info
+test_*/
+src/irrevolutions/test/output/*
+**/output/**

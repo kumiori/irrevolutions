@@ -82,28 +82,6 @@ This code was initially conceived as a support for the teaching course MEC647,
 master programme, joint between École Polytechnique and ENSTA-Paristech throughout 2020-2022. 
 Hence the cryptic repository name.
 
-### Course Schedule
-
-
-- 0 Introduction, motivation, and a simple experiment, in theory.
-- 1 Numerics, from the basics to the solution of a linear variational problem 
-- 2 The notion of stability, stability of a brittle bar. The elasticity problem
-- 3 Energetics link fracture to damage. Project walkthrough 
-- 4 The damage problem: analytics and numerics
-- 5 Calibration (material, numerical) and tests
-- 6 Data analysis and presentation
-- Rest
-- 7 Defence
-
-
-### Authors
-- Cf. commit messages
-  
-### Course Instructors/Authors
-
-- V Lazarus, Sorbonne Université.
-- A Leon Baldelli, CR CNRS.
-
 
 ### Acknowledgements
 
@@ -113,22 +91,4 @@ Corrado Maurini, Sorbonne Université.
 
 ### License
 
-MIT License, see `LICENSE` file.
-
-### Tests
-
-test_1d.py
-test_2d.py
-
-test_cone_convergence.py
-test_cone_project.py
-test_elasticity.py
-test_extend.py
-test_rayleigh.py
-test_vector_info.py
-test_vi.py
-test_traction.py
-test_bifurcation.py
-test_logging_mpi.py
-test_scatter.py
-
+See `LICENSE` file.

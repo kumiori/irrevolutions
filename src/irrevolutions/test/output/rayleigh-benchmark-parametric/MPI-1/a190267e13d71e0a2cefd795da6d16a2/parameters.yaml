@@ -1,0 +1,103 @@
+geometry:
+  Lx: 1.0
+  Ly: 0.1
+  N: 50
+  geom_type: infinite-dimensional-unit-test
+  geometric_dimension: 2
+  lc: 0.02
+  mesh_size_factor: 4
+loading:
+  max: 1.001
+  min: 0
+  steps: 10
+model:
+  a: 0.31011207844574895
+  b: 2.813793764793334
+  c: -1.2230502813153585
+  model_dimension: 1
+  model_type: 1D
+solvers:
+  damage:
+    prefix: damage
+    snes:
+      ksp_type: preonly
+      pc_factor_mat_solver_type: mumps
+      pc_type: lu
+      snes_atol: 1.0e-08
+      snes_linesearch_type: basic
+      snes_max_it: 50
+      snes_monitor: ''
+      snes_rtol: 1.0e-08
+      snes_type: vinewtonrsls
+    tao:
+      ksp_rtol: 1e-6
+      pc_type: lu
+      tao_catol: 0.0
+      tao_crtol: 0.0
+      tao_gatol: 1.0e-08
+      tao_gpcg_maxpgits: 50
+      tao_grtol: 1.0e-08
+      tao_gttol: 1.0e-08
+      tao_ls_ftol: 1e-5
+      tao_ls_gtol: 1e-5
+      tao_ls_rtol: 1e-5
+      tao_ls_stepmax: 1e6
+      tao_ls_stepmin: 1e-8
+      tao_max_it: 100
+      tao_monitor: ''
+      tao_steptol: 1.0e-07
+      tao_type: tron
+    type: SNES
+  damage_elasticity:
+    alpha_rtol: 0.0001
+    criterion: alpha_H1
+    max_it: 200
+  elasticity:
+    prefix: elasticity
+    snes:
+      ksp_type: preonly
+      pc_factor_mat_solver_type: mumps
+      pc_type: lu
+      snes_atol: 1e-8
+      snes_max_it: 200
+      snes_monitor: ''
+      snes_rtol: 1e-8
+      snes_stol: 1e-8
+      snes_type: newtontr
+  newton:
+    linesearch_damping: 0.5
+    snes_atol: 1.0e-08
+    snes_linesearch_type: basic
+    snes_max_it: 30
+    snes_monitor: ''
+    snes_rtol: 1.0e-08
+    snes_type: vinewtonrsls
+stability:
+  checkstability: 'True'
+  cone:
+    cone_atol: 1.0e-06
+    cone_max_it: 400000
+    cone_rtol: 1.0e-06
+    maxmodes: 3
+    scaling: 0.001
+  cont_rtol: 1.0e-10
+  continuation: 'False'
+  eigen:
+    eig_rtol: 1.0e-08
+    eps_max_it: 100
+    eps_tol: 1.0e-05
+    eps_type: krylovschur
+  inactiveset_gatol: 0.1
+  inactiveset_pwtol: 1.0e-06
+  inertia:
+    ksp_type: preonly
+    mat_mumps_icntl_13: 1
+    mat_mumps_icntl_24: 1
+    pc_factor_mat_solver_type: mumps
+    pc_type: cholesky
+  is_elastic_tol: 1.0e-06
+  linesearch:
+    method: min
+    order: 4
+  maxmodes: 10
+  order: 3
