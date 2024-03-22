@@ -1,4 +1,5 @@
 import gmsh
+import os
 
 gmsh.initialize()
 
@@ -33,7 +34,7 @@ gmsh.model.occ.synchronize()
 gmsh.model.mesh.generate(2)
 
 # Write the mesh file
-gmsh.write("mesh.msh")
+gmsh.write(os.path.join(os.path.dirname(__file__), "mesh.msh"))
 
 # Finalize Gmsh
 gmsh.finalize()
