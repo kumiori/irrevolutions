@@ -11,6 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 0: Checkout
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
       # Step 1: Pull the Docker container from Docker Hub
       - name: Pull Docker Container
         run: docker pull kumiori3/numerix:stable

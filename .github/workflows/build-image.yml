@@ -1,0 +1,24 @@
+name: Build numerix-fenicsx-stable container
+run-name: ${{ github.actor }} is building numerix containers
+
+on:
+  push:
+    branches:
+      - andres-rev-patch
+
+jobs:
+  run-docker-container:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build Docker image for multiple platforms
+        run: |
+          docker buildx build --platform linux/amd64 -t numerix:stable docker/fenicsx-stable.dockerfile
+
+      - name: Run Docker container
+        run: docker run --rm numerix:stable
