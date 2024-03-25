@@ -1,0 +1,23 @@
+name: Run Tests in Docker Container
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Pull the Docker container from Docker Hub
+      - name: Pull Docker Container
+        run: docker pull kumiori3/numerix:stable
+
+      # Step 2: Check out the repository code within the container
+      - name: Run Tests in Docker Container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            kumiori3/numerix:stable \
+            sh -c "cd /workspace && ls -la"
