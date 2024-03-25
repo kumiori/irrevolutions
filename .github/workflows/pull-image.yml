@@ -17,7 +17,7 @@ jobs:
       
       # Step 1: Pull the Docker container from Docker Hub
       - name: Pull Docker Container
-        run: docker pull kumiori3/numerix:stable
+        run: docker pull kumiori3/numerix:stable-amd64
 
       # Step 2: Check out the repository code within the container
       - name: Run Tests in Docker Container

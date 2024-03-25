@@ -25,5 +25,5 @@ jobs:
         run: |
             docker images
             docker info
-            docker logs
+            # docker logs $(docker ps -lq)
             docker run --rm numerix:stable
