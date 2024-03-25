@@ -4,7 +4,7 @@ run-name: ${{ github.actor }} is pulling containers
 on:
   push:
     branches:
-      - main
+      - andres-rev-patch
 
 jobs:
   test:
