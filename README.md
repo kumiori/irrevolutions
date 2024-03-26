@@ -8,38 +8,6 @@ We solve the following (difficult) problem:
  
 Let $y=(\alpha, u)$ be an admissible state of a brittle system where $\alpha: \Omega \mapsto [0, 1]$ is a smooth damage field which identifies cracks (where $\alpha =1$) and $u$ is a displacement field. Provided a material model (an energy) $E_\ell$, given a time horizon $T$, let's find a map $t \in [0, T]\mapsto y_t$ such that: damage is non-decreasing and the observed state $y_t$ is energy-minimal, among admissible variations. 
 
-## The current branch
-
-We implement a Cone-Recipe. Take it as a surprise cake that opens upon critical conditions.
-
-### Running the notebooks (to be tested *prior* to course start)
-
-To run a Docker container on a local machine.
-
-1. Install Docker following the instructions at
-   https://www.docker.com/products/docker-desktop.
-
-2. Clone this repository using git:
-
-       git clone https://github.com/kumiori/mec647.git
-
-3. Run `./launcher.sh`.
-
-Although we recommend using Docker locally, you can also use the cloud-based Google Colab service to execute the notebooks:
-
-### Prerequisites
-
-The course will assume basic knowledge of the theory of infinitesimal elasticity and
-finite element methods.
-
-Basic knowledge of Python will be assumed, see https://github.com/jakevdp/WhirlwindTourOfPython
-to brush up if you feel unsure.
-
-Basic knowledge of git as a versioning system with feature-branch workflow
-https://gist.github.com/brandon1024/14b5f9fcfd982658d01811ee3045ff1e
-
-Remember to set your name and email before pushing to the repository,
-either locally or globally, see https://www.phpspiderblog.com/how-to-configure-username-and-email-in-git/
 
 #### Feature branch workflow
 
@@ -72,7 +40,7 @@ On a Mac:
 docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:latest
 ```
 
-On a Windox:
+On a windows box:
 ```
 docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix:latest
 ```
@@ -85,10 +53,37 @@ Hence the cryptic repository name.
 
 ### Acknowledgements
 
+
 To all the students for their effort, participation, and motivation.
 
-Corrado Maurini, Sorbonne Université.
+See paper.md
 
 ### License
 
 See `LICENSE` file.
+
+Each file should have at least the "copyright" line and a pointer to where the full notice is found.
+
+    <Irrevolutions is scientific software, it is conceived to compute evolution paths
+    upon a general notion of (unilateral) stability. It applies to fracture and, maybe,
+    not only.>
+
+    Copyright or copyLeft (C) <~0>  <ALB/83252>
+
+    This program is free software. Here, the term 'free' has all to do
+    with freedom and nothing to do with price. You can redistribute it and/or
+    modify it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed without hope that it will be useful,
+    WITHOUT ANY WARRANTY, but with pointers to ONE or SEVERAL PROOFS; without 
+    even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE,
+    if-not to compute constrained evolutions of complex systems, whether Natural
+    or Social. THIS MATERIAL IS BASED UPON GENERAL RESULTS. See the GNU General 
+    Public License for more details, see your favourite Functional Analysis reference 
+    book for further abstraction.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
