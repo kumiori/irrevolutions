@@ -16,10 +16,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: Build Docker image for multiple platforms
+      - name: Build Docker image for amd64 platforms
         run: |
           ls -al docker
-          docker buildx build --platform=linux/amd64 -t numerix:stable-amd64 -f docker/fenicsx-stable.dockerfile .
+          docker build  -t numerix:stable-amd64 -f docker/fenicsx-stable.dockerfile .
+#   docker buildx build --platform=linux/amd64 -t numerix:stable-amd64 -f docker/fenicsx-stable.dockerfile .
 
       - name: Run Docker container
         run: |
