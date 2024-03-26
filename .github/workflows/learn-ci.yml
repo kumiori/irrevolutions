@@ -9,7 +9,7 @@ on:
 jobs:
   build-image-and-run-tests:
     runs-on: ubuntu-latest
-    container: kumiori3/numerix:stable
+    container: kumiori3/numerix:stable-amd64
 
     steps:
       # - name: Checkout code
