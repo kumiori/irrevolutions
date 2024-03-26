@@ -32,7 +32,7 @@ jobs:
             -v ${{ github.workspace }}:/workspace kumiori3/numerix:stable-amd64 \
             # sh -c "cd /workspace && ls -la && pip install . && python3 -c 'import irrevolutions' && cd src/irrevolutions/test/ && python3 -m pytest test_rayleigh.py"
 
-      - name: Run Docker Container & Pytest Simple Script
+      - name: Run Docker Container & Run Simple Script
         run: |
             docker run --rm \
             -v ${{ github.workspace }}:/workspace kumiori3/numerix:stable-amd64 \
