@@ -12,8 +12,8 @@ jobs:
     container: kumiori3/numerix:stable
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      # - name: Checkout code
+        # uses: actions/checkout@v4
 
       - name: test-step
         shell: bash
@@ -22,8 +22,3 @@ jobs:
           echo "Current directory is $(pwd)"
           echo "Contents of the directory are $(ls -la)"
           
-      # - name: Run Docker container
-      #   run: docker run --rm -v "${{ github.workspace }}":/home/numerix -w /home/numerix kumiori3/numerix:stable
-
-      - name: Install Irrevolutions
-        run: pip install .
