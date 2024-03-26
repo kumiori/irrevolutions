@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+import subprocess
 import sys
 from typing import List
 
@@ -120,23 +122,49 @@ def setup_logger_mpi(root_priority: int = logging.INFO):
 
 _logger = setup_logger_mpi()
 
-import subprocess
 
 # Get the current Git branch
-def get_current_branch():
+def get_branch_details():
+    # Try to get branch name and commit hash using GitHub Actions environment variables
+    try:
+        # Retrieve branch name
+        github_ref = os.getenv("GITHUB_REF")
+        if github_ref:
+            # Split the reference by '/' and get the last element, which is the branch name
+            parts = github_ref.split("/")
+            branch_name = parts[-1]
+        else:
+            print("GITHUB_REF environment variable not found.")
+            branch_name = None
+
+        # Retrieve commit hash
+        github_sha = os.getenv("GITHUB_SHA")
+        if github_sha:
+            commit_hash = github_sha[:7]  # Take the first 7 characters of the SHA
+        else:
+            print("GITHUB_SHA environment variable not found.")
+            commit_hash = None
+
+        return branch_name, commit_hash
+
+    except Exception as e:
+        print(f"Failed to retrieve branch name and commit hash from GitHub Actions environment: {e}")
+        branch_name = None
+        commit_hash = None
+
+    # If GitHub Actions environment variables are not available, try to get branch name and commit hash locally
     try:
         # Get the current Git branch
         branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.PIPE).strip().decode("utf-8")
         commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
         return branch, commit_hash
-    except subprocess.CalledProcessError as e:
-        # Handle the error
-        error_message = e.stderr.decode("utf-8").strip()
-        print(f"Error occurred while getting the current branch: {error_message}")
+    
+    except Exception as e:
+        print(f"Failed to retrieve branch name and commit hash locally: {e}")
         return 'unknown', 'unknown'
-
 # Get the current branch
-branch, commit_hash = get_current_branch()
+
+branch, commit_hash = get_branch_details()
 
 # Get the current Git commit hash
 
