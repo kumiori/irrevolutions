@@ -2,10 +2,12 @@ name: learn-github-actions
 run-name: ${{ github.actor }} is learning GitHub Actions
 
 on:
-  push:
+  pull_request:
     branches:
-      - 'andres-rev-patch'
-
+      - main
+    types:
+      - closed
+      
 jobs:
   build-image-and-run-tests:
     runs-on: ubuntu-latest
