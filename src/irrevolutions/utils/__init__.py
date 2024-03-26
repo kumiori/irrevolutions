@@ -123,10 +123,22 @@ _logger = setup_logger_mpi()
 import subprocess
 
 # Get the current Git branch
-branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode("utf-8")
+def get_current_branch():
+    try:
+        # Get the current Git branch
+        branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.PIPE).strip().decode("utf-8")
+        commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
+        return branch, commit_hash
+    except subprocess.CalledProcessError as e:
+        # Handle the error
+        error_message = e.stderr.decode("utf-8").strip()
+        print(f"Error occurred while getting the current branch: {error_message}")
+        return 'unknown', 'unknown'
+
+# Get the current branch
+branch, commit_hash = get_current_branch()
 
 # Get the current Git commit hash
-commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
 
 code_info = {
     "branch": branch,
