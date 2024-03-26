@@ -24,7 +24,7 @@ jobs:
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace kumiori3/numerix:stable-amd64 \
-            sh -c "cd /workspace && ls -la && pip install . && python3 -c 'import irrevolutions' && pytest -v tests/"
+            sh -c "cd /workspace && ls -la && pip install . && python3 -c 'import irrevolutions' && cd src/irrevolutions/test/ && pytest -v ."
 
     #   - name: Install package
     #     run: |
