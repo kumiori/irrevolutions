@@ -34,6 +34,7 @@ RUN python3 -m pip install pyvista
 RUN pip3 install matplotlib ipython pandas
 RUN pip3 install black sympy flake8 autoflake8
 RUN pip3 install tqdm colorcet
+# RUN pip3 install git+https://github.com/michalhabera/dolfiny.git
 
 RUN apt-get update --assume-yes 
 
