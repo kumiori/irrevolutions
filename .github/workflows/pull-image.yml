@@ -24,19 +24,19 @@ jobs:
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace kumiori3/numerix:stable-amd64 \
-            sh -c "cd /workspace && ls -la"
+            sh -c "cd /workspace && ls -la && pip install . && python3 -c 'import irrevolutions' && pytest -v tests/"
 
-      - name: Install package
-        run: |
-            ls -la
-            pip install .
+    #   - name: Install package
+    #     run: |
+    #         ls -la
+    #         pip install .
 
-      - name: Test import package
-        run: |
-          python3 -c "import irrevolutions" && echo "Imported successfully" || echo "Failed to import"
+    #   - name: Test import package
+    #     run: |
+    #       python3 -c "import irrevolutions" && echo "Imported successfully" || echo "Failed to import"
 
-      - name: Test scripts
-        run: |
-          pytest -v tests/
+    #   - name: Test scripts
+    #     run: |
+    #       pytest -v tests/
   
     
