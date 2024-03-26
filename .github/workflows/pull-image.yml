@@ -7,7 +7,7 @@ on:
       - andres-rev-patch
 
 jobs:
-  test:
+  set-up-computing-environment:
     runs-on: ubuntu-latest
 
     steps:
@@ -33,4 +33,4 @@ jobs:
 
       - name: Test import package
         run: |
-          python3 -c "import irrevolution" && echo "Imported successfully" || echo "Failed to import"
+          python3 -c "import irrevolutions" && echo "Imported successfully" || echo "Failed to import"
