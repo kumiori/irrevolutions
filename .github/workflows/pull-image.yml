@@ -20,13 +20,26 @@ jobs:
         run: docker pull kumiori3/numerix:stable-amd64
 
       # Step 2: Check out the repository code within the container
-      - name: Run Docker Container
+      - name: Run Docker Container & Test
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace kumiori3/numerix:stable-amd64 \
             sh -c "cd /workspace && ls -la && pip install . && python3 -c 'import irrevolutions' && cd src/irrevolutions/test/ && pytest -v ."
 
-    #   - name: Install package
+      - name: Run Docker Container & Pytest Simple Script
+        run: |
+            docker run --rm \
+            -v ${{ github.workspace }}:/workspace kumiori3/numerix:stable-amd64 \
+            sh -c "cd /workspace && ls -la && pip install . && python3 -c 'import irrevolutions' && cd src/irrevolutions/test/ && python3 -m pytest test_rayleigh.py"
+
+      - name: Run Docker Container & Pytest Simple Script
+        run: |
+            docker run --rm \
+            -v ${{ github.workspace }}:/workspace kumiori3/numerix:stable-amd64 \
+            sh -c "cd /workspace && ls -la && pip install . && python3 -c 'import irrevolutions' && cd src/irrevolutions/test/ && python3 test_rayleigh.py"
+
+    
+    # - name: Install package
     #     run: |
     #         ls -la
     #         pip install .

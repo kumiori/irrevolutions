@@ -1,4 +1,4 @@
-from .test_rayleigh_parametric import rayleigh_ratio
+from irrevolutions.test.test_rayleigh_parametric import rayleigh_ratio
 from irrevolutions.utils import indicator_function
 from irrevolutions.utils.viz import plot_profile, get_datapoints
 from irrevolutions.solvers.function import vec_to_functions
@@ -28,7 +28,18 @@ sys.path.append("../playground/nb")
 _logger.setLevel(logging.CRITICAL)
 
 
-def rayleigh(parameters, storage=None):
+def test_rayleigh(parameters = None, storage=None):
+
+    if parameters is None:
+        parameters, signature = load_parameters("parameters.yml", ndofs=50)
+        pretty_parameters = json.dumps(parameters, indent=2)
+        storage = f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    
+    if storage is None:
+        prefix = "output/rayleigh-benchmark"
+    else:
+        prefix = storage
+
     comm = MPI.COMM_WORLD
     comm.Get_rank()
     comm.Get_size()
@@ -38,10 +49,8 @@ def rayleigh(parameters, storage=None):
     N = parameters["geometry"]["N"]
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, N)
 
-    if storage is None:
-        prefix = "output/rayleigh-benchmark"
-    else:
-        prefix = storage
+
+    ColorPrint.print_bold(f"===================-{storage}-=================")
 
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
@@ -410,4 +419,4 @@ if __name__ == "__main__":
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
-        history_data, stability_data, state = rayleigh(parameters, _storage)
+        history_data, stability_data, state = test_rayleigh(parameters, _storage)
