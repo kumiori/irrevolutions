@@ -1,0 +1,26 @@
+name: learn-github-actions
+run-name: ${{ github.actor }} is learning GitHub Actions
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+      
+jobs:
+  build-image-and-run-tests:
+    runs-on: ubuntu-latest
+    container: kumiori3/numerix:stable-amd64
+
+    steps:
+      # - name: Checkout code
+        # uses: actions/checkout@v4
+
+      - name: test-step
+        shell: bash
+        run: |
+          echo "--This is running in my numerix Docker image--"
+          echo "Current directory is $(pwd)"
+          echo "Contents of the directory are $(ls -la)"
+          

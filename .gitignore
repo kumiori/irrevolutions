@@ -42,8 +42,13 @@
 **/*.mat*
 **/.DS_Store
 
+build/
+
 # sphinx
 docs/build/
 
 # branch-specific tests
 test_*/
+src/irrevolutions/test/output/*
+**/output/**
+**egg-info**
