@@ -18,7 +18,7 @@
 <article-id pub-id-type="publisher-id">0</article-id>
 <article-id pub-id-type="doi">N/A</article-id>
 <title-group>
-<article-title>Variational Solvers for Irreversile Evolutionary
+<article-title>Variational Solvers for Irreversible Evolutionary
 Systems</article-title>
 </title-group>
 <contrib-group>
@@ -32,6 +32,7 @@ Systems</article-title>
 <xref ref-type="corresp" rid="cor-1"><sup>*</sup></xref>
 </contrib>
 <contrib contrib-type="author" corresp="yes">
+<contrib-id contrib-id-type="orcid">https://orcid.org/0000-0002-0304-9382</contrib-id>
 <name>
 <surname>Cesana</surname>
 <given-names>Pierluigi</given-names>
@@ -59,8 +60,8 @@ Institute, CNRS, Sorbonne Universités, Place Jussieu 75252 Paris Cedex
 <corresp id="cor-1">* E-mail: <email></email></corresp>
 <corresp id="cor-2">* E-mail: <email></email></corresp>
 </author-notes>
-<pub-date date-type="pub" publication-format="electronic" iso-8601-date="2024-03-04">
-<day>4</day>
+<pub-date date-type="pub" publication-format="electronic" iso-8601-date="2024-03-08">
+<day>8</day>
 <month>3</month>
 <year>2024</year>
 </pub-date>
@@ -97,8 +98,9 @@ a Creative Commons Attribution 4.0 International License (CC BY
   <p>We study irreversible evolutionary processes with a general
   energetic notion of stability. We dedicate this contribution to
   releasing three nonlinear variational solvers as modular components
-  that address mathematical problems that are general enough to apply,
-  in principle, to systems with instabilities, jumps, and emergence of
+  (based on FEniCSx/dolfinx) that address three mathematical
+  optimisation problems. They are general enough to apply, in principle,
+  to evolutionary systems with instabilities, jumps, and emergence of
   patterns which is commonplace in diverse arenas spanning from quantum
   to continuum mechanics, economy, social sciences, and ecology. Our
   motivation proceeds from fracture mechanics, with the ultimate goal of
@@ -234,13 +236,26 @@ a Creative Commons Attribution 4.0 International License (CC BY
     et al., 2023</xref>), petsc4py
     (<xref alt="Dalcin et al., 2011" rid="ref-dalcinpazklercosimo2011" ref-type="bibr">Dalcin
     et al., 2011</xref>), SLEPc.EPS
-    (<xref alt="Hernandez et al., 2005" rid="ref-hernandezU003A2005-slepc" ref-type="bibr">Hernandez
-    et al., 2005</xref>), and dolfiny
+    (<xref alt="hernandez:2005-slepc?" rid="ref-hernandezU003A2005-slepc" ref-type="bibr"><bold>hernandez:2005-slepc?</bold></xref>),
+    and dolfiny
     (<xref alt="Habera &amp; Zilian, n.d." rid="ref-HaberaU003Aaa" ref-type="bibr">Habera
     &amp; Zilian, n.d.</xref>) for parallel scalability.</p>
     <p>Our solver’s API receives an abstract energy functional, a
-    user-friendly description of the state of the system, and its
-    associated constraints.</p>
+    user-friendly description of the state of the system, its associated
+    constraints, and the solver’s parameters. Solvers can be
+    instantiated calling</p>
+    <preformat>solver = {Hybrid,Bifurcation,Stability}Solver(
+      E,              # An energy (dolfinx.fem.form) 
+      state,          # A dictionary of fields describing the system
+      bcs,            # A list of boundary conditions
+      [bounds],       # A list of bounds (upper and lower) for the state 
+      parameters)     # A dictionary of numerical parameters</preformat>
+    <p>where <monospace>[bounds]</monospace> are required for the
+    <monospace>HybridSolver</monospace>, and used calling
+    <monospace>solver.solve(&lt;args&gt;)</monospace> which triggers the
+    solution of the corresponding variational problem. Here,
+    <monospace>&lt;args&gt;</monospace> depend on the solver (see the
+    documentation for details).</p>
     <p><monospace>HybridSolver</monospace> solves a (first order)
     constrained nonlinear variational inequality, implementing a
     two-phase hybrid strategy which is <italic>ad hoc</italic> for
@@ -248,7 +263,9 @@ a Creative Commons Attribution 4.0 International License (CC BY
     mechanics. The first phase (iterative alternate minimisation) is
     based on a de-facto <italic>industry standard</italic>, conceived to
     exploit the (partial, directional) convexity of the underlying
-    mechanical models. Once an approximate-solution enters the
+    mechanical models
+    (<xref alt="Bourdin et al., 2000" rid="ref-bourdinU003A2000-numerical" ref-type="bibr">Bourdin
+    et al., 2000</xref>). Once an approximate-solution enters the
     attraction set around a critical point, the solver switches to
     perform a fully nonlinear step solving a block-matrix problem via
     Newton’s method. This guarantees a precise estimation of the
@@ -324,15 +341,23 @@ a Creative Commons Attribution 4.0 International License (CC BY
   </sec>
   <sec id="verification">
     <title>Verification</title>
-    <p>We benchmark our solvers against a nontrivial 1d problem, namely
-    we compute <disp-formula><alternatives>
+    <p>We benchmark our solvers against a nontrivial 1d problem
+    (cf. <monospace>test/test_rayleigh.py</monospace> in the code
+    repository), namely we compute <disp-formula><alternatives>
     <tex-math><![CDATA[
     \min_{X_0} \mathcal R(z) \quad \text{and} \quad \min_{\mathcal K^+_0} \mathcal R(z) \qquad\qquad [2],]]></tex-math>
     <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:munder><mml:mo>min</mml:mo><mml:msub><mml:mi>X</mml:mi><mml:mn>0</mml:mn></mml:msub></mml:munder><mml:mi>ℛ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mspace width="1.0em"></mml:mspace><mml:mtext mathvariant="normal">and</mml:mtext><mml:mspace width="1.0em"></mml:mspace><mml:munder><mml:mo>min</mml:mo><mml:msubsup><mml:mi>𝒦</mml:mi><mml:mn>0</mml:mn><mml:mo>+</mml:mo></mml:msubsup></mml:munder><mml:mi>ℛ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mspace width="2.0em"></mml:mspace><mml:mspace width="2.0em"></mml:mspace><mml:mrow><mml:mo stretchy="true" form="prefix">[</mml:mo><mml:mn>2</mml:mn><mml:mo stretchy="true" form="postfix">]</mml:mo></mml:mrow><mml:mo>,</mml:mo></mml:mrow></mml:math></alternatives></disp-formula>
     using <monospace>BifurcationSolver</monospace> and
-    <monospace>StabilitySolver</monospace>. For definiteness, using the
-    Sobolev spaces which are the natural setting for second order PDE
-    problems, we set <inline-formula><alternatives>
+    <monospace>StabilitySolver</monospace>. The quantity
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[\mathcal R(z)]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>ℛ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>
+    is a Rayleigh ratio, often used in structural mechanics as a
+    dimensionless global quantity (an energetic ratio of elastic and
+    fracture energies) which provides insight into the stability and
+    critical loading conditions for a structure. For definiteness, using
+    the Sobolev spaces which are the natural setting for second order
+    PDE problems, we set <inline-formula><alternatives>
     <tex-math><![CDATA[X_0 = H^1_0(0, 1) \times H^1(0, 1)]]></tex-math>
     <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>X</mml:mi><mml:mn>0</mml:mn></mml:msub><mml:mo>=</mml:mo><mml:msubsup><mml:mi>H</mml:mi><mml:mn>0</mml:mn><mml:mn>1</mml:mn></mml:msubsup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mn>1</mml:mn><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>×</mml:mo><mml:msup><mml:mi>H</mml:mi><mml:mn>1</mml:mn></mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mn>1</mml:mn><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>
     and <inline-formula><alternatives>
@@ -435,17 +460,21 @@ a Creative Commons Attribution 4.0 International License (CC BY
       <graphic mimetype="application" mime-subtype="pdf" xlink:href="media/media/phase_diagram_R_cone.pdf" />
     </fig>
   </sec>
-</sec>
-<sec id="acknowledgements">
-  <title>Acknowledgements</title>
-  <p>ALB acknowledges the students of MEC647 20••-•• for motivation and
-  feedback; Yves Capdeboscq, Jean-Jacques Marigo, Sebastien Neukirch,
-  and Luc Nguyen, for constructive discussions and one key insight that
-  was crucial for this project. P.C. is a member of the Gruppo Nazionale
-  per l’Analisi Matematica, la Probabilità e le loro Applicazioni
-  (GNAMPA) of the Istituto Nazionale di Alta Matematica (INdAM). P.C.
-  holds an honorary appointment at La Trobe University and is supported
-  by JSPS Innovative Area Grant JP21H00102.</p>
+  <sec id="acknowledgements">
+    <title>Acknowledgements</title>
+    <p>A.L.B. acknowledges the students of MEC647 (Complex Crack
+    Propagation in Brittle Materials) of the
+    <monospace>Modélisation Multiphysique Multiéchelle des Matériaux et des Structures</monospace>
+    master program at ENSTA Paris Tech/École Polytechnique for their
+    contributions, motivation, and feedback; Yves Capdeboscq,
+    Jean-Jacques Marigo, Sebastien Neukirch, and Luc Nguyen, for
+    constructive discussions and one key insight that was crucial for
+    this project. P.C. is a member of the Gruppo Nazionale per l’Analisi
+    Matematica, la Probabilità e le loro Applicazioni (GNAMPA) of the
+    Istituto Nazionale di Alta Matematica (INdAM). P.C. holds an
+    honorary appointment at La Trobe University and is supported by JSPS
+    Innovative Area Grant JP21H00102.</p>
+  </sec>
 </sec>
 </body>
 <back>
@@ -623,20 +652,21 @@ a Creative Commons Attribution 4.0 International License (CC BY
       <lpage>148</lpage>
     </element-citation>
   </ref>
-  <ref id="ref-hernandezU003A2005-slepc">
+  <ref id="ref-bourdinU003A2000-numerical">
     <element-citation publication-type="article-journal">
       <person-group person-group-type="author">
-        <name><surname>Hernandez</surname><given-names>Vicente</given-names></name>
-        <name><surname>Roman</surname><given-names>Jose E.</given-names></name>
-        <name><surname>Vidal</surname><given-names>Vicente</given-names></name>
+        <name><surname>Bourdin</surname><given-names>Blaise</given-names></name>
+        <name><surname>Francfort</surname><given-names>Gilles A</given-names></name>
+        <name><surname>Marigo</surname><given-names>Jean-Jacques</given-names></name>
       </person-group>
-      <article-title>SLEPc: A scalable and flexible toolkit for the solution of eigenvalue problems</article-title>
-      <source>ACM Trans. Math. Software</source>
-      <year iso-8601-date="2005">2005</year>
-      <volume>31</volume>
-      <issue>3</issue>
-      <fpage>351</fpage>
-      <lpage>362</lpage>
+      <article-title>Numerical experiments in revisited brittle fracture</article-title>
+      <source>Journal of the Mechanics and Physics of Solids</source>
+      <publisher-name>Elsevier</publisher-name>
+      <year iso-8601-date="2000">2000</year>
+      <volume>48</volume>
+      <issue>4</issue>
+      <fpage>797</fpage>
+      <lpage>826</lpage>
     </element-citation>
   </ref>
   <ref id="ref-jorge-nocedalU003A1999-numerical">
