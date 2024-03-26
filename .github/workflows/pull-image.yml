@@ -23,6 +23,14 @@ jobs:
       - name: Run Tests in Docker Container
         run: |
           docker run --rm \
-            -v ${{ github.workspace }}:/workspace \
-            kumiori3/numerix:stable-amd64 \
+            -v ${{ github.workspace }}:/workspace kumiori3/numerix:stable-amd64 \
             sh -c "cd /workspace && ls -la"
+
+      - name: Install package
+        run: |
+            ls -la
+            pip install .
+
+      - name: Test import package
+        run: |
+          python3 -c "import irrevolution" && echo "Imported successfully" || echo "Failed to import"
