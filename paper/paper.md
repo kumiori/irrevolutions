@@ -70,9 +70,18 @@ Above, $T$ defines a horizon of events. The system is represented by its total e
 
 Our solvers are written in `Python` and are built on  `DOLFINx`, an expressive and performant parallel  distributed computing environment for solving partial differential equations using the finite element method [@dolfinx2023preprint]. It enables us wrapping high-level functional mathematical constructs with full flexibility and control of the underlying linear algebra backend. We use PETSc [@petsc-user-ref], petsc4py [@dalcinpazklercosimo2011], SLEPc.EPS [@hernandez:2005-slepc], and dolfiny [@Habera:aa] for parallel scalability.
 
-Our solver's API receives an abstract energy functional, a user-friendly description of the state of the system, and its associated constraints.
+Our solver's API receives an abstract energy functional, a user-friendly description of the state of the system, its associated constraints, and the solver's parameters. Solvers can be instantiated calling 
+```
+solver = {Hybrid,Bifurcation,Stability}Solver(
+      E,              # An energy (dolfinx.fem.form) 
+      state,          # A dictionary of fields describing the system
+      bcs,            # A list of boundary conditions
+      [bounds],       # A list of bounds (upper and lower) for the state 
+      parameters)     # A dictionary of numerical parameters
+```
+where `bounds` is required for the `HybridSolver`, and used calling `solver.solve(<args>)` which triggers the solution of the corresponding variational problem. Here, `<args>` depend on the solver (see the documentation for details).
 
-`HybridSolver` solves a (first order) constrained nonlinear variational inequality, implementing a two-phase hybrid strategy which is _ad hoc_ for energy models typical of applications in damage and fracture mechanics. The first phase (iterative alternate minimisation) is based on a de-facto _industry standard_, conceived to exploit the (partial, directional) convexity of the underlying mechanical models. Once an approximate-solution enters the attraction set around a critical point, the solver switches to perform a fully nonlinear step solving a block-matrix problem via Newton's method. This guarantees a precise estimation of the convergence of the first-order nonlinear problem based on the norm of the (constrained) residual. 
+`HybridSolver` solves a (first order) constrained nonlinear variational inequality, implementing a two-phase hybrid strategy which is _ad hoc_ for energy models typical of applications in damage and fracture mechanics. The first phase (iterative alternate minimisation) is based on a de-facto _industry standard_, conceived to exploit the (partial, directional) convexity of the underlying mechanical models [@bourdin:2000-numerical]. Once an approximate-solution enters the attraction set around a critical point, the solver switches to perform a fully nonlinear step solving a block-matrix problem via Newton's method. This guarantees a precise estimation of the convergence of the first-order nonlinear problem based on the norm of the (constrained) residual. 
 
 `BifurcationSolver` is a variational eigenvalue solver which uses SLEPc.EPS to explore the lower part of the spectrum of the Hessian of the energy, automatically computed performing two directional derivatives. Constraints are accounted for by projecting the full Hessian onto the subspace of inactive constraints [@jorge-nocedal:1999-numerical]. The relevance of this approach is typical of systems with threshold laws. Thus, the `solve` method returns a boolean value indicating whether the restricted Hessian is positive definite. Internally, the solver stores the lower part of the operators' spectrum as an array. 
 
