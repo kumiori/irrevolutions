@@ -4,7 +4,7 @@ run-name: ${{ github.actor }} is building numerix containers
 on:
   push:
     branches:
-      - andres-rev-patch
+        - 'recipe-container'
 
 jobs:
   run-docker-container:
