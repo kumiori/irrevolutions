@@ -19,6 +19,7 @@ license = {file = "LICENSE"}
 dependencies = [
     "pandas>=2.2",
     "sympy",
+    "pytest",
     "matplotlib",
     "gmsh>=4.11.0",
     "PyYAML>=6.0.1",

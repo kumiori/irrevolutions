@@ -20,7 +20,7 @@ jobs:
         run: docker pull kumiori3/numerix:stable-amd64
 
       # Step 2: Check out the repository code within the container
-      - name: Run Tests in Docker Container
+      - name: Run Docker Container
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace kumiori3/numerix:stable-amd64 \
@@ -29,7 +29,7 @@ jobs:
       - name: Install package
         run: |
             ls -la
-            pip install .[test]
+            pip install .
 
       - name: Test import package
         run: |
