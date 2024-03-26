@@ -19,11 +19,10 @@ jobs:
       - name: Build Docker image for multiple platforms
         run: |
           ls -al docker
-          docker buildx build --platform linux/amd64 -t numerix:stable -f docker/fenicsx-stable.dockerfile .
+          docker buildx build --platform=linux/amd64 -t numerix:stable-amd64 -f docker/fenicsx-stable.dockerfile .
 
       - name: Run Docker container
         run: |
             docker images
             docker info
-            # docker logs $(docker ps -lq)
-            docker run --rm numerix:stable
+            docker run --rm numerix:stable-amd64
