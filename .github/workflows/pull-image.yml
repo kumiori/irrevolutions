@@ -34,3 +34,9 @@ jobs:
       - name: Test import package
         run: |
           python3 -c "import irrevolutions" && echo "Imported successfully" || echo "Failed to import"
+
+      - name: Test scripts
+        run: |
+          pytest -v tests/
+  
+    
