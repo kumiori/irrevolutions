@@ -53,7 +53,6 @@ Hence the cryptic repository name.
 
 ### Acknowledgements
 
-
 To all the students for their effort, participation, and motivation.
 
 See paper.md
@@ -87,3 +86,14 @@ Each file should have at least the "copyright" line and a pointer to where the f
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+
+
+## Star History
+
+<a href="https://star-history.com/#kumiori/irrevolutions&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=kumiori/irrevolutions&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=kumiori/irrevolutions&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=kumiori/irrevolutions&type=Date" />
+ </picture>
+</a>
