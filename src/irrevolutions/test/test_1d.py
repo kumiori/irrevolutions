@@ -696,7 +696,6 @@ def load_parameters(file_path, ndofs, model="at1"):
     return parameters, signature
 
 
-# if __name__ == "__main__":
 def test_1d():
     import argparse
 
@@ -744,4 +743,5 @@ def test_1d():
     np.testing.assert_array_equal(_stability, np.array([True, True, True, False, False]))
     np.testing.assert_array_equal(_uniqueness, np.array([True, True, True, False, False]))
  
-    
+if __name__ == "__main__":
+    test_1d()

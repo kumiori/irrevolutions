@@ -399,8 +399,8 @@ def load_parameters(file_path, ndofs, model="at2"):
 
     if model == "at2":
         parameters["loading"]["min"] = 0.0
-        parameters["loading"]["max"] = 1.0
-        parameters["loading"]["steps"] = 10
+        parameters["loading"]["max"] = 3.0
+        parameters["loading"]["steps"] = 30
 
     parameters["geometry"]["geom_type"] = "1d-bar"
     parameters["geometry"]["mesh_size_factor"] = 4
@@ -409,9 +409,9 @@ def load_parameters(file_path, ndofs, model="at2"):
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-    parameters["stability"]["cone"]["scaling"] = 1e-2
+    parameters["stability"]["cone"]["scaling"] = 1e-4
 
-    parameters["model"]["w1"] = 10000
+    parameters["model"]["w1"] = 1
     parameters["model"]["ell"] = (0.158114)**2 / 2
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
