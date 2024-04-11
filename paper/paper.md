@@ -18,6 +18,7 @@ authors:
   - name: Pierluigi Cesana
     orcid: 0000-0002-0304-9382
     corresponding: true
+    orcid: 0000-0002-0304-9382
     equal-contrib: false
     affiliation: 2
 affiliations:
@@ -25,14 +26,14 @@ affiliations:
    index: 1
  - name: Institute of Mathematics for Industry, Kyushu University, 744 Motooka, Nishi-ku, Fukuoka, 819-0395, Japan.
    index: 2
-date: 4 March 2024
+date: 8 March 2024
 bibliography: paper.bib
 
 ---
 
 # Summary
 
-We study irreversible evolutionary processes with a general energetic notion of stability. We dedicate this contribution to releasing three nonlinear variational solvers as modular components that address mathematical problems that are general enough to apply, in principle, to systems with instabilities, jumps, and emergence of patterns which is commonplace in diverse arenas spanning from quantum to continuum mechanics, economy, social sciences, and ecology. Our motivation proceeds from fracture mechanics, with the ultimate goal of deploying a transparent numerical platform for scientific validation and prediction of large scale natural fracture phenomena. Our solvers are used to compute _one_ solution to a problem encoded in a system of two inequalities: one (pointwise almost-everywhere) constraint of irreversibility and one global energy statement. As part of our commitment to open science, our solvers are released as free software.
+We study irreversible evolutionary processes with a general energetic notion of stability. We dedicate this contribution to releasing three nonlinear variational solvers as modular components (based on FEniCSx/dolfinx) that address three mathematical optimisation problems. They are general enough to apply, in principle, to evolutionary systems with instabilities, jumps, and emergence of patterns which is commonplace in diverse arenas spanning from quantum to continuum mechanics, economy, social sciences, and ecology. Our motivation proceeds from fracture mechanics, with the ultimate goal of deploying a transparent numerical platform for scientific validation and prediction of large scale natural fracture phenomena. Our solvers are used to compute _one_ solution to a problem encoded in a system of two inequalities: one (pointwise almost-everywhere) constraint of irreversibility and one global energy statement. As part of our commitment to open science, our solvers are released as free software.
 
 # Statement of need
 
@@ -69,9 +70,18 @@ Above, $T$ defines a horizon of events. The system is represented by its total e
 
 Our solvers are written in `Python` and are built on  `DOLFINx`, an expressive and performant parallel  distributed computing environment for solving partial differential equations using the finite element method [@dolfinx2023preprint]. It enables us wrapping high-level functional mathematical constructs with full flexibility and control of the underlying linear algebra backend. We use PETSc [@petsc-user-ref], petsc4py [@dalcinpazklercosimo2011], SLEPc.EPS [@hernandez:2005-slepc], and dolfiny [@Habera:aa] for parallel scalability.
 
-Our solver's API receives an abstract energy functional, a user-friendly description of the state of the system, and its associated constraints.
+Our solver's API receives an abstract energy functional, a user-friendly description of the state of the system, its associated constraints, and the solver's parameters. Solvers can be instantiated calling 
+```
+solver = {Hybrid,Bifurcation,Stability}Solver(
+      E,              # An energy (dolfinx.fem.form) 
+      state,          # A dictionary of fields describing the system
+      bcs,            # A list of boundary conditions
+      [bounds],       # A list of bounds (upper and lower) for the state 
+      parameters)     # A dictionary of numerical parameters
+```
+where `[bounds]` are required for the `HybridSolver`, and used calling `solver.solve(<args>)` which triggers the solution of the corresponding variational problem. Here, `<args>` depend on the solver (see the documentation for details).
 
-`HybridSolver` solves a (first order) constrained nonlinear variational inequality, implementing a two-phase hybrid strategy which is _ad hoc_ for energy models typical of applications in damage and fracture mechanics. The first phase (iterative alternate minimisation) is based on a de-facto _industry standard_, conceived to exploit the (partial, directional) convexity of the underlying mechanical models. Once an approximate-solution enters the attraction set around a critical point, the solver switches to perform a fully nonlinear step solving a block-matrix problem via Newton's method. This guarantees a precise estimation of the convergence of the first-order nonlinear problem based on the norm of the (constrained) residual. 
+`HybridSolver` solves a (first order) constrained nonlinear variational inequality, implementing a two-phase hybrid strategy which is _ad hoc_ for energy models typical of applications in damage and fracture mechanics. The first phase (iterative alternate minimisation) is based on a de-facto _industry standard_, conceived to exploit the (partial, directional) convexity of the underlying mechanical models [@bourdin:2000-numerical]. Once an approximate-solution enters the attraction set around a critical point, the solver switches to perform a fully nonlinear step solving a block-matrix problem via Newton's method. This guarantees a precise estimation of the convergence of the first-order nonlinear problem based on the norm of the (constrained) residual. 
 
 `BifurcationSolver` is a variational eigenvalue solver which uses SLEPc.EPS to explore the lower part of the spectrum of the Hessian of the energy, automatically computed performing two directional derivatives. Constraints are accounted for by projecting the full Hessian onto the subspace of inactive constraints [@jorge-nocedal:1999-numerical]. The relevance of this approach is typical of systems with threshold laws. Thus, the `solve` method returns a boolean value indicating whether the restricted Hessian is positive definite. Internally, the solver stores the lower part of the operators' spectrum as an array. 
 
@@ -85,10 +95,10 @@ We dedicate a separate contribution to illustrate how the three solvers are algo
 
 ## Verification
 
-We benchmark our solvers against a nontrivial 1d problem, namely we compute
+We benchmark our solvers against a nontrivial 1d problem (cf. `test/test_rayleigh.py` in the code repository), namely we compute
 $$
 \min_{X_0} \mathcal R(z) \quad \text{and} \quad \min_{\mathcal K^+_0} \mathcal R(z) \qquad\qquad [2],$$
-using `BifurcationSolver` and `StabilitySolver`. For definiteness, using the Sobolev spaces which are the natural setting for second order PDE problems, we set $X_0 = H^1_0(0, 1) \times H^1(0, 1)$ and $\mathcal K^+_0 = H^1_0(0, 1) \times \{\beta \in H^1(0, 1), \beta \geq 0\}$. Let
+using `BifurcationSolver` and `StabilitySolver`. The quantity $\mathcal R(z)$ is a Rayleigh ratio, often used in structural mechanics as a dimensionless global quantity (an energetic ratio of elastic and fracture energies) which provides insight into the stability and critical loading conditions for a structure. For definiteness, using the Sobolev spaces which are the natural setting for second order PDE problems, we set $X_0 = H^1_0(0, 1) \times H^1(0, 1)$ and $\mathcal K^+_0 = H^1_0(0, 1) \times \{\beta \in H^1(0, 1), \beta \geq 0\}$. Let
 $$\mathcal R(z):= \dfrac{\int_0^1 a(\beta'(x))^2dx+\int_0^1 b(v'(x) -c\beta(x))^2dx}{\int_0^1\beta(x)^2dx},$$ 
  where $a, b, c$ are real coefficients such that $a>0, b>0, c\neq 0$. The quantity above occurs in the stability analysis of a 1d damageable bar, where $b$ is related to the spring constant of the material while $a, c$ encapsulate material, loading, and model parameters, cf. the Appendix of [@pham:2011-the-issues]. \autoref{fig:profile} and \autoref{fig:phase_diag_D} compare numerical results with the analytic solution, \autoref{fig:phase_diag_ball} and \autoref{fig:phase_diag_cone} show the relative error on the minimum in the space of parameters.
 
@@ -102,9 +112,11 @@ $$\mathcal R(z):= \dfrac{\int_0^1 a(\beta'(x))^2dx+\int_0^1 b(v'(x) -c\beta(x))^
 ![Minimum value of $\mathcal R$ in $\mathcal K^+_0$, numerical computation vs. closed form results. The outlier $(\pi^2a, bc^2)\sim (4, 0)$ represents a computation which did not reach convergence. The mechanical interpretation is that only states with $R>1$ are energetically stable.\label{fig:phase_diag_cone}](media/phase_diagram_R_cone.pdf)
 
 
-# Acknowledgements
+## Acknowledgements
 
-ALB acknowledges the students of MEC647 20••-•• for motivation and feedback; Yves Capdeboscq, Jean-Jacques Marigo, Sebastien Neukirch, and Luc Nguyen, for constructive discussions and one key insight that was crucial for this project.
+A.L.B. acknowledges the students of MEC647 (Complex Crack Propagation in Brittle Materials) of the `Modélisation Multiphysique Multiéchelle des Matériaux et des Structures` master program at ENSTA Paris Tech/École Polytechnique for their contributions, motivation, and feedback; Yves Capdeboscq, Jean-Jacques Marigo, Sebastien Neukirch, and Luc Nguyen, for constructive discussions and one key insight that was crucial for this project.
 P.C. is a member of the Gruppo Nazionale per l’Analisi Matematica, la Probabilità e le loro Applicazioni (GNAMPA) of the Istituto Nazionale di Alta Matematica (INdAM). P.C. holds an honorary appointment at La Trobe University and is supported by JSPS Innovative Area Grant JP21H00102.
+
+## References
 
 <!-- to compile: docker run --rm --volume $PWD:/data --user $(id -u):$(id -g) --env JOURNAL=joss openjournals/inara -->

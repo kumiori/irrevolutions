@@ -60,8 +60,8 @@ Institute, CNRS, Sorbonne Universités, Place Jussieu 75252 Paris Cedex
 <corresp id="cor-1">* E-mail: <email></email></corresp>
 <corresp id="cor-2">* E-mail: <email></email></corresp>
 </author-notes>
-<pub-date date-type="pub" publication-format="electronic" iso-8601-date="2024-03-08">
-<day>8</day>
+<pub-date date-type="pub" publication-format="electronic" iso-8601-date="2024-03-04">
+<day>4</day>
 <month>3</month>
 <year>2024</year>
 </pub-date>
@@ -95,18 +95,20 @@ a Creative Commons Attribution 4.0 International License (CC BY
 <body>
 <sec id="summary">
   <title>Summary</title>
-  <p>We study irreversible evolutionary processes with a general
-  energetic notion of stability. We dedicate this contribution to
-  releasing three nonlinear variational solvers as modular components
-  that address mathematical problems that are general enough to apply,
-  in principle, to systems with instabilities, jumps, and emergence of
-  patterns which is commonplace in diverse arenas spanning from quantum
-  to continuum mechanics, economy, social sciences, and ecology. Our
-  motivation proceeds from fracture mechanics, with the ultimate goal of
-  deploying a transparent numerical platform for scientific validation
-  and prediction of large scale natural fracture phenomena. Our solvers
-  are used to compute <italic>one</italic> solution to a problem encoded
-  in a system of two inequalities: one (pointwise almost-everywhere)
+  <p>We release three nonlinear variational solvers, developed as
+  modular components and built upon FEniCSx/dolfinx. These solvers
+  address mathematical optimisation problems for irreversible
+  evolutionary processes characterized by a general energetic notion of
+  stability, which we formulate via a well-posed variational principle.
+  These problems are general enough to apply, in principle, to systems
+  with instabilities, jumps, and emergence of patterns which is
+  commonplace in diverse arenas spanning from quantum to continuum
+  mechanics, economy, social sciences, and ecology. Our motivation
+  proceeds from fracture mechanics, with the goal of deploying a
+  transparent numerical platform for scientific validation and
+  prediction of large scale natural fracture phenomena. Our solvers are
+  used to compute <italic>one</italic> solution to a problem encoded in
+  a system of two inequalities: one (pointwise almost-everywhere)
   constraint of irreversibility and one global energy statement. As part
   of our commitment to open science, our solvers are released as free
   software.</p>
@@ -235,8 +237,8 @@ a Creative Commons Attribution 4.0 International License (CC BY
     et al., 2023</xref>), petsc4py
     (<xref alt="Dalcin et al., 2011" rid="ref-dalcinpazklercosimo2011" ref-type="bibr">Dalcin
     et al., 2011</xref>), SLEPc.EPS
-    (<xref alt="Hernandez et al., 2005" rid="ref-hernandezU003A2005-slepc" ref-type="bibr">Hernandez
-    et al., 2005</xref>), and dolfiny
+    (<xref alt="hernandez:2005-slepc?" rid="ref-hernandezU003A2005-slepc" ref-type="bibr"><bold>hernandez:2005-slepc?</bold></xref>),
+    and dolfiny
     (<xref alt="Habera &amp; Zilian, n.d." rid="ref-HaberaU003Aaa" ref-type="bibr">Habera
     &amp; Zilian, n.d.</xref>) for parallel scalability.</p>
     <p>Our solver’s API receives an abstract energy functional, a
@@ -320,7 +322,19 @@ a Creative Commons Attribution 4.0 International License (CC BY
       (error curve in blue). Note that the residual vector (green) for
       the cone problem need not be zero at a
       solution.<styled-content id="figU003Aconvergence"></styled-content></p></caption>
-      <graphic mimetype="application" mime-subtype="pdf" xlink:href="media/media/test_1d_stability-spa.pdf" />
+      <p><named-content content-type="image">Rate of convergence for
+      <monospace>StabilitySolver</monospace> in 1d (cf. benchmark
+      problem below). Targets are the eigenvalue
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[\lim_k \lambda_k =: \lambda^*]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mo>lim</mml:mo><mml:mi>k</mml:mi></mml:msub><mml:msub><mml:mi>λ</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo>=</mml:mo><mml:mo>:</mml:mo><mml:msup><mml:mi>λ</mml:mi><mml:mo>*</mml:mo></mml:msup></mml:mrow></mml:math></alternatives></inline-formula>
+      (pink) and the associated eigen-vector
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[x^*]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msup><mml:mi>x</mml:mi><mml:mo>*</mml:mo></mml:msup></mml:math></alternatives></inline-formula>
+      (error curve in blue). Note that the residual vector (green) for
+      the cone problem need not be zero at a
+      solution.<styled-content id="figU003Aconvergence"></styled-content></named-content></p>
     </fig>
   </sec>
   <sec id="verification">
@@ -387,7 +401,23 @@ a Creative Commons Attribution 4.0 International License (CC BY
       has support of size <inline-formula><alternatives>
       <tex-math><![CDATA[D\in [0, 1]]]></tex-math>
       <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>D</mml:mi><mml:mo>∈</mml:mo><mml:mrow><mml:mo stretchy="true" form="prefix">[</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mn>1</mml:mn><mml:mo stretchy="true" form="postfix">]</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>.<styled-content id="figU003Aprofile"></styled-content></p></caption>
-      <graphic mimetype="application" mime-subtype="pdf" xlink:href="media/media/profile_comparison.pdf" />
+      <p><named-content content-type="image">Comparison between profiles
+      of solutions <inline-formula><alternatives>
+      <tex-math><![CDATA[\beta(x)]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>β</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>
+      in <inline-formula><alternatives>
+      <tex-math><![CDATA[X_0]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>X</mml:mi><mml:mn>0</mml:mn></mml:msub></mml:math></alternatives></inline-formula>
+      (left) vs. <inline-formula><alternatives>
+      <tex-math><![CDATA[\mathcal K^+_0]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msubsup><mml:mi>𝒦</mml:mi><mml:mn>0</mml:mn><mml:mo>+</mml:mo></mml:msubsup></mml:math></alternatives></inline-formula>
+      (right). In the latter case, the solution
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[\beta(x)]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>β</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>
+      has support of size <inline-formula><alternatives>
+      <tex-math><![CDATA[D\in [0, 1]]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>D</mml:mi><mml:mo>∈</mml:mo><mml:mrow><mml:mo stretchy="true" form="prefix">[</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mn>1</mml:mn><mml:mo stretchy="true" form="postfix">]</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>.<styled-content id="figU003Aprofile"></styled-content></named-content></p>
     </fig>
     <fig>
       <caption><p>The size of the support <inline-formula><alternatives>
@@ -401,7 +431,18 @@ a Creative Commons Attribution 4.0 International License (CC BY
       vs. nontrivial solutions. Where error bars are not shown, the
       error is
       none.<styled-content id="figU003Aphase_diag_D"></styled-content></p></caption>
-      <graphic mimetype="application" mime-subtype="pdf" xlink:href="media/media/phase_diagram.pdf" />
+      <p><named-content content-type="image">The size of the support
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[D]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>D</mml:mi></mml:math></alternatives></inline-formula>
+      for the minimiser in the cone. Error bars indicate the absolute
+      error. We observe a clear separation between constant solutions
+      with <inline-formula><alternatives>
+      <tex-math><![CDATA[D=1]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>D</mml:mi><mml:mo>=</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+      vs. nontrivial solutions. Where error bars are not shown, the
+      error is
+      none.<styled-content id="figU003Aphase_diag_D"></styled-content></named-content></p>
     </fig>
     <fig>
       <caption><p>Minimum value of <inline-formula><alternatives>
@@ -413,7 +454,16 @@ a Creative Commons Attribution 4.0 International License (CC BY
       numerical computation vs. closed form result. Notice the
       separation between constant solutions and nontrivial
       solutions.<styled-content id="figU003Aphase_diag_ball"></styled-content></p></caption>
-      <graphic mimetype="application" mime-subtype="pdf" xlink:href="media/media/phase_diagram_R_ball.pdf" />
+      <p><named-content content-type="image">Minimum value of
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[\mathcal R]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>ℛ</mml:mi></mml:math></alternatives></inline-formula>
+      in <inline-formula><alternatives>
+      <tex-math><![CDATA[X_0]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>X</mml:mi><mml:mn>0</mml:mn></mml:msub></mml:math></alternatives></inline-formula>,
+      numerical computation vs. closed form result. Notice the
+      separation between constant solutions and nontrivial
+      solutions.<styled-content id="figU003Aphase_diag_ball"></styled-content></named-content></p>
     </fig>
     <fig>
       <caption><p>Minimum value of <inline-formula><alternatives>
@@ -433,24 +483,37 @@ a Creative Commons Attribution 4.0 International License (CC BY
       <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>R</mml:mi><mml:mo>&gt;</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
       are energetically
       stable.<styled-content id="figU003Aphase_diag_cone"></styled-content></p></caption>
-      <graphic mimetype="application" mime-subtype="pdf" xlink:href="media/media/phase_diagram_R_cone.pdf" />
+      <p><named-content content-type="image">Minimum value of
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[\mathcal R]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>ℛ</mml:mi></mml:math></alternatives></inline-formula>
+      in <inline-formula><alternatives>
+      <tex-math><![CDATA[\mathcal K^+_0]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msubsup><mml:mi>𝒦</mml:mi><mml:mn>0</mml:mn><mml:mo>+</mml:mo></mml:msubsup></mml:math></alternatives></inline-formula>,
+      numerical computation vs. closed form results. The outlier
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[(\pi^2a, bc^2)\sim (4, 0)]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:msup><mml:mi>π</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mi>a</mml:mi><mml:mo>,</mml:mo><mml:mi>b</mml:mi><mml:msup><mml:mi>c</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>∼</mml:mo><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mn>4</mml:mn><mml:mo>,</mml:mo><mml:mn>0</mml:mn><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>
+      represents a computation which did not reach convergence. The
+      mechanical interpretation is that only states with
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[R>1]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>R</mml:mi><mml:mo>&gt;</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+      are energetically
+      stable.<styled-content id="figU003Aphase_diag_cone"></styled-content></named-content></p>
     </fig>
   </sec>
-  <sec id="acknowledgements">
-    <title>Acknowledgements</title>
-    <p>A.L.B. acknowledges the students of MEC647 (Complex Crack
-    Propagation in Brittle Materials) of the
-    <monospace>Modélisation Multiphysique Multiéchelle des Matériaux et des Structures</monospace>
-    master program at ENSTA Paris Tech/École Polytechnique for their
-    contributions, motivation, and feedback; Yves Capdeboscq,
-    Jean-Jacques Marigo, Sebastien Neukirch, and Luc Nguyen, for
-    constructive discussions and one key insight that was crucial for
-    this project. P.C. is a member of the Gruppo Nazionale per l’Analisi
-    Matematica, la Probabilità e le loro Applicazioni (GNAMPA) of the
-    Istituto Nazionale di Alta Matematica (INdAM). P.C. holds an
-    honorary appointment at La Trobe University and is supported by JSPS
-    Innovative Area Grant JP21H00102.</p>
-  </sec>
+</sec>
+<sec id="acknowledgements">
+  <title>Acknowledgements</title>
+  <p>ALB acknowledges the students of MEC647 20••-•• for motivation and
+  feedback; Yves Capdeboscq, Jean-Jacques Marigo, Sebastien Neukirch,
+  and Luc Nguyen, for constructive discussions and one key insight that
+  was crucial for this project. P.C. is a member of the Gruppo Nazionale
+  per l’Analisi Matematica, la Probabilità e le loro Applicazioni
+  (GNAMPA) of the Istituto Nazionale di Alta Matematica (INdAM). P.C.
+  holds an honorary appointment at La Trobe University and is supported
+  by JSPS Innovative Area Grant JP21H00102.</p>
 </sec>
 </body>
 <back>
@@ -626,22 +689,6 @@ a Creative Commons Attribution 4.0 International License (CC BY
       <issue>1-3</issue>
       <fpage>5</fpage>
       <lpage>148</lpage>
-    </element-citation>
-  </ref>
-  <ref id="ref-hernandezU003A2005-slepc">
-    <element-citation publication-type="article-journal">
-      <person-group person-group-type="author">
-        <name><surname>Hernandez</surname><given-names>Vicente</given-names></name>
-        <name><surname>Roman</surname><given-names>Jose E.</given-names></name>
-        <name><surname>Vidal</surname><given-names>Vicente</given-names></name>
-      </person-group>
-      <article-title>SLEPc: A scalable and flexible toolkit for the solution of eigenvalue problems</article-title>
-      <source>ACM Trans. Math. Software</source>
-      <year iso-8601-date="2005">2005</year>
-      <volume>31</volume>
-      <issue>3</issue>
-      <fpage>351</fpage>
-      <lpage>362</lpage>
     </element-citation>
   </ref>
   <ref id="ref-jorge-nocedalU003A1999-numerical">
