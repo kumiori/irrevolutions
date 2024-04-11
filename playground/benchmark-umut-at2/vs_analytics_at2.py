@@ -94,7 +94,7 @@ def damage_energy_density(state):
 
     # Compute the damage dissipation density
     damage_density = _w1 * w(alpha) + \
-        _w1 * _ell**2 * ufl.dot(grad_alpha, grad_alpha)
+        _w1 * _ell**2 / 2. * ufl.dot(grad_alpha, grad_alpha)
 
     return damage_density
 
@@ -194,10 +194,10 @@ def run_computation(parameters, storage=None):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-    # bcs_u = [dirichletbc(u_zero, dofs_u_right), 
-    #          dirichletbc(u_zero, dofs_u_left)]
+    bcs_u = [dirichletbc(u_zero, dofs_u_right), 
+             dirichletbc(u_zero, dofs_u_left)]
 
-    bcs_u = []
+    # bcs_u = []
     bcs_alpha = []
     
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
@@ -409,10 +409,11 @@ def load_parameters(file_path, ndofs, model="at2"):
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-    parameters["stability"]["cone"]["scaling"] = 1e-4
+    parameters["stability"]["cone"]["scaling"] = 1e-3
 
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = (0.158114)**2 / 2
+    # parameters["model"]["ell"] = (0.158114)**2 / 2
+    parameters["model"]["ell"] = 0.158114
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
     parameters["model"]["kappa"] = (.34)**(-2)
