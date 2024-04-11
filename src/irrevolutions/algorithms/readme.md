@@ -1,12 +1,11 @@
-This folder contains 3 python scripts.
-So.py (standing for Second Order) deals with solving PDEs via the  Finite Element Method in Fenics and solving eigenvalue problems. Specificlly, it deals ith bifurcation problem and our concept of stability, which is encoded and solved as an eigenvalue problem in a cone of directions.
+# Algorithms
 
-Am.py
-Contains two classes, AlternateMinimisation and HybridSolver.
+`so.py` (standing for Second Order) deals with solving PDEs via the Finite Element Method in Fenics and solving eigenvalue problems. Specificlly, it deals ith bifurcation problem and our concept of stability, which is encoded and solved as an eigenvalue problem in a cone of directions.
+
+`am.py`
+Contains two classes, `AlternateMinimisation` and `HybridSolver`.
  
-Class Definitions: Two classes, which are invoked elsewehere?,  are defined here: AlternateMinimisation and HybridSolver.
-
-AlternateMinimisation implements an alternate minimization algorithm by solving a system of equations. 
+`AlternateMinimisation` implements an alternate minimization algorithm by solving a system of equations. 
 Depending on the specified convergence criteria (e.g., based on error norms vs. residual norms), the solver loop terminates if the specified tolerance is 
 reached.
 It implements optimality conditions of the first order, via alternate variations.
