@@ -3,7 +3,7 @@ name = "irreversible-variational-solvers"
 authors = [
     {name = "Andrés A León Baldelli", email = "leon.baldelli@cnrs.fr"},
     ]
-version = "2024.0.1"
+version = "0.1.0"
 requires-python = ">=3.8"
 
 # Short description
