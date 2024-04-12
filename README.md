@@ -4,7 +4,7 @@
 From little or nothing, to experimental verification of a complex fracture experiment.
 We solve the following (difficult) problem:
 
-**Evolution of Damage (in the Cone)**
+**Evolution of Damage (irreversible)**
  
 Let $y=(\alpha, u)$ be an admissible state of a brittle system where $\alpha: \Omega \mapsto [0, 1]$ is a smooth damage field which identifies cracks (where $\alpha =1$) and $u$ is a displacement field. Provided a material model (an energy) $E_\ell$, given a time horizon $T$, let's find a map $t \in [0, T]\mapsto y_t$ such that: damage is non-decreasing and the observed state $y_t$ is energy-minimal, among admissible variations. 
 
