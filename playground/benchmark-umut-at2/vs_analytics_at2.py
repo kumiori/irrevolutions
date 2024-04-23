@@ -37,6 +37,8 @@ from mpi4py import MPI
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
 
+from irrevolutions.utils.viz import _plot_bif_spectrum_profiles
+
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
 
@@ -172,7 +174,6 @@ def run_computation(parameters, storage=None):
     Lx = parameters.get("geometry").get("Lx")
 
     # Define the state
-    u = Function(V_u, name="Unknown")
     u_zero = Function(V_u, name="InelasticDisplacement")
     zero_u = Function(V_u, name="BoundaryUnknown")
 
@@ -189,7 +190,7 @@ def run_computation(parameters, storage=None):
     eps_t = dolfinx.fem.Constant(mesh, np.array(1., dtype=PETSc.ScalarType))
     u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
     
-    for f in [zero_u, u_zero, alpha_lb, alpha_ub]:
+    for f in [u, zero_u, u_zero, alpha_lb, alpha_ub]:
         f.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
@@ -275,16 +276,7 @@ def run_computation(parameters, storage=None):
             pyvista.OFF_SCREEN = True
 
             plotter = pyvista.Plotter(
-                title="Thin film",
-                window_size=[1600, 600],
-                shape=(1, 2),
-            )
-            _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-            _plt = plot_scalar(u, plotter, subplot=(0, 1))
-            _plt.screenshot(f"{prefix}/thinfilm-state.png")
-
-            plotter = pyvista.Plotter(
-                title="Test Profile",
+                title="Profiles",
                 window_size=[800, 600],
                 shape=(1, 1),
             )
@@ -295,7 +287,7 @@ def run_computation(parameters, storage=None):
             points[0] = xs
 
             _plt, data = plot_profile(
-                alpha,
+                state["alpha"],
                 points,
                 plotter,
                 lineproperties={
@@ -304,10 +296,7 @@ def run_computation(parameters, storage=None):
                 },
             )
             ax = _plt.gca()
-            _plt.legend()
-            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-            _plt.title("Damage profile")
-            ax.set_ylim(-0.1, 1.1)
+
 
             _plt, data = plot_profile(
                 u_zero,
@@ -317,13 +306,14 @@ def run_computation(parameters, storage=None):
                 ax=ax,
                 lineproperties={
                     "c": "r",
+                    "lw": 3,
                     "label": "$u_0$"
                 },
             )
 
 
             _plt, data = plot_profile(
-                u,
+                state["u"],
                 points,
                 plotter,
                 fig=_plt,
@@ -334,9 +324,58 @@ def run_computation(parameters, storage=None):
                 },
             )
 
+            if bifurcation._spectrum:
+                vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
+                
+                _plt, data = plot_profile(
+                    β,
+                    points,
+                    plotter,
+                    fig=_plt,
+                    ax=ax,
+                    lineproperties={
+                        "c": "k",
+                        "label": f"$\\beta, \\lambda = {bifurcation._spectrum[0]['lambda']:.0e}$"
+                    },
+                )
+                _plt.legend()
+                # _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+
+            if hasattr(stability, 'perturbation'):
+                if stability.perturbation['λ'] < 0:
+                    _colour = "r"
+                    _style = "--"
+                else:
+                    _colour = "b"
+                    _style = ":"
+                    
+                _plt, data = plot_profile(
+                            stability.perturbation['β'],
+                            points,
+                            plotter,
+                            fig=_plt,
+                            ax=ax,
+                            lineproperties={
+                                "c": _colour,
+                                "ls": _style,
+                                "lw": 3,
+                                "label": f"$\\beta^+, \\lambda = {stability.perturbation['λ']:.0e}$"
+                            },
+                        )
+
+            _plt.legend()
+            # _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+            _plt.title("Solution and Perturbation profile")
+            ax.set_ylim(-2.1, 2.1)
+            ax.axhline(0, color="k", lw=.5)
             _plt.savefig(f"{prefix}/damage_profile-{i_t}.png")
 
-
+            if bifurcation._spectrum:
+                _plotter, _plt = _plot_bif_spectrum_profiles(bifurcation._spectrum, parameters, prefix, label='')
+                _plt.title("Bifurcation profiles")
+                _plt.savefig(f"{prefix}/perturbation_profiles-{i_t}.png")
+                
+            
             fracture_energy = comm.allreduce(
                 assemble_scalar(form(damage_energy_density(state) * dx)),
                 op=MPI.SUM,

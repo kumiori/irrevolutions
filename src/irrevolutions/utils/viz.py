@@ -232,6 +232,69 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
         
     return plotter
 
+
+def _plot_bif_spectrum_profiles(spectrum, parameters, prefix, plotter=None, label='', idx=''):
+    """docstring for _plot_bif_spectrum_profile"""
+ 
+    from irrevolutions.utils.viz import plot_profile
+    import matplotlib.pyplot as plt
+    # __import__('pdb').set_trace()
+    
+    # fields = spectrum["perturbations_beta"]
+    # fields = spectrum["perturbations_beta"]
+    fields = [item.get('beta') for item in spectrum]
+    n = len(fields)
+    num_cols = 1
+    num_rows = (n + num_cols - 1) // num_cols
+
+    if plotter == None:
+        import pyvista
+        # from pyvista.utilities import xvfb
+        
+        plotter = pyvista.Plotter(
+            title="Bifurcation Spectrum Profile",
+            window_size=[800, 600*n],
+            shape=(num_rows, num_cols),
+        )
+
+    figure, axes = plt.subplots(num_rows, num_cols, figsize=(8, 6*n))
+
+    tol = 1e-3
+    xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
+    points = np.zeros((3, 101))
+    points[0] = xs
+
+    for i, field in enumerate(fields):
+        u = field
+        # u = field['xk'][1]
+        row = i // num_cols
+        col = i % num_cols
+
+        _axes = axes[row] if n > 1 else axes
+        label = f"$\lambda_{i}$ = {spectrum[i].get('lambda'):.1e}, |$\\beta$|={u.vector.norm():.2f}"
+
+        _plt, data = plot_profile(
+            u,
+            points,
+            plotter,
+            subplot=(num_rows, num_cols),
+            subplotnumber = i+1, 
+            lineproperties={
+                "c": "k",
+                "ls": '-',
+                # "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}"
+                "label": label
+            },
+            fig=figure,
+            ax=_axes
+        )
+
+        _axes.axis('off')
+        _axes.axhline('0', lw=3, c='k')
+
+    return plotter, _plt
+
+
 import scipy
 
 

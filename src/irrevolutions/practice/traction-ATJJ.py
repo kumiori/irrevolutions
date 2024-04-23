@@ -556,16 +556,12 @@ def _plot_bif_spectrum_profile(spectrum, parameters, prefix, plotter=None, label
             shape=(num_rows, num_cols),
         )
 
-    # figure, axes = plt.figure()
-    # figure, axes = plt.subplots(1, 1, figsize=(8, 6))
     figure, axes = plt.subplots(num_rows, num_cols, figsize=(6, 18))
 
     tol = 1e-3
     xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
     points = np.zeros((3, 101))
     points[0] = xs
-
-    # if n==1: __import__('pdb').set_trace()
 
     for i, field in enumerate(fields):
         u = field
@@ -574,8 +570,6 @@ def _plot_bif_spectrum_profile(spectrum, parameters, prefix, plotter=None, label
         col = i % num_cols
 
         _axes = axes[row] if n > 1 else axes
-        # __import__('pdb').set_trace()
-        # if label == '':
         label = f"$\lambda_{i}$ = {spectrum[i].get('lambda'):.1e}, |$\\beta$|={u.vector.norm():.2f}"
 
         _plt, data = plot_profile(
@@ -595,10 +589,6 @@ def _plot_bif_spectrum_profile(spectrum, parameters, prefix, plotter=None, label
 
         _axes.axis('off')
         _axes.axhline('0', lw=3, c='k')
-        # _plt = None
-
-        # axes[row].plot(xs, xs*i, label=f'mode {i}')
-        # _plt = plt.gcf()
 
     return plotter, _plt
 
