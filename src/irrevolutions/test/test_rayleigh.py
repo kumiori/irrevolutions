@@ -1,23 +1,24 @@
-from .test_rayleigh_parametric import rayleigh_ratio
-from irrevolutions.utils import indicator_function
-from irrevolutions.utils.viz import plot_profile, get_datapoints
-from irrevolutions.solvers.function import vec_to_functions
-from irrevolutions.utils import _logger, ColorPrint
-from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
-import matplotlib.pyplot as plt
-from pathlib import Path
-import pyvista
-import json
 import argparse
+import hashlib
+import json
 import logging
+import sys
+from pathlib import Path
+
+import dolfinx
+import matplotlib.pyplot as plt
+import numpy as np
+import pyvista
+import ufl
+import yaml
+from dolfinx.fem import dirichletbc, locate_dofs_geometrical
+from dolfinx.fem import form, assemble_scalar
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.solvers.function import vec_to_functions
+from irrevolutions.utils import ColorPrint, _logger, indicator_function
+from irrevolutions.utils.viz import get_datapoints, plot_profile
 from mpi4py import MPI
 from petsc4py import PETSc
-import yaml
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-import numpy as np
-import ufl
-import dolfinx
-import sys
 
 sys.path.append("../")
 sys.path.append("../playground/nb")
@@ -28,7 +29,41 @@ sys.path.append("../playground/nb")
 _logger.setLevel(logging.CRITICAL)
 
 
-def rayleigh(parameters, storage=None):
+def rayleigh_ratio(z, parameters):
+    (v, β) = z
+    dx = ufl.Measure("dx", v.function_space.mesh)
+
+    a, b, c = (
+        parameters["model"]["a"],
+        parameters["model"]["b"],
+        parameters["model"]["c"],
+    )
+
+    numerator = (
+        a * ufl.inner(β.dx(0), β.dx(0))
+        + b * ufl.inner(v.dx(0) - c * β, v.dx(0) - c * β)
+    ) * dx
+    denominator = ufl.inner(β, β) * dx
+
+    R = assemble_scalar(form(numerator)) / assemble_scalar(form(denominator))
+
+    return R
+
+
+def test_rayleigh(parameters = None, storage=None):
+
+    if parameters is None:
+        parameters, signature = load_parameters("parameters.yml", ndofs=50)
+        pretty_parameters = json.dumps(parameters, indent=2)
+        storage = f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    else:
+        signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
+
+    if storage is None:
+        prefix = "output/rayleigh-benchmark"
+    else:
+        prefix = storage
+
     comm = MPI.COMM_WORLD
     comm.Get_rank()
     comm.Get_size()
@@ -38,10 +73,8 @@ def rayleigh(parameters, storage=None):
     N = parameters["geometry"]["N"]
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, N)
 
-    if storage is None:
-        prefix = "output/rayleigh-benchmark"
-    else:
-        prefix = storage
+
+    ColorPrint.print_bold(f"===================-{storage}-=================")
 
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
@@ -410,4 +443,4 @@ if __name__ == "__main__":
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
-        history_data, stability_data, state = rayleigh(parameters, _storage)
+        history_data, stability_data, state = test_rayleigh(parameters, _storage)

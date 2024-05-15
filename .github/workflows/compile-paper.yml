@@ -1,0 +1,26 @@
+name: Compile paper
+run-name: ${{ github.actor }} is compiling a paper
+
+on:
+  push:
+    branches:
+      - '*paper*'
+
+jobs:
+  run-inara-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Run Inara Paper 
+        run: |
+          cd paper 
+          docker run --rm \
+                     --volume $PWD:/data \
+                     --user $(id -u):$(id -g) \
+                     --env JOURNAL=joss \
+                     openjournals/inara
