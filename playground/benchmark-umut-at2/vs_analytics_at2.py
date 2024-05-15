@@ -246,7 +246,6 @@ def run_computation(parameters, storage=None):
 
         _logger.critical(f"-- Solving for t = {t:3.2f} --")
         hybrid.solve(alpha_lb)
-
         is_unique = bifurcation.solve(alpha_lb)
         is_elastic = not bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
@@ -270,7 +269,6 @@ def run_computation(parameters, storage=None):
                 plot_force_displacement(
                     history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
                 )
-
 
             xvfb.start_xvfb(wait=0.05)
             pyvista.OFF_SCREEN = True
@@ -296,7 +294,6 @@ def run_computation(parameters, storage=None):
                 },
             )
             ax = _plt.gca()
-
 
             _plt, data = plot_profile(
                 u_zero,

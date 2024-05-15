@@ -9,7 +9,7 @@ from typing import Optional
 
 from libidris.core import (elastic_energy_density, damage_energy_density, stress)
 from libidris.core import a
-
+from libidris.core import setup_output_directory, save_parameters, create_function_spaces_1d, initialize_functions
 
 import dolfinx
 import dolfinx.mesh
@@ -59,22 +59,10 @@ def run_computation(parameters, storage=None):
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
     outdir = os.path.join(os.path.dirname(__file__), "output")
 
-    if storage is None:
-        prefix = os.path.join(outdir, f"1d-{_nameExp}-first-new-hybrid")
-    else:
-        prefix = storage
-
-    if comm.rank == 0:
-        Path(prefix).mkdir(parents=True, exist_ok=True)
+    prefix = setup_output_directory(storage, parameters, outdir)
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
-
-    if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", "w") as file:
-            yaml.dump(parameters, file)
-
-        with open(f"{prefix}/signature.md5", "w") as f:
-            f.write(signature)
+    save_parameters(parameters, prefix)
 
     with XDMFFile(
         comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
@@ -85,42 +73,22 @@ def run_computation(parameters, storage=None):
     element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
     element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
-    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
-
-    u = dolfinx.fem.Function(V_u, name="Displacement")
-    u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
-
-    alpha = dolfinx.fem.Function(V_alpha, name="Damage")
-
-    # Perturbations
-    β = Function(V_alpha, name="DamagePerturbation")
-    v = Function(V_u, name="DisplacementPerturbation")
-
-    # Pack state
-    state = {"u": u, "alpha": alpha}
+    V_u, V_alpha = create_function_spaces_1d(mesh)
+    u, u_, alpha, β, v, state = initialize_functions(V_u, V_alpha)
 
     # Bounds
     alpha_ub = dolfinx.fem.Function(V_alpha, name="UpperBoundDamage")
     alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
 
-    dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
-
     # Useful references
     Lx = parameters.get("geometry").get("Lx")
 
     # Define the state
-
     zero_u = Function(V_u, name="BoundaryUnknown")
     zero_u.interpolate(lambda x: np.zeros_like(x[0]))
     
     tilde_u = Function(V_u, name="BoundaryDatum")
     tilde_u.interpolate(lambda x: np.ones_like(x[0]))
-
-    # Measures
-    dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -128,9 +96,6 @@ def run_computation(parameters, storage=None):
     alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
-    eps_t = dolfinx.fem.Constant(mesh, np.array(1., dtype=PETSc.ScalarType))
-
-    
     for f in [u, zero_u, tilde_u, alpha_lb, alpha_ub]:
         f.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
@@ -139,11 +104,12 @@ def run_computation(parameters, storage=None):
     bcs_u = [dirichletbc(np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u), 
              dirichletbc(tilde_u, dofs_u_right)]
 
-    # bcs_u = []
     bcs_alpha = []
-    
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
     
+    # Measures
+    dx = ufl.Measure("dx", domain=mesh)
+
     total_energy = (elastic_energy_density(state, parameters) \
         + damage_energy_density(state, parameters)) * dx
     
@@ -158,18 +124,16 @@ def run_computation(parameters, storage=None):
         solver_parameters=parameters.get("solvers"),
     )
 
-    history_data["F"] = []
 
     logging.basicConfig(level=logging.INFO)
 
     time_series = []
     alpha_values = []
     displacement_tip_values = []
+    history_data["F"] = []
 
 
     for i_t, t in enumerate(loads):
-
-
         tilde_u.interpolate(lambda x: t * np.ones_like(x[0]))
         tilde_u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
                             mode=PETSc.ScatterMode.FORWARD)
