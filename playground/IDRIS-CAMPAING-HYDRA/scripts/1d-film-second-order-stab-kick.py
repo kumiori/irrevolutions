@@ -27,7 +27,7 @@ from dolfinx.fem.petsc import assemble_vector, set_bc
 from dolfinx.io import XDMFFile
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.algorithms.ls import StabilityStepper
+from irrevolutions.algorithms.ls import StabilityStepper, LineSearch
 
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.test.test_1d import _AlternateMinimisation1D as am1d
@@ -43,6 +43,7 @@ from mpi4py import MPI
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
 import random
+import matplotlib.pyplot as plt
 
 from irrevolutions.utils.viz import _plot_bif_spectrum_profiles
 
@@ -54,13 +55,6 @@ logger = logging.getLogger(__name__)
 
 # Mesh on node model_rank and then distribute
 model_rank = 0
-class DummyStabilitySolver:
-    def solve(self, t):
-        if t == 0:
-            return True
-        else:
-            return random.choice([True, False])
-
 
 def run_computation(parameters, storage=None):
     Lx = parameters["geometry"]["Lx"]
@@ -160,13 +154,16 @@ def run_computation(parameters, storage=None):
     stability = StabilitySolver(
         total_energy, state, bcs, cone_parameters=parameters.get("stability")
     )
+    
+    linesearch = LineSearch(
+        total_energy,
+        state,
+        linesearch_parameters=parameters.get("stability").get("linesearch"),
+    )
+    
 
-    logging.basicConfig(level=logging.INFO)
-
-
-    dummy_stability = DummyStabilitySolver()
-
-
+    arclength = []
+    
     while True:
         try:
             i_t, t = next(iterator)
@@ -206,69 +203,137 @@ def run_computation(parameters, storage=None):
         _logger.info(f"Stability of state at load {t:.2f}: {stable}")
         
         if not stable:
-            __import__('pdb').set_trace()
             
             iterator.pause_time()
             _logger.info(f"Time paused at {t:.2f}")
+            vec_to_functions(stability.solution["xt"], [v, β])
+            perturbation = {"v": v, "beta": β}
+            interval = linesearch.get_unilateral_interval(state, perturbation)
 
-            # y_t = perturb_state(y_t)
-            # logger.info(f"State perturbed at load {t:.2f}: {y_t}")
+            order = 4
+            h_opt, energies_1d, p, _ = linesearch.search(
+                state, perturbation, interval, m=order
+            )
+            arclength.append((i_t, t, h_opt))
+            
+            with dolfinx.common.Timer(f"~Visualisation") as timer:
+
+                _logger.critical(f" *> State is unstable: {not stable}")
+                _logger.critical(f"line search interval is {interval}")
+                _logger.critical(f"perturbation energies: {energies_1d}")
+                _logger.critical(f"hopt: {h_opt}")
+                _logger.critical(f"lambda_t: {stability.solution['lambda_t']}")
+
+                h_steps = np.linspace(interval[0], interval[1], order + 1)
+                fig, axes = plt.subplots(1, 1)
+                plt.scatter(h_steps, energies_1d)
+                plt.scatter(
+                    h_opt,
+                    0,
+                    c="k",
+                    s=40,
+                    marker="|",
+                    label=f"$h^*={h_opt:.2f}$")
+                plt.scatter(h_opt, p(h_opt), c="k", s=40, alpha=0.5)
+                xs = np.linspace(interval[0], interval[1], 30)
+                axes.plot(xs, p(xs), label="Energy slice along perturbation")
+                axes.set_xlabel("h")
+                axes.set_ylabel("$E_h - E_0$")
+                axes.set_title(f"Polynomial Interpolation - order {order}")
+                axes.legend()
+                axes.spines["top"].set_visible(False)
+                axes.spines["right"].set_visible(False)
+                axes.spines["left"].set_visible(False)
+                axes.spines["bottom"].set_visible(False)
+                axes.set_yticks([0])
+                axes.axhline(0, c="k")
+                fig.savefig(f"{prefix}/energy_interpolation-{order}.png")
+                plt.close()
+
+                orders = [2, 3, 4, 10, 30]
+
+                fig, axes = plt.subplots(1, 1, figsize=(5, 8))
+
+                for order in orders:
+                    h_steps = np.linspace(interval[0], interval[1], order + 1)
+                    h_opt, energies_1d, p, _ = linesearch.search(
+                        state, perturbation, interval, m=order
+                    )
+                    xs = np.linspace(interval[0], interval[1], 30)
+
+                    if order == 4:
+                        marker = "D"
+                        plt.scatter(h_steps, energies_1d, marker=marker, label=f"Energy slice order {order}")
+                        
+                    else: 
+                        marker = "o"
+                        plt.scatter(h_steps, energies_1d, marker=marker)
+                    axes.plot(xs, p(xs), label=f"Energy slice order {order}")
+                    plt.scatter(
+                        h_opt, 0, s=60, label=f"$h^*-{ order }={h_opt:.2f}$", alpha=0.5
+                    )
+                    plt.scatter(h_opt, p(h_opt), c="k", s=40, alpha=0.5)
+
+                axes.legend()
+                axes.spines["top"].set_visible(False)
+                axes.spines["right"].set_visible(False)
+                axes.spines["left"].set_visible(False)
+                axes.spines["bottom"].set_visible(False)
+                axes.set_yticks([0])
+                axes.set_xlabel("h")
+                axes.set_ylabel("$E_h - E_0$")
+                axes.axhline(0, c="k")
+                fig.savefig(f"{prefix}/energy_interpolation-orders-{i_t}.png")
+
+                plt.close()
+
+                tol = 1e-3
+                xs = np.linspace(0 + tol, Lx - tol, 101)
+                points = np.zeros((3, 101))
+                points[0] = xs
+
+                plotter = pyvista.Plotter(
+                    title="Perturbation profile",
+                    window_size=[800, 600],
+                    shape=(1, 1),
+                )
+
+                _plt, data = plot_profile(
+                    β,
+                    points,
+                    plotter,
+                    lineproperties={"c": "k", "label": f"$\\beta$"},
+                )
+                _plt.gca()
+                _plt.legend()
+                _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+                _plt.title("Perurbation")
+                _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
+                _plt.close()
+
+            linesearch.perturb(state, perturbation, h_opt)
+
+        else:
+            # If stable, postprocess and dump
+            fracture_energy, elastic_energy = postprocess(parameters,
+                                                            _nameExp,
+                                                            prefix,
+                                                            v,
+                                                            β,
+                                                            state,
+                                                            u_zero,
+                                                            dx,
+                                                            bifurcation,
+                                                            stability,
+                                                            i_t)
+
+            dump_output(_nameExp, prefix, history_data, u, alpha, equilibrium, bifurcation, stability, t, fracture_energy, elastic_energy)
+
+    _logger.info(f"Arclengths: {arclength}")
 
 
-
-
-
-
-    __import__('pdb').set_trace()
-
-    for i_t, t in enumerate(loads):
-        eps_t.value = t
-        u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
-        u_zero.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        )
-
-        alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        )
-
-        _logger.critical(f"-- Solving for t = {t:3.2f} --")
-        with dolfinx.common.Timer(f"~First Order: Equilibrium") as timer:
-            equilibrium.solve(alpha_lb)
-        
-        is_unique = bifurcation.solve(alpha_lb)
-        is_elastic = not bifurcation._is_critical(alpha_lb)
-        inertia = bifurcation.get_inertia()
-
-        ColorPrint.print_bold(f"State is elastic: {is_elastic}")
-        ColorPrint.print_bold(f"State's inertia: {inertia}")
-        ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
-
-        z0 = (
-            bifurcation._spectrum[0]["xk"]
-            if bifurcation._spectrum and "xk" in bifurcation._spectrum[0]
-            else None
-        )
-
-        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
-
-        fracture_energy, elastic_energy = postprocess(parameters,
-                                                        _nameExp,
-                                                        prefix,
-                                                        v,
-                                                        β,
-                                                        state,
-                                                        u_zero,
-                                                        dx,
-                                                        bifurcation,
-                                                        stability,
-                                                        i_t)
-
-        dump_output(_nameExp, prefix, history_data, u, alpha, equilibrium, bifurcation, stability, t, inertia, fracture_energy, elastic_energy)
-
-    print(pd.DataFrame(history_data).drop(columns=["cone_data", "eigs_cone", "stable"]))
-    return history_data, {}, state
+    print(pd.DataFrame(history_data))
+    return history_data, stability.data, state
 
 def dump_output(_nameExp, 
                     prefix, 
@@ -281,10 +346,11 @@ def dump_output(_nameExp,
                     t, 
                     fracture_energy, 
                     elastic_energy):
+    _logger.info(f"Dumping output at {t:.2f}")
     
     with dolfinx.common.Timer(f"~Output and Storage") as timer:
         with XDMFFile(
-                    comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+                    comm, f"{prefix}/{_nameExp}.xdmf", 'a', encoding=XDMFFile.Encoding.HDF5
                 ) as file:
             file.write_function(u, t)
             file.write_function(alpha, t)
@@ -308,6 +374,15 @@ def dump_output(_nameExp,
 def postprocess(parameters, _nameExp, prefix, β, v, state, u_zero, dx, bifurcation, stability, i_t):
     with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
     
+        fracture_energy = comm.allreduce(
+                    assemble_scalar(form(damage_energy_density(state, parameters) * dx)),
+                    op=MPI.SUM,
+                )
+        elastic_energy = comm.allreduce(
+                    assemble_scalar(form(elastic_energy_density_film(state, parameters, u_zero) * dx)),
+                    op=MPI.SUM,
+                )
+        
         fig_state, ax1 = matplotlib.pyplot.subplots()
         
         if comm.rank == 0:
@@ -421,15 +496,6 @@ def postprocess(parameters, _nameExp, prefix, β, v, state, u_zero, dx, bifurcat
                 ax.axhline(0, color="k", lw=.5)
                 fig_bif.savefig(f"{prefix}/second_order_profiles-{i_t}.png")
 
-            fracture_energy = comm.allreduce(
-                        assemble_scalar(form(damage_energy_density(state, parameters) * dx)),
-                        op=MPI.SUM,
-                    )
-            elastic_energy = comm.allreduce(
-                        assemble_scalar(form(elastic_energy_density_film(state, parameters, u_zero) * dx)),
-                        op=MPI.SUM,
-                    )
-            
     return fracture_energy, elastic_energy
 
 def load_parameters(file_path, ndofs, model="at1"):
@@ -459,8 +525,8 @@ def load_parameters(file_path, ndofs, model="at1"):
     else:
         parameters["model"]["at_number"] = 1
         parameters["loading"]["min"] = 0.0
-        parameters["loading"]["max"] = 2
-        parameters["loading"]["steps"] = 30
+        parameters["loading"]["max"] = 1.5
+        parameters["loading"]["steps"] = 100
         
     parameters["geometry"]["geom_type"] = "1d-film"
     parameters["geometry"]["mesh_size_factor"] = 4
@@ -469,15 +535,15 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-    parameters["stability"]["cone"]["scaling"] = 1e-3
+    parameters["stability"]["cone"]["scaling"] = 1e-4
 
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = 0.1
+    parameters["model"]["ell"] = 0.05
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["kappa"] = (.3)**(-2)
+    parameters["model"]["kappa"] = (.2)**(-2)
 
-    parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-1
+    parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-4
     parameters["solvers"]["newton"]["snes_atol"] = 1e-12
     parameters["solvers"]["newton"]["snes_rtol"] = 1e-12
 
@@ -500,7 +566,7 @@ if __name__ == "__main__":
     visualization = Visualization(_storage)
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
-        history_data, _, state = run_computation(parameters, _storage)
+        history_data, stability_data, state = run_computation(parameters, _storage)
     
     from irrevolutions.utils import table_timing_data
     
