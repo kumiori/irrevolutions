@@ -81,7 +81,6 @@ def plot_AMit_load(history_data, title="AM max it - Load", file=None):
 
 
 def plot_force_displacement(history_data, title="Stress - load", file=None):
-
     fig, ax1 = matplotlib.pyplot.subplots()
 
     if title is not None:

@@ -227,12 +227,14 @@ def set_vector_to_constant(x, value):
         local.set(value)
     x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
-def table_timing_data():
+def table_timing_data(tasks=None):
     import pandas as pd
     from dolfinx.common import timing
 
     timing_data = []
-    tasks = ["~First Order: AltMin solver",
+    
+    if tasks is None:
+        tasks = ["~First Order: AltMin solver",
         "~First Order: AltMin-Damage solver",
         "~First Order: AltMin-Elastic solver",
         "~First Order: Hybrid solver",
@@ -342,7 +344,11 @@ def _write_history_data(equilibrium, bifurcation, stability, history_data, t, in
     
     elastic_energy = energies[0]
     fracture_energy = energies[1]
-    unique = True if inertia[0] == 0 and inertia[1] == 0 else False
+    
+    if inertia is not None:
+        unique = True if inertia[0] == 0 and inertia[1] == 0 else False
+    else:
+        unique = None
     
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
@@ -352,10 +358,21 @@ def _write_history_data(equilibrium, bifurcation, stability, history_data, t, in
     history_data["inertia"].append(inertia)
     history_data["unique"].append(unique)
     history_data["stable"].append(stable)
-    history_data["eigs_ball"].append(bifurcation.data["eigs"])
-    history_data["cone_data"].append(stability.data)
-    history_data["eigs_cone"].append(stability.solution["lambda_t"])
+    
+    if bifurcation is not None:
+        history_data["eigs_ball"].append(bifurcation.data["eigs"])
+    else:
+        history_data["eigs_ball"].append(None)
 
+        
+    if stability is not None:
+        history_data["cone_data"].append(stability.data)
+        history_data["eigs_cone"].append(stability.solution["lambda_t"])
+    else:
+        history_data["cone_data"].append(None)
+        history_data["eigs_cone"].append(None)
+
+    
     return 
 
 

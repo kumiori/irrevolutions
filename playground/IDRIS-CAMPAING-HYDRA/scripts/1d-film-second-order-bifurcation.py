@@ -199,10 +199,6 @@ def run_computation(parameters, storage=None):
         total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
     )
 
-    stability = StabilitySolver(
-        total_energy, state, bcs, cone_parameters=parameters.get("stability")
-    )
-
     logging.basicConfig(level=logging.INFO)
 
     for i_t, t in enumerate(loads):
@@ -229,15 +225,6 @@ def run_computation(parameters, storage=None):
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
 
-        # z0 = (
-        #     bifurcation._spectrum[0]["xk"]
-        #     if bifurcation._spectrum and "xk" in bifurcation._spectrum[0]
-        #     else None
-        # )
-
-        # stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
-
-
         import matplotlib
         fig_state, ax1 = matplotlib.pyplot.subplots()
         
@@ -245,9 +232,6 @@ def run_computation(parameters, storage=None):
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
                 plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-                # plot_force_displacement(
-                #     history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
-                # )
 
             xvfb.start_xvfb(wait=0.05)
             pyvista.OFF_SCREEN = True
@@ -322,34 +306,10 @@ def run_computation(parameters, storage=None):
                     },
                 )
                 _plt.legend()
-                # _plt.fill_between(data[0], data[1].reshape(len(data[1])))
 
-            # if hasattr(stability, 'perturbation'):
-            #     if stability.perturbation['λ'] < 0:
-            #         _colour = "r"
-            #         _style = "--"
-            #     else:
-            #         _colour = "b"
-            #         _style = ":"
-                    
-            #     _plt, data = plot_profile(
-            #                 stability.perturbation['β'],
-            #                 points,
-            #                 plotter,
-            #                 fig=_plt,
-            #                 ax=ax,
-            #                 lineproperties={
-            #                     "c": _colour,
-            #                     "ls": _style,
-            #                     "lw": 3,
-            #                     "label": f"$\\beta^+, \\lambda = {stability.perturbation['λ']:.0e}$"
-            #                 },
-            #             )
 
                 _plt.legend()
-                # _plt.fill_between(data[0], data[1].reshape(len(data[1])))
                 _plt.title("Solution and Perturbation profile")
-                # ax.set_ylim(-2.1, 2.1)
                 ax.axhline(0, color="k", lw=.5)
                 fig_bif.savefig(f"{prefix}/second_order_profiles-{i_t}.png")
 
@@ -432,10 +392,10 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["stability"]["cone"]["scaling"] = 1e-3
 
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = 0.03
+    parameters["model"]["ell"] = 0.1
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["kappa"] = (.1)**(-2)
+    parameters["model"]["kappa"] = (.3)**(-2)
 
     parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-1
     parameters["solvers"]["newton"]["snes_atol"] = 1e-12
