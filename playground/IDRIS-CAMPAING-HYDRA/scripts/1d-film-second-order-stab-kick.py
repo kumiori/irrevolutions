@@ -191,13 +191,23 @@ def run_computation(parameters, storage=None):
         with dolfinx.common.Timer(f"~First Order: Equilibrium") as timer:
             equilibrium.solve(alpha_lb)
         
-        stable = dummy_stability.solve(t)
+        is_unique = bifurcation.solve(alpha_lb)
+        is_elastic = not bifurcation._is_critical(alpha_lb)
+        inertia = bifurcation.get_inertia()
         
-        logger.info(f"Equilibrium state at load {t:.2f}")
-        # logger.info(f"Equilibrium state at load {t:.2f}: {y_t}")
-        logger.info(f"Stability of state at load {t:.2f}: {stable}")
+        z0 = (
+            bifurcation._spectrum[0]["xk"]
+            if bifurcation._spectrum and "xk" in bifurcation._spectrum[0]
+            else None
+        )
+
+        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
+
+        _logger.info(f"Stability of state at load {t:.2f}: {stable}")
         
         if not stable:
+            __import__('pdb').set_trace()
+            
             iterator.pause_time()
             _logger.info(f"Time paused at {t:.2f}")
 
@@ -209,7 +219,7 @@ def run_computation(parameters, storage=None):
 
 
 
-
+    __import__('pdb').set_trace()
 
     for i_t, t in enumerate(loads):
         eps_t.value = t
@@ -295,7 +305,7 @@ def dump_output(_nameExp,
                 energies = [elastic_energy, fracture_energy],
             )
 
-def postprocess(parameters, _nameExp, prefix, β, v, state, u_zero, dx, bifurcation, stability, i_t, matplotlib):
+def postprocess(parameters, _nameExp, prefix, β, v, state, u_zero, dx, bifurcation, stability, i_t):
     with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
     
         fig_state, ax1 = matplotlib.pyplot.subplots()
