@@ -35,6 +35,7 @@ from irrevolutions.utils import (ColorPrint, ResultsStorage, Visualization,
                                  norm_H1, norm_L2)
 from irrevolutions.utils.plots import (plot_AMit_load, plot_energies,
                                        plot_force_displacement)
+import matplotlib
 from irrevolutions.utils.viz import (plot_mesh, plot_profile, plot_scalar,
                                      plot_vector)
 from mpi4py import MPI
@@ -182,92 +183,144 @@ def run_computation(parameters, storage=None):
 
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
+        fracture_energy, elastic_energy = postprocess(parameters,
+                                                        _nameExp,
+                                                        prefix,
+                                                        v,
+                                                        β,
+                                                        state,
+                                                        u_zero,
+                                                        dx,
+                                                        bifurcation,
+                                                        stability,
+                                                        i_t)
 
-        import matplotlib
+        dump_output(_nameExp, prefix, history_data, u, alpha, equilibrium, bifurcation, stability, t, inertia, fracture_energy, elastic_energy)
+
+    print(pd.DataFrame(history_data).drop(columns=["cone_data", "eigs_cone", "stable"]))
+    return history_data, {}, state
+
+def dump_output(_nameExp, 
+                    prefix, 
+                    history_data, 
+                    u, 
+                    alpha, 
+                    equilibrium, 
+                    bifurcation, 
+                    stability, 
+                    t, 
+                    fracture_energy, 
+                    elastic_energy):
+    
+    with dolfinx.common.Timer(f"~Output and Storage") as timer:
+        with XDMFFile(
+                    comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+                ) as file:
+            file.write_function(u, t)
+            file.write_function(alpha, t)
+
+        if comm.rank == 0:
+            a_file = open(f"{prefix}/time_data.json", "w")
+            json.dump(history_data, a_file)
+            a_file.close()
+
+        _write_history_data(
+                equilibrium = equilibrium,
+                bifurcation = bifurcation,
+                stability = stability,
+                history_data = history_data,
+                t=t,
+                inertia = bifurcation.get_inertia(),
+                stable = np.nan,
+                energies = [elastic_energy, fracture_energy],
+            )
+
+def postprocess(parameters, _nameExp, prefix, β, v, state, u_zero, dx, bifurcation, stability, i_t, matplotlib):
+    with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+    
         fig_state, ax1 = matplotlib.pyplot.subplots()
         
-        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
-            if comm.rank == 0:
-                plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
-                plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-                # plot_force_displacement(
-                #     history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
-                # )
+        if comm.rank == 0:
+            plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+            plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+                    # plot_force_displacement(
+                    #     history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
+                    # )
 
-            xvfb.start_xvfb(wait=0.05)
-            pyvista.OFF_SCREEN = True
+        xvfb.start_xvfb(wait=0.05)
+        pyvista.OFF_SCREEN = True
 
-            plotter = pyvista.Plotter(
-                title="Profiles",
-                window_size=[800, 600],
-                shape=(1, 1),
-            )
+        plotter = pyvista.Plotter(
+                    title="Profiles",
+                    window_size=[800, 600],
+                    shape=(1, 1),
+                )
 
-            tol = 1e-3
-            xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
-            points = np.zeros((3, 101))
-            points[0] = xs
+        tol = 1e-3
+        xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
+        points = np.zeros((3, 101))
+        points[0] = xs
 
-            _plt, data = plot_profile(
-                state["alpha"],
-                points,
-                plotter,
-                lineproperties={
-                    "c": "k",
-                    "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}"
-                },
-            )
-            ax = _plt.gca()
-
-            _plt, data = plot_profile(
-                state["u"],
-                points,
-                plotter,
-                fig=_plt,
-                ax=ax,
-                lineproperties={
-                    "c": "g",
-                    "label": "$u$",
-                    "marker": "o",
-                },
-            )
-
-            _plt, data = plot_profile(
-                u_zero,
-                points,
-                plotter,
-                fig=_plt,
-                ax=ax,
-                lineproperties={
-                    "c": "r",
-                    "lw": 3,
-                    "label": "$u_0$"
-                },
-            )
-            _plt.legend()
-            _plt.title("Solution state")
-            # ax.set_ylim(-2.1, 2.1)
-            ax.axhline(0, color="k", lw=.5)
-            _plt.savefig(f"{prefix}/state_profile-{i_t}.png")
-
-            if bifurcation._spectrum:
-                fig_bif, ax = matplotlib.pyplot.subplots()
-
-                vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
-                
-                _plt, data = plot_profile(
-                    β,
+        _plt, data = plot_profile(
+                    state["alpha"],
                     points,
                     plotter,
-                    fig=fig_bif,
-                    ax=ax,
                     lineproperties={
                         "c": "k",
-                        "label": f"$\\beta, \\lambda = {bifurcation._spectrum[0]['lambda']:.0e}$"
+                        "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}"
                     },
                 )
-                _plt.legend()
-                # _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+        ax = _plt.gca()
+
+        _plt, data = plot_profile(
+                    state["u"],
+                    points,
+                    plotter,
+                    fig=_plt,
+                    ax=ax,
+                    lineproperties={
+                        "c": "g",
+                        "label": "$u$",
+                        "marker": "o",
+                    },
+                )
+
+        _plt, data = plot_profile(
+                    u_zero,
+                    points,
+                    plotter,
+                    fig=_plt,
+                    ax=ax,
+                    lineproperties={
+                        "c": "r",
+                        "lw": 3,
+                        "label": "$u_0$"
+                    },
+                )
+        _plt.legend()
+        _plt.title("Solution state")
+                # ax.set_ylim(-2.1, 2.1)
+        ax.axhline(0, color="k", lw=.5)
+        _plt.savefig(f"{prefix}/state_profile-{i_t}.png")
+
+        if bifurcation._spectrum:
+            fig_bif, ax = matplotlib.pyplot.subplots()
+
+            vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
+                    
+            _plt, data = plot_profile(
+                        β,
+                        points,
+                        plotter,
+                        fig=fig_bif,
+                        ax=ax,
+                        lineproperties={
+                            "c": "k",
+                            "label": f"$\\beta, \\lambda = {bifurcation._spectrum[0]['lambda']:.0e}$"
+                        },
+                    )
+            _plt.legend()
+                    # _plt.fill_between(data[0], data[1].reshape(len(data[1])))
 
             if hasattr(stability, 'perturbation'):
                 if stability.perturbation['λ'] < 0:
@@ -276,66 +329,38 @@ def run_computation(parameters, storage=None):
                 else:
                     _colour = "b"
                     _style = ":"
-                    
+                            
                 _plt, data = plot_profile(
-                            stability.perturbation['β'],
-                            points,
-                            plotter,
-                            fig=_plt,
-                            ax=ax,
-                            lineproperties={
-                                "c": _colour,
-                                "ls": _style,
-                                "lw": 3,
-                                "label": f"$\\beta^+, \\lambda = {stability.perturbation['λ']:.0e}$"
-                            },
-                        )
+                                    stability.perturbation['β'],
+                                    points,
+                                    plotter,
+                                    fig=_plt,
+                                    ax=ax,
+                                    lineproperties={
+                                        "c": _colour,
+                                        "ls": _style,
+                                        "lw": 3,
+                                        "label": f"$\\beta^+, \\lambda = {stability.perturbation['λ']:.0e}$"
+                                    },
+                                )
 
                 _plt.legend()
-                # _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+                        # _plt.fill_between(data[0], data[1].reshape(len(data[1])))
                 _plt.title("Perturbation profiles")
-                # ax.set_ylim(-2.1, 2.1)
+                        # ax.set_ylim(-2.1, 2.1)
                 ax.axhline(0, color="k", lw=.5)
                 fig_bif.savefig(f"{prefix}/second_order_profiles-{i_t}.png")
 
-
-
             fracture_energy = comm.allreduce(
-                assemble_scalar(form(damage_energy_density(state, parameters) * dx)),
-                op=MPI.SUM,
-            )
+                        assemble_scalar(form(damage_energy_density(state, parameters) * dx)),
+                        op=MPI.SUM,
+                    )
             elastic_energy = comm.allreduce(
-                assemble_scalar(form(elastic_energy_density_film(state, parameters, u_zero) * dx)),
-                op=MPI.SUM,
-            )
-            _F = assemble_scalar(form(stress(state, parameters)))
-        
-        with dolfinx.common.Timer(f"~Output and Storage") as timer:
-            with XDMFFile(
-                comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
-            ) as file:
-                file.write_function(u, t)
-                file.write_function(alpha, t)
-
-            if comm.rank == 0:
-                a_file = open(f"{prefix}/time_data.json", "w")
-                json.dump(history_data, a_file)
-                a_file.close()
-
-
-            _write_history_data(
-            equilibrium = equilibrium,
-            bifurcation = bifurcation,
-            stability = stability,
-            history_data = history_data,
-            t=t,
-            inertia = inertia,
-            stable = np.nan,
-            energies = [elastic_energy, fracture_energy],
-        )
-
-    print(pd.DataFrame(history_data).drop(columns=["cone_data", "eigs_cone", "stable"]))
-    return history_data, {}, state
+                        assemble_scalar(form(elastic_energy_density_film(state, parameters, u_zero) * dx)),
+                        op=MPI.SUM,
+                    )
+            
+    return fracture_energy, elastic_energy
 
 def load_parameters(file_path, ndofs, model="at1"):
     """
