@@ -193,7 +193,7 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
             - eps_0: inelastic strain
             - sig_d_0: sound damage yield stress
             - ell: internal length
-            - k_res: fully damaged stiffness modulation
+            - k_res: residual stiffness
         """
         # Initialize elastic parameters
         super().__init__(model_parameters)
@@ -235,7 +235,7 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
 
         for i in range(self.model_dimension):
             for j in range(self.model_dimension):
-                # ompute the average value for the field sigma
+                # compute the average value for the field sigma
                 sigma[i, j] = assemble_scalar(form(_sigma[i, j] * dx))
         
         return ufl.as_tensor(sigma)

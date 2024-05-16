@@ -113,12 +113,20 @@ def save_parameters(parameters, prefix):
             yaml.dump(parameters, file)
         with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
-            
-from ufl import FiniteElement, Measure
+
+    return signature
+from ufl import VectorElement, FiniteElement, Measure
 from dolfinx import mesh, fem
 
 def create_function_spaces_1d(mesh):
     element_u = FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    V_u = fem.FunctionSpace(mesh, element_u)
+    V_alpha = fem.FunctionSpace(mesh, element_alpha)
+    return V_u, V_alpha
+
+def create_function_spaces_2d(mesh):
+    element_u = VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
     element_alpha = FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
     V_u = fem.FunctionSpace(mesh, element_u)
     V_alpha = fem.FunctionSpace(mesh, element_alpha)

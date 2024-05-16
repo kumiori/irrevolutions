@@ -102,7 +102,6 @@ def run_computation(parameters, storage=None):
     eps_t = dolfinx.fem.Constant(mesh, np.array(1., dtype=PETSc.ScalarType))
     u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
     
-    
     tilde_u = Function(V_u, name="BoundaryDatum")
     tilde_u.interpolate(lambda x: np.ones_like(x[0]))
 
@@ -116,7 +115,6 @@ def run_computation(parameters, storage=None):
         f.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
-
 
     # Natural boundary conditions
     bcs_u = []
