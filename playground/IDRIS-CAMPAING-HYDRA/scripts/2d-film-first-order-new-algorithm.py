@@ -87,7 +87,6 @@ class ThinFilmWithImposedDisplacement(ThinFilm):
         return self.elastic_energy_density_strain(
             self.eps(u), alpha) + self.elastic_foundation_density(u - u_0)
 
-
 def run_computation(parameters, storage=None):
     _nameExp = parameters["geometry"]["geom_type"]
     R = parameters["geometry"]["R"]
@@ -125,21 +124,16 @@ def run_computation(parameters, storage=None):
     alpha_ub = dolfinx.fem.Function(V_alpha, name="UpperBoundDamage")
     alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
 
-    # Useful references
-    Lx = parameters.get("geometry").get("Lx")
-
     # Define the state
     zero_u = Function(V_u, name="BoundaryUnknown")
-
-
     zero_u.interpolate(lambda x: (np.zeros_like(x[0]), np.zeros_like(x[1])))
     
     u_zero = Function(V_u, name="InelasticDisplacement")
 
     def radial_field(x):
-        r = np.sqrt(x[0]**2 + x[1]**2)
-        u_x = x[0] * r
-        u_y = x[1] * r
+        # r = np.sqrt(x[0]**2 + x[1]**2)
+        u_x = x[0]
+        u_y = x[1]
         return np.array([u_x, u_y])
 
     eps_t = dolfinx.fem.Constant(mesh, np.array(1., dtype=PETSc.ScalarType))
@@ -311,7 +305,6 @@ def run_computation(parameters, storage=None):
         #     )
         #     fig_state.tight_layout()
         #     fig_state.savefig(file)
-            
         #     matplotlib.pyplot.close()
 
         with dolfinx.common.Timer(f"~Output and Storage") as timer:
