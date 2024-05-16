@@ -13,6 +13,11 @@ import numpy as np
 import mpi4py
 import numpy as np
 import random
+import logging
+
+# Set up logging configuration
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 comm = mpi4py.MPI.COMM_WORLD
@@ -231,3 +236,34 @@ class LineSearch(object):
         assert hmax > 0, "hmax > 0"
 
         return (0, hmax)
+
+
+class StabilityStepper:
+    def __init__(self, loads):
+        self.i = 0
+        self.stop_time = False
+        self.loads = loads
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        logger.info(f"\n\nCalled next, can time be stopped? {self.stop_time}")
+        
+        if self.stop_time:
+            self.stop_time = False
+            index = self.i
+        else:
+            # If pause_time_flag is False, check if there are more items to return
+            if self.i < len(self.loads):
+                # If there are more items, increment the index
+                self.i += 1
+                index = self.i
+            else:
+                raise StopIteration
+        
+        return index            
+
+    def pause_time(self):
+        self.stop_time = True
+        logger.info(f"Called pause, stop_time is {self.stop_time}")
