@@ -243,6 +243,10 @@ class StabilityStepper:
         self.i = 0
         self.stop_time = False
         self.loads = loads
+        
+        # Add a dummy load to ensure the iterator can be invoked at the last time
+        _dt = self.loads[-1] - self.loads[-2]
+        self.loads = np.append(self.loads, self.loads[-1]+_dt)
 
     def __iter__(self):
         return self
@@ -255,14 +259,15 @@ class StabilityStepper:
             index = self.i
         else:
             # If pause_time_flag is False, check if there are more items to return
-            if self.i < len(self.loads):
+            if self.i < len(self.loads)-1:
                 # If there are more items, increment the index
                 self.i += 1
                 index = self.i
             else:
                 raise StopIteration
         
-        return index            
+        return index, self.loads[index]
+        # return _i, self.loads[_i]
 
     def pause_time(self):
         self.stop_time = True

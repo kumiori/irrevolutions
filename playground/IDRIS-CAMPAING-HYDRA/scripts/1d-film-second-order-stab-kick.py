@@ -27,6 +27,7 @@ from dolfinx.fem.petsc import assemble_vector, set_bc
 from dolfinx.io import XDMFFile
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.algorithms.ls import StabilityStepper
 
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.test.test_1d import _AlternateMinimisation1D as am1d
@@ -41,14 +42,24 @@ from irrevolutions.utils.viz import (plot_mesh, plot_profile, plot_scalar,
 from mpi4py import MPI
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
+import random
 
 from irrevolutions.utils.viz import _plot_bif_spectrum_profiles
 
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Mesh on node model_rank and then distribute
 model_rank = 0
+class DummyStabilitySolver:
+    def solve(self, t):
+        if t == 0:
+            return True
+        else:
+            return random.choice([True, False])
 
 
 def run_computation(parameters, storage=None):
@@ -132,6 +143,7 @@ def run_computation(parameters, storage=None):
     
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
+    iterator = StabilityStepper(loads)
 
     equilibrium = HybridSolver(
         total_energy,
@@ -150,6 +162,54 @@ def run_computation(parameters, storage=None):
     )
 
     logging.basicConfig(level=logging.INFO)
+
+
+    dummy_stability = DummyStabilitySolver()
+
+
+    while True:
+        try:
+            i_t, t = next(iterator)
+            # next increments the self index
+        except StopIteration:
+            break
+        
+        # Perform your time step with t
+        eps_t.value = t
+        u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
+        u_zero.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
+
+        alpha.vector.copy(alpha_lb.vector)
+        alpha_lb.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
+
+        # Log current load
+        _logger.critical(f"-- Solving for t = {t:3.2f} --")
+        with dolfinx.common.Timer(f"~First Order: Equilibrium") as timer:
+            equilibrium.solve(alpha_lb)
+        
+        stable = dummy_stability.solve(t)
+        
+        logger.info(f"Equilibrium state at load {t:.2f}")
+        # logger.info(f"Equilibrium state at load {t:.2f}: {y_t}")
+        logger.info(f"Stability of state at load {t:.2f}: {stable}")
+        
+        if not stable:
+            iterator.pause_time()
+            _logger.info(f"Time paused at {t:.2f}")
+
+            # y_t = perturb_state(y_t)
+            # logger.info(f"State perturbed at load {t:.2f}: {y_t}")
+
+
+
+
+
+
+
 
     for i_t, t in enumerate(loads):
         eps_t.value = t

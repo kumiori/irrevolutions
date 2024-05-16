@@ -16,6 +16,10 @@ class CustomSimpleIterator:
         self.i = 0
         self.stop_time = False
         self.loads = loads
+        
+        # Add a dummy load to ensure the iterator can be paused at the last load
+        _dt = self.loads[-1] - self.loads[-2]
+        self.loads = np.append(self.loads, self.loads[-1]+_dt)
 
     def __iter__(self):
         return self
@@ -28,14 +32,15 @@ class CustomSimpleIterator:
             index = self.i
         else:
             # If pause_time_flag is False, check if there are more items to return
-            if self.i < len(self.loads):
+            if self.i < len(self.loads)-1:
                 # If there are more items, increment the index
                 self.i += 1
                 index = self.i
             else:
                 raise StopIteration
         
-        return index            
+        return index, self.loads[index]
+        # return _i, self.loads[_i]
 
     def pause_time(self):
         self.stop_time = True
@@ -61,13 +66,36 @@ def perturb_state(y_t):
 
 # Example usage
 loads = np.linspace(0, 10, 11)
+
+logger.info(f"Regular Iterator")
+
+for i_t, t in enumerate(loads):
+    # print iteratino and load 
+    print(i_t, t)
+
+
 iterator = CustomSimpleIterator(loads)
 equilibrium = EquilibriumSolver()
 stability = StabilitySolver()
 
+
+logger.info(f"Non-conditional Iterator")
+
 while True:
     try:
-        t = next(iterator)
+        i_t, t = next(iterator)
+        print(i_t, t)
+        # next increments the self index
+    except StopIteration:
+        break
+
+iterator = CustomSimpleIterator(loads)
+
+logger.info(f"Stability Iterator")
+
+while True:
+    try:
+        i_t, t = next(iterator)
         # next increments the self index
     except StopIteration:
         break
@@ -75,17 +103,16 @@ while True:
     # Perform your time step with t
     update_loads(t)
     
-    # Log current load
-    logger.info(f"Current load: {t:.2f}")
-
     y_t = equilibrium.solve()
     stable = stability.solve(y_t, t)
     
-    logger.info(f"Equilibrium state at load {t:.2f}")
-    # logger.info(f"Equilibrium state at load {t:.2f}: {y_t}")
-    logger.info(f"Stability of state at load {t:.2f}: {stable}")
+    logger.info(f"index {i_t} load {t:.2f}")
+    logger.info(f"Equilibrium state at load {t:.2f}: {y_t}")
+    logger.info(f"Stability of state at load {t:.2f} index {i_t}: {stable}")
     
     if not stable:
         iterator.pause_time()
         y_t = perturb_state(y_t)
-        logger.info(f"State perturbed at load {t:.2f}: {y_t}")
+        logger.info(f"State perturbed at load {t:.2f} index {i_t:d}: {y_t}")
+
+
