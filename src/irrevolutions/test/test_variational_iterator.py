@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class CustomSimpleIterator:
     def __init__(self, loads):
-        self.i = 0
+        self.i = -1
         self.stop_time = False
         self.loads = loads
         
@@ -91,6 +91,8 @@ while True:
 
 iterator = CustomSimpleIterator(loads)
 
+
+
 logger.info(f"Stability Iterator")
 
 while True:
@@ -114,5 +116,4 @@ while True:
         iterator.pause_time()
         y_t = perturb_state(y_t)
         logger.info(f"State perturbed at load {t:.2f} index {i_t:d}: {y_t}")
-
 
