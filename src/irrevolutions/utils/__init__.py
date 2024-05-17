@@ -340,8 +340,13 @@ history_data = {
     "inertia": [],
 }
 
-def _write_history_data(equilibrium, bifurcation, stability, history_data, t, inertia, stable, energies: List):
+def _write_history_data(equilibrium, bifurcation, stability, history_data, t, stable, energies: List):
     
+    if bifurcation is not None:
+        inertia = bifurcation.get_inertia()
+    else:
+        inertia = None
+        
     elastic_energy = energies[0]
     fracture_energy = energies[1]
     

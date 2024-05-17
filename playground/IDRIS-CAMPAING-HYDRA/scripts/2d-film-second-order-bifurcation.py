@@ -26,6 +26,9 @@ from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
 from dolfinx.fem.petsc import assemble_vector, set_bc
 from dolfinx.io import XDMFFile, gmshio
 from irrevolutions.algorithms.am import HybridSolver
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.algorithms.ls import StabilityStepper, LineSearch
+
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.utils import (ColorPrint, ResultsStorage, Visualization,
                                  _logger, _write_history_data, history_data,
@@ -178,7 +181,29 @@ def run_computation(parameters, storage=None):
         solver_parameters=parameters.get("solvers"),
     )
 
-    for i_t, t in enumerate(loads):
+    bifurcation = BifurcationSolver(
+        total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
+    )
+
+    stability = StabilitySolver(
+        total_energy, state, bcs, cone_parameters=parameters.get("stability")
+    )
+    
+    linesearch = LineSearch(
+        total_energy,
+        state,
+        linesearch_parameters=parameters.get("stability").get("linesearch"),
+    )
+    
+    iterator = StabilityStepper(loads)
+    arclength = []
+    
+    while True:
+        try:
+            i_t, t = next(iterator)
+        except StopIteration:
+            break
+        
         eps_t.value = t
         u_zero.interpolate(lambda x: radial_field(x) * eps_t)
         u_zero.vector.ghostUpdate(
@@ -193,68 +218,49 @@ def run_computation(parameters, storage=None):
         _logger.critical(f"-- Solving for t = {t:3.2f} --")
         with dolfinx.common.Timer(f"~First Order: Equilibrium") as timer:
             equilibrium.solve(alpha_lb)
+
+        is_unique = bifurcation.solve(alpha_lb)
+        is_elastic = not bifurcation._is_critical(alpha_lb)
+        inertia = bifurcation.get_inertia()
+        
+        z0 = (
+            bifurcation._spectrum[0]["xk"]
+            if bifurcation._spectrum and "xk" in bifurcation._spectrum[0]
+            else None
+        )
+        ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
+        ColorPrint.print_bold(f"State's inertia: {inertia}")
+        # stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
+        equilibrium.log()
+        bifurcation.log()
         
         with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+
+
+            # magnitude_expr = dolfinx.fem.Expression(ufl.dot(u, u), V_alpha.element.interpolation_points())
+            magnitude_expr = dolfinx.fem.Expression(u[0], V_alpha.element.interpolation_points())
+            magnitude = dolfinx.fem.Function(V_alpha)
+            magnitude.interpolate(magnitude_expr)
+
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
                 plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-                # plot_force_displacement(
-                #     history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
-                # )
 
             xvfb.start_xvfb(wait=0.05)
             pyvista.OFF_SCREEN = True
 
-            # plotter = pyvista.Plotter(
-            #     title="Profiles",
-            #     window_size=[800, 600],
-            #     shape=(1, 1),
-            # )
 
-            # tol = 1e-3
-            # xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
-            # points = np.zeros((3, 101))
-            # points[0] = xs
-
-            # _plt, data = plot_profile(
-            #     state["alpha"],
-            #     points,
-            #     plotter,
-            #     lineproperties={
-            #         "c": "k",
-            #         "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}"
-            #     },
-            # )
-            # ax = _plt.gca()
-            # _plt, data = plot_profile(
-            #     state["u"],
-            #     points,
-            #     plotter,
-            #     fig=_plt,
-            #     ax=ax,
-            #     lineproperties={
-            #         "c": "g",
-            #         "label": "$u$",
-            #         "marker": "o",
-            #     },
-            # )
-            # _plt, data = plot_profile(
-            #     u_zero,
-            #     points,
-            #     plotter,
-            #     fig=_plt,
-            #     ax=ax,
-            #     lineproperties={
-            #         "c": "r",
-            #         "lw": 3,
-            #         "label": "$u_0$"
-            #     },
-            # )
-            # _plt.legend()
-            # _plt.title("Solution state")
-            # # ax.set_ylim(-2.1, 2.1)
-            # ax.axhline(0, color="k", lw=.5)
-            # _plt.savefig(f"{prefix}/state_profile-{i_t}.png")
+            # if size == 1:
+            if comm.rank == 0:
+                plotter = pyvista.Plotter(
+                    title="Displacement",
+                    window_size=[1600, 600],
+                    shape=(1, 3),
+                )
+                _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
+                _plt = plot_vector(u, plotter, subplot=(0, 1))
+                # _plt = plot_scalar(magnitude, plotter, subplot=(0, 2))
+                _plt.screenshot(f"{prefix}/traction-state.png")
 
             fracture_energy = comm.allreduce(
                 assemble_scalar(form(damage_energy_density(state, parameters) * dx)),
@@ -264,74 +270,37 @@ def run_computation(parameters, storage=None):
                 assemble_scalar(form(elastic_energy_density_film(state, parameters, u_zero) * dx)),
                 op=MPI.SUM,
             )
-            # _F = assemble_scalar(form(stress(state, parameters)))
-        
-        
-        # compute the average of the alpha field
-        import matplotlib
-        # fig_state, ax1 = matplotlib.pyplot.subplots()
-        
-        # with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
-        #     file=f"{prefix}/{_nameExp}_state_t.pdf"
-        #     _alpha_t = (assemble_scalar( form(1 * dx)))**(-1) \
-        #         * assemble_scalar(form(alpha * dx))
-        #     _u_t = t
-        #     time_series.append(t)
-        #     alpha_values.append(_alpha_t)
-        #     displacement_tip_values.append(_u_t)
 
-        #     ax1.set_title("State", fontsize=12)
-        #     ax1.set_xlabel(r"Load", fontsize=12)
-        #     ax1.plot(
-        #         time_series,
-        #         alpha_values,
-        #         color="tab:blue",
-        #         linestyle="-",
-        #         linewidth=1.0,
-        #         markersize=4.0,
-        #         marker="o",
-        #     )
-        #     history_data["F"].append(_F)
-            
-        #     ax2 = ax1.twinx()
-        #     ax2.plot(
-        #         time_series,
-        #         displacement_tip_values,
-        #         color="black",
-        #         linestyle="-",
-        #         linewidth=2.0,
-        #         markersize=4.0,
-        #         marker="o",
-        #     )
-        #     fig_state.tight_layout()
-        #     fig_state.savefig(file)
-        #     matplotlib.pyplot.close()
+        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+            pass
 
         with dolfinx.common.Timer(f"~Output and Storage") as timer:
-            with XDMFFile(
-                comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
-            ) as file:
-                file.write_function(u, t)
-                file.write_function(alpha, t)
+            
+            BINARY_DATA = True
+            if BINARY_DATA:
+                with XDMFFile(
+                    comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+                ) as file:
+                    file.write_function(u, t)
+                    file.write_function(alpha, t)
 
             if comm.rank == 0:
                 a_file = open(f"{prefix}/time_data.json", "w")
                 json.dump(history_data, a_file)
                 a_file.close()
 
-
             _write_history_data(
             equilibrium = equilibrium,
-            bifurcation = None,
-            stability = None,
+            bifurcation = bifurcation,
+            stability = stability,
             history_data = history_data,
             t=t,
             stable = np.nan,
             energies = [elastic_energy, fracture_energy],
         )
         
-    print(pd.DataFrame(history_data).drop(columns=["cone_data", "eigs_ball",
-                                                   "eigs_cone", "stable", "unique", "inertia"]))
+    print(pd.DataFrame(history_data).drop(columns=["cone_data", "equilibrium_data",
+                                                   "eigs_cone", "stable", "inertia"]))
     return history_data, {}, state
 
 def load_parameters(file_path, ndofs, model="at1"):
@@ -355,12 +324,12 @@ def load_parameters(file_path, ndofs, model="at1"):
     if model == "at2":
         parameters["model"]["at_number"] = 2
         parameters["loading"]["min"] = 0.0
-        parameters["loading"]["max"] = 3.0
-        parameters["loading"]["steps"] = 30
+        parameters["loading"]["max"] = 5.0
+        parameters["loading"]["steps"] = 10
     else:
         parameters["model"]["at_number"] = 1
         parameters["loading"]["min"] = 0.0
-        parameters["loading"]["max"] = 1.3
+        parameters["loading"]["max"] = 3.
         parameters["loading"]["steps"] = 10
         
     parameters["geometry"]["geom_type"] = "circle"
@@ -372,10 +341,10 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["stability"]["cone"]["scaling"] = 1e-3
 
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = 0.1
+    parameters["model"]["ell"] = 0.05
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["ell_e"] = .3
+    parameters["model"]["ell_e"] = .2
     # parameters["model"]["kappa"] = (.3)**(-2)
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
@@ -384,7 +353,7 @@ def load_parameters(file_path, ndofs, model="at1"):
 
 if __name__ == "__main__":
     # Set the logging level
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     # Load parameters
     parameters, signature = load_parameters(
@@ -393,7 +362,7 @@ if __name__ == "__main__":
         model="at1")
     
     # Run computation
-    _storage = f"../output/2d-film-first-new-hybrid-redundant/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    _storage = f"../output/2d-film-second-order-bifurcation/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
     visualization = Visualization(_storage)
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:

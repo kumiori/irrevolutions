@@ -17,6 +17,9 @@ import irrevolutions.solvers.slepcblockproblem as eigenblockproblem
 from irrevolutions.solvers.function import functions_to_vec, vec_to_functions
 from irrevolutions.utils import ColorPrint, _logger, norm_L2
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 comm = MPI.COMM_WORLD
 
 rank = comm.Get_rank()
@@ -101,7 +104,7 @@ class SecondOrderSolver:
         self.V_alpha = state["alpha"].function_space
 
         self.mesh = alpha.function_space.mesh
-
+        self.data = {}
         # Initialize L as a DG(0) function
         L = dolfinx.fem.FunctionSpace(self.mesh, ("DG", 0))
         self.lmbda0 = dolfinx.fem.Function(L)
@@ -632,6 +635,26 @@ class BifurcationSolver(SecondOrderSolver):
             stability_parameters=bifurcation_parameters,
         )
 
+    def log(self, logger = logger):
+        
+        # Check if spectrum is available
+        if not self._spectrum:
+            logger.info("No negative spectrum.")
+
+        # Find the minimum eigenvalue
+        min_eigenvalue = min(entry["lambda"] for entry in self.spectrum if "lambda" in entry)
+        # Determine if the evolution is unique (example condition)
+        unique_evolution = all(entry["lambda"] > 0 for entry in self.spectrum)
+
+        # Size of the computed spectrum
+        spectrum_size = len(self.spectrum)
+
+        # Log the information
+        logger.info(f"Processed eigenvalues: {self.get_number_of_process_eigenvalues(self.eigen)}")
+        logger.info(f"Inertia: {self.get_inertia()}")
+        logger.info(f"Minimum eigenvalue: {min_eigenvalue:.2f}")
+        logger.info(f"Unique evolution: {unique_evolution}")
+        logger.info(f"Size of computed spectrum: {spectrum_size}")
 
 class StabilitySolver(SecondOrderSolver):
     """Base class for a minimal implementation of the solution of eigenvalue

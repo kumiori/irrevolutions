@@ -25,8 +25,7 @@ from dolfinx.fem.petsc import (
     assemble_vector,
 )
 
-logging.basicConfig()
-
+logger = logging.getLogger(__name__)
 
 class AlternateMinimisation:
     def __init__(
@@ -100,6 +99,8 @@ class AlternateMinimisation:
             "iteration": [],
             "error_alpha_L2": [],
             "error_alpha_H1": [],
+            "alpha_L2": [],
+            "alpha_H1": [],
             "F_norm": [],
             "error_alpha_max": [],
             "error_residual_F": [],
@@ -136,6 +137,9 @@ class AlternateMinimisation:
             error_alpha_H1 = norm_H1(alpha_diff)
             error_alpha_L2 = norm_L2(alpha_diff)
 
+            alpha_H1 = norm_H1(self.alpha)
+            alpha_L2 = norm_L2(self.alpha)
+            
             Fv = [assemble_vector(form(F)) for F in self.F]
 
             Fnorm = np.sqrt(
@@ -161,6 +165,8 @@ class AlternateMinimisation:
             self.data["iteration"].append(iteration)
             self.data["error_alpha_L2"].append(error_alpha_L2)
             self.data["error_alpha_H1"].append(error_alpha_H1)
+            self.data["alpha_L2"].append(alpha_L2)
+            self.data["alpha_H1"].append(alpha_H1)
             self.data["F_norm"].append(Fnorm)
             self.data["error_alpha_max"].append(error_alpha_max)
             self.data["error_residual_F"].append(Fnorm)
@@ -220,6 +226,15 @@ class AlternateMinimisation:
             alpha_max: {self.alpha.vector.max()[1]:3.4e}"
         )
 
+    def log(self, logger = logger):
+        if not self.data["iteration"]:
+            logging.info("No data available.")
+            return
+        # Log the latest values of each metric in the data dictionary
+        for key, values in self.data.items():
+            if values:
+                logging.info(f"{key}: {values[-1]}")
+        
 
 class HybridSolver(AlternateMinimisation):
     """Hybrid (AltMin+Newton) solver for fracture"""

@@ -195,14 +195,14 @@ class LineSearch(object):
         hmin = float(hmin_glob)
 
         if hmin > 0:
-            log(LogLevel.INFO, "Line search troubles: found hmin>0")
+            logging.info("Line search troubles: found hmin>0")
             return (0.0, 0.0)
         if hmax == 0 and hmin == 0:
-            log(LogLevel.INFO, "Line search failed: found zero step size")
+            logging.info("Line search failed: found zero step size")
             # import pdb; pdb.set_trace()
             return (0.0, 0.0)
         if hmax < hmin:
-            log(LogLevel.INFO, "Line search failed: optimal h* not admissible")
+            logging.info("Line search failed: optimal h* not admissible")
             return (0.0, 0.0)
             # get next perturbation mode
 
@@ -240,7 +240,8 @@ class LineSearch(object):
 
 class StabilityStepper:
     def __init__(self, loads):
-        self.i = 0
+        # We assume that the initial condition is stable
+        self.i = -1
         self.stop_time = False
         self.loads = loads
         
