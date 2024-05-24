@@ -400,7 +400,7 @@ class SecondOrderSolver:
             # Sort eigenmodes by eigenvalues
             spectrum.sort(key=lambda item: item.get("lambda"))
             # unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
-
+            
             # Store the results
             stable = self.store_results(eigen, spectrum)
 
@@ -636,7 +636,6 @@ class BifurcationSolver(SecondOrderSolver):
         )
 
     def log(self, logger = logger):
-        
         # Check if spectrum is available
         if not self._spectrum:
             logger.info("No negative spectrum.")
@@ -652,6 +651,8 @@ class BifurcationSolver(SecondOrderSolver):
         # Log the information
         logger.info(f"Processed eigenvalues: {self.get_number_of_process_eigenvalues(self.eigen)}")
         logger.info(f"Inertia: {self.get_inertia()}")
+        logger.info(f"Eigenvalues: {' '.join([f'{value:.1e}' for value in self.data['eigs']])}")
+        
         logger.info(f"Minimum eigenvalue: {min_eigenvalue:.2f}")
         logger.info(f"Unique evolution: {unique_evolution}")
         logger.info(f"Size of computed spectrum: {spectrum_size}")
@@ -1013,6 +1014,10 @@ class StabilitySolver(SecondOrderSolver):
             _logger.critical(
                 f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}, res = {self._residual_norm}"
             )
+            if self.iterations > 0:
+                _logger.critical(
+                f"     [i={self.iterations}] lambda_k = {self.data['lambda_k'].pop():.2e}, atol = {_atol}, res = {self._residual_norm}"
+            )
 
         # self.data["iterations"].append(self.iterations)
         # self.data["error_x_L2"].append(error_x_L2)
@@ -1159,6 +1164,17 @@ class StabilitySolver(SecondOrderSolver):
         _logger.info(f"Restricted Eigenvalue is positive {lmbda_t > 0}")
         _logger.info(f"Restricted Error {self.error:.4e}")
 
+    def log(self, logger=logger):
+        # for key, value in self.data.items():
+        #     logger.info(f"{key}: {value}")
+        #  = {"lambda_t": lmbda_t, "xt": xt, "yt": yt}
+        if self.solution['lambda_t'] is not np.nan:
+            logger.info(f"Restricted Eigenvalue: {self.solution['lambda_t']}")
+            logger.info(f"Restricted Eigenfunction is in cone 🍦 ? {self._isin_cone(self.solution['xt'])}")
+            logger.info(f"Restricted Error {self.error:.4e}")
+
+        return 
+    
     def save_input_data(self, filename="data/input_data.xdmf"):
         """
         Save input data to a file.
