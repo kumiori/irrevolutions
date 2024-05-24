@@ -33,3 +33,8 @@
 **/*.cb
 **/*.cb2
 **/*.lb
+**/output/**
+docs/build/**
+**/test/data/**
+
+.DS_store
