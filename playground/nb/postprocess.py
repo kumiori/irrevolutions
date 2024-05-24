@@ -567,47 +567,65 @@ def plot_fields_for_time_step(mode_shapes_data):
         return fig, axes
 
 
-def plot_operator_spectrum(data, parameters):
-    figure, axis = plt.subplots(1, 1)
+
+def plot_operator_spectrum(data, parameters, axis = None):
+    if axis is None:
+        figure, axis = plt.subplots(1, 1)
     scale = data['eigs_ball'].values[0][0]
     tol = parameters["stability"]["cone"]["cone_rtol"]
+    # colour_ball = np.where(data['eigs_ball'] > tol, 'green', 'red')
     colour = np.where(data['eigs_cone'] > tol, 'green', 'red')
     # Concatenate data for all load steps
     load_steps_all = np.concatenate(
         [
             np.full_like(
-                eigenvalues,
-                load_step) for load_step,
-            eigenvalues in zip(
-                data['load'],
-                data['eigs_ball'])])
+                eigenvalues, load_step) for load_step, eigenvalues 
+            in zip(
+                data['load'], data['eigs_ball'])])
     eigenvalues_all = np.concatenate(data['eigs_ball'])
 
     # Create a scatter plot with vertical alignment
-    axis.scatter(
-        load_steps_all,
-        eigenvalues_all / scale,
-        marker='o',
-        c='C0',
-        label='Eigenvalues in vector space')
+    # axis.scatter(
+    #     load_steps_all,
+    #     eigenvalues_all / scale,
+    #     marker='o',
+    #     c='C0',
+    #     label='Eigenvalues in vector space')
+
+    negative_indices = eigenvalues_all < tol
+    positive_indices = eigenvalues_all > tol
+
+    load_steps_positive = load_steps_all[positive_indices]
+    eigenvalues_positive = eigenvalues_all[positive_indices]
+
+    load_steps_negative = load_steps_all[negative_indices]
+    eigenvalues_negative = eigenvalues_all[negative_indices]
+
+    axis.scatter(load_steps_positive, eigenvalues_positive / scale, marker='o', label='Positive Eigenvalues in V', color='C0')
+    axis.scatter(load_steps_negative, eigenvalues_negative / scale, marker='x', label='Negative Eigenvalues in V', color='red')
+
     axis.scatter(
         data.load,
         data['eigs_cone'],
         marker='d',
         c=colour,
         s=60,
-        label='Eigenvalues in cone')
+        label='Negative Eigenvalues in cone')
+    
+    axis.scatter(0, 1000, c='green', marker='d', label='Positive Eigenvalues in Cone')
 
     axis.set_xlabel(r'Load $t$')
     axis.set_ylabel('Eigenvalues')
     axis.set_title(
         'Spectrum of Nonlinear Operator $H_{\\ell}:=E_\\ell\'\'(y_t)$')
+
     axis.set_yticks([0, 1, -3])
     # axis.axhline(0., c='k')
-    axis.axhline(tol, c='k')
+    axis.axhline(tol, c='k', ls='--', lw='1', label='Tolerance')
+    axis.axhline(0, c='k', lw='3')
     axis.set_ylim(-.5, 1.5)
     axis.grid(True)
     axis.legend()
 
-    return figure, axis
+    return axis
     # axis.show()
