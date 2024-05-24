@@ -63,11 +63,12 @@ def run_computation(parameters, storage=None):
 
     # Get geometry model
     parameters["geometry"]["geom_type"]
-    _N = int(parameters["geometry"]["N"])
 
-    N = max(_N, parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"])
-
-    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, N)
+    # N = max(_N, parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"])
+    N = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]
+    logging.info(f"Mesh size: {N}")
+    
+    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, int(1/N))
     outdir = os.path.join(os.path.dirname(__file__), "output")
 
     prefix = setup_output_directory(storage, parameters, outdir)
@@ -199,9 +200,16 @@ def run_computation(parameters, storage=None):
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
         _logger.info(f"Stability of state at load {t:.2f}: {stable}")
+        ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
+        ColorPrint.print_bold(f"State's inertia: {inertia}")
+        ColorPrint.print_bold(f"State's stable: {stable}")
+
+        equilibrium.log()
+        bifurcation.log()
+        stability.log()
+        ColorPrint.print_bold(f"===================- {_storage} -=================")
         
         if not stable:
-            
             iterator.pause_time()
             _logger.info(f"Time paused at {t:.2f}")
             vec_to_functions(stability.solution["xt"], [v, β])
@@ -245,44 +253,7 @@ def run_computation(parameters, storage=None):
                 axes.spines["bottom"].set_visible(False)
                 axes.set_yticks([0])
                 axes.axhline(0, c="k")
-                fig.savefig(f"{prefix}/energy_interpolation-{order}.png")
-                plt.close()
-
-                orders = [2, 3, 4, 10, 30]
-
-                fig, axes = plt.subplots(1, 1, figsize=(5, 8))
-
-                for order in orders:
-                    h_steps = np.linspace(interval[0], interval[1], order + 1)
-                    h_opt, energies_1d, p, _ = linesearch.search(
-                        state, perturbation, interval, m=order
-                    )
-                    xs = np.linspace(interval[0], interval[1], 30)
-
-                    if order == 4:
-                        marker = "D"
-                        plt.scatter(h_steps, energies_1d, marker=marker, label=f"Energy slice order {order}")
-                        
-                    else: 
-                        marker = "o"
-                        plt.scatter(h_steps, energies_1d, marker=marker)
-                    axes.plot(xs, p(xs), label=f"Energy slice order {order}")
-                    plt.scatter(
-                        h_opt, 0, s=60, label=f"$h^*-{ order }={h_opt:.2f}$", alpha=0.5
-                    )
-                    plt.scatter(h_opt, p(h_opt), c="k", s=40, alpha=0.5)
-
-                axes.legend()
-                axes.spines["top"].set_visible(False)
-                axes.spines["right"].set_visible(False)
-                axes.spines["left"].set_visible(False)
-                axes.spines["bottom"].set_visible(False)
-                axes.set_yticks([0])
-                axes.set_xlabel("h")
-                axes.set_ylabel("$E_h - E_0$")
-                axes.axhline(0, c="k")
-                fig.savefig(f"{prefix}/energy_interpolation-orders-{i_t}.png")
-
+                fig.savefig(f"{prefix}/energy_interpolation-order-{order}.png")
                 plt.close()
 
                 tol = 1e-3
@@ -296,20 +267,33 @@ def run_computation(parameters, storage=None):
                     shape=(1, 1),
                 )
 
-                _plt, data = plot_profile(
-                    β,
+                plot, data = plot_profile(
+                    # β,
+                    perturbation['beta'],
+                    # stability.perturbation['β'],
                     points,
                     plotter,
                     lineproperties={"c": "k", "label": f"$\\beta$"},
                 )
-                _plt.gca()
-                _plt.legend()
-                _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-                _plt.title("Perurbation")
-                _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
-                _plt.close()
+                plot.gca()
+                plot.legend()
+                plot.fill_between(data[0], data[1].reshape(len(data[1])))
+                plot.title("Perurbation")
+                plot.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
+                plot.close()
 
             linesearch.perturb(state, perturbation, h_opt)
+            fracture_energy, elastic_energy = postprocess(parameters,
+                                                            _nameExp,
+                                                            prefix,
+                                                            v,
+                                                            β,
+                                                            state,
+                                                            u_zero,
+                                                            dx,
+                                                            bifurcation,
+                                                            stability,
+                                                            i_t)
 
         else:
             # If stable, postprocess and dump
@@ -330,7 +314,7 @@ def run_computation(parameters, storage=None):
     _logger.info(f"Arclengths: {arclength}")
 
 
-    print(pd.DataFrame(history_data))
+    print(pd.DataFrame(history_data).drop(columns=['equilibrium_data']))
     return history_data, stability.data, state
 
 def dump_output(_nameExp, 
@@ -364,7 +348,6 @@ def dump_output(_nameExp,
                 stability = stability,
                 history_data = history_data,
                 t=t,
-                inertia = bifurcation.get_inertia(),
                 stable = np.nan,
                 energies = [elastic_energy, fracture_energy],
             )
@@ -514,6 +497,7 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["model"]["model_dimension"] = 1
     parameters["model"]["model_type"] = "1D"
 
+    L=2
 
     if model == "at2":
         parameters["model"]["at_number"] = 2
@@ -522,13 +506,12 @@ def load_parameters(file_path, ndofs, model="at1"):
         parameters["loading"]["steps"] = 30
     else:
         parameters["model"]["at_number"] = 1
-        parameters["loading"]["min"] = 0.0
-        parameters["loading"]["max"] = 1.5
-        parameters["loading"]["steps"] = 100
+        parameters["loading"]["min"] = 0.9
+        parameters["loading"]["max"] = 1.3
+        parameters["loading"]["steps"] = 30
         
     parameters["geometry"]["geom_type"] = "1d-film"
-    parameters["geometry"]["mesh_size_factor"] = 4
-    parameters["geometry"]["N"] = ndofs
+    parameters["geometry"]["mesh_size_factor"] = 5
 
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
@@ -536,12 +519,12 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["stability"]["cone"]["scaling"] = 1e-4
 
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = 0.05
+    parameters["model"]["ell"] = 0.05/L
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["kappa"] = (.2)**(-2)
+    parameters["model"]["kappa"] = (.2/L)**(-2)
 
-    parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-4
+    parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-5
     parameters["solvers"]["newton"]["snes_atol"] = 1e-12
     parameters["solvers"]["newton"]["snes_rtol"] = 1e-12
 
@@ -560,7 +543,7 @@ if __name__ == "__main__":
         model="at1")
     
     # Run computation
-    _storage = f"../output/1d-film-second-order-stability/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    _storage = f"../output/1d-film-second-order-stability-kick/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
     visualization = Visualization(_storage)
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:

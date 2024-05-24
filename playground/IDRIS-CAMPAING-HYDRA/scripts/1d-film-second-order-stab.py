@@ -182,7 +182,16 @@ def run_computation(parameters, storage=None):
 
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
+        _logger.info(f"Stability of state at load {t:.2f}: {stable}")
+        ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
+        ColorPrint.print_bold(f"State's inertia: {inertia}")
+        ColorPrint.print_bold(f"State's stable: {stable}")
 
+        equilibrium.log()
+        bifurcation.log()
+        stability.log()
+        ColorPrint.print_bold(f"===================- {_storage} -=================")
+        
         import matplotlib
         fig_state, ax1 = matplotlib.pyplot.subplots()
         
@@ -329,12 +338,11 @@ def run_computation(parameters, storage=None):
             stability = stability,
             history_data = history_data,
             t=t,
-            inertia = inertia,
-            stable = np.nan,
+            stable = stable,
             energies = [elastic_energy, fracture_energy],
         )
 
-    print(pd.DataFrame(history_data).drop(columns=["cone_data", "eigs_cone", "stable"]))
+    print(pd.DataFrame(history_data).drop(columns=["cone_data", "equilibrium_data"]))
     return history_data, {}, state
 
 def load_parameters(file_path, ndofs, model="at1"):
@@ -363,28 +371,27 @@ def load_parameters(file_path, ndofs, model="at1"):
         parameters["loading"]["steps"] = 30
     else:
         parameters["model"]["at_number"] = 1
-        parameters["loading"]["min"] = 0.0
-        parameters["loading"]["max"] = 2
+        parameters["loading"]["min"] = 0.7
+        parameters["loading"]["max"] = 1.3
         parameters["loading"]["steps"] = 30
         
     parameters["geometry"]["geom_type"] = "1d-film"
     parameters["geometry"]["mesh_size_factor"] = 4
     parameters["geometry"]["N"] = ndofs
-
+    
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-    parameters["stability"]["cone"]["scaling"] = 1e-3
-
+    parameters["stability"]["cone"]["scaling"] = 1e-5
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = 0.1
+    parameters["model"]["ell"] = 0.01
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["kappa"] = (.3)**(-2)
+    parameters["model"]["kappa"] = (.03)**(-2)
 
-    parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-1
-    parameters["solvers"]["newton"]["snes_atol"] = 1e-12
-    parameters["solvers"]["newton"]["snes_rtol"] = 1e-12
+    parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-4
+    parameters["solvers"]["newton"]["snes_atol"] = 1e-8
+    parameters["solvers"]["newton"]["snes_rtol"] = 1e-8
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 

@@ -158,7 +158,6 @@ def run_computation(parameters, storage=None):
         )
 
     bcs_u = [dirichletbc(u_zero, u_boundary_dofs)]
-    bcs_u = []
 
     bcs_alpha = []
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
@@ -237,34 +236,19 @@ def run_computation(parameters, storage=None):
         bifurcation.log()
         ColorPrint.print_bold(f"===================- {_storage} -=================")
         
+        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
+        
+        equilibrium.log()
+        bifurcation.log()
+        stability.log()
+
         with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
-
-
-            # magnitude_expr = dolfinx.fem.Expression(ufl.dot(u, u), V_alpha.element.interpolation_points())
-            magnitude_expr = dolfinx.fem.Expression(u[0], V_alpha.element.interpolation_points())
-            magnitude = dolfinx.fem.Function(V_alpha)
-            magnitude.interpolate(magnitude_expr)
-
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
                 plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
 
             xvfb.start_xvfb(wait=0.05)
             pyvista.OFF_SCREEN = True
-
-
-            # if size == 1:
-            if comm.rank == 0:
-                plotter = pyvista.Plotter(
-                    title="Displacement",
-                    window_size=[1600, 600],
-                    shape=(1, 3),
-                )
-                _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-                _plt = plot_scalar(alpha, plotter, subplot=(0, 2))
-                _plt = plot_vector(u, plotter, subplot=(0, 1), scale=-.8)
-                # _plt = plot_scalar(magnitude, plotter, subplot=(0, 2))
-                _plt.screenshot(f"{prefix}/traction-state.png")
 
             fracture_energy = comm.allreduce(
                 assemble_scalar(form(damage_energy_density(state, parameters) * dx)),
@@ -275,12 +259,9 @@ def run_computation(parameters, storage=None):
                 op=MPI.SUM,
             )
 
-        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
-            pass
-
         with dolfinx.common.Timer(f"~Output and Storage") as timer:
             
-            BINARY_DATA = True
+            BINARY_DATA = False
             if BINARY_DATA:
                 with XDMFFile(
                     comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
@@ -303,8 +284,7 @@ def run_computation(parameters, storage=None):
             energies = [elastic_energy, fracture_energy],
         )
         
-    print(pd.DataFrame(history_data).drop(columns=["cone_data", "equilibrium_data",
-                                                   "eigs_cone", "stable", "inertia"]))
+    print(pd.DataFrame(history_data).drop(columns=["cone_data", "equilibrium_data"]))
     return history_data, {}, state
 
 def load_parameters(file_path, ndofs, model="at1"):
@@ -328,28 +308,27 @@ def load_parameters(file_path, ndofs, model="at1"):
     if model == "at2":
         parameters["model"]["at_number"] = 2
         parameters["loading"]["min"] = 0.0
-        parameters["loading"]["max"] = 5.0
-        parameters["loading"]["steps"] = 10
+        parameters["loading"]["max"] = 3.0
+        parameters["loading"]["steps"] = 30
     else:
         parameters["model"]["at_number"] = 1
         parameters["loading"]["min"] = 0.7
-        parameters["loading"]["max"] = 1.5
-        parameters["loading"]["steps"] = 30
+        parameters["loading"]["max"] = 1.3
+        parameters["loading"]["steps"] = 10
         
     parameters["geometry"]["geom_type"] = "circle"
-    parameters["geometry"]["mesh_size_factor"] = 2
+    parameters["geometry"]["mesh_size_factor"] = 3
 
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
     parameters["stability"]["cone"]["scaling"] = 1e-3
-    parameters["stability"]["maxmodes"] = 3
-
+    
     parameters["model"]["w1"] = 1
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["ell"] = 0.05
-    parameters["model"]["ell_e"] = .2
+    parameters["model"]["ell"] = 0.02
+    parameters["model"]["ell_e"] = .15
     # parameters["model"]["kappa"] = (.3)**(-2)
     parameters["solvers"]["damage_elasticity"]["max_it"] = 1000
 
@@ -363,7 +342,7 @@ def load_parameters(file_path, ndofs, model="at1"):
 
 if __name__ == "__main__":
     # Set the logging level
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     # Load parameters
     parameters, signature = load_parameters(
@@ -372,7 +351,7 @@ if __name__ == "__main__":
         model="at1")
     
     # Run computation
-    _storage = f"../output/2d-film-second-order-bifurcation/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    _storage = f"../output/2d-film-second-order-stability/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
     visualization = Visualization(_storage)
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:

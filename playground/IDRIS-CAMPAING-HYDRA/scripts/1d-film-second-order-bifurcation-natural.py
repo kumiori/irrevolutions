@@ -112,11 +112,13 @@ def run_computation(parameters, storage=None):
 
     # Get geometry model
     parameters["geometry"]["geom_type"]
-    _N = int(parameters["geometry"]["N"])
+    # _N = int(parameters["geometry"]["N"])
 
-    N = max(_N, parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"])
-
-    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, N)
+    # N = max(_N, parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"])
+    N = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]
+    logging.info(f"Mesh size: {N}")
+    
+    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, int(1/N))
     outdir = os.path.join(os.path.dirname(__file__), "output")
 
     prefix = setup_output_directory(storage, parameters, outdir)
@@ -166,15 +168,15 @@ def run_computation(parameters, storage=None):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-    # Natural boundary conditions
-    bcs_u = []
 
     # Redundant boundary conditions
-    bcs_u = [dirichletbc(u_zero, dofs_u_right), 
-             dirichletbc(u_zero, dofs_u_left)]
+    # bcs_u = [dirichletbc(u_zero, dofs_u_right), 
+    #          dirichletbc(u_zero, dofs_u_left)]
 
     bcs_alpha = []
 
+    # Natural boundary conditions
+    bcs_u = []
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
     
@@ -355,7 +357,7 @@ def run_computation(parameters, storage=None):
     print(pd.DataFrame(history_data).drop(columns=["cone_data", "eigs_cone", "stable", "equilibrium_data"]))
     return history_data, {}, state
 
-def load_parameters(file_path, ndofs, model="at1"):
+def load_parameters(file_path, model="at1"):
     """
     Load parameters from a YAML file.
 
@@ -373,6 +375,7 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["model"]["model_dimension"] = 1
     parameters["model"]["model_type"] = "1D"
 
+    L=2
 
     if model == "at2":
         parameters["model"]["at_number"] = 2
@@ -386,8 +389,7 @@ def load_parameters(file_path, ndofs, model="at1"):
         parameters["loading"]["steps"] = 30
         
     parameters["geometry"]["geom_type"] = "1d-film"
-    parameters["geometry"]["mesh_size_factor"] = 4
-    parameters["geometry"]["N"] = ndofs
+    parameters["geometry"]["mesh_size_factor"] = 5
 
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
@@ -395,14 +397,14 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["stability"]["cone"]["scaling"] = 1e-4
 
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = 0.03
+    parameters["model"]["ell"] = 0.03/L
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["kappa"] = (.1)**(-2)
+    parameters["model"]["kappa"] = (.1/L)**(-2)
 
-    parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-3
-    parameters["solvers"]["newton"]["snes_atol"] = 1e-8
-    parameters["solvers"]["newton"]["snes_rtol"] = 1e-8
+    parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-5
+    parameters["solvers"]["newton"]["snes_atol"] = 1e-12
+    parameters["solvers"]["newton"]["snes_rtol"] = 1e-12
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
@@ -415,11 +417,10 @@ if __name__ == "__main__":
     # Load parameters
     parameters, signature = load_parameters(
         os.path.join(os.path.dirname(__file__), "../parameters", "1d_parameters.yaml"), 
-        ndofs=100, 
         model="at1")
     
     # Run computation
-    _storage = f"../output/1d-film-second-order-bifurcation/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    _storage = f"../output/1d-film-second-order-bifurcation-natural/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
     visualization = Visualization(_storage)
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
