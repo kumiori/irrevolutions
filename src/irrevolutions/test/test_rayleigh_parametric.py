@@ -347,7 +347,7 @@ if __name__ == "__main__":
         parameters, signature = load_parameters("parameters.yml", ndofs=args.N)
         pretty_parameters = json.dumps(parameters, indent=2)
 
-        _storage = f"output/rayleigh-benchmark-parametric/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+        _storage = f"output/rayleigh-benchmark-parametric/MPI-{MPI.COMM_WORLD.Get_size()}/{signature[0:6]}"
         ColorPrint.print_bold(f"===================-{_storage}-=================")
 
         with dolfinx.common.Timer(f"~Random Computation Experiment") as timer:

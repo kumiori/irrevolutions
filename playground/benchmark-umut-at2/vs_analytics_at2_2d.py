@@ -413,7 +413,7 @@ if __name__ == "__main__":
         model="at2")
     
     # Run computation
-    _storage = f"output/thinfilm-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    _storage = f"output/thinfilm-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{signature[0:6]}"
     visualization = Visualization(_storage)
     ColorPrint.print_bold(f"===================- {_storage} -=================")
 

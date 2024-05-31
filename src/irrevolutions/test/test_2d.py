@@ -365,7 +365,7 @@ if __name__ == "__main__":
     print(pretty_parameters)
 
     _storage = (
-        f"output/two-dimensional-pizza/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+        f"output/two-dimensional-pizza/MPI-{MPI.COMM_WORLD.Get_size()}/{signature[0:6]}"
     )
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 

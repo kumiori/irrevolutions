@@ -280,7 +280,7 @@ def run_computation(parameters, storage=None):
 
         with dolfinx.common.Timer(f"~Output and Storage") as timer:
             
-            BINARY_DATA = True
+            BINARY_DATA = False
             if BINARY_DATA:
                 with XDMFFile(
                     comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
@@ -332,12 +332,12 @@ def load_parameters(file_path, ndofs, model="at1"):
         parameters["loading"]["steps"] = 10
     else:
         parameters["model"]["at_number"] = 1
-        parameters["loading"]["min"] = 0.7
+        parameters["loading"]["min"] = 0.65
         parameters["loading"]["max"] = 1.5
-        parameters["loading"]["steps"] = 30
+        parameters["loading"]["steps"] = 10
         
     parameters["geometry"]["geom_type"] = "circle"
-    parameters["geometry"]["mesh_size_factor"] = 2
+    parameters["geometry"]["mesh_size_factor"] = 3
 
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
@@ -348,12 +348,11 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["model"]["w1"] = 1
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["ell"] = 0.05
-    parameters["model"]["ell_e"] = .2
+    parameters["model"]["ell"] = 0.07
+    parameters["model"]["ell_e"] = .3
     # parameters["model"]["kappa"] = (.3)**(-2)
-    parameters["solvers"]["damage_elasticity"]["max_it"] = 1000
-
-    parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-3
+    parameters["solvers"]["damage_elasticity"]["max_it"] = 2000
+    parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-4
     parameters["solvers"]["newton"]["snes_atol"] = 1e-8
     parameters["solvers"]["newton"]["snes_rtol"] = 1e-8
 
@@ -372,7 +371,7 @@ if __name__ == "__main__":
         model="at1")
     
     # Run computation
-    _storage = f"../output/2d-film-second-order-bifurcation/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    _storage = f"../output/2d-film-second-order-bifurcation/MPI-{MPI.COMM_WORLD.Get_size()}/{signature[0:6]}"
     visualization = Visualization(_storage)
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:

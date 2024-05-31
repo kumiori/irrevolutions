@@ -346,7 +346,7 @@ if __name__ == "__main__":
         model="at1")
     
     # Run computation
-    _storage = f"../output/2d-film-second-order-stability-kick/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    _storage = f"../output/2d-film-second-order-stability-kick/MPI-{MPI.COMM_WORLD.Get_size()}/{signature[0:6]}"
     visualization = Visualization(_storage)
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:

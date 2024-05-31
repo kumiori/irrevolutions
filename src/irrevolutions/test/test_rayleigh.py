@@ -55,7 +55,7 @@ def test_rayleigh(parameters = None, storage=None):
     if parameters is None:
         parameters, signature = load_parameters("parameters.yml", ndofs=50)
         pretty_parameters = json.dumps(parameters, indent=2)
-        storage = f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+        storage = f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature[0:6]}"
     else:
         signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
@@ -439,7 +439,7 @@ if __name__ == "__main__":
     parameters, signature = load_parameters("parameters.yml", ndofs=args.N)
     pretty_parameters = json.dumps(parameters, indent=2)
 
-    _storage = f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    _storage = f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature[0:6]}"
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
