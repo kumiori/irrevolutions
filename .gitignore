@@ -38,3 +38,4 @@ docs/build/**
 **/test/data/**
 
 .DS_store
+.venv*
