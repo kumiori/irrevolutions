@@ -228,7 +228,22 @@ def run_computation(parameters, storage=None):
 
     logging.basicConfig(level=logging.INFO)
 
-
+    fields_data = {
+        "time_steps": [],
+        "mesh": [],
+        "point_values": {
+            'equilibrium_u': [],
+            'equilibrium_α': [],
+            'bifurcation_v': [],
+            'bifurcation_β': [],
+            'stability_v': [],
+            'stability_β': [],
+        },
+        "global_values": {
+            'bifurcation_λ': [],
+            'stability_λ': [],
+        },
+    }
     for i_t, t in enumerate(loads):
 
         eps_t.value = t
@@ -263,6 +278,9 @@ def run_computation(parameters, storage=None):
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
         with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+            
+            from irrevolutions.utils.viz import get_datapoints
+            
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
                 plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
@@ -372,6 +390,47 @@ def run_computation(parameters, storage=None):
                 _plt.title("Bifurcation profiles")
                 _plt.savefig(f"{prefix}/perturbation_profiles-{i_t}.png")
                 
+            # save datapoints
+            mesh_points = get_datapoints(u, points)[0][:, 0]
+            data_equilibrium_u = get_datapoints(u, points)[1].flatten()
+            data_equilibrium_alpha = get_datapoints(alpha, points)[1].flatten()
+
+            # try to get bifurcation data
+            try:
+                vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
+                data_bifurcation_v = get_datapoints(v, points)[1].flatten()
+                data_bifurcation_β = get_datapoints(β, points)[1].flatten()
+                bifurcation_lambda = bifurcation._spectrum[0]['lambda']
+            except:
+                logging.warning(f"No bifurcation data available at t={t}")
+                data_bifurcation_v = []
+                data_bifurcation_β = []
+                bifurcation_lambda = []
+
+            try:
+                data_stability_v = get_datapoints(stability.perturbation['v'], points)[1].flatten()
+                data_stability_β = get_datapoints(stability.perturbation['β'], points)[1].flatten()
+                stability_lambda = stability.perturbation['λ']
+            except:
+                logging.warning(f"No stability data available at t={t}")
+                data_stability_v = []
+                data_stability_β = []
+                stability_lambda = []
+                
+
+            fields_data["time_steps"].append(t)
+            fields_data["mesh"] = mesh_points
+            fields_data["point_values"]["equilibrium_u"].append(data_equilibrium_u)
+            fields_data["point_values"]["equilibrium_α"].append(data_equilibrium_alpha)
+            fields_data["point_values"]["bifurcation_v"].append(data_bifurcation_v)
+            fields_data["point_values"]["bifurcation_β"].append(data_bifurcation_β)
+            fields_data["point_values"]["stability_v"].append(data_stability_v)
+            fields_data["point_values"]["stability_β"].append(data_stability_β)
+            
+            fields_data["global_values"]["bifurcation_λ"].append(bifurcation_lambda)
+            fields_data["global_values"]["stability_λ"].append(stability_lambda)
+            
+            np.savez(f"{prefix}/fields_data.npz", **fields_data)
             
             fracture_energy = comm.allreduce(
                 assemble_scalar(form(damage_energy_density(state) * dx)),
@@ -389,7 +448,6 @@ def run_computation(parameters, storage=None):
                 stability,
                 history_data,
                 t,
-                inertia,
                 stable,
                 [elastic_energy, fracture_energy],
             )
