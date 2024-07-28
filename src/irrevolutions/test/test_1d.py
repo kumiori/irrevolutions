@@ -450,7 +450,7 @@ def run_computation(parameters, storage=None):
     num_modes = 1
 
     # Extra data fields
-    history_data["F"] = []
+    # history_data["F"] = []
 
     logging.basicConfig(level=logging.INFO)
 
@@ -600,7 +600,7 @@ def run_computation(parameters, storage=None):
             assemble_scalar(form(elastic_energy_density(state) * dx)),
             op=MPI.SUM,
         )
-        _F = assemble_scalar(form(stress(state)))
+        # _F = assemble_scalar(form(stress(state)))
 
         ColorPrint.print_bold(stability.solution["lambda_t"])
 
@@ -615,7 +615,7 @@ def run_computation(parameters, storage=None):
             [fracture_energy, elastic_energy],
         )
 
-        history_data["F"].append(_F)
+        # history_data["F"].append(_F)
 
         with XDMFFile(
             comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
@@ -634,9 +634,9 @@ def run_computation(parameters, storage=None):
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
         plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-        plot_force_displacement(
-            history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
-        )
+        # plot_force_displacement(
+        #     history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
+        # )
 
     return history_data, stability.data, state
 

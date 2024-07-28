@@ -16,7 +16,7 @@ from irrevolutions.utils import history_data, _write_history_data
 from irrevolutions.utils.viz import plot_profile
 from solvers.function import vec_to_functions
 from dolfinx.common import list_timings
-from irrevolutions.utils import norm_H1
+from irrevolutions.utils import norm_H1, find_offending_columns_lengths
 from irrevolutions.utils import ColorPrint
 from meshes.primitives import mesh_bar_gmshapi
 from algorithms.ls import LineSearch
@@ -26,6 +26,7 @@ from models import DamageElasticityModel as Brittle
 import matplotlib.pyplot as plt
 import hashlib
 import numpy as np
+import pandas as pd
 import yaml
 import json
 from pathlib import Path
@@ -38,6 +39,7 @@ import dolfinx
 import dolfinx.plot
 import ufl
 import numpy as np
+import pytest
 
 sys.path.append("../")
 
@@ -53,13 +55,21 @@ size = comm.Get_size()
 
 model_rank = 0
 
+@pytest.fixture
+def parameters():
+    test_parameters, test_signature = load_parameters("../test/parameters.yml")
+    return test_parameters
+
+@pytest.fixture
+def storage():
+    test_parameters, test_signature = load_parameters("../test/parameters.yml")
+    return f"output/linesearch/{test_signature}"
 
 def test_linsearch(parameters, storage):
 
     comm = MPI.COMM_WORLD
 
     model_rank = 0
-
     Lx = parameters["geometry"]["Lx"]
     Ly = parameters["geometry"]["Ly"]
     tdim = parameters["geometry"]["geometric_dimension"]
@@ -201,8 +211,6 @@ def test_linsearch(parameters, storage):
         state,
         linesearch_parameters=parameters.get("stability").get("linesearch"),
     )
-
-    history_data.update({"F": []})
 
     for i_t, t in enumerate(loads):
         u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
@@ -405,8 +413,6 @@ def test_linsearch(parameters, storage):
 
         _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
 
-        history_data["F"].append(stress)
-
         _write_history_data(
             equilibrium,
             bifurcation,
@@ -432,9 +438,6 @@ def test_linsearch(parameters, storage):
         ColorPrint.print_bold(f"   Written timely data.    ")
         print()
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
-
-    import pandas as pd
-
     df = pd.DataFrame(history_data)
     print(df.drop(["equilibrium_data", "cone_data"], axis=1))
 
@@ -462,11 +465,6 @@ def test_linsearch(parameters, storage):
 
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
-        plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-        plot_force_displacement(
-            history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
-        )
-
 
 def load_parameters(file_path):
     """
@@ -502,16 +500,20 @@ def load_parameters(file_path):
 
     return parameters, signature
 
-
 if __name__ == "__main__":
-    parameters, signature = load_parameters("../test/parameters.yml")
+    # parameters, signature = load_parameters("../test/parameters.yml")
+    test_parameters, test_signature = parameters()
     ColorPrint.print_bold(
-        f"===================- {signature} -=================")
-    _storage = f"output/linesearch/{signature}"
+        f"===================- {test_signature} -=================")
+
+    test_storage = storage()
+    
     ColorPrint.print_bold(
-        f"===================- {_storage} -=================")
-    test_linsearch(parameters, _storage)
+        f"===================- {test_storage} -=================")
+
+    test_linsearch(test_parameters, test_storage)
+    
     ColorPrint.print_bold(
-        f"===================- {signature} -=================")
+        f"===================- {test_signature} -=================")
     ColorPrint.print_bold(
-        f"===================- {_storage} -=================")
+        f"===================- {test_storage} -=================")

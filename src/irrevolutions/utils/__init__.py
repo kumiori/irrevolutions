@@ -250,6 +250,15 @@ def table_timing_data():
 
     return df
 
+def find_offending_columns_lengths(data):
+    lengths = {}
+    for key, value in data.items():
+        try:
+            lengths[key] = len(value)
+        except TypeError:
+            lengths[key] = 'Non-iterable'
+    return lengths
+
 from dolfinx.io import XDMFFile
 
 
