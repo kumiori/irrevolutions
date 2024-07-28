@@ -492,9 +492,9 @@ def load_parameters(file_path, ndofs, model="at2"):
     # Get mesh parameters
 
     if model == "at2":
-        parameters["loading"]["min"] = 0.0
-        parameters["loading"]["max"] = 3.0
-        parameters["loading"]["steps"] = 30
+        parameters["loading"]["min"] = 1.5
+        parameters["loading"]["max"] = 3.5
+        parameters["loading"]["steps"] = 10
 
     parameters["geometry"]["geom_type"] = "1d-bar"
     parameters["geometry"]["mesh_size_factor"] = 4
@@ -511,6 +511,9 @@ def load_parameters(file_path, ndofs, model="at2"):
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
     parameters["model"]["kappa"] = (.34)**(-2)
+
+    parameters["solvers"]["newton"]["snes_atol"] = 1.0e-12
+    parameters["solvers"]["newton"]["snes_rtol"] = 1.0e-12
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 

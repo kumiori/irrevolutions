@@ -601,8 +601,14 @@ def plot_operator_spectrum(data, parameters, axis = None):
     load_steps_negative = load_steps_all[negative_indices]
     eigenvalues_negative = eigenvalues_all[negative_indices]
 
-    axis.scatter(load_steps_positive, eigenvalues_positive / scale, marker='o', label='Positive Eigenvalues in V', color='C0')
-    axis.scatter(load_steps_negative, eigenvalues_negative / scale, marker='x', label='Negative Eigenvalues in V', color='red')
+    axis.scatter(load_steps_positive, eigenvalues_positive / scale,
+                #  marker='o',
+                label='Positive Eigenvalues in V', 
+                # color='C0',
+                facecolors='none',
+                edgecolors='C0')
+    axis.scatter(load_steps_negative, eigenvalues_negative / scale, marker='x',
+    label='Negative Eigenvalues in V', color='red')
 
     axis.scatter(
         data.load,
@@ -610,9 +616,10 @@ def plot_operator_spectrum(data, parameters, axis = None):
         marker='d',
         c=colour,
         s=60,
-        label='Negative Eigenvalues in cone')
+        label='Negative Eigenvalues in $K^+_0$')
     
-    axis.scatter(0, 1000, c='green', marker='d', label='Positive Eigenvalues in Cone')
+    axis.scatter(0, 1000, c='green', marker='d', 
+                 label='Positive Eigenvalues in $K^+_0$')
 
     axis.set_xlabel(r'Load $t$')
     axis.set_ylabel('Eigenvalues')
@@ -627,5 +634,6 @@ def plot_operator_spectrum(data, parameters, axis = None):
     axis.grid(True)
     axis.legend()
 
+    # axis._data = {'eigen_V': eigenvalues_positive / scale, 'eigen_K': eigenvalues_all}
     return axis
     # axis.show()
