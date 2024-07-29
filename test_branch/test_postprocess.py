@@ -19,12 +19,13 @@ def read_timestep_data(h5file, function, function_name, timestep):
     timestep (str): The timestep to read.
     """
     dataset_path = f"Function/{function_name}/{timestep}"
-    if dataset_path in h5file:
-        data = h5file[dataset_path][:]
-        function.vector.setArray(data.flatten())
-        function.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-    else:
-        print(f"Timestep {timestep} not found for function {function_name}.")
+    with h5py.File(h5_file_path, "r") as h5file:
+        if dataset_path in h5file:
+            data = h5file[dataset_path][:]
+            function.vector.setArray(data.flatten())
+            function.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        else:
+            print(f"Timestep {timestep} not found for function {function_name}.")
 
 def get_timesteps(h5file, function_name):
     """
@@ -78,27 +79,28 @@ if __name__ == "__main__":
             print(f"{name}: {obj}")
 
         h5file.visititems(print_attrs)
-
-        h5file["Function/Displacement"].keys()
-        __import__('pdb').set_trace()
         
-# Assign the read data to the functions
-u.vector.setArray(u_data)
-alpha.vector.setArray(alpha_data)
+    with h5py.File(h5_file_path, "r") as h5file:
+        displacement_timesteps = get_timesteps(h5file, "Displacement")
+        damage_timesteps = get_timesteps(h5file, "Damage")
 
+        if displacement_timesteps == damage_timesteps:
+            timesteps = displacement_timesteps
+        
+    # Assign the read data to the functions
+    u = dolfinx.fem.Function(V_u, name="Displacement")
+    alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 
-# Example postprocessing: Compute norms of the fields
-u_norm = u.vector.norm()
-alpha_norm = alpha.vector.norm()
+    # Example usage: Read data for a specific timestep
+    timestep = "0_31034482758620691"  # Adjust this to the desired timestep
+    read_timestep_data(h5_file_path, u, "Displacement", timestep)
+    read_timestep_data(h5_file_path, alpha, "Damage", timestep)
 
-print(f"Norm of displacement field u: {u_norm:.4e}")
-print(f"Norm of damage field alpha: {alpha_norm:.4e}")
+    # Example postprocessing: Compute norms of the fields
+    u_norm = u.vector.norm()
+    alpha_norm = alpha.vector.norm()
 
-# Example postprocessing: Save the fields in a new XDMF file
-output_xdmf_file_path = "path/to/your/output/file.xdmf"
-with XDMFFile(comm, output_xdmf_file_path, "w", encoding=XDMFFile.Encoding.HDF5) as xdmf_file:
-    xdmf_file.write_mesh(mesh)
-    xdmf_file.write_function(u)
-    xdmf_file.write_function(alpha)
+    print(f"Norm of displacement field u: {u_norm:.4e}")
+    print(f"Norm of damage field alpha: {alpha_norm:.4e}")
 
-# Additional postprocessing can be done here, such as visualization or further analysis.
+    # Additional postprocessing can be done here, such as visualization or further analysis.
