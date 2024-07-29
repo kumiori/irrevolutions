@@ -12,6 +12,7 @@ import yaml
 from dolfinx.fem import assemble_scalar, form
 from mpi4py import MPI
 from petsc4py import PETSc
+import pickle
 
 comm = MPI.COMM_WORLD
 
@@ -227,14 +228,12 @@ def set_vector_to_constant(x, value):
         local.set(value)
     x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
-def table_timing_data(tasks=None):
+def table_timing_data():
     import pandas as pd
     from dolfinx.common import timing
 
     timing_data = []
-    
-    if tasks is None:
-        tasks = ["~First Order: AltMin solver",
+    tasks = ["~First Order: AltMin solver",
         "~First Order: AltMin-Damage solver",
         "~First Order: AltMin-Elastic solver",
         "~First Order: Hybrid solver",
@@ -251,6 +250,15 @@ def table_timing_data(tasks=None):
     df = pd.DataFrame(timing_data, columns=["reps", "wall tot", "usr", "sys"], index=tasks)
 
     return df
+
+def find_offending_columns_lengths(data):
+    lengths = {}
+    for key, value in data.items():
+        try:
+            lengths[key] = len(value)
+        except TypeError:
+            lengths[key] = 'Non-iterable'
+    return lengths
 
 from dolfinx.io import XDMFFile
 
@@ -340,20 +348,11 @@ history_data = {
     "inertia": [],
 }
 
-def _write_history_data(equilibrium, bifurcation, stability, history_data, t, stable, energies: List):
+def _write_history_data(equilibrium, bifurcation, stability, history_data, t, inertia, stable, energies: List):
     
-    if bifurcation is not None:
-        inertia = bifurcation.get_inertia()
-    else:
-        inertia = None
-        
     elastic_energy = energies[0]
     fracture_energy = energies[1]
-    
-    if inertia is not None:
-        unique = True if inertia[0] == 0 and inertia[1] == 0 else False
-    else:
-        unique = None
+    unique = True if inertia[0] == 0 and inertia[1] == 0 else False
     
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
@@ -363,21 +362,10 @@ def _write_history_data(equilibrium, bifurcation, stability, history_data, t, st
     history_data["inertia"].append(inertia)
     history_data["unique"].append(unique)
     history_data["stable"].append(stable)
-    
-    if bifurcation is not None:
-        history_data["eigs_ball"].append(bifurcation.data["eigs"])
-    else:
-        history_data["eigs_ball"].append(None)
+    history_data["eigs_ball"].append(bifurcation.data["eigs"])
+    history_data["cone_data"].append(stability.data)
+    history_data["eigs_cone"].append(stability.solution["lambda_t"])
 
-        
-    if stability is not None:
-        history_data["cone_data"].append(stability.data)
-        history_data["eigs_cone"].append(stability.solution["lambda_t"])
-    else:
-        history_data["cone_data"].append(None)
-        history_data["eigs_cone"].append(None)
-
-    
     return 
 
 
@@ -393,3 +381,125 @@ def indicator_function(v):
         mode=PETSc.ScatterMode.FORWARD)
     
     return w
+
+
+def save_binary_data(filename, data):
+    viewer = PETSc.Viewer().createBinary(filename, "w")
+
+    if isinstance(data, list):
+        for item in data:
+            item.view(viewer)
+    elif isinstance(data, PETSc.Mat):
+        data.view(viewer)
+    elif isinstance(data, PEtest_binarydataioTSc.Vec):
+        data.view(viewer)
+    else:
+        raise ValueError("Unsupported data type for saving")
+
+
+def load_binary_data(filename):
+    viewer = PETSc.Viewer().createBinary(filename, "r")
+    data = []
+    vectors = []
+
+    i = 0
+    while True:
+        try:
+            vec = PETSc.Vec().load(viewer)
+
+            vectors.append(vec)
+            i += 1
+        except PETSc.Error as e:
+            # __import__('pdb').set_trace()
+            # if e.ierr == PETSc.Error.S_ARG_WRONG:
+            print(f"Error {e.ierr}: {translatePETScERROR.get(e.ierr, 'Unknown error')}")
+            break
+            # else:
+            # raise
+
+    return data
+
+
+def load_binary_vector(filename):
+    """
+    Load a binary file containing a PETSc vector.
+
+    Args:
+        filename (str): Path to the binary file.
+
+    Returns:
+        PETSc.Vec: Loaded PETSc vector.
+    """
+    try:
+        # Create a PETSc viewer for reading
+        viewer = PETSc.Viewer().createBinary(filename, "r")
+
+        # Load the vector from the viewer
+        vector = PETSc.Vec().load(viewer)
+
+        # Close the viewer
+        viewer.destroy()
+
+        return vector
+
+    except PETSc.Error as e:
+        print(f"Error: {e}")
+        return None
+
+
+def load_binary_matrix(filename):
+    """
+    Load a binary file containing a PETSc Matrix.
+
+    Args:
+        filename (str): Path to the binary file.
+
+    Returns:
+        PETSc.Mat: Loaded PETSc Matrix.
+    """
+    try:
+        # Create a PETSc viewer for reading
+        viewer = PETSc.Viewer().createBinary(filename, "r")
+
+        # Load the vector from the viewer
+        vector = PETSc.Mat().load(viewer)
+
+        # Close the viewer
+        viewer.destroy()
+
+        return vector
+
+    except PETSc.Error as e:
+        print(f"Error: {e}")
+        return None
+
+
+def save_minimal_constraints(obj, filename):
+    minimal_constraints = {
+        "bglobal_dofs_mat": obj.bglobal_dofs_mat,
+        "bglobal_dofs_mat_stacked": obj.bglobal_dofs_mat_stacked,
+        "bglobal_dofs_vec": obj.bglobal_dofs_vec,
+        "bglobal_dofs_vec_stacked": obj.bglobal_dofs_vec_stacked,
+        "blocal_dofs": obj.blocal_dofs,
+        "boffsets_mat": obj.boffsets_mat,
+        "boffsets_vec": obj.boffsets_vec,
+    }
+
+    with open(filename, "wb") as file:
+        pickle.dump(minimal_constraints, file)
+
+
+def load_minimal_constraints(filename):
+    import irrevolutions.solvers.restriction as restriction
+    
+    with open(filename, "rb") as file:
+        minimal_constraints = pickle.load(file)
+
+    # Assuming you have a constructor for your class
+    # Modify this accordingly based on your actual class structure
+    reconstructed_obj = restriction.Restriction()
+    for key, value in minimal_constraints.items():
+        setattr(reconstructed_obj, key, value)
+
+    return reconstructed_obj
+
