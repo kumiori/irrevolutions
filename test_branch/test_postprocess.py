@@ -22,7 +22,13 @@ def read_timestep_data(h5file, function, function_name, timestep):
     with h5py.File(h5_file_path, "r") as h5file:
         if dataset_path in h5file:
             data = h5file[dataset_path][:]
-            function.vector.setArray(data.flatten())
+
+            local_range = function.vector.getOwnershipRange()
+            local_data = data[local_range[0]:local_range[1]]
+            function.vector.setArray(local_data.flatten())
+            function.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+
+            # function.vector.setArray(data.flatten())
             function.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
         else:
             print(f"Timestep {timestep} not found for function {function_name}.")
