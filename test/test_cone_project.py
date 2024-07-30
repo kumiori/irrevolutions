@@ -1,9 +1,9 @@
-from .test_sample_data import init_data
-from .test_restriction import (
+from test_sample_data import init_data
+from test_restriction import (
     get_inactive_dofset,
 )
-from .test_extend import test_extend_vector
-from . import test_binarydataio
+from test_extend import test_extend_vector
+from irrevolutions.utils import load_binary_data, load_binary_matrix, load_binary_vector
 from mpi4py import MPI
 from petsc4py import PETSc
 import numpy as np
@@ -18,6 +18,25 @@ sys.path.append("../")
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
+
+
+def extend_vector(vres, vext, constraints):
+    """
+    Extends a restricted vector vr into v, not in place.
+
+    Args:
+        vres: Restricted vector to be extended.
+        vext: Extended vector.
+
+    Returns:
+        None
+    """
+
+    vext.zeroEntries()
+
+    vext.array[constraints.bglobal_dofs_vec_stacked] = vres.array
+
+    return vext
 
 
 def _cone_project_restricted(v, _x, constraints):
@@ -38,7 +57,7 @@ def _cone_project_restricted(v, _x, constraints):
         ]
         # _x = dolfinx.fem.petsc.create_vector_block(F)
 
-        test_extend_vector(v, _x, constraints)
+        extend_vector(v, _x, constraints)
 
         # _logger.critical(f"rank {rank} viewing _x")
         # _x.view()
@@ -65,11 +84,11 @@ def _cone_project_restricted(v, _x, constraints):
     return x
 
 
-if __name__ == "__main__":
-
-    full_matrix = test_binarydataio.load_binary_matrix("data/solver/A.mat")
-    matrix = test_binarydataio.load_binary_matrix("data/solver/Ar.mat")
-    guess = test_binarydataio.load_binary_vector("data/solver/x0r.vec")
+def test_cone_project():
+       
+    full_matrix = load_binary_matrix("data/solver/A.mat")
+    matrix = load_binary_matrix("data/solver/Ar.mat")
+    guess = load_binary_vector("data/solver/x0r.vec")
 
     F, v = init_data(10, positive=False)
     V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
@@ -84,6 +103,10 @@ if __name__ == "__main__":
     vr = constraints.restrict_vector(v)
     # x = test_cone_project_restricted(vr, constraints, x)
     x = _cone_project_restricted(vr, _x, constraints)
+ 
+
+if __name__ == "__main__":
+    test_cone_project()
 
     # _logger.info(f"The vr vector")
     # vr.view()

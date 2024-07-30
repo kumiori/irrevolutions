@@ -1,6 +1,6 @@
-from .test_sample_data import init_data
+from test_sample_data import init_data
 from dolfinx.cpp.la.petsc import get_local_vectors
-from .test_restriction import (
+from test_restriction import (
     __log_incipit,
     get_inactive_dofset,
 )

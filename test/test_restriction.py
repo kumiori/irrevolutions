@@ -1,4 +1,4 @@
-from .test_sample_data import init_data
+from test_sample_data import init_data
 from dolfinx.cpp.la.petsc import get_local_vectors
 from mpi4py import MPI
 import numpy as np
@@ -106,8 +106,10 @@ def test_restriction():
     _logger.info(f"vr")
     vr.view()
 
-    # return v, vr, constraints, restricted_dofs, F, x
-    return v, vr, constraints
+    # assert we get the right number of restricted dofs
+    assert len(np.concatenate(restricted_dofs)) == vr.getSize()
+    
+    # return v, vr, constraints
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ import numpy as np
 import ufl
 import dolfinx
 from irrevolutions.utils import _logger
-from .test_cone_project import _cone_project_restricted
+from test_cone_project import _cone_project_restricted
 from . import test_binarydataio as bio
 import irrevolutions.solvers.restriction as restriction
 import os
@@ -40,7 +40,7 @@ def load_minimal_constraints(filename, spaces):
     return reconstructed_obj
 
 
-def spa():
+def test_spa():
 
     def iterate(x, xold, errors):
         """
@@ -215,4 +215,4 @@ def spa():
 
 
 if __name__ == "__main__":
-    spa()
+    test_spa()
