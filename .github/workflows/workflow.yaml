@@ -1,0 +1,24 @@
+name: Run Tests in Docker Container
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  set-up-computing-environment:
+    runs-on: ubuntu-latest
+    container: kumiori3/numerix:stable-amd64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: python3 -m pip install .
+
+      - name: Test import
+        run: python3 -c "import irrevolutions"
+
+      - name: Run tests
+        run: pytest -v .
