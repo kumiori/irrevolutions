@@ -25,6 +25,7 @@ dependencies = [
     "PyYAML>=6.0.1",
     "scipy>=1.12.0",
     "pyvista>=0.43",
+    "numba>=0.60.0",
 ]
 
 [project.optional-dependencies]
