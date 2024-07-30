@@ -298,9 +298,6 @@ def run_computation(parameters, storage=None):
     u = Function(V_u, name="Unknown")
     u_ = Function(V_u, name="Boundary Unknown")
     zero_u = Function(V_u, name="Boundary Unknown")
-    # Measures
-    dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
 
     # Boundary sets
 
@@ -639,9 +636,6 @@ def run_computation(parameters, storage=None):
         # )
 
     return history_data, stability.data, state
-
-
-# Viz
 
 
 def load_parameters(file_path, ndofs, model="at1"):
