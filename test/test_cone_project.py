@@ -1,4 +1,4 @@
-from test_sample_data import init_data
+from irrevolutions.utils import sample_data
 from test_restriction import (
     get_inactive_dofset,
 )
@@ -90,7 +90,7 @@ def test_cone_project():
     matrix = load_binary_matrix("data/solver/Ar.mat")
     guess = load_binary_vector("data/solver/x0r.vec")
 
-    F, v = init_data(10, positive=False)
+    F, v = sample_data(10, positive=False)
     V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
     _x = dolfinx.fem.petsc.create_vector_block(F)
     x = dolfinx.fem.petsc.create_vector_block(F)

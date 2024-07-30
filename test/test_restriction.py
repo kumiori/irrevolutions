@@ -1,4 +1,4 @@
-from test_sample_data import init_data
+from irrevolutions.utils import sample_data
 from dolfinx.cpp.la.petsc import get_local_vectors
 from mpi4py import MPI
 import numpy as np
@@ -80,7 +80,7 @@ def get_inactive_dofset(v, F):
 
 
 def test_restriction():
-    F, v = init_data(5)
+    F, v = sample_data(5)
     V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
 
     dolfinx.fem.petsc.create_vector_block(F)
