@@ -25,4 +25,4 @@ jobs:
         run: pytest -v test/test_1d.py
 
       - name: Run tests
-        run: pytest -v .
+        run: pytest -v test/
