@@ -21,5 +21,8 @@ jobs:
       - name: Test import
         run: python3 -c "import irrevolutions"
 
+      - name: Run 1d test
+        run: pytest -v test/test_1d.py
+
       - name: Run tests
         run: pytest -v .
