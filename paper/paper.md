@@ -31,7 +31,14 @@ bibliography: paper.bib
 
 ---
 
+<style>
+ALB { color: Orange }
+PLC { color: Blue }
+</style>
+
 # Summary
+
+<ALB>TODO:</ALB>
 
 We study irreversible evolutionary processes with a general energetic notion of stability. We dedicate this contribution to releasing three nonlinear variational solvers as modular components (based on FEniCSx/dolfinx) that address three mathematical optimisation problems. They are general enough to apply, in principle, to evolutionary systems with instabilities, jumps, and emergence of patterns which is commonplace in diverse arenas spanning from quantum to continuum mechanics, economy, social sciences, and ecology. Our motivation proceeds from fracture mechanics, with the ultimate goal of deploying a transparent numerical platform for scientific validation and prediction of large scale natural fracture phenomena. Our solvers are used to compute _one_ solution to a problem encoded in a system of two inequalities: one (pointwise almost-everywhere) constraint of irreversibility and one global energy statement. As part of our commitment to open science, our solvers are released as free software.
 
