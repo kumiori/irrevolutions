@@ -40,7 +40,7 @@ PLC { color: Blue }
 
 <ALB>TODO:</ALB>
 
-We study irreversible evolutionary processes with a general energetic notion of stability. We dedicate this contribution to releasing three nonlinear variational solvers as modular components (based on FEniCSx/dolfinx) that address three mathematical optimisation problems. They are general enough to apply, in principle, to evolutionary systems with instabilities, jumps, and emergence of patterns which is commonplace in diverse arenas spanning from quantum to continuum mechanics, economy, social sciences, and ecology. Our motivation proceeds from fracture mechanics, with the ultimate goal of deploying a transparent numerical platform for scientific validation and prediction of large scale natural fracture phenomena. Our solvers are used to compute _one_ solution to a problem encoded in a system of two inequalities: one (pointwise almost-everywhere) constraint of irreversibility and one global energy statement. As part of our commitment to open science, our solvers are released as free software.
+We study irreversible evolutionary processes with a general energetic notion of stability. We dedicate this contribution to releasing three nonlinear variational solvers as modular components (based on FEniCSx/dolfinx) that address three mathematical optimisation problems. They are general enough to apply, in principle, to evolutionary systems with instabilities, jumps, and emergence of patterns which is commonplace in diverse arenas spanning from quantum to continuum mechanics, economy, social sciences, and ecology. Our motivation proceeds from fracture mechanics, with the ultimate goal of deploying a transparent numerical platform for scientific validation and prediction of large scale natural fracture phenomena. Our solvers are used to compute _one_ solution to a problem encoded in a system of two inequalities: one (pointwise almost-everywhere) constraint of irreversibility and one global energy statement. <ALB>~~As part of our commitment to open science, our solvers are released as free software.~~</ALB>
 
 # Statement of need
 
@@ -49,7 +49,7 @@ Quasi-static evolution problems arising in fracture are strongly nonlinear [@mar
 To fill this gap, our nonlinear solvers offer a flexible toolkit for advanced stability analysis of systems which evolve with constraints.
 
 
-# Three solvers
+# <ALB>Functionality</ALB>
 
 `HybridSolver` (1) `BifurcationSolver,` (2) and `StabilitySolver` (3) implement the solution of three general purpose variational problems: 
 
@@ -70,14 +70,14 @@ $$y_t: t\in [0, T]\mapsto X_t
 $$\text{[Unilateral Stability]} \qquad E(y_t) \leq E(y_t + z), \quad \forall z \in V_0 \times K^+_0\qquad [1]$$
 
 
-Above, $T$ defines a horizon of events. The system is represented by its total energy $E$ and $X_t$ is the time-dependent space of admissible states. A generic element of $X_t$ contains a macroscopic field that can be externally driven (or controlled, e.g. via boundary conditions) and an internal field (akin to an internal degree of order). In the applications of fracture, the kinematic variable is a vector-valued displacement $u(x)$ and the degree of order $\alpha(x)$ controls the softening of the material. Irreversibility applies to the internal variable, hence an <abbr >irreversible-constrained</abbr> evolution is a mapping parametrised by $t$ such that $\alpha_t(x)$ is non-decreasing with respect to $t$. Remark that the test space for the internal order parameter $K^+_0$ only contains positive fields owing to the irreversibility constraint. The main difficulties are to correctly enforce unilateral constraints and to account for the changing nature of the space of variations. 
+Above, $T$ defines a horizon of events. The system is represented by its total energy $E$ and $X_t$ is the time-dependent space of admissible states. A generic element of $X_t$ contains a macroscopic field that can be externally driven (or controlled, e.g. via boundary conditions) and an internal field (akin to an internal degree of order). In the applications of fracture, the kinematic variable is a vector-valued displacement $u(x)$ and the degree of order $\alpha(x)$ controls the softening of the material. Irreversibility applies to the internal variable, hence an <abbr >irreversible-constrained</abbr> evolution is a mapping parametrised by $t$ such that $\alpha_t(x)$ is non-decreasing with respect to $t$. <ALB>The kinematic variable is subject to bilateral variations belonging to a linear subset of a Sobolev vector space $V_0$, whereas </ALB> ~~Remark that~~ the test space for the internal order parameter $K^+_0$ only contains positive fields owing to the irreversibility constraint. The main difficulties are to correctly enforce unilateral constraints and to account for the changing nature of the space of variations. 
 
 
 ## Software
 
 Our solvers are written in `Python` and are built on  `DOLFINx`, an expressive and performant parallel  distributed computing environment for solving partial differential equations using the finite element method [@dolfinx2023preprint]. It enables us wrapping high-level functional mathematical constructs with full flexibility and control of the underlying linear algebra backend. We use PETSc [@petsc-user-ref], petsc4py [@dalcinpazklercosimo2011], SLEPc.EPS [@hernandez:2005-slepc], and dolfiny [@Habera:aa] for parallel scalability.
 
-Our solver's API receives an abstract energy functional, a user-friendly description of the state of the system, its associated constraints, and the solver's parameters. Solvers can be instantiated calling 
+Our solver's API receives an abstract energy functional, a user-friendly description of the state of the system <ALB>as a dictionary (u, alpha), whre the first elemnt is associated to the reversible field and the second to the irreversible component</ALB>, ~~its~~ <ALB>the</ALB> associated constraints <ALB>on the latter</ALB>, and the solver's parameters <ALB>(an example in the Appendix)</ALB>. Solvers can be instantiated calling
 ```
 solver = {Hybrid,Bifurcation,Stability}Solver(
       E,              # An energy (dolfinx.fem.form) 
@@ -105,8 +105,8 @@ We dedicate a separate contribution to illustrate how the three solvers are algo
 We benchmark our solvers against a nontrivial 1d problem (cf. `test/test_rayleigh.py` in the code repository), namely we compute
 $$
 \min_{X_0} \mathcal R(z) \quad \text{and} \quad \min_{\mathcal K^+_0} \mathcal R(z) \qquad\qquad [2],$$
-using `BifurcationSolver` and `StabilitySolver`. The quantity $\mathcal R(z)$ is a Rayleigh ratio, often used in structural mechanics as a dimensionless global quantity (an energetic ratio of elastic and fracture energies) which provides insight into the stability and critical loading conditions for a structure. For definiteness, using the Sobolev spaces which are the natural setting for second order PDE problems, we set $X_0 = H^1_0(0, 1) \times H^1(0, 1)$ and $\mathcal K^+_0 = H^1_0(0, 1) \times \{\beta \in H^1(0, 1), \beta \geq 0\}$. Let
-$$\mathcal R(z):= \dfrac{\int_0^1 a(\beta'(x))^2dx+\int_0^1 b(v'(x) -c\beta(x))^2dx}{\int_0^1\beta(x)^2dx},$$ 
+<ALB>where $z = (v, \beta)$ in $X_0$ and $\mathcal K^+_0$,</ALB> using `BifurcationSolver` and `StabilitySolver`, <ALB>respectively</ALB>. The quantity $\mathcal R(z)$ is a Rayleigh ratio, often used in structural mechanics as a dimensionless global quantity (an energetic ratio of elastic and fracture energies) which provides insight into the stability and critical loading conditions for a structure. For definiteness, using the Sobolev spaces which are the natural setting for second order PDE problems, we set $X_0 = H^1_0(0, 1) \times H^1(0, 1)$ and $\mathcal K^+_0 = H^1_0(0, 1) \times \{\beta \in H^1(0, 1), \beta \geq 0\}$. Let
+$$\mathcal R(z):= \dfrac{\int_0^1 a(\beta'(x))^2dx+\int_0^1 b(v'(x) -c\beta(x))^2dx}{\int_0^1\beta(x)^2dx},\qquad\qquad [3]$$ 
  where $a, b, c$ are real coefficients such that $a>0, b>0, c\neq 0$. The quantity above occurs in the stability analysis of a 1d damageable bar, where $b$ is related to the spring constant of the material while $a, c$ encapsulate material, loading, and model parameters, cf. the Appendix of [@pham:2011-the-issues]. \autoref{fig:profile} and \autoref{fig:phase_diag_D} compare numerical results with the analytic solution, \autoref{fig:phase_diag_ball} and \autoref{fig:phase_diag_cone} show the relative error on the minimum in the space of parameters.
 
 ![Comparison between profiles of solutions $\beta(x)$ in $X_0$ (left) vs. $\mathcal K^+_0$ (right). In the latter case, the solution $\beta(x)$ has support of size $D\in [0, 1]$.\label{fig:profile}](media/profile_comparison.pdf)
@@ -122,7 +122,39 @@ $$\mathcal R(z):= \dfrac{\int_0^1 a(\beta'(x))^2dx+\int_0^1 b(v'(x) -c\beta(x))^
 ## Acknowledgements
 
 A.L.B. acknowledges the students of MEC647 (Complex Crack Propagation in Brittle Materials) of the `Modélisation Multiphysique Multiéchelle des Matériaux et des Structures` master program at ENSTA Paris Tech/École Polytechnique for their contributions, motivation, and feedback; Yves Capdeboscq, Jean-Jacques Marigo, Sebastien Neukirch, and Luc Nguyen, for constructive discussions and one key insight that was crucial for this project.
-P.C. is a member of the Gruppo Nazionale per l’Analisi Matematica, la Probabilità e le loro Applicazioni (GNAMPA) of the Istituto Nazionale di Alta Matematica (INdAM). P.C. holds an honorary appointment at La Trobe University and is supported by JSPS Innovative Area Grant JP21H00102.
+<PLC>The work of PC was supported by the JSPS Innovative Area grant JP21H00102 and  JSPS Grant-in-Aid for Scientific Research (C) JP24K06797. PC holds an honorary appointment at La Trobe University and is a member of GNAMPA.  
+</PLC>
+
+## <ALB>Appendix</ALB>
+### <ALB>Numerical parameters</ALB>
+<ALB>...</ALB>
+### <ALB>Analytic solutions ..</ALB>
+<ALB>Given $\mathcal R(z)$ as in [3], the solutions to the minimum problem [2.1] and [2.2] are</ALB>
+<ALB>$$\min_{X_0} \mathcal R(z) = \min\{bc^2, \pi^2 a\}, \quad \text{and} \quad \min_{\mathcal K^+_0} \mathcal R(z)= \left\{ \begin{align*}
+    & bc^2, & \text{if }\pi^2 \mathrm{a}\geq\mathrm{bc}^2 \\
+    & \left(\pi^2 a\right)^{1 / 3}\left(b c^2\right)^{2 / 3}, & \text{if }\pi^2 a<b c^2
+\end{align*}.
+\right.$$</ALB>
+<ALB>The associated eigenspaces (the minimisers) are</ALB>
+<ALB>...</ALB>
+<ALB>for [2.1]</ALB>
+<ALB>
+$$
+\beta_*(x)=C+A \cos \pi x, \quad v_*(x)=\frac{\mathrm{c} A}{\pi} \sin \pi x,
+$$
+where $A=0$ if $\mathrm{bc}^2<\pi^2 \mathrm{a}, C=0$ if $\mathrm{bc}^2>\pi^2 \mathrm{a}$ and, $A$ and $C$ are arbitrary real numbers otherwise.
+</ALB>
+<ALB>and for [2.2]</ALB>
+<ALB> 1. If $\pi^2 \mathrm{a}>\mathrm{bc}^2$, the minimisers are $\beta_*(x)=C>0$. </ALB>
+<ALB>2. If $\pi^2 \mathrm{a}=\mathrm{bc}^2$, and the minimisers are $\beta_*(x)=C+A \cos \pi x$ with $C>0$ and $|A| \leq C$.</ALB>
+<ALB>3. If $\pi^2 a<b c^2$, the minimisers are
+$$
+\beta_*(x)=\left\{\begin{array}{ll}
+C\left(1+\cos \pi \frac{x}{\mathrm{D}}\right) & \text { if } x \in(0, \mathrm{D}) \\
+0 & \text { otherwise }
+\end{array} \text { and } \quad \tilde{\beta}_*(x)=\beta_*(1-x),\right.
+$$</ALB>
+where $C$ is an arbitrary positive constant and $D^3=\pi^2 a / b c^2$.
 
 ## References
 
