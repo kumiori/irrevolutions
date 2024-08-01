@@ -130,7 +130,7 @@ $$\mathcal R(z):= \dfrac{\int_0^1 a(\beta'(x))^2dx+\int_0^1 b(v'(x) -c\beta(x))^
 
 ## Acknowledgements
 
-A.L.B. acknowledges the students of MEC647 (Complex Crack Propagation in Brittle Materials) of the `Modélisation Multiphysique Multiéchelle des Matériaux et des Structures` master program at ENSTA Paris Tech/École Polytechnique for their contributions, motivation, and feedback; Yves Capdeboscq, Jean-Jacques Marigo, Sebastien Neukirch, and Luc Nguyen, for constructive discussions and one key insight that was crucial for this project.
+ALB acknowledges the students of MEC647 (Complex Crack Propagation in Brittle Materials) of the `Modélisation Multiphysique Multiéchelle des Matériaux et des Structures` master program at ENSTA Paris Tech/École Polytechnique for their contributions, motivation, and feedback; Yves Capdeboscq, Jean-Jacques Marigo, Sebastien Neukirch, and Luc Nguyen, for constructive discussions and one key insight that was crucial for this project.
 <PLC>The work of PC was supported by the JSPS Innovative Area grant JP21H00102 and  JSPS Grant-in-Aid for Scientific Research (C) JP24K06797. PC holds an honorary appointment at La Trobe University and is a member of GNAMPA.  
 </PLC>
 
@@ -168,7 +168,7 @@ if $\pi^2 a<b c^2$, where $C$ is an arbitrary positive constant and $D^3=\pi^2 a
 **
 
 ### **Numerical parameters**
-**We provide an example of the list of numerical parameters associated to the simulation reported in the paper. The list contains all relevant parameters, including geometry, loading, and solvers configuration. The rationale is to ensure reproducibility of numerical simulations and clarity in collecting the computational metadata.
+**We provide an example of the list of numerical parameters associated to the simulation reported in the paper. The list contains all relevant parameters, including geometry, loading (if it applies), and solvers configuration. The rationale is to ensure reproducibility of numerical simulations and clarity in collecting the computational metadata.
 **
 
 ```
@@ -180,10 +180,6 @@ geometry:
   geometric_dimension: 2
   lc: 0.02
   mesh_size_factor: 4
-loading:
-  max: 1.001
-  min: 0
-  steps: 10
 model:
   a: 1
   b: 4
