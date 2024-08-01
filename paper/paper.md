@@ -232,24 +232,6 @@ solvers:
       snes_monitor: ''
       snes_rtol: 1.0e-08
       snes_type: vinewtonrsls
-    tao:
-      ksp_rtol: 1e-6
-      pc_type: lu
-      tao_catol: 0.0
-      tao_crtol: 0.0
-      tao_gatol: 1.0e-08
-      tao_gpcg_maxpgits: 50
-      tao_grtol: 1.0e-08
-      tao_gttol: 1.0e-08
-      tao_ls_ftol: 1e-5
-      tao_ls_gtol: 1e-5
-      tao_ls_rtol: 1e-5
-      tao_ls_stepmax: 1e6
-      tao_ls_stepmin: 1e-8
-      tao_max_it: 100
-      tao_monitor: ''
-      tao_steptol: 1.0e-07
-      tao_type: tron
     type: SNES
   damage_elasticity:
     alpha_rtol: 0.0001
