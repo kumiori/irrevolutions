@@ -26,7 +26,7 @@ affiliations:
    index: 1
  - name: Institute of Mathematics for Industry, Kyushu University, 744 Motooka, Nishi-ku, Fukuoka, 819-0395, Japan.
    index: 2
-date: 8 March 2024
+date: 1 August 2024
 bibliography: paper.bib
 
 ---
@@ -76,7 +76,7 @@ solver = {Hybrid,Bifurcation,Stability}Solver(
       E,              # An energy (dolfinx.fem.form) 
       state,          # A dictionary of fields describing the system
       bcs,            # A list of boundary conditions
-      [bounds],       # A list of bounds (upper and lower) for the state 
+      [bounds],       # A list of bounds (upper and lower) for the order parameter 
       parameters)     # A dictionary of numerical parameters
 ```
 where `[bounds]` are required for the `HybridSolver`, and used calling `solver.solve(<args>)` which triggers the solution of the corresponding variational problem. Here, `<args>` depend on the solver (see the documentation for details).
