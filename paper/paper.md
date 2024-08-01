@@ -36,9 +36,15 @@ ALB { color: Orange }
 PLC { color: Blue }
 </style>
 
-# Summary
+<style>
+.AA { color: Orange }
+.PL { color: Blue }
+</style>
 
-<ALB>TODO:</ALB>
+<span class="AA">Given $\mathcal{R}(z)$ as in [3], the solutions to the minimum problem [2.1] and [2.2] are</span>
+
+
+# Summary
 
 We study irreversible evolutionary processes with a general energetic notion of stability. We dedicate this contribution to releasing three nonlinear variational solvers as modular components (based on FEniCSx/dolfinx) that address three mathematical optimisation problems. They are general enough to apply, in principle, to evolutionary systems with instabilities, jumps, and emergence of patterns which is commonplace in diverse arenas spanning from quantum to continuum mechanics, economy, social sciences, and ecology. Our motivation proceeds from fracture mechanics, with the ultimate goal of deploying a transparent numerical platform for scientific validation and prediction of large scale natural fracture phenomena. Our solvers are used to compute _one_ solution to a problem encoded in a system of two inequalities: one (pointwise almost-everywhere) constraint of irreversibility and one global energy statement. <ALB>~~As part of our commitment to open science, our solvers are released as free software.~~</ALB>
 
@@ -107,7 +113,10 @@ $$
 \min_{X_0} \mathcal R(z) \quad \text{and} \quad \min_{\mathcal K^+_0} \mathcal R(z) \qquad\qquad [2],$$
 <ALB>where $z = (v, \beta)$ in $X_0$ and $\mathcal K^+_0$,</ALB> using `BifurcationSolver` and `StabilitySolver`, <ALB>respectively</ALB>. The quantity $\mathcal R(z)$ is a Rayleigh ratio, often used in structural mechanics as a dimensionless global quantity (an energetic ratio of elastic and fracture energies) which provides insight into the stability and critical loading conditions for a structure. For definiteness, using the Sobolev spaces which are the natural setting for second order PDE problems, we set $X_0 = H^1_0(0, 1) \times H^1(0, 1)$ and $\mathcal K^+_0 = H^1_0(0, 1) \times \{\beta \in H^1(0, 1), \beta \geq 0\}$. Let
 $$\mathcal R(z):= \dfrac{\int_0^1 a(\beta'(x))^2dx+\int_0^1 b(v'(x) -c\beta(x))^2dx}{\int_0^1\beta(x)^2dx},\qquad\qquad [3]$$ 
- where $a, b, c$ are real coefficients such that $a>0, b>0, c\neq 0$. The quantity above occurs in the stability analysis of a 1d damageable bar, where $b$ is related to the spring constant of the material while $a, c$ encapsulate material, loading, and model parameters, cf. the Appendix of [@pham:2011-the-issues]. \autoref{fig:profile} and \autoref{fig:phase_diag_D} compare numerical results with the analytic solution, \autoref{fig:phase_diag_ball} and \autoref{fig:phase_diag_cone} show the relative error on the minimum in the space of parameters.
+ where $a, b, c$ are real coefficients such that $a>0, b>0, c\neq 0$. The quantity above occurs in the stability analysis of a 1d damageable bar, where $b$ is related to the spring constant of the material while $a, c$ encapsulate material, loading, and model parameters, cf. the Appendix of [@pham:2011-the-issues].
+
+<ALB>\autoref{fig:profile}-\autoref{fig:phase_diag_cone} below provide a visual representation of the accuracy of the solvers in the solution of problems [2.1] and [2.2] by comparison to analytic solutions.</ALB> 
+\autoref{fig:phase_diag_D} <ALB>represents the size of the support of the mininimiser</ALB> ~~compare numerical results with the analytic solution~~, whereas \autoref{fig:phase_diag_ball} and \autoref{fig:phase_diag_cone} show the relative error on the minimum in the space of parameters. <ALB>In particular, the phase diagrams \autoref{fig:phase_diag_D}-\autoref{fig:phase_diag_cone} show the solver's precision parametrically with respect to $a, b, c$, uniformly randomly distributed in their corresponding domains. The contour lines are level curves for the solutions (for the numerical values $D^\#$  and  $R^\#$, see eqs. in Appendix), the color maps indicate their magnitude. The red lines highlight the critical threshold that separates trivial (constant) solutions (with $D^*=1$) from nontrivial ones (with $D^*<1$). Colours of data points encode the value of $D^\#$  and  $R^\#$, error bars represent the relative error, and for some (randomly picked) elements we show the error in percentage.<ALB> 
 
 ![Comparison between profiles of solutions $\beta(x)$ in $X_0$ (left) vs. $\mathcal K^+_0$ (right). In the latter case, the solution $\beta(x)$ has support of size $D\in [0, 1]$.\label{fig:profile}](media/profile_comparison.pdf)
 
@@ -127,35 +136,155 @@ A.L.B. acknowledges the students of MEC647 (Complex Crack Propagation in Brittle
 
 ## <ALB>Appendix</ALB>
 ### <ALB>Numerical parameters</ALB>
-<ALB>...</ALB>
-### <ALB>Analytic solutions ..</ALB>
-<ALB>Given $\mathcal R(z)$ as in [3], the solutions to the minimum problem [2.1] and [2.2] are</ALB>
-<ALB>$$\min_{X_0} \mathcal R(z) = \min\{bc^2, \pi^2 a\}, \quad \text{and} \quad \min_{\mathcal K^+_0} \mathcal R(z)= \left\{ \begin{align*}
-    & bc^2, & \text{if }\pi^2 \mathrm{a}\geq\mathrm{bc}^2 \\
-    & \left(\pi^2 a\right)^{1 / 3}\left(b c^2\right)^{2 / 3}, & \text{if }\pi^2 a<b c^2
-\end{align*}.
-\right.$$</ALB>
-<ALB>The associated eigenspaces (the minimisers) are</ALB>
-<ALB>...</ALB>
-<ALB>for [2.1]</ALB>
+<ALB>We provide an example of the list of numerical parameters associated to the simulation reported in the paper. The list contains all relevant parameters, including geometry, loading, and solvers configuration. The rationale is to ensure reproducibility of numerical simulations and clarity in collecting the computational metadata.
+</ALB>
+
+<table>
+  <tr>
+    <td>
+<pre>
+geometry:
+  Lx: 1.0
+  Ly: 0.1
+  N: 50
+  geom_type: traction-bar
+  geometric_dimension: 2
+  lc: 0.02
+  mesh_size_factor: 4
+loading:
+  max: 1.001
+  min: 0
+  steps: 10
+model:
+  a: 1
+  b: 4
+  c: 8
+  model_dimension: 1
+  model_type: 1D
+stability:
+  checkstability: 'True'
+  cone:
+    cone_atol: 1.0e-06
+    cone_max_it: 400000
+    cone_rtol: 1.0e-06
+    maxmodes: 3
+    scaling: 0.001
+  cont_rtol: 1.0e-10
+  continuation: 'False'
+  eigen:
+    eig_rtol: 1.0e-08
+    eps_max_it: 100
+    eps_tol: 1.0e-05
+    eps_type: krylovschur
+  inactiveset_gatol: 0.1
+  inactiveset_pwtol: 1.0e-06
+  inertia:
+    ksp_type: preonly
+    mat_mumps_icntl_13: 1
+    mat_mumps_icntl_24: 1
+    pc_factor_mat_solver_type: mumps
+    pc_type: cholesky
+  is_elastic_tol: 1.0e-06
+  linesearch:
+    method: min
+    order: 4
+  maxmodes: 10
+  order: 3
+</pre>
+</td>
+<td>
+<pre>
+solvers:
+  damage:
+    prefix: damage
+    snes:
+      ksp_type: preonly
+      pc_factor_mat_solver_type: mumps
+      pc_type: lu
+      snes_atol: 1.0e-08
+      snes_linesearch_type: basic
+      snes_max_it: 50
+      snes_monitor: ''
+      snes_rtol: 1.0e-08
+      snes_type: vinewtonrsls
+    tao:
+      ksp_rtol: 1e-6
+      pc_type: lu
+      tao_catol: 0.0
+      tao_crtol: 0.0
+      tao_gatol: 1.0e-08
+      tao_gpcg_maxpgits: 50
+      tao_grtol: 1.0e-08
+      tao_gttol: 1.0e-08
+      tao_ls_ftol: 1e-5
+      tao_ls_gtol: 1e-5
+      tao_ls_rtol: 1e-5
+      tao_ls_stepmax: 1e6
+      tao_ls_stepmin: 1e-8
+      tao_max_it: 100
+      tao_monitor: ''
+      tao_steptol: 1.0e-07
+      tao_type: tron
+    type: SNES
+  damage_elasticity:
+    alpha_rtol: 0.0001
+    criterion: alpha_H1
+    max_it: 200
+  elasticity:
+    prefix: elasticity
+    snes:
+      ksp_type: preonly
+      pc_factor_mat_solver_type: mumps
+      pc_type: lu
+      snes_atol: 1e-8
+      snes_max_it: 200
+      snes_monitor: ''
+      snes_rtol: 1e-8
+      snes_stol: 1e-8
+      snes_type: newtontr
+  newton:
+    linesearch_damping: 0.5
+    snes_atol: 1.0e-08
+    snes_linesearch_type: basic
+    snes_max_it: 30
+    snes_monitor: ''
+    snes_rtol: 1.0e-08
+    snes_type: vinewtonrsls
+</pre>
+</td>
+  </tr>
+</table>
+
+### <ALB>Analytic solutions</ALB>
+<ALB>Given $\mathcal R(z)$ as in [3], the solutions to the minimum problems [2.1] and [2.2] are</ALB>
+<ALB>$$
+\min_{X_0} \mathcal{R}(z) = \min\{bc^2, \pi^2 a\}, \quad \text{and} \quad \min_{\mathcal{K}^+_0} \mathcal{R}(z)= \left\{ 
+\begin{aligned}
+    & bc^2, & \text{if }\pi^2 a \geq bc^2 \\
+    & \left(\pi^2 a\right)^{1 / 3}\left(b c^2\right)^{2 / 3}, & \text{if }\pi^2 a < bc^2
+\end{aligned}
+\right.
+$$</ALB>
+<ALB>For details on the computation, cf. [@pham:2011-the-issues]. The associated eigenspace (the minimiser) is, for [2.1], $z^*=(v^*, \beta^*)$ given by</ALB>
 <ALB>
 $$
-\beta_*(x)=C+A \cos \pi x, \quad v_*(x)=\frac{\mathrm{c} A}{\pi} \sin \pi x,
+\beta^*(x)=C+A \cos \pi x,\quad \text{ and }\quad v^*(x)=\frac{{c} A}{\pi} \sin \pi x,
 $$
-where $A=0$ if $\mathrm{bc}^2<\pi^2 \mathrm{a}, C=0$ if $\mathrm{bc}^2>\pi^2 \mathrm{a}$ and, $A$ and $C$ are arbitrary real numbers otherwise.
+where $A=0$ if ${bc}^2<\pi^2 {a}, C=0$ if ${bc}^2>\pi^2 {a}$. $A$ and $C$ are arbitrary real numbers otherwise.
 </ALB>
-<ALB>and for [2.2]</ALB>
-<ALB> 1. If $\pi^2 \mathrm{a}>\mathrm{bc}^2$, the minimisers are $\beta_*(x)=C>0$. </ALB>
-<ALB>2. If $\pi^2 \mathrm{a}=\mathrm{bc}^2$, and the minimisers are $\beta_*(x)=C+A \cos \pi x$ with $C>0$ and $|A| \leq C$.</ALB>
-<ALB>3. If $\pi^2 a<b c^2$, the minimisers are
+<ALB>The minimiser $(v^*, \beta^*)$ for [2.2] is given by $v^*$ as above and</ALB>
+<ALB>1. $\beta^*(x)=C>0$, if $\pi^2 {a}>{bc}^2$. </ALB>
+<ALB>2.  $\beta^*(x)=C+A \cos (\pi x)$ with $C>0$ and $|A| \leq C$, if $\pi^2 {a}={bc}^2$.</ALB>
+<ALB>3.
 $$
-\beta_*(x)=\left\{\begin{array}{ll}
-C\left(1+\cos \pi \frac{x}{\mathrm{D}}\right) & \text { if } x \in(0, \mathrm{D}) \\
+\beta^*(x)=\left\{\begin{array}{ll}
+C\left(1+\cos (\pi \frac{x}{{D}})\right) & \text { if } x \in(0, {D}) \\
 0 & \text { otherwise }
-\end{array} \text { and } \quad \tilde{\beta}_*(x)=\beta_*(1-x),\right.
+\end{array} \text { and } \quad \tilde{\beta}^*(x)=\beta_*(1-x),\right.
 $$</ALB>
-where $C$ is an arbitrary positive constant and $D^3=\pi^2 a / b c^2$.
-
+<ALB>
+if $\pi^2 a<b c^2$, where $C$ is an arbitrary positive constant and $D^3=\pi^2 a / b c^2$.
+</ALB>
 ## References
 
 <!-- to compile: docker run --rm --volume $PWD:/data --user $(id -u):$(id -g) --env JOURNAL=joss openjournals/inara -->
