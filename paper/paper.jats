@@ -60,8 +60,8 @@ Institute, CNRS, Sorbonne Universités, Place Jussieu 75252 Paris Cedex
 <corresp id="cor-1">* E-mail: <email></email></corresp>
 <corresp id="cor-2">* E-mail: <email></email></corresp>
 </author-notes>
-<pub-date date-type="pub" publication-format="electronic" iso-8601-date="2024-03-04">
-<day>4</day>
+<pub-date date-type="pub" publication-format="electronic" iso-8601-date="2024-03-08">
+<day>8</day>
 <month>3</month>
 <year>2024</year>
 </pub-date>
@@ -93,25 +93,29 @@ a Creative Commons Attribution 4.0 International License (CC BY
 </article-meta>
 </front>
 <body>
+<p><named-content content-type="AA">Given <inline-formula><alternatives>
+<tex-math><![CDATA[\mathcal{R}(z)]]></tex-math>
+<mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>ℛ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>
+as in [3], the solutions to the minimum problem [2.1] and [2.2]
+are</named-content></p>
 <sec id="summary">
   <title>Summary</title>
-  <p>We release three nonlinear variational solvers, developed as
-  modular components and built upon FEniCSx/dolfinx. These solvers
-  address mathematical optimisation problems for irreversible
-  evolutionary processes characterized by a general energetic notion of
-  stability, which we formulate via a well-posed variational principle.
-  These problems are general enough to apply, in principle, to systems
-  with instabilities, jumps, and emergence of patterns which is
-  commonplace in diverse arenas spanning from quantum to continuum
-  mechanics, economy, social sciences, and ecology. Our motivation
-  proceeds from fracture mechanics, with the goal of deploying a
-  transparent numerical platform for scientific validation and
-  prediction of large scale natural fracture phenomena. Our solvers are
-  used to compute <italic>one</italic> solution to a problem encoded in
-  a system of two inequalities: one (pointwise almost-everywhere)
-  constraint of irreversibility and one global energy statement. As part
-  of our commitment to open science, our solvers are released as free
-  software.</p>
+  <p>We study irreversible evolutionary processes with a general
+  energetic notion of stability. We dedicate this contribution to
+  releasing three nonlinear variational solvers as modular components
+  (based on FEniCSx/dolfinx) that address three mathematical
+  optimisation problems. They are general enough to apply, in principle,
+  to evolutionary systems with instabilities, jumps, and emergence of
+  patterns which is commonplace in diverse arenas spanning from quantum
+  to continuum mechanics, economy, social sciences, and ecology. Our
+  motivation proceeds from fracture mechanics, with the ultimate goal of
+  deploying a transparent numerical platform for scientific validation
+  and prediction of large scale natural fracture phenomena. Our solvers
+  are used to compute <italic>one</italic> solution to a problem encoded
+  in a system of two inequalities: one (pointwise almost-everywhere)
+  constraint of irreversibility and one global energy statement.
+  <strike>As part of our commitment to open science, our solvers are
+  released as free software.</strike></p>
 </sec>
 <sec id="statement-of-need">
   <title>Statement of need</title>
@@ -139,8 +143,8 @@ a Creative Commons Attribution 4.0 International License (CC BY
   for advanced stability analysis of systems which evolve with
   constraints.</p>
 </sec>
-<sec id="three-solvers">
-  <title>Three solvers</title>
+<sec id="functionality">
+  <title>Functionality</title>
   <p><monospace>HybridSolver</monospace> (1)
   <monospace>BifurcationSolver,</monospace> (2) and
   <monospace>StabilitySolver</monospace> (3) implement the solution of
@@ -216,8 +220,13 @@ a Creative Commons Attribution 4.0 International License (CC BY
   is non-decreasing with respect to <inline-formula><alternatives>
   <tex-math><![CDATA[t]]></tex-math>
   <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>t</mml:mi></mml:math></alternatives></inline-formula>.
-  Remark that the test space for the internal order parameter
+  The kinematic variable is subject to bilateral variations belonging to
+  a linear subset of a Sobolev vector space
   <inline-formula><alternatives>
+  <tex-math><![CDATA[V_0]]></tex-math>
+  <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>V</mml:mi><mml:mn>0</mml:mn></mml:msub></mml:math></alternatives></inline-formula>,
+  whereas <strike>Remark that</strike> the test space for the internal
+  order parameter <inline-formula><alternatives>
   <tex-math><![CDATA[K^+_0]]></tex-math>
   <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msubsup><mml:mi>K</mml:mi><mml:mn>0</mml:mn><mml:mo>+</mml:mo></mml:msubsup></mml:math></alternatives></inline-formula>
   only contains positive fields owing to the irreversibility constraint.
@@ -237,13 +246,29 @@ a Creative Commons Attribution 4.0 International License (CC BY
     et al., 2023</xref>), petsc4py
     (<xref alt="Dalcin et al., 2011" rid="ref-dalcinpazklercosimo2011" ref-type="bibr">Dalcin
     et al., 2011</xref>), SLEPc.EPS
-    (<xref alt="hernandez:2005-slepc?" rid="ref-hernandezU003A2005-slepc" ref-type="bibr"><bold>hernandez:2005-slepc?</bold></xref>),
-    and dolfiny
+    (<xref alt="Hernandez et al., 2005" rid="ref-hernandezU003A2005-slepc" ref-type="bibr">Hernandez
+    et al., 2005</xref>), and dolfiny
     (<xref alt="Habera &amp; Zilian, n.d." rid="ref-HaberaU003Aaa" ref-type="bibr">Habera
     &amp; Zilian, n.d.</xref>) for parallel scalability.</p>
     <p>Our solver’s API receives an abstract energy functional, a
-    user-friendly description of the state of the system, and its
-    associated constraints.</p>
+    user-friendly description of the state of the system as a dictionary
+    (u, alpha), whre the first elemnt is associated to the reversible
+    field and the second to the irreversible component,
+    <strike>its</strike> the associated constraints on the latter, and
+    the solver’s parameters (an example in the Appendix). Solvers can be
+    instantiated calling</p>
+    <preformat>solver = {Hybrid,Bifurcation,Stability}Solver(
+      E,              # An energy (dolfinx.fem.form) 
+      state,          # A dictionary of fields describing the system
+      bcs,            # A list of boundary conditions
+      [bounds],       # A list of bounds (upper and lower) for the state 
+      parameters)     # A dictionary of numerical parameters</preformat>
+    <p>where <monospace>[bounds]</monospace> are required for the
+    <monospace>HybridSolver</monospace>, and used calling
+    <monospace>solver.solve(&lt;args&gt;)</monospace> which triggers the
+    solution of the corresponding variational problem. Here,
+    <monospace>&lt;args&gt;</monospace> depend on the solver (see the
+    documentation for details).</p>
     <p><monospace>HybridSolver</monospace> solves a (first order)
     constrained nonlinear variational inequality, implementing a
     two-phase hybrid strategy which is <italic>ad hoc</italic> for
@@ -251,7 +276,9 @@ a Creative Commons Attribution 4.0 International License (CC BY
     mechanics. The first phase (iterative alternate minimisation) is
     based on a de-facto <italic>industry standard</italic>, conceived to
     exploit the (partial, directional) convexity of the underlying
-    mechanical models. Once an approximate-solution enters the
+    mechanical models
+    (<xref alt="Bourdin et al., 2000" rid="ref-bourdinU003A2000-numerical" ref-type="bibr">Bourdin
+    et al., 2000</xref>). Once an approximate-solution enters the
     attraction set around a critical point, the solver switches to
     perform a fully nonlinear step solving a block-matrix problem via
     Newton’s method. This guarantees a precise estimation of the
@@ -322,40 +349,45 @@ a Creative Commons Attribution 4.0 International License (CC BY
       (error curve in blue). Note that the residual vector (green) for
       the cone problem need not be zero at a
       solution.<styled-content id="figU003Aconvergence"></styled-content></p></caption>
-      <p><named-content content-type="image">Rate of convergence for
-      <monospace>StabilitySolver</monospace> in 1d (cf. benchmark
-      problem below). Targets are the eigenvalue
-      <inline-formula><alternatives>
-      <tex-math><![CDATA[\lim_k \lambda_k =: \lambda^*]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mo>lim</mml:mo><mml:mi>k</mml:mi></mml:msub><mml:msub><mml:mi>λ</mml:mi><mml:mi>k</mml:mi></mml:msub><mml:mo>=</mml:mo><mml:mo>:</mml:mo><mml:msup><mml:mi>λ</mml:mi><mml:mo>*</mml:mo></mml:msup></mml:mrow></mml:math></alternatives></inline-formula>
-      (pink) and the associated eigen-vector
-      <inline-formula><alternatives>
-      <tex-math><![CDATA[x^*]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msup><mml:mi>x</mml:mi><mml:mo>*</mml:mo></mml:msup></mml:math></alternatives></inline-formula>
-      (error curve in blue). Note that the residual vector (green) for
-      the cone problem need not be zero at a
-      solution.<styled-content id="figU003Aconvergence"></styled-content></named-content></p>
+      <graphic mimetype="application" mime-subtype="pdf" xlink:href="media/media/test_1d_stability-spa.pdf" />
     </fig>
   </sec>
   <sec id="verification">
     <title>Verification</title>
-    <p>We benchmark our solvers against a nontrivial 1d problem, namely
-    we compute <disp-formula><alternatives>
+    <p>We benchmark our solvers against a nontrivial 1d problem
+    (cf. <monospace>test/test_rayleigh.py</monospace> in the code
+    repository), namely we compute <disp-formula><alternatives>
     <tex-math><![CDATA[
     \min_{X_0} \mathcal R(z) \quad \text{and} \quad \min_{\mathcal K^+_0} \mathcal R(z) \qquad\qquad [2],]]></tex-math>
     <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:munder><mml:mo>min</mml:mo><mml:msub><mml:mi>X</mml:mi><mml:mn>0</mml:mn></mml:msub></mml:munder><mml:mi>ℛ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mspace width="1.0em"></mml:mspace><mml:mtext mathvariant="normal">and</mml:mtext><mml:mspace width="1.0em"></mml:mspace><mml:munder><mml:mo>min</mml:mo><mml:msubsup><mml:mi>𝒦</mml:mi><mml:mn>0</mml:mn><mml:mo>+</mml:mo></mml:msubsup></mml:munder><mml:mi>ℛ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mspace width="2.0em"></mml:mspace><mml:mspace width="2.0em"></mml:mspace><mml:mrow><mml:mo stretchy="true" form="prefix">[</mml:mo><mml:mn>2</mml:mn><mml:mo stretchy="true" form="postfix">]</mml:mo></mml:mrow><mml:mo>,</mml:mo></mml:mrow></mml:math></alternatives></disp-formula>
+    where <inline-formula><alternatives>
+    <tex-math><![CDATA[z = (v, \beta)]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>z</mml:mi><mml:mo>=</mml:mo><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>v</mml:mi><mml:mo>,</mml:mo><mml:mi>β</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>
+    in <inline-formula><alternatives>
+    <tex-math><![CDATA[X_0]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>X</mml:mi><mml:mn>0</mml:mn></mml:msub></mml:math></alternatives></inline-formula>
+    and <inline-formula><alternatives>
+    <tex-math><![CDATA[\mathcal K^+_0]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msubsup><mml:mi>𝒦</mml:mi><mml:mn>0</mml:mn><mml:mo>+</mml:mo></mml:msubsup></mml:math></alternatives></inline-formula>,
     using <monospace>BifurcationSolver</monospace> and
-    <monospace>StabilitySolver</monospace>. For definiteness, using the
-    Sobolev spaces which are the natural setting for second order PDE
-    problems, we set <inline-formula><alternatives>
+    <monospace>StabilitySolver</monospace>, respectively. The quantity
+    <inline-formula><alternatives>
+    <tex-math><![CDATA[\mathcal R(z)]]></tex-math>
+    <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>ℛ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>
+    is a Rayleigh ratio, often used in structural mechanics as a
+    dimensionless global quantity (an energetic ratio of elastic and
+    fracture energies) which provides insight into the stability and
+    critical loading conditions for a structure. For definiteness, using
+    the Sobolev spaces which are the natural setting for second order
+    PDE problems, we set <inline-formula><alternatives>
     <tex-math><![CDATA[X_0 = H^1_0(0, 1) \times H^1(0, 1)]]></tex-math>
     <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>X</mml:mi><mml:mn>0</mml:mn></mml:msub><mml:mo>=</mml:mo><mml:msubsup><mml:mi>H</mml:mi><mml:mn>0</mml:mn><mml:mn>1</mml:mn></mml:msubsup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mn>1</mml:mn><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>×</mml:mo><mml:msup><mml:mi>H</mml:mi><mml:mn>1</mml:mn></mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mn>1</mml:mn><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>
     and <inline-formula><alternatives>
     <tex-math><![CDATA[\mathcal K^+_0 = H^1_0(0, 1) \times \{\beta \in H^1(0, 1), \beta \geq 0\}]]></tex-math>
     <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msubsup><mml:mi>𝒦</mml:mi><mml:mn>0</mml:mn><mml:mo>+</mml:mo></mml:msubsup><mml:mo>=</mml:mo><mml:msubsup><mml:mi>H</mml:mi><mml:mn>0</mml:mn><mml:mn>1</mml:mn></mml:msubsup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mn>1</mml:mn><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>×</mml:mo><mml:mo stretchy="false" form="prefix">{</mml:mo><mml:mi>β</mml:mi><mml:mo>∈</mml:mo><mml:msup><mml:mi>H</mml:mi><mml:mn>1</mml:mn></mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mn>1</mml:mn><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>,</mml:mo><mml:mi>β</mml:mi><mml:mo>≥</mml:mo><mml:mn>0</mml:mn><mml:mo stretchy="false" form="postfix">}</mml:mo></mml:mrow></mml:math></alternatives></inline-formula>.
     Let <disp-formula><alternatives>
-    <tex-math><![CDATA[\mathcal R(z):= \dfrac{\int_0^1 a(\beta'(x))^2dx+\int_0^1 b(v'(x) -c\beta(x))^2dx}{\int_0^1\beta(x)^2dx},]]></tex-math>
-    <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>ℛ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>:=</mml:mo><mml:mfrac displaystyle="true"><mml:mrow><mml:msubsup><mml:mo>∫</mml:mo><mml:mn>0</mml:mn><mml:mn>1</mml:mn></mml:msubsup><mml:mi>a</mml:mi><mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>β</mml:mi><mml:mi>′</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mn>2</mml:mn></mml:msup><mml:mi>d</mml:mi><mml:mi>x</mml:mi><mml:mo>+</mml:mo><mml:msubsup><mml:mo>∫</mml:mo><mml:mn>0</mml:mn><mml:mn>1</mml:mn></mml:msubsup><mml:mi>b</mml:mi><mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>v</mml:mi><mml:mi>′</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>−</mml:mo><mml:mi>c</mml:mi><mml:mi>β</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mn>2</mml:mn></mml:msup><mml:mi>d</mml:mi><mml:mi>x</mml:mi></mml:mrow><mml:mrow><mml:msubsup><mml:mo>∫</mml:mo><mml:mn>0</mml:mn><mml:mn>1</mml:mn></mml:msubsup><mml:mi>β</mml:mi><mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mn>2</mml:mn></mml:msup><mml:mi>d</mml:mi><mml:mi>x</mml:mi></mml:mrow></mml:mfrac><mml:mo>,</mml:mo></mml:mrow></mml:math></alternatives></disp-formula>
+    <tex-math><![CDATA[\mathcal R(z):= \dfrac{\int_0^1 a(\beta'(x))^2dx+\int_0^1 b(v'(x) -c\beta(x))^2dx}{\int_0^1\beta(x)^2dx},\qquad\qquad [3]]]></tex-math>
+    <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>ℛ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>:=</mml:mo><mml:mfrac displaystyle="true"><mml:mrow><mml:msubsup><mml:mo>∫</mml:mo><mml:mn>0</mml:mn><mml:mn>1</mml:mn></mml:msubsup><mml:mi>a</mml:mi><mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>β</mml:mi><mml:mi>′</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mn>2</mml:mn></mml:msup><mml:mi>d</mml:mi><mml:mi>x</mml:mi><mml:mo>+</mml:mo><mml:msubsup><mml:mo>∫</mml:mo><mml:mn>0</mml:mn><mml:mn>1</mml:mn></mml:msubsup><mml:mi>b</mml:mi><mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>v</mml:mi><mml:mi>′</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>−</mml:mo><mml:mi>c</mml:mi><mml:mi>β</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mn>2</mml:mn></mml:msup><mml:mi>d</mml:mi><mml:mi>x</mml:mi></mml:mrow><mml:mrow><mml:msubsup><mml:mo>∫</mml:mo><mml:mn>0</mml:mn><mml:mn>1</mml:mn></mml:msubsup><mml:mi>β</mml:mi><mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mn>2</mml:mn></mml:msup><mml:mi>d</mml:mi><mml:mi>x</mml:mi></mml:mrow></mml:mfrac><mml:mo>,</mml:mo><mml:mspace width="2.0em"></mml:mspace><mml:mspace width="2.0em"></mml:mspace><mml:mrow><mml:mo stretchy="true" form="prefix">[</mml:mo><mml:mn>3</mml:mn><mml:mo stretchy="true" form="postfix">]</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></disp-formula>
     where <inline-formula><alternatives>
     <tex-math><![CDATA[a, b, c]]></tex-math>
     <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>a</mml:mi><mml:mo>,</mml:mo><mml:mi>b</mml:mi><mml:mo>,</mml:mo><mml:mi>c</mml:mi></mml:mrow></mml:math></alternatives></inline-formula>
@@ -401,23 +433,7 @@ a Creative Commons Attribution 4.0 International License (CC BY
       has support of size <inline-formula><alternatives>
       <tex-math><![CDATA[D\in [0, 1]]]></tex-math>
       <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>D</mml:mi><mml:mo>∈</mml:mo><mml:mrow><mml:mo stretchy="true" form="prefix">[</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mn>1</mml:mn><mml:mo stretchy="true" form="postfix">]</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>.<styled-content id="figU003Aprofile"></styled-content></p></caption>
-      <p><named-content content-type="image">Comparison between profiles
-      of solutions <inline-formula><alternatives>
-      <tex-math><![CDATA[\beta(x)]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>β</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>
-      in <inline-formula><alternatives>
-      <tex-math><![CDATA[X_0]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>X</mml:mi><mml:mn>0</mml:mn></mml:msub></mml:math></alternatives></inline-formula>
-      (left) vs. <inline-formula><alternatives>
-      <tex-math><![CDATA[\mathcal K^+_0]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msubsup><mml:mi>𝒦</mml:mi><mml:mn>0</mml:mn><mml:mo>+</mml:mo></mml:msubsup></mml:math></alternatives></inline-formula>
-      (right). In the latter case, the solution
-      <inline-formula><alternatives>
-      <tex-math><![CDATA[\beta(x)]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>β</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>
-      has support of size <inline-formula><alternatives>
-      <tex-math><![CDATA[D\in [0, 1]]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>D</mml:mi><mml:mo>∈</mml:mo><mml:mrow><mml:mo stretchy="true" form="prefix">[</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mn>1</mml:mn><mml:mo stretchy="true" form="postfix">]</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>.<styled-content id="figU003Aprofile"></styled-content></named-content></p>
+      <graphic mimetype="application" mime-subtype="pdf" xlink:href="media/media/profile_comparison.pdf" />
     </fig>
     <fig>
       <caption><p>The size of the support <inline-formula><alternatives>
@@ -431,18 +447,7 @@ a Creative Commons Attribution 4.0 International License (CC BY
       vs. nontrivial solutions. Where error bars are not shown, the
       error is
       none.<styled-content id="figU003Aphase_diag_D"></styled-content></p></caption>
-      <p><named-content content-type="image">The size of the support
-      <inline-formula><alternatives>
-      <tex-math><![CDATA[D]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>D</mml:mi></mml:math></alternatives></inline-formula>
-      for the minimiser in the cone. Error bars indicate the absolute
-      error. We observe a clear separation between constant solutions
-      with <inline-formula><alternatives>
-      <tex-math><![CDATA[D=1]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>D</mml:mi><mml:mo>=</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
-      vs. nontrivial solutions. Where error bars are not shown, the
-      error is
-      none.<styled-content id="figU003Aphase_diag_D"></styled-content></named-content></p>
+      <graphic mimetype="application" mime-subtype="pdf" xlink:href="media/media/phase_diagram.pdf" />
     </fig>
     <fig>
       <caption><p>Minimum value of <inline-formula><alternatives>
@@ -454,16 +459,7 @@ a Creative Commons Attribution 4.0 International License (CC BY
       numerical computation vs. closed form result. Notice the
       separation between constant solutions and nontrivial
       solutions.<styled-content id="figU003Aphase_diag_ball"></styled-content></p></caption>
-      <p><named-content content-type="image">Minimum value of
-      <inline-formula><alternatives>
-      <tex-math><![CDATA[\mathcal R]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>ℛ</mml:mi></mml:math></alternatives></inline-formula>
-      in <inline-formula><alternatives>
-      <tex-math><![CDATA[X_0]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msub><mml:mi>X</mml:mi><mml:mn>0</mml:mn></mml:msub></mml:math></alternatives></inline-formula>,
-      numerical computation vs. closed form result. Notice the
-      separation between constant solutions and nontrivial
-      solutions.<styled-content id="figU003Aphase_diag_ball"></styled-content></named-content></p>
+      <graphic mimetype="application" mime-subtype="pdf" xlink:href="media/media/phase_diagram_R_ball.pdf" />
     </fig>
     <fig>
       <caption><p>Minimum value of <inline-formula><alternatives>
@@ -483,37 +479,103 @@ a Creative Commons Attribution 4.0 International License (CC BY
       <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>R</mml:mi><mml:mo>&gt;</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
       are energetically
       stable.<styled-content id="figU003Aphase_diag_cone"></styled-content></p></caption>
-      <p><named-content content-type="image">Minimum value of
-      <inline-formula><alternatives>
-      <tex-math><![CDATA[\mathcal R]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>ℛ</mml:mi></mml:math></alternatives></inline-formula>
-      in <inline-formula><alternatives>
-      <tex-math><![CDATA[\mathcal K^+_0]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:msubsup><mml:mi>𝒦</mml:mi><mml:mn>0</mml:mn><mml:mo>+</mml:mo></mml:msubsup></mml:math></alternatives></inline-formula>,
-      numerical computation vs. closed form results. The outlier
-      <inline-formula><alternatives>
-      <tex-math><![CDATA[(\pi^2a, bc^2)\sim (4, 0)]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:msup><mml:mi>π</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mi>a</mml:mi><mml:mo>,</mml:mo><mml:mi>b</mml:mi><mml:msup><mml:mi>c</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>∼</mml:mo><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mn>4</mml:mn><mml:mo>,</mml:mo><mml:mn>0</mml:mn><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>
-      represents a computation which did not reach convergence. The
-      mechanical interpretation is that only states with
-      <inline-formula><alternatives>
-      <tex-math><![CDATA[R>1]]></tex-math>
-      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>R</mml:mi><mml:mo>&gt;</mml:mo><mml:mn>1</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
-      are energetically
-      stable.<styled-content id="figU003Aphase_diag_cone"></styled-content></named-content></p>
+      <graphic mimetype="application" mime-subtype="pdf" xlink:href="media/media/phase_diagram_R_cone.pdf" />
     </fig>
   </sec>
-</sec>
-<sec id="acknowledgements">
-  <title>Acknowledgements</title>
-  <p>ALB acknowledges the students of MEC647 20••-•• for motivation and
-  feedback; Yves Capdeboscq, Jean-Jacques Marigo, Sebastien Neukirch,
-  and Luc Nguyen, for constructive discussions and one key insight that
-  was crucial for this project. P.C. is a member of the Gruppo Nazionale
-  per l’Analisi Matematica, la Probabilità e le loro Applicazioni
-  (GNAMPA) of the Istituto Nazionale di Alta Matematica (INdAM). P.C.
-  holds an honorary appointment at La Trobe University and is supported
-  by JSPS Innovative Area Grant JP21H00102.</p>
+  <sec id="acknowledgements">
+    <title>Acknowledgements</title>
+    <p>A.L.B. acknowledges the students of MEC647 (Complex Crack
+    Propagation in Brittle Materials) of the
+    <monospace>Modélisation Multiphysique Multiéchelle des Matériaux et des Structures</monospace>
+    master program at ENSTA Paris Tech/École Polytechnique for their
+    contributions, motivation, and feedback; Yves Capdeboscq,
+    Jean-Jacques Marigo, Sebastien Neukirch, and Luc Nguyen, for
+    constructive discussions and one key insight that was crucial for
+    this project. The work of PC was supported by the JSPS Innovative
+    Area grant JP21H00102 and JSPS Grant-in-Aid for Scientific Research
+    (C) JP24K06797. PC holds an honorary appointment at La Trobe
+    University and is a member of GNAMPA.
+    </p>
+  </sec>
+  <sec id="appendix">
+    <title>Appendix</title>
+    <sec id="numerical-parameters">
+      <title>Numerical parameters</title>
+      <p>… ### Analytic solutions .. Given
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[\mathcal R(z)]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>ℛ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></inline-formula>
+      as in [3], the solutions to the minimum problem [2.1] and [2.2]
+      are <disp-formula><alternatives>
+      <tex-math><![CDATA[
+      \min_{X_0} \mathcal{R}(z) = \min\{bc^2, \pi^2 a\}, \quad \text{and} \quad \min_{\mathcal{K}^+_0} \mathcal{R}(z)= \left\{ 
+      \begin{aligned}
+          & bc^2, & \text{if }\pi^2 a \geq bc^2 \\
+          & \left(\pi^2 a\right)^{1 / 3}\left(b c^2\right)^{2 / 3}, & \text{if }\pi^2 a < bc^2
+      \end{aligned}
+      \right.
+      ]]></tex-math>
+      <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:munder><mml:mo>min</mml:mo><mml:msub><mml:mi>X</mml:mi><mml:mn>0</mml:mn></mml:msub></mml:munder><mml:mi>ℛ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>=</mml:mo><mml:mo>min</mml:mo><mml:mo stretchy="false" form="prefix">{</mml:mo><mml:mi>b</mml:mi><mml:msup><mml:mi>c</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mo>,</mml:mo><mml:msup><mml:mi>π</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mi>a</mml:mi><mml:mo stretchy="false" form="postfix">}</mml:mo><mml:mo>,</mml:mo><mml:mspace width="1.0em"></mml:mspace><mml:mtext mathvariant="normal">and</mml:mtext><mml:mspace width="1.0em"></mml:mspace><mml:munder><mml:mo>min</mml:mo><mml:msubsup><mml:mi>𝒦</mml:mi><mml:mn>0</mml:mn><mml:mo>+</mml:mo></mml:msubsup></mml:munder><mml:mi>ℛ</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>z</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>=</mml:mo><mml:mrow><mml:mo stretchy="true" form="prefix">{</mml:mo><mml:mtable><mml:mtr><mml:mtd columnalign="right" style="text-align: right"></mml:mtd><mml:mtd columnalign="left" style="text-align: left"><mml:mi>b</mml:mi><mml:msup><mml:mi>c</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mo>,</mml:mo></mml:mtd><mml:mtd columnalign="right" style="text-align: right"><mml:mrow><mml:mtext mathvariant="normal">if </mml:mtext><mml:mspace width="0.333em"></mml:mspace></mml:mrow><mml:msup><mml:mi>π</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mi>a</mml:mi><mml:mo>≥</mml:mo><mml:mi>b</mml:mi><mml:msup><mml:mi>c</mml:mi><mml:mn>2</mml:mn></mml:msup></mml:mtd></mml:mtr><mml:mtr><mml:mtd columnalign="right" style="text-align: right"></mml:mtd><mml:mtd columnalign="left" style="text-align: left"><mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:msup><mml:mi>π</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mi>a</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mrow><mml:mn>1</mml:mn><mml:mi>/</mml:mi><mml:mn>3</mml:mn></mml:mrow></mml:msup><mml:msup><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>b</mml:mi><mml:msup><mml:mi>c</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mrow><mml:mn>2</mml:mn><mml:mi>/</mml:mi><mml:mn>3</mml:mn></mml:mrow></mml:msup><mml:mo>,</mml:mo></mml:mtd><mml:mtd columnalign="right" style="text-align: right"><mml:mrow><mml:mtext mathvariant="normal">if </mml:mtext><mml:mspace width="0.333em"></mml:mspace></mml:mrow><mml:msup><mml:mi>π</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mi>a</mml:mi><mml:mo>&lt;</mml:mo><mml:mi>b</mml:mi><mml:msup><mml:mi>c</mml:mi><mml:mn>2</mml:mn></mml:msup></mml:mtd></mml:mtr></mml:mtable></mml:mrow></mml:mrow></mml:math></alternatives></disp-formula>
+      The associated eigenspaces (the minimisers) are … for [2.1]
+      <disp-formula><alternatives>
+      <tex-math><![CDATA[
+      \beta_*(x)=C+A \cos \pi x, \quad v_*(x)=\frac{\mathrm{c} A}{\pi} \sin \pi x,
+      ]]></tex-math>
+      <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>β</mml:mi><mml:mo>*</mml:mo></mml:msub><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>=</mml:mo><mml:mi>C</mml:mi><mml:mo>+</mml:mo><mml:mi>A</mml:mi><mml:mo>cos</mml:mo><mml:mi>π</mml:mi><mml:mi>x</mml:mi><mml:mo>,</mml:mo><mml:mspace width="1.0em"></mml:mspace><mml:msub><mml:mi>v</mml:mi><mml:mo>*</mml:mo></mml:msub><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>=</mml:mo><mml:mfrac><mml:mrow><mml:mi mathvariant="normal">c</mml:mi><mml:mi>A</mml:mi></mml:mrow><mml:mi>π</mml:mi></mml:mfrac><mml:mo>sin</mml:mo><mml:mi>π</mml:mi><mml:mi>x</mml:mi><mml:mo>,</mml:mo></mml:mrow></mml:math></alternatives></disp-formula>
+      where <inline-formula><alternatives>
+      <tex-math><![CDATA[A=0]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>A</mml:mi><mml:mo>=</mml:mo><mml:mn>0</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+      if <inline-formula><alternatives>
+      <tex-math><![CDATA[\mathrm{bc}^2<\pi^2 \mathrm{a}, C=0]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msup><mml:mrow><mml:mi mathvariant="normal">b</mml:mi><mml:mi mathvariant="normal">c</mml:mi></mml:mrow><mml:mn>2</mml:mn></mml:msup><mml:mo>&lt;</mml:mo><mml:msup><mml:mi>π</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mi mathvariant="normal">a</mml:mi><mml:mo>,</mml:mo><mml:mi>C</mml:mi><mml:mo>=</mml:mo><mml:mn>0</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+      if <inline-formula><alternatives>
+      <tex-math><![CDATA[\mathrm{bc}^2>\pi^2 \mathrm{a}]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msup><mml:mrow><mml:mi mathvariant="normal">b</mml:mi><mml:mi mathvariant="normal">c</mml:mi></mml:mrow><mml:mn>2</mml:mn></mml:msup><mml:mo>&gt;</mml:mo><mml:msup><mml:mi>π</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mi mathvariant="normal">a</mml:mi></mml:mrow></mml:math></alternatives></inline-formula>
+      and, <inline-formula><alternatives>
+      <tex-math><![CDATA[A]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>A</mml:mi></mml:math></alternatives></inline-formula>
+      and <inline-formula><alternatives>
+      <tex-math><![CDATA[C]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>C</mml:mi></mml:math></alternatives></inline-formula>
+      are arbitrary real numbers otherwise. and for [2.2] 1. If
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[\pi^2 \mathrm{a}>\mathrm{bc}^2]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msup><mml:mi>π</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mi mathvariant="normal">a</mml:mi><mml:mo>&gt;</mml:mo><mml:msup><mml:mrow><mml:mi mathvariant="normal">b</mml:mi><mml:mi mathvariant="normal">c</mml:mi></mml:mrow><mml:mn>2</mml:mn></mml:msup></mml:mrow></mml:math></alternatives></inline-formula>,
+      the minimisers are <inline-formula><alternatives>
+      <tex-math><![CDATA[\beta_*(x)=C>0]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>β</mml:mi><mml:mo>*</mml:mo></mml:msub><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>=</mml:mo><mml:mi>C</mml:mi><mml:mo>&gt;</mml:mo><mml:mn>0</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>.
+      2. If <inline-formula><alternatives>
+      <tex-math><![CDATA[\pi^2 \mathrm{a}=\mathrm{bc}^2]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msup><mml:mi>π</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mi mathvariant="normal">a</mml:mi><mml:mo>=</mml:mo><mml:msup><mml:mrow><mml:mi mathvariant="normal">b</mml:mi><mml:mi mathvariant="normal">c</mml:mi></mml:mrow><mml:mn>2</mml:mn></mml:msup></mml:mrow></mml:math></alternatives></inline-formula>,
+      and the minimisers are <inline-formula><alternatives>
+      <tex-math><![CDATA[\beta_*(x)=C+A \cos \pi x]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>β</mml:mi><mml:mo>*</mml:mo></mml:msub><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>=</mml:mo><mml:mi>C</mml:mi><mml:mo>+</mml:mo><mml:mi>A</mml:mi><mml:mo>cos</mml:mo><mml:mi>π</mml:mi><mml:mi>x</mml:mi></mml:mrow></mml:math></alternatives></inline-formula>
+      with <inline-formula><alternatives>
+      <tex-math><![CDATA[C>0]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mi>C</mml:mi><mml:mo>&gt;</mml:mo><mml:mn>0</mml:mn></mml:mrow></mml:math></alternatives></inline-formula>
+      and <inline-formula><alternatives>
+      <tex-math><![CDATA[|A| \leq C]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:mrow><mml:mo stretchy="true" form="prefix">|</mml:mo><mml:mi>A</mml:mi><mml:mo stretchy="true" form="postfix">|</mml:mo></mml:mrow><mml:mo>≤</mml:mo><mml:mi>C</mml:mi></mml:mrow></mml:math></alternatives></inline-formula>.
+      3. If <inline-formula><alternatives>
+      <tex-math><![CDATA[\pi^2 a<b c^2]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msup><mml:mi>π</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mi>a</mml:mi><mml:mo>&lt;</mml:mo><mml:mi>b</mml:mi><mml:msup><mml:mi>c</mml:mi><mml:mn>2</mml:mn></mml:msup></mml:mrow></mml:math></alternatives></inline-formula>,
+      the minimisers are <disp-formula><alternatives>
+      <tex-math><![CDATA[
+      \beta_*(x)=\left\{\begin{array}{ll}
+      C\left(1+\cos \pi \frac{x}{\mathrm{D}}\right) & \text { if } x \in(0, \mathrm{D}) \\
+      0 & \text { otherwise }
+      \end{array} \text { and } \quad \tilde{\beta}_*(x)=\beta_*(1-x),\right.
+      ]]></tex-math>
+      <mml:math display="block" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msub><mml:mi>β</mml:mi><mml:mo>*</mml:mo></mml:msub><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>=</mml:mo><mml:mrow><mml:mo stretchy="true" form="prefix">{</mml:mo><mml:mtable><mml:mtr><mml:mtd columnalign="left" style="text-align: left"><mml:mi>C</mml:mi><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mn>1</mml:mn><mml:mo>+</mml:mo><mml:mo>cos</mml:mo><mml:mi>π</mml:mi><mml:mfrac><mml:mi>x</mml:mi><mml:mi mathvariant="normal">D</mml:mi></mml:mfrac><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mtd><mml:mtd columnalign="left" style="text-align: left"><mml:mrow><mml:mspace width="0.333em"></mml:mspace><mml:mtext mathvariant="normal"> if </mml:mtext><mml:mspace width="0.333em"></mml:mspace></mml:mrow><mml:mi>x</mml:mi><mml:mo>∈</mml:mo><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mn>0</mml:mn><mml:mo>,</mml:mo><mml:mi mathvariant="normal">D</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow></mml:mtd></mml:mtr><mml:mtr><mml:mtd columnalign="left" style="text-align: left"><mml:mn>0</mml:mn></mml:mtd><mml:mtd columnalign="left" style="text-align: left"><mml:mrow><mml:mspace width="0.333em"></mml:mspace><mml:mtext mathvariant="normal"> otherwise </mml:mtext><mml:mspace width="0.333em"></mml:mspace></mml:mrow></mml:mtd></mml:mtr></mml:mtable><mml:mrow><mml:mspace width="0.333em"></mml:mspace><mml:mtext mathvariant="normal"> and </mml:mtext><mml:mspace width="0.333em"></mml:mspace></mml:mrow><mml:mspace width="1.0em"></mml:mspace><mml:msub><mml:mover><mml:mi>β</mml:mi><mml:mo accent="true">̃</mml:mo></mml:mover><mml:mo>*</mml:mo></mml:msub><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>=</mml:mo><mml:msub><mml:mi>β</mml:mi><mml:mo>*</mml:mo></mml:msub><mml:mrow><mml:mo stretchy="true" form="prefix">(</mml:mo><mml:mn>1</mml:mn><mml:mo>−</mml:mo><mml:mi>x</mml:mi><mml:mo stretchy="true" form="postfix">)</mml:mo></mml:mrow><mml:mo>,</mml:mo></mml:mrow></mml:mrow></mml:math></alternatives></disp-formula>
+      where <inline-formula><alternatives>
+      <tex-math><![CDATA[C]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>C</mml:mi></mml:math></alternatives></inline-formula>
+      is an arbitrary positive constant and
+      <inline-formula><alternatives>
+      <tex-math><![CDATA[D^3=\pi^2 a / b c^2]]></tex-math>
+      <mml:math display="inline" xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mrow><mml:msup><mml:mi>D</mml:mi><mml:mn>3</mml:mn></mml:msup><mml:mo>=</mml:mo><mml:msup><mml:mi>π</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mi>a</mml:mi><mml:mi>/</mml:mi><mml:mi>b</mml:mi><mml:msup><mml:mi>c</mml:mi><mml:mn>2</mml:mn></mml:msup></mml:mrow></mml:math></alternatives></inline-formula>.</p>
+    </sec>
+  </sec>
 </sec>
 </body>
 <back>
@@ -689,6 +751,39 @@ a Creative Commons Attribution 4.0 International License (CC BY
       <issue>1-3</issue>
       <fpage>5</fpage>
       <lpage>148</lpage>
+    </element-citation>
+  </ref>
+  <ref id="ref-hernandezU003A2005-slepc">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <name><surname>Hernandez</surname><given-names>Vicente</given-names></name>
+        <name><surname>Roman</surname><given-names>Jose E.</given-names></name>
+        <name><surname>Vidal</surname><given-names>Vicente</given-names></name>
+      </person-group>
+      <article-title>SLEPc: A scalable and flexible toolkit for the solution of eigenvalue problems</article-title>
+      <source>ACM Trans. Math. Software</source>
+      <year iso-8601-date="2005">2005</year>
+      <volume>31</volume>
+      <issue>3</issue>
+      <fpage>351</fpage>
+      <lpage>362</lpage>
+    </element-citation>
+  </ref>
+  <ref id="ref-bourdinU003A2000-numerical">
+    <element-citation publication-type="article-journal">
+      <person-group person-group-type="author">
+        <name><surname>Bourdin</surname><given-names>Blaise</given-names></name>
+        <name><surname>Francfort</surname><given-names>Gilles A</given-names></name>
+        <name><surname>Marigo</surname><given-names>Jean-Jacques</given-names></name>
+      </person-group>
+      <article-title>Numerical experiments in revisited brittle fracture</article-title>
+      <source>Journal of the Mechanics and Physics of Solids</source>
+      <publisher-name>Elsevier</publisher-name>
+      <year iso-8601-date="2000">2000</year>
+      <volume>48</volume>
+      <issue>4</issue>
+      <fpage>797</fpage>
+      <lpage>826</lpage>
     </element-citation>
   </ref>
   <ref id="ref-jorge-nocedalU003A1999-numerical">
