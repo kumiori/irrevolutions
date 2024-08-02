@@ -37,14 +37,33 @@ We study irreversible evolutionary processes with a general energetic notion of 
 
 # Statement of need
 
-Quasi-static evolution problems arising in fracture are strongly nonlinear [@marigo:2023-la-mecanique], [@bourdin:2008-the-variational]. They can admit multiple solutions, or none [@leon-baldelli:2021-numerical]. This demands both a functional theoretical framework and practical computational tools for real case scenarios. Due to the lack of uniqueness of solutions, it is fundamental to leverage the full variational structure of the problem and investigate up to second order, to detect nucleation of stable modes and transitions of unstable states. The stability of a multiscale system along its nontrivial evolutionary paths in phase space is a key property that is difficult to check: numerically, for real case scenarios with several length scales involved, and analytically, in the infinite-dimensional setting. ~~The current literature in computational fracture mechanics predominantly focuses on unilateral first-order criteria, systematically neglecting the exploration of higher-order information for critical points.~~ **Despite the concept of unilateral stability is classical in the variational theory of irreversible systems \cite{mielke} and the mechanics of fracture \cite{FRANCFORT} (see also \cite{bazant, petryk, nguyen}), few studies have explored second-order criteria for crack nucleation and evolution. Although sporadic, these studies are significant, including \cite{pham:2011-the-issues}, \cite{Pham2013aa}, \cite{SICSIC}, \cite{leon-baldelli:2021-numerical}, and \cite{camilla}.** The current literature in computational fracture mechanics predominantly focuses on unilateral first-order criteria, systematically neglecting the exploration of higher-order information for critical points. **To the best of our knowledge, no general numerical tools are available to address second-order criteria in evolutionary nonlinear irreversible systems and fracture mechanics.**
+Quasi-static evolution problems arising in fracture are strongly nonlinear [@marigo:2023-la-mecanique], [@bourdin:2008-the-variational]. They can admit multiple solutions, or none [@leon-baldelli:2021-numerical]. This demands both a functional theoretical framework and practical computational tools for real case scenarios. Due to the lack of uniqueness of solutions, it is fundamental to leverage the full variational structure of the problem and investigate up to second order, to detect nucleation of stable modes and transitions of unstable states. The stability of a multiscale system along its nontrivial evolutionary paths in phase space is a key property that is difficult to check: numerically, for real case scenarios with several length scales involved, and analytically, in the infinite-dimensional setting. ~~The current literature in computational fracture mechanics predominantly focuses on unilateral first-order criteria, systematically neglecting the exploration of higher-order information for critical points.~~ **Despite the concept of unilateral stability is classical in the variational theory of irreversible systems [@mielke] and the mechanics of fracture [@FRANCFORT] (see also [@bazant, petryk, nguyen]), few studies have explored second-order criteria for crack nucleation and evolution. Although sporadic, these studies are significant, including [@pham:2011-the-issues], [@Pham2013aa], [@SICSIC], [@leon-baldelli:2021-numerical], and [@camilla].** The current literature in computational fracture mechanics predominantly focuses on unilateral first-order criteria, systematically neglecting the exploration of higher-order information for critical points. **To the best of our knowledge, no general numerical tools are available to address second-order criteria in evolutionary nonlinear irreversible systems and fracture mechanics.**
 
 To fill this gap, our nonlinear solvers offer a flexible toolkit for advanced stability analysis of systems which evolve with constraints.
 
 
+
+
+PROBLEMS OF OPTIMISATION UNDER CONSTRAINTS, 
+CNVEX PROGRAMMING, 
+
+
+
+
 # **Functionality**
 
-`HybridSolver` (1) `BifurcationSolver,` (2) and `StabilitySolver` (3) implement the solution of three general purpose variational problems: 
+We ~~exploit the solvers to~~ attack the following abstract problem which encodes a selection principle: 
+$$
+P(0):\text{ Given } T >0, \text{ find an } \text{ irreversible-constrained evolution } y_t$$
+$$y_t: t\in [0, T]\mapsto X_t  
+\text{ such that}$$ 
+$$\text{[Unilateral Stability]} \qquad E(y_t) \leq E(y_t + z), \quad \forall z \in V_0 \times K^+_0\qquad [1]$$
+
+
+Above, $T$ defines a horizon of events. The system is represented by its total energy $E$ and $X_t$ is the time-dependent space of admissible states. A generic element of $X_t$ contains a macroscopic field that can be externally driven (or controlled, e.g. via boundary conditions) and an internal field (akin to an internal degree of order). In the applications of fracture, the kinematic variable is a vector-valued displacement $u(x)$ and the degree of order $\alpha(x)$ controls the softening of the material. Irreversibility applies to the internal variable, hence an <abbr >irreversible-constrained</abbr> evolution is a mapping parametrised by $t$ such that $\alpha_t(x)$ is non-decreasing with respect to $t$. **The kinematic variable is subject to bilateral variations belonging to a linear subset of a Sobolev vector space $V_0$, whereas** ~~Remark that~~ the test space for the internal order parameter $K^+_0$ only contains positive fields owing to the irreversibility constraint. The main difficulties are to correctly enforce unilateral constraints and to account for the changing nature of the space of variations. 
+
+
+`HybridSolver` (1) `BifurcationSolver,` (2) and `StabilitySolver` (3) **address** the solution of **[1] in three stages**~~three general purpose variational problems~~: 
 
 1. A constrained variational inequality; that is first order necessary conditions for unilateral equilibrium.
 
@@ -53,17 +72,7 @@ To fill this gap, our nonlinear solvers offer a flexible toolkit for advanced st
     
 3. A constrained eigen-inequality in a convex cone; originating from a second order eigenvalue problem indicating stabilty of the system (or lack thereof).
 
-These numerical tools can be used to study general evolutionary problems formulated in terms of fully nonlinear functional operators in spaces of high or infinite dimension. In this context, systems can have surprising and complicated behaviours such as symmetry breaking bifurcations, endogenous pattern formation, localisations, and separation of scales. Our solvers can be extended or adapted to a variety of systems described by an energetic principle (or unilateral stability law, see [1] below).
-
-We exploit the solvers to attack the following abstract problem which encodes a selection principle: 
-$$
-P(0):\text{ Given } T >0, \text{ find an } \text{ irreversible-constrained evolution } y_t$$
-$$y_t: t\in [0, T]\mapsto X_t  
-\text{ such that}$$ 
-$$\text{[Unilateral Stability]} \qquad E(y_t) \leq E(y_t + z), \quad \forall z \in V_0 \times K^+_0\qquad [1]$$
-
-
-Above, $T$ defines a horizon of events. The system is represented by its total energy $E$ and $X_t$ is the time-dependent space of admissible states. A generic element of $X_t$ contains a macroscopic field that can be externally driven (or controlled, e.g. via boundary conditions) and an internal field (akin to an internal degree of order). In the applications of fracture, the kinematic variable is a vector-valued displacement $u(x)$ and the degree of order $\alpha(x)$ controls the softening of the material. Irreversibility applies to the internal variable, hence an <abbr >irreversible-constrained</abbr> evolution is a mapping parametrised by $t$ such that $\alpha_t(x)$ is non-decreasing with respect to $t$. **The kinematic variable is subject to bilateral variations belonging to a linear subset of a Sobolev vector space $V_0$, whereas ** ~~Remark that~~ the test space for the internal order parameter $K^+_0$ only contains positive fields owing to the irreversibility constraint. The main difficulties are to correctly enforce unilateral constraints and to account for the changing nature of the space of variations. 
+These numerical tools can be used to study general evolutionary problems formulated in terms of fully nonlinear functional operators in spaces of high or infinite dimension. In this context, systems can have surprising and complicated behaviours such as symmetry breaking bifurcations, endogenous pattern formation, localisations, and separation of scales. Our solvers can be extended or adapted to a variety of systems described by an energetic principle **formulated as in [1]** ~~(or unilateral stability law, see [1] below)~~.
 
 
 ## Software
