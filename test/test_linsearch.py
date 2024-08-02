@@ -61,18 +61,9 @@ size = comm.Get_size()
 model_rank = 0
 test_dir = os.path.dirname(__file__)
 
-@pytest.fixture
-def parameters():
-    test_parameters, test_signature = load_parameters(os.path.join(test_dir, "./parameters.yml"))
-    return test_parameters
-
-@pytest.fixture
-def storage():
-    test_parameters, test_signature = load_parameters(os.path.join(test_dir, "./parameters.yml"))
-    return f"output/linesearch/{test_signature}"
-
-def test_linsearch(parameters, storage):
-
+def test_linsearch():
+    parameters, signature = load_parameters(os.path.join(test_dir, "./parameters.yml"))
+    storage = f"output/linesearch/{signature}"
     comm = MPI.COMM_WORLD
 
     model_rank = 0
@@ -501,19 +492,5 @@ def load_parameters(file_path):
     return parameters, signature
 
 if __name__ == "__main__":
-    # parameters, signature = load_parameters("../test/parameters.yml")
-    test_parameters, test_signature = parameters()
-    ColorPrint.print_bold(
-        f"===================- {test_signature} -=================")
-
-    test_storage = storage()
+    test_linsearch()
     
-    ColorPrint.print_bold(
-        f"===================- {test_storage} -=================")
-
-    test_linsearch(test_parameters, test_storage)
-    
-    ColorPrint.print_bold(
-        f"===================- {test_signature} -=================")
-    ColorPrint.print_bold(
-        f"===================- {test_storage} -=================")

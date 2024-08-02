@@ -1,6 +1,6 @@
-from .test_sample_data import init_data
+from irrevolutions.utils import sample_data
 from dolfinx.cpp.la.petsc import get_local_vectors
-from .test_restriction import (
+from test_restriction import (
     __log_incipit,
     get_inactive_dofset,
 )
@@ -18,7 +18,7 @@ size = comm.Get_size()
 
 
 def test_extend_vector():
-    F, v = init_data(10)
+    F, v = sample_data(10)
     V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
     x = dolfinx.fem.petsc.create_vector_block(F)
 

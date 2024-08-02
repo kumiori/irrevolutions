@@ -63,7 +63,7 @@ comm = MPI.COMM_WORLD
 model_rank = 0
 
 
-def main(parameters, storage):
+def run_computation(parameters, storage):
     # Load mesh
 
     _r = parameters["geometry"]["r"]
@@ -299,7 +299,6 @@ def main(parameters, storage):
 
     return history_data, stability.data, state
 
-
 def load_parameters(file_path, ndofs, model="at1"):
     """
     Load parameters from a YAML file.
@@ -352,15 +351,15 @@ def load_parameters(file_path, ndofs, model="at1"):
 
     return parameters, signature
 
-
-if __name__ == "__main__":
-    import argparse
+def test_2d():
+    # import argparse
     from mpi4py import MPI
 
-    parser = argparse.ArgumentParser(description="Process evolution.")
-    parser.add_argument("-N", help="The number of dofs.", type=int, default=10)
-    args = parser.parse_args()
-    parameters, signature = load_parameters("data/pacman/parameters.yaml", ndofs=args.N)
+    # parser = argparse.ArgumentParser(description="Process evolution.")
+    # parser.add_argument("-N", help="The number of dofs.", type=int, default=10)
+    # args = parser.parse_args()
+    N = 1000
+    parameters, signature = load_parameters("data/pacman/parameters.yaml", ndofs=N)
     pretty_parameters = json.dumps(parameters, indent=2)
     print(pretty_parameters)
 
@@ -370,7 +369,7 @@ if __name__ == "__main__":
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
-        history_data, stability_data, state = main(parameters, _storage)
+        history_data, stability_data, state = run_computation(parameters, _storage)
 
     ColorPrint.print_bold(history_data["eigs-cone"])
     from irrevolutions.utils import ResultsStorage, Visualization
@@ -390,10 +389,6 @@ if __name__ == "__main__":
     ColorPrint.print_bold(f"===================-{signature}-=================")
     print(pd.DataFrame(stability_data))
 
-    __import__("pdb").set_trace()
-    # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
-    # from irrevolutions.utils import table_timing_data
-    # _timings = table_timing_data()
-
-    # visualization.save_table(_timings, "timing_data")
+if __name__ == "__main__":
+    test_2d()
