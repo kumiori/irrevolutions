@@ -35,15 +35,21 @@ Asymmetrically, feature-work is `rebased`.
 First, run the container, attaching an interactive session and sharing data space 
 (the current dir) between the host and the container (the syntax is origin:target).
 
-On a Mac:
+On an ARM-based machine:
 ```
-docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:latest
+docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:stable
+```
+On an AMD64 machine:
+```
+docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:stable-amd64
 ```
 
 On a windows box:
 ```
-docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix:latest
+docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix:stable-amd64
 ```
+
+### Installation
 
 To install the software, run DOLFINx through the aforementioned docker container and install the irrevolutions-package with 
 
@@ -52,10 +58,10 @@ To install the software, run DOLFINx through the aforementioned docker container
 from the root of this repository
 
 
+----
+
 This code was initially conceived as a support for the teaching course MEC647, 
-(Complex) Crack Propagation in Brittle Materials, delivered to the students of the international
-master programme, joint between École Polytechnique and ENSTA-Paristech throughout 2020-2022. 
-Hence the cryptic repository name.
+(Complex) Crack Propagation in Brittle Materials, delivered to the students of the international master programme, joint between École Polytechnique and ENSTA-Paristech throughout 2020-2022. 
 
 
 ### Acknowledgements

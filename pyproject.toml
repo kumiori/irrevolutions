@@ -17,6 +17,7 @@ license = {file = "LICENSE"}
 
 # Direct dependencies
 dependencies = [
+    "fenics-dolfinx==0.7.*",
     "pandas>=2.2",
     "sympy",
     "pytest",
