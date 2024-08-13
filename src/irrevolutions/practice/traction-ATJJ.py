@@ -142,7 +142,6 @@ def traction_with_parameters(parameters, slug=""):
     # Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
 
-
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     # Create the mesh of the specimen with given dimensions
@@ -483,7 +482,6 @@ def traction_with_parameters(parameters, slug=""):
     _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
     _plt = plot_vector(u, plotter, subplot=(0, 1))
     _plt.screenshot(f"{prefix}/traction-state.png")
-
 
     xvfb.start_xvfb(wait=0.05)
     pyvista.OFF_SCREEN = True

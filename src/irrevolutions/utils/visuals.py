@@ -1,5 +1,3 @@
-
-
 def matplotlibdefaults(palette="medium", useTex=False):
     from matplotlib import cycler, rcParams
 

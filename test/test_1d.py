@@ -686,7 +686,6 @@ def load_parameters(file_path, ndofs, model="at1"):
 
 
 def test_1d():
-
     from mpi4py import MPI
 
     # parser = argparse.ArgumentParser(description="Process evolution.")

@@ -48,7 +48,6 @@ load: displacement hard-t
 """
 
 
-
 logging.getLogger().setLevel(logging.CRITICAL)
 
 comm = MPI.COMM_WORLD

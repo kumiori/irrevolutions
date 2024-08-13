@@ -72,7 +72,6 @@ def traction_with_parameters(parameters, slug=""):
     # Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
 
-
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     # Create the mesh of the specimen with given dimensions

@@ -151,7 +151,6 @@ def setspines4():
 # setspines()
 
 
-
 def setspines2():
     import matplotlib.pylab
 

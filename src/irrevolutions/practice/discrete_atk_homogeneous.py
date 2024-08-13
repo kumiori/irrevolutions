@@ -49,7 +49,6 @@ load: displacement hard-t
 """
 
 
-
 logging.getLogger().setLevel(logging.CRITICAL)
 
 comm = MPI.COMM_WORLD
@@ -482,7 +481,6 @@ def discrete_atk(arg_N=2):
 
         _alpha.vector[:] = _alphah
         _u.vector[:] = _uh
-
 
     for i_t, t in enumerate(loads):
         logging.critical(f"-- Solving for t = {t:3.2f} --")
