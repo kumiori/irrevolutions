@@ -348,11 +348,25 @@ history_data = {
     "inertia": [],
 }
 
-def _write_history_data(equilibrium, bifurcation, stability, history_data, t, inertia, stable, energies: List):
+def _write_history_data(equilibrium, 
+bifurcation, 
+stability, 
+history_data, 
+t, 
+inertia, 
+stable, 
+energies: List,
+light=True):
     
     elastic_energy = energies[0]
     fracture_energy = energies[1]
     unique = True if inertia[0] == 0 and inertia[1] == 0 else False
+
+    if not light:
+        history_data["cone_data"].append(stability.data)
+
+    if light:
+        history_data.pop('cone_data', None)
     
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
@@ -363,7 +377,6 @@ def _write_history_data(equilibrium, bifurcation, stability, history_data, t, in
     history_data["unique"].append(unique)
     history_data["stable"].append(stable)
     history_data["eigs_ball"].append(bifurcation.data["eigs"])
-    history_data["cone_data"].append(stability.data)
     history_data["eigs_cone"].append(stability.solution["lambda_t"])
 
     return 

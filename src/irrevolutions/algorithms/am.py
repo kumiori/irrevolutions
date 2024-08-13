@@ -401,3 +401,162 @@ class HybridSolver(AlternateMinimisation):
 
         # self.data.append(newton_data)
         # self.data["newton_Fnorm"].append(Fnorm)
+
+
+class AlternateMinimisation1D:
+
+    def __init__(
+        self,
+        total_energy,
+        state,
+        bcs,
+        solver_parameters={},
+        bounds=(dolfinx.fem.function.Function, dolfinx.fem.function.Function),
+    ):
+        self.state = state
+        self.alpha = state["alpha"]
+        self.alpha_old = dolfinx.fem.function.Function(self.alpha.function_space)
+        self.u = state["u"]
+        self.alpha_lb = bounds[0]
+        self.alpha_ub = bounds[1]
+        self.total_energy = total_energy
+        self.solver_parameters = solver_parameters
+
+        V_u = state["u"].function_space
+        V_alpha = state["alpha"].function_space
+
+        energy_u = ufl.derivative(self.total_energy, self.u, ufl.TestFunction(V_u))
+        energy_alpha = ufl.derivative(
+            self.total_energy, self.alpha, ufl.TestFunction(V_alpha)
+        )
+
+        self.F = [energy_u, energy_alpha]
+
+        self.elasticity = SNESSolver(
+            energy_u,
+            self.u,
+            bcs.get("bcs_u"),
+            bounds=None,
+            petsc_options=self.solver_parameters.get("elasticity").get("snes"),
+            prefix=self.solver_parameters.get("elasticity").get("prefix"),
+        )
+
+        self.damage = SNESSolver(
+            energy_alpha,
+            self.alpha,
+            bcs.get("bcs_alpha"),
+            bounds=(self.alpha_lb, self.alpha_ub),
+            petsc_options=self.solver_parameters.get("damage").get("snes"),
+            prefix=self.solver_parameters.get("damage").get("prefix"),
+        )
+
+    def solve(self, outdir=None):
+
+        alpha_diff = dolfinx.fem.Function(self.alpha.function_space)
+
+        self.data = {
+            "iteration": [],
+            "error_alpha_L2": [],
+            "error_alpha_H1": [],
+            "F_norm": [],
+            "error_alpha_max": [],
+            "error_residual_F": [],
+            "solver_alpha_reason": [],
+            "solver_alpha_it": [],
+            "solver_u_reason": [],
+            "solver_u_it": [],
+            "total_energy": [],
+        }
+        for iteration in range(
+            self.solver_parameters.get("damage_elasticity").get("max_it")
+        ):
+            with dolfinx.common.Timer(
+                "~First Order: Alternate Minimization : Elastic solver"
+            ):
+                (solver_u_it, solver_u_reason) = self.elasticity.solve()
+            with dolfinx.common.Timer(
+                "~First Order: Alternate Minimization : Damage solver"
+            ):
+                (solver_alpha_it, solver_alpha_reason) = self.damage.solve()
+
+            # Define error function
+            self.alpha.vector.copy(alpha_diff.vector)
+            alpha_diff.vector.axpy(-1, self.alpha_old.vector)
+            alpha_diff.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+
+            error_alpha_H1 = norm_H1(alpha_diff)
+            error_alpha_L2 = norm_L2(alpha_diff)
+
+            Fv = [assemble_vector(form(F)) for F in self.F]
+
+            Fnorm = np.sqrt(
+                np.array([comm.allreduce(Fvi.norm(), op=MPI.SUM) for Fvi in Fv]).sum()
+            )
+
+            error_alpha_max = alpha_diff.vector.max()[1]
+            total_energy_int = comm.allreduce(
+                assemble_scalar(form(self.total_energy)), op=MPI.SUM
+            )
+            residual_F = assemble_vector(self.elasticity.F_form)
+            residual_F.ghostUpdate(
+                addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
+            )
+            set_bc(residual_F, self.elasticity.bcs, self.u.vector)
+            error_residual_F = ufl.sqrt(residual_F.dot(residual_F))
+
+            self.alpha.vector.copy(self.alpha_old.vector)
+            self.alpha_old.vector.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+
+            logging.critical(
+                f"AM - Iteration: {iteration:3d}, res F Error: {error_residual_F:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+            )
+
+            logging.critical(
+                f"AM - Iteration: {iteration:3d}, H1 Error: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+            )
+
+            logging.critical(
+                f"AM - Iteration: {iteration:3d}, L2 Error: {error_alpha_L2:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+            )
+
+            logging.critical(
+                f"AM - Iteration: {iteration:3d}, Linfty Error: {error_alpha_max:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+            )
+
+            self.data["iteration"].append(iteration)
+            self.data["error_alpha_L2"].append(error_alpha_L2)
+            self.data["error_alpha_H1"].append(error_alpha_H1)
+            self.data["F_norm"].append(Fnorm)
+            self.data["error_alpha_max"].append(error_alpha_max)
+            self.data["error_residual_F"].append(error_residual_F)
+            self.data["solver_alpha_it"].append(solver_alpha_it)
+            self.data["solver_alpha_reason"].append(solver_alpha_reason)
+            self.data["solver_u_reason"].append(solver_u_reason)
+            self.data["solver_u_it"].append(solver_u_it)
+            self.data["total_energy"].append(total_energy_int)
+
+            if (
+                self.solver_parameters.get("damage_elasticity").get("criterion")
+                == "residual_u"
+            ):
+                if error_residual_F <= self.solver_parameters.get(
+                    "damage_elasticity"
+                ).get("alpha_rtol"):
+                    break
+            if (
+                self.solver_parameters.get("damage_elasticity").get("criterion")
+                == "alpha_H1"
+            ):
+                if error_alpha_H1 <= self.solver_parameters.get(
+                    "damage_elasticity"
+                ).get("alpha_rtol"):
+                    break
+        else:
+            raise RuntimeError(
+                f"Could not converge after {iteration:3d} iterations, error {error_alpha_H1:3.4e}"
+            )
+
