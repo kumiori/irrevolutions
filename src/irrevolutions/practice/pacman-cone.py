@@ -1,49 +1,47 @@
 #!/usr/bin/env python3
-import pandas as pd
-import numpy as np
-import yaml
+import hashlib
 import json
-from pathlib import Path
-import sys
+import logging
 import os
-import matplotlib.pyplot as plt
+import sys
+from pathlib import Path
 
-from dolfinx.fem import dirichletbc
+import dolfinx
 import dolfinx.mesh
+import dolfinx.plot
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pyvista
+import ufl
+import yaml
+from dolfinx.common import list_timings, timing
 from dolfinx.fem import (
     Constant,
     Function,
     FunctionSpace,
     assemble_scalar,
+    dirichletbc,
     form,
+    locate_dofs_topological,
     set_bc,
 )
-
-import pyvista
-from pyvista.utilities import xvfb
+from dolfinx.io import XDMFFile, gmshio
+from dolfinx.mesh import locate_entities_boundary
 
 #
 from mpi4py import MPI
 from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-import ufl
-from dolfinx.mesh import locate_entities_boundary
-from dolfinx.fem import locate_dofs_topological
-import hashlib
-
-from dolfinx.io import XDMFFile, gmshio
-import logging
-from dolfinx.common import list_timings, timing
+from pyvista.utilities import xvfb
 
 sys.path.append("../")
-from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.utils import ColorPrint
 from meshes.pacman import mesh_pacman
-from utils.viz import plot_mesh, plot_vector, plot_scalar
+from models import DamageElasticityModel as Brittle
 from utils.lib import _local_notch_asymptotic
+from utils.viz import plot_mesh, plot_scalar, plot_vector
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -388,8 +386,8 @@ def pacman_cone(resolution=2, slug="pacman"):
         # Viz
         if "SINGULARITY_CONTAINER" not in os.environ:
             from utils.plots import (
-                plot_energies,
                 plot_AMit_load,
+                plot_energies,
             )
 
             if comm.rank == 0:

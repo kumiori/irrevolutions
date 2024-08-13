@@ -1,8 +1,11 @@
+import os
 import sys
 from pathlib import Path
-import os
-from pyvista.utilities import xvfb
+
+import dolfinx.plot
+import matplotlib.pyplot as plt
 import pyvista
+import yaml
 from dolfinx.fem import (
     Function,
     FunctionSpace,
@@ -10,33 +13,28 @@ from dolfinx.fem import (
     locate_dofs_topological,
     set_bc,
 )
-import matplotlib.pyplot as plt
 from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
-import yaml
-import dolfinx.plot
-
+from pyvista.utilities import xvfb
 
 sys.path.append("../")
-from irrevolutions.utils import ColorPrint, set_vector_to_constant
-from models import DamageElasticityModel as Brittle
-from algorithms.am import HybridSolver
-
-from meshes.pacman import mesh_pacman
-from utils.lib import _local_notch_asymptotic
-
-from utils.viz import plot_mesh, plot_vector, plot_scalar
-from mpi4py import MPI
 import json
+import logging
+from datetime import date
+
+import dolfinx
+import numpy as np
+import petsc4py
+import ufl
+from algorithms.am import HybridSolver
+from irrevolutions.utils import ColorPrint, set_vector_to_constant
+from meshes.pacman import mesh_pacman
+from models import DamageElasticityModel as Brittle
+from mpi4py import MPI
 from petsc4py import PETSc
 from solvers.function import functions_to_vec
-import ufl
-import petsc4py
-import dolfinx
-from datetime import date
-import logging
-
-import numpy as np
+from utils.lib import _local_notch_asymptotic
+from utils.viz import plot_mesh, plot_scalar, plot_vector
 
 logging.basicConfig(level=logging.INFO)
 

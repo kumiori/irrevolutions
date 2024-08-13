@@ -1,21 +1,19 @@
 #!/usr/bin/env python3
+import logging
+import os
+import sys
+from pathlib import Path
+
+import dolfinx
+import dolfinx.mesh
+import dolfinx.plot
 import pandas as pd
 import yaml
-from pathlib import Path
-import sys
-import os
-
-import dolfinx.mesh
-
+from dolfinx.common import list_timings
 
 #
 from mpi4py import MPI
 from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-
-import logging
-from dolfinx.common import list_timings
 
 sys.path.append("../")
 

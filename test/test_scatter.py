@@ -1,16 +1,16 @@
-import random
-from dolfinx import cpp as _cpp
-import numpy as np
-from dolfinx.fem import locate_dofs_geometrical
-import irrevolutions.solvers.restriction as restriction
-import ufl
-import dolfinx
-from petsc4py import PETSc
-from mpi4py import MPI
-import sys
 import os
+import random
+import sys
 
+import dolfinx
+import irrevolutions.solvers.restriction as restriction
+import numpy as np
 import petsc4py
+import ufl
+from dolfinx import cpp as _cpp
+from dolfinx.fem import locate_dofs_geometrical
+from mpi4py import MPI
+from petsc4py import PETSc
 
 petsc4py.init(sys.argv)
 

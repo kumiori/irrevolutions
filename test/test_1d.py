@@ -14,6 +14,7 @@ import petsc4py
 import pyvista
 import ufl
 import yaml
+from dolfinx.common import list_timings
 from dolfinx.fem import (
     Constant,
     Function,
@@ -23,12 +24,8 @@ from dolfinx.fem import (
     locate_dofs_geometrical,
     set_bc,
 )
-from dolfinx.common import list_timings
 from dolfinx.fem.petsc import assemble_vector
 from dolfinx.io import XDMFFile
-from mpi4py import MPI
-from petsc4py import PETSc
-
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.solvers import SNESSolver
@@ -48,6 +45,8 @@ from irrevolutions.utils.plots import (
 
 #
 from irrevolutions.utils.viz import plot_profile
+from mpi4py import MPI
+from petsc4py import PETSc
 
 """The fundamental problem of a 1d bar in traction.
 0|(WWWWWWWWWWWWWWWWWWWWWW)|========> t

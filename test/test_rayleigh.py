@@ -2,8 +2,8 @@ import argparse
 import hashlib
 import json
 import logging
-from pathlib import Path
 import os
+from pathlib import Path
 
 import dolfinx
 import matplotlib.pyplot as plt

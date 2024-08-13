@@ -14,31 +14,25 @@ import logging
 import sys
 
 sys.path.append("../")
-import pyvista
-from utils.viz import plot_mesh
-from utils.viz import plot_vector, plot_scalar
-from meshes import primitives
-import meshes
-from pyvista.utilities import xvfb
+import dolfinx
+import dolfinx.io
+import dolfinx.plot
 import matplotlib.pyplot as plt
+import meshes
+import numpy as np
+import pyvista
+import ufl
+from algorithms import am
 from dolfinx.fem import (
     assemble_scalar,
     dirichletbc,
     locate_dofs_geometrical,
 )
-import dolfinx.io
-import numpy as np
-
-
-
-from petsc4py import PETSc
-
-import dolfinx
-import dolfinx.plot
-import ufl
+from meshes import primitives
 from models import DamageElasticityModel as Brittle
-from algorithms import am
-
+from petsc4py import PETSc
+from pyvista.utilities import xvfb
+from utils.viz import plot_mesh, plot_scalar, plot_vector
 
 logging.basicConfig()
 # logging.getLogger().setLevel(logging.DEBUG)

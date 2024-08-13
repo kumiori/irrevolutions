@@ -1,39 +1,37 @@
 #!/usr/bin/env python3
-import logging
 import json
-import numpy as np
-import pandas as pd
-import yaml
-from pathlib import Path
-import sys
+import logging
 import os
+import sys
+from pathlib import Path
 
 import dolfinx
 import dolfinx.plot
+import numpy as np
+import pandas as pd
+import petsc4py
 import ufl
-
+import yaml
 from dolfinx.fem import (
     Constant,
     Function,
     FunctionSpace,
-    locate_dofs_geometrical,
     assemble_scalar,
     dirichletbc,
     form,
+    locate_dofs_geometrical,
     set_bc,
 )
 from dolfinx.io import XDMFFile, gmshio
-
 from mpi4py import MPI
-import petsc4py
 from petsc4py import PETSc
 
 sys.path.append("../")
-from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so_merged import BifurcationSolver, StabilitySolver
-from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
+from meshes.primitives import mesh_bar_gmshapi
+from models import DamageElasticityModel as Brittle
 from utils.plots import plot_energies
 
 sys.path.append("../")
@@ -318,10 +316,11 @@ if comm.rank == 0:
     plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
     plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
-from pyvista.utilities import xvfb
-import pyvista
 import sys
-from utils.viz import plot_vector, plot_scalar
+
+import pyvista
+from pyvista.utilities import xvfb
+from utils.viz import plot_scalar, plot_vector
 
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True

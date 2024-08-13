@@ -1,16 +1,18 @@
-import pickle
 import logging
-from mpi4py import MPI
-from dolfinx.io import XDMFFile
+import os
+import pickle
+import sys
+
+import dolfinx
+import irrevolutions.solvers.restriction as restriction
 import numpy as np
 import ufl
-import dolfinx
+from dolfinx.io import XDMFFile
 from irrevolutions.utils import _logger
+from mpi4py import MPI
 from test_cone_project import _cone_project_restricted
+
 from . import test_binarydataio as bio
-import irrevolutions.solvers.restriction as restriction
-import os
-import sys
 
 sys.path.append("../")
 

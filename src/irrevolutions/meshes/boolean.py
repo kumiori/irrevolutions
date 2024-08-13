@@ -13,8 +13,9 @@ def mesh_bar_gmshapi(name, msh_file=None, comm=MPI.COMM_WORLD):
     # Perform Gmsh work only on rank = 0
 
     if comm.rank == 0:
-        import gmsh
         import warnings
+
+        import gmsh
 
         warnings.filterwarnings("ignore")
         # Initialise gmsh and set options
@@ -48,8 +49,9 @@ def mesh_moonslice_gmshapi(
 
     # Perform Gmsh work only on rank = 0
     if comm.rank == 0:
-        import gmsh
         import warnings
+
+        import gmsh
 
         warnings.filterwarnings("ignore")
         gmsh.initialize()

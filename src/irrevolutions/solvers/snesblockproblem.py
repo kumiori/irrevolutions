@@ -1,15 +1,14 @@
+import logging
 import typing
 
 # from yaml.tokens import BlockSequenceStartToken
-
 import dolfinx
-import ufl
-from .function import vec_to_functions, functions_to_vec
-
-from petsc4py import PETSc
-from mpi4py import MPI
-import logging
 import numpy as np
+import ufl
+from mpi4py import MPI
+from petsc4py import PETSc
+
+from .function import functions_to_vec, vec_to_functions
 
 
 class SNESBlockProblem:
@@ -266,7 +265,7 @@ class SNESBlockProblem:
         # init plotter
         import pyvista
         from pyvista.utilities import xvfb
-        from utils.viz import plot_vector, plot_scalar
+        from utils.viz import plot_scalar, plot_vector
 
         xvfb.start_xvfb(wait=0.05)
         pyvista.OFF_SCREEN = True

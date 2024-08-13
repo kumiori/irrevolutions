@@ -1,37 +1,36 @@
 # Numpy -> numerical library for Python. We'll use it for all array operations.
 # It's written in C and it's faster (than traditional Python)
-from algorithms import am
-from models import DamageElasticityModel as Brittle
-from pyvista.utilities import xvfb
-import pyvista
-from utils.viz import plot_mesh, plot_vector, plot_scalar
-import meshes
-import matplotlib.pyplot as plt
+import logging
+
+# Yaml (Yet another markup language) -> We'll use it to pass, read and structure
+# light text data in .yml files.
+# Json -> Another form to work with data. It comes from JavaScript. Similar functions
+# that Yaml. Used speacily with API request, when we need data "fetch".
+# Communication with the machine:
+# Sys -> allows to acess the system and launch commandes.
+# Os - > allows to acess the operation system.
+import sys
+
+import dolfinx
+import dolfinx.io
+import dolfinx.plot
 import gmsh
+import matplotlib.pyplot as plt
+import meshes
+import numpy as np
+import pyvista
 import ufl
+from algorithms import am
 from dolfinx.fem import (
     assemble_scalar,
     dirichletbc,
     locate_dofs_geometrical,
     set_bc,
 )
-import dolfinx.io
-import logging
-import dolfinx.plot
-import dolfinx
+from models import DamageElasticityModel as Brittle
 from petsc4py import PETSc
-import numpy as np
-
-# Yaml (Yet another markup language) -> We'll use it to pass, read and structure
-# light text data in .yml files.
-
-# Json -> Another form to work with data. It comes from JavaScript. Similar functions
-# that Yaml. Used speacily with API request, when we need data "fetch".
-
-# Communication with the machine:
-# Sys -> allows to acess the system and launch commandes.
-# Os - > allows to acess the operation system.
-import sys
+from pyvista.utilities import xvfb
+from utils.viz import plot_mesh, plot_scalar, plot_vector
 
 # -> this serves to add a path to the code search for things
 sys.path.append("../")

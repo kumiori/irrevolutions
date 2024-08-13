@@ -2,8 +2,8 @@ import logging
 
 
 def setup_logger_mpi(root_priority: int = logging.INFO):
-    from mpi4py import MPI
     import dolfinx
+    from mpi4py import MPI
 
     class MPIFormatter(logging.Formatter):
         def format(self, record):

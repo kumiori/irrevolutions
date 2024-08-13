@@ -1,16 +1,16 @@
 import logging
 import os
+import pickle
 
 import dolfinx
-from irrevolutions import utils
+import irrevolutions.solvers.restriction as restriction
 import numpy as np
 import ufl
 from dolfinx.io import XDMFFile
+from irrevolutions import utils
 from irrevolutions.algorithms.so import StabilitySolver
-import irrevolutions.solvers.restriction as restriction
 from irrevolutions.utils import _logger
 from mpi4py import MPI
-import pickle
 
 _logger.setLevel(logging.CRITICAL)
 

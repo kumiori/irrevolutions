@@ -1,47 +1,44 @@
 #!/usr/bin/env python3
-import logging
 import json
-import numpy as np
-import pandas as pd
-import yaml
-from pathlib import Path
-import sys
+import logging
 import os
-
+import sys
+from pathlib import Path
 
 import dolfinx
 import dolfinx.plot
+import numpy as np
+import pandas as pd
+import petsc4py
 import ufl
-
+import yaml
+from dolfinx.common import list_timings
 from dolfinx.fem import (
     Constant,
     Function,
     FunctionSpace,
-    locate_dofs_geometrical,
     assemble_scalar,
     dirichletbc,
     form,
+    locate_dofs_geometrical,
     set_bc,
 )
 from dolfinx.io import gmshio
-from dolfinx.common import list_timings
-
 from mpi4py import MPI
-import petsc4py
 from petsc4py import PETSc
 
-
 sys.path.append("../")
-from utils.viz import plot_vector, plot_scalar
-import pyvista
-from pyvista.utilities import xvfb
-from utils.plots import plot_energies, plot_force_displacement
 import hashlib
+
+import pyvista
+from algorithms.am import AlternateMinimisation, HybridSolver
+from algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.utils import ColorPrint
 from meshes.primitives import mesh_bar_gmshapi
-from algorithms.so import BifurcationSolver, StabilitySolver
-from algorithms.am import AlternateMinimisation, HybridSolver
 from models import DamageElasticityModel as Brittle
+from pyvista.utilities import xvfb
+from utils.plots import plot_energies, plot_force_displacement
+from utils.viz import plot_scalar, plot_vector
 
 
 class BrittleAT2(Brittle):
@@ -576,10 +573,11 @@ def param_vs_dry(base_parameters, base_signature):
 
 if __name__ == "__main__":
     import argparse
+
     from utils.parametric import (
-        parameters_vs_SPA_scaling,
         parameters_vs_ell,
         parameters_vs_n_refinement,
+        parameters_vs_SPA_scaling,
     )
 
     admissible_models = {"at1", "at2", "thinfilm"}

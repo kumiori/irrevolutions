@@ -1,20 +1,20 @@
-from irrevolutions.utils import _logger, ColorPrint, indicator_function
-from irrevolutions.utils import eigenspace as eig
-from irrevolutions.utils.viz import get_datapoints
-from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
-from dolfinx.fem import form, assemble_scalar
-from pathlib import Path
-import json
 import argparse
+import json
 import logging
-from mpi4py import MPI
-from petsc4py import PETSc
-import yaml
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
+import sys
+from pathlib import Path
+
+import dolfinx
 import numpy as np
 import ufl
-import dolfinx
-import sys
+import yaml
+from dolfinx.fem import assemble_scalar, dirichletbc, form, locate_dofs_geometrical
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.utils import ColorPrint, _logger, indicator_function
+from irrevolutions.utils import eigenspace as eig
+from irrevolutions.utils.viz import get_datapoints
+from mpi4py import MPI
+from petsc4py import PETSc
 
 sys.path.append("../")
 sys.path.append("../playground/nb")

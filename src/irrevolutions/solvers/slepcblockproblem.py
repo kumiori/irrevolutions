@@ -1,16 +1,15 @@
+import logging
 import typing
 
 # from yaml.tokens import BlockSequenceStartToken
-
 import dolfinx
 import ufl
-from .function import vec_to_functions
-from slepc4py import SLEPc
 
 # plot_matrix
-
 from petsc4py import PETSc
-import logging
+from slepc4py import SLEPc
+
+from .function import vec_to_functions
 
 
 class SLEPcBlockProblem:

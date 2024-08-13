@@ -17,9 +17,10 @@ def mesh_pacman(
     # Perform Gmsh work only on rank = 0
 
     if comm.rank == 0:
-        import numpy as np
-        import gmsh
         import warnings
+
+        import gmsh
+        import numpy as np
 
         warnings.filterwarnings("ignore")
         gmsh.initialize()

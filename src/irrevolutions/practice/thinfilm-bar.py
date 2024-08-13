@@ -1,58 +1,51 @@
 #!/usr/bin/env python3
-import pandas as pd
-import numpy as np
-import yaml
 import json
-from pathlib import Path
-import sys
+import logging
 import os
+import sys
+from pathlib import Path
 
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
+import dolfinx
 import dolfinx.mesh
+import dolfinx.plot
+import numpy as np
+import pandas as pd
+import pyvista
+import ufl
+import yaml
+from dolfinx.common import list_timings
 from dolfinx.fem import (
     Constant,
     Function,
     FunctionSpace,
     assemble_scalar,
+    dirichletbc,
     form,
+    locate_dofs_geometrical,
     set_bc,
 )
-
-import pyvista
-from pyvista.utilities import xvfb
+from dolfinx.io import XDMFFile, gmshio
 
 #
 from mpi4py import MPI
 from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-import ufl
-
-from dolfinx.io import XDMFFile, gmshio
-import logging
-from dolfinx.common import list_timings
+from pyvista.utilities import xvfb
 
 sys.path.append("../")
-from models import BrittleMembraneOverElasticFoundation as ThinFilm
 from algorithms.am import HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
-from meshes.primitives import mesh_bar_gmshapi
-from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
-
-# from meshes.pacman import mesh_pacman
-from utils.viz import plot_vector, plot_scalar, plot_profile
-from utils.plots import plot_AMit_load, plot_force_displacement
-from irrevolutions.utils import table_timing_data
-from utils.parametric import parameters_vs_elle
-from solvers.function import vec_to_functions
+from default import ResultsStorage, Visualization
 
 # logging.basicConfig(level=logging.DEBUG)
+from irrevolutions.utils import ColorPrint, setup_logger_mpi, table_timing_data
+from meshes.primitives import mesh_bar_gmshapi
+from models import BrittleMembraneOverElasticFoundation as ThinFilm
+from solvers.function import vec_to_functions
+from utils.parametric import parameters_vs_elle
+from utils.plots import plot_AMit_load, plot_energies, plot_force_displacement
 
-from irrevolutions.utils import setup_logger_mpi
-
-
-from default import ResultsStorage, Visualization
+# from meshes.pacman import mesh_pacman
+from utils.viz import plot_profile, plot_scalar, plot_vector
 
 
 # ------------------------------------------------------------------

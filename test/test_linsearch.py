@@ -33,15 +33,15 @@ from irrevolutions.algorithms.ls import LineSearch
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import DamageElasticityModel as Brittle
-from irrevolutions.utils.plots import (
-    plot_energies,
-)
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.utils import (
     ColorPrint,
-    history_data,
     _write_history_data,
+    history_data,
     norm_H1,
+)
+from irrevolutions.utils.plots import (
+    plot_energies,
 )
 from irrevolutions.utils.viz import (
     plot_profile,

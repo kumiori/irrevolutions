@@ -1,24 +1,24 @@
-from mpi4py import MPI
-import ufl
-import dolfinx
-from petsc4py import PETSc
 import sys
+
+import dolfinx
 import petsc4py
+import ufl
+from mpi4py import MPI
+from petsc4py import PETSc
 
 petsc4py.init(sys.argv)
 
 from dolfinx.cpp.log import LogLevel, log
+
 # from damage.utils import ColorPrint
-
 from dolfinx.fem.petsc import (
-    assemble_matrix,
     apply_lifting,
-    create_vector,
-    create_matrix,
-    set_bc,
+    assemble_matrix,
     assemble_vector,
+    create_matrix,
+    create_vector,
+    set_bc,
 )
-
 
 # import pdb;
 # pdb.set_trace()

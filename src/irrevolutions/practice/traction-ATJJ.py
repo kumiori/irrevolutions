@@ -1,42 +1,40 @@
 #!/usr/bin/env python3
-import pandas as pd
-import numpy as np
-import yaml
 import json
-from pathlib import Path
-import sys
+import logging
 import os
+import sys
+from pathlib import Path
 
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
+import dolfinx
 import dolfinx.mesh
+import dolfinx.plot
+import numpy as np
+import pandas as pd
+import petsc4py
+import ufl
+import yaml
+from dolfinx.common import list_timings
 from dolfinx.fem import (
     Constant,
     Function,
     FunctionSpace,
     assemble_scalar,
+    dirichletbc,
     form,
+    locate_dofs_geometrical,
     set_bc,
 )
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-import ufl
-
 from dolfinx.io import XDMFFile, gmshio
-import logging
-from dolfinx.common import list_timings
-
+from mpi4py import MPI
+from petsc4py import PETSc
 
 sys.path.append("../")
 
+from algorithms.am import HybridSolver
+from algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.utils import ColorPrint
 from meshes.primitives import mesh_bar_gmshapi
-from algorithms.so import BifurcationSolver, StabilitySolver
-from algorithms.am import HybridSolver
 from models import DamageElasticityModel
-
 
 logging.getLogger().setLevel(logging.ERROR)
 
@@ -469,9 +467,9 @@ def traction_with_parameters(parameters, slug=""):
             history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
         )
 
-    from pyvista.utilities import xvfb
     import pyvista
-    from utils.viz import plot_vector, plot_scalar
+    from pyvista.utilities import xvfb
+    from utils.viz import plot_scalar, plot_vector
 
     #
     xvfb.start_xvfb(wait=0.05)
@@ -525,8 +523,8 @@ def _plot_bif_spectrum_profile(
 ):
     """docstring for _plot_bif_spectrum_profile"""
 
-    from utils.viz import plot_profile
     import matplotlib.pyplot as plt
+    from utils.viz import plot_profile
     # __import__('pdb').set_trace()
 
     # fields = spectrum["perturbations_beta"]
@@ -598,8 +596,8 @@ def _plot_bif_spectrum_profile_fullvec(
 ):
     """docstring for _plot_bif_spectrum_profile"""
 
-    from utils.viz import plot_profile
     import matplotlib.pyplot as plt
+    from utils.viz import plot_profile
 
     # fields = data["perturbations_beta"]
     # fields = data["perturbations_beta"]
@@ -676,8 +674,8 @@ def _plot_bif_spectrum_profile_fullvec(
 def _plot_perturbations_profile(
     fields, parameters, prefix, plotter=None, label="", idx="", aux=None
 ):
-    from utils.viz import plot_profile
     import matplotlib.pyplot as plt
+    from utils.viz import plot_profile
 
     u = fields[0]
     # u = fields[0]['xk'][1]

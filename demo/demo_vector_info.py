@@ -1,5 +1,5 @@
-from petsc4py import PETSc
 import numpy as np
+from petsc4py import PETSc
 
 
 def display_vector_info(v):

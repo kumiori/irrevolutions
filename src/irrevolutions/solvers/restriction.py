@@ -1,7 +1,7 @@
 import typing
 
-import numpy
 import dolfinx
+import numpy
 from petsc4py import PETSc
 
 

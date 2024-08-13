@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import pickle
 import subprocess
 import sys
 from typing import List
@@ -12,7 +13,6 @@ import yaml
 from dolfinx.fem import assemble_scalar, form
 from mpi4py import MPI
 from petsc4py import PETSc
-import pickle
 
 comm = MPI.COMM_WORLD
 
@@ -546,9 +546,10 @@ def load_minimal_constraints(filename):
 
 
 def sample_data(N, positive=True):
+    import random
+
     import dolfinx
     from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
-    import random
 
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, N - 1)
     comm = MPI.COMM_WORLD

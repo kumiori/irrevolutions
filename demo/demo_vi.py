@@ -1,32 +1,28 @@
-from dolfinx.fem.assemble import assemble_scalar
 import logging
-import numpy as np
+import os
+import sys
+from pathlib import Path
 
 import dolfinx
-import dolfinx.plot
 import dolfinx.io
+import dolfinx.mesh
+import dolfinx.plot
+import numpy as np
+import petsc4py
+import pyvista
+import ufl
+import yaml
 from dolfinx.fem import (
     Function,
     FunctionSpace,
     dirichletbc,
 )
-import dolfinx.mesh
+from dolfinx.fem.assemble import assemble_scalar
 from dolfinx.mesh import CellType
-import ufl
-
-from mpi4py import MPI
-import petsc4py
-import sys
-import yaml
-import os
-from pathlib import Path
-import pyvista
-from pyvista.utilities import xvfb
-
-import dolfinx.plot
-
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.utils.viz import plot_profile, plot_scalar
+from mpi4py import MPI
+from pyvista.utilities import xvfb
 
 petsc4py.init(sys.argv)
 

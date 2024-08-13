@@ -1,32 +1,27 @@
 # library include
 
 
-import pyvista
-from solvers import SNESSolver
-from utils.viz import plot_mesh, plot_vector, plot_scalar
-from meshes import primitives
-import meshes
-from pyvista.utilities import xvfb
+import logging
+import sys
+
+import dolfinx
+import dolfinx.io
+import dolfinx.plot
 import matplotlib.pyplot as plt
+import meshes
+import numpy as np
+import pyvista
+import ufl
+import yaml
 from dolfinx.fem import (
     Function,
     dirichletbc,
 )
-import dolfinx.io
-import numpy as np
-import yaml
-import sys
-
-
+from meshes import primitives
 from petsc4py import PETSc
-
-import dolfinx
-import dolfinx.plot
-import ufl
-
-
-
-import logging
+from pyvista.utilities import xvfb
+from solvers import SNESSolver
+from utils.viz import plot_mesh, plot_scalar, plot_vector
 
 logging.basicConfig(level=logging.INFO)
 

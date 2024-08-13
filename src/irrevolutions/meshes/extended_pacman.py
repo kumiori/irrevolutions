@@ -1,19 +1,30 @@
-from mpi4py import MPI
-import numpy as np
 import os
 import sys
 
+import numpy as np
+from mpi4py import MPI
+
 sys.path.append("../")
+from pathlib import Path
+
 from meshes import (
-    _addPoint as addPoint,
-    _addLine as addLine,
     _addCircleArc as addCircleArc,
+)
+from meshes import (
     _addCurveLoop as addCurveLoop,
-    _addPlaneSurface as _addPlaneSurface,
+)
+from meshes import (
+    _addLine as addLine,
+)
+from meshes import (
     _addPhysicalSurface as _addPhysicalSurface,
 )
-
-from pathlib import Path
+from meshes import (
+    _addPlaneSurface as _addPlaneSurface,
+)
+from meshes import (
+    _addPoint as addPoint,
+)
 
 
 def mesh_extended_pacman(
@@ -29,8 +40,9 @@ def mesh_extended_pacman(
     """
 
     if comm.rank == 0:
-        import gmsh
         import warnings
+
+        import gmsh
 
         warnings.filterwarnings("ignore")
         gmsh.initialize()
@@ -114,6 +126,7 @@ def mesh_extended_pacman(
 
 if __name__ == "__main__":
     import sys
+
     import yaml
 
     # , merge_meshtags, locate_dofs_topological

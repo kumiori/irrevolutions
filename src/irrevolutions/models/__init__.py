@@ -1,7 +1,7 @@
-import ufl
-
-import yaml
 import os
+
+import ufl
+import yaml
 
 # import pdb
 
@@ -232,8 +232,8 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
         ) + self.elastic_foundation_density(u)
 
     def stress(self, strain, alpha):
-        from numpy import ndarray
         from dolfinx.fem import assemble_scalar, form
+        from numpy import ndarray
 
         # Differentiate the elastic energy w.r.t. the strain tensor
         eps_ = ufl.variable(strain)

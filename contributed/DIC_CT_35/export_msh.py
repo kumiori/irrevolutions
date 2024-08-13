@@ -2,8 +2,9 @@
 # coding: utf-8
 
 
-from dolfin import *
 import os
+
+from dolfin import *
 
 filename = "mesh/DIC_running"
 

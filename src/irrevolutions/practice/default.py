@@ -21,19 +21,17 @@
 
 
 #!/usr/bin/env python3
+import json
+import logging
 import pdb
 import sys
-import yaml
-import json
-import numpy as np
-import ufl
-import logging
-
-from mpi4py import MPI
-from petsc4py import PETSc
 
 import dolfinx
+import dolfinx.mesh
 import dolfinx.plot
+import numpy as np
+import ufl
+import yaml
 from dolfinx.common import list_timings
 from dolfinx.fem import (
     Constant,
@@ -46,14 +44,14 @@ from dolfinx.fem import (
     set_bc,
 )
 from dolfinx.io import XDMFFile, gmshio
-import dolfinx.mesh
+from mpi4py import MPI
+from petsc4py import PETSc
 
 sys.path.append("../")
 
 # from algorithms.am import AlternateMinimisation, HybridSolver
-from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
-
+from meshes.primitives import mesh_bar_gmshapi
 
 # Configuration handling (load parameters from YAML)
 

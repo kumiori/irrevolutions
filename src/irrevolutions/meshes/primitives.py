@@ -362,13 +362,14 @@ if __name__ == "__main__":
     import sys
 
     sys.path.append("../../damage")
-    from xdmf import XDMFFile
+    from pathlib import Path
+
+    import dolfinx.plot
     from mesh import gmsh_to_dolfin
 
     # , merge_meshtags, locate_dofs_topological
     from mpi4py import MPI
-    from pathlib import Path
-    import dolfinx.plot
+    from xdmf import XDMFFile
 
     gmsh_model, tdim = mesh_bar_gmshapi(
         "bar", 1, 0.1, 0.01, 2, msh_file="output/bar.msh"

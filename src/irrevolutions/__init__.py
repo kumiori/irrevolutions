@@ -6,13 +6,12 @@ Summary:
 
 """
 
-import dolfinx.io
-from mpi4py import MPI
+import logging
 
 import dolfinx
+import dolfinx.io
 import dolfinx.plot
-
-import logging
+from mpi4py import MPI
 
 logging.basicConfig(level=logging.INFO)
 logging.critical(

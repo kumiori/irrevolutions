@@ -1,39 +1,37 @@
 #!/usr/bin/env python3
-import pandas as pd
-import numpy as np
-import yaml
 import json
-from pathlib import Path
-import sys
+import logging
 import os
+import sys
+from pathlib import Path
 
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
+import dolfinx
 import dolfinx.mesh
+import dolfinx.plot
+import numpy as np
+import pandas as pd
+import petsc4py
+import ufl
+import yaml
+from dolfinx.common import list_timings
 from dolfinx.fem import (
     Constant,
     Function,
     assemble_scalar,
+    dirichletbc,
     form,
+    locate_dofs_geometrical,
     set_bc,
 )
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-import ufl
-
 from dolfinx.fem.petsc import assemble_vector
 from dolfinx.io import XDMFFile
-import logging
-from dolfinx.common import list_timings
+from mpi4py import MPI
+from petsc4py import PETSc
 
 sys.path.append("../")
 from algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.utils import ColorPrint, norm_H1, norm_L2
 from solvers import SNESSolver
-from irrevolutions.utils import ColorPrint
-from irrevolutions.utils import norm_H1, norm_L2
-
 
 sys.path.append("../")
 

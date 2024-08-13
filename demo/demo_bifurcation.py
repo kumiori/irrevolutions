@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
-import pandas as pd
-from irrevolutions.utils import ColorPrint
-from irrevolutions.utils.plots import plot_energies
-from irrevolutions.meshes.primitives import mesh_bar_gmshapi
-from irrevolutions.algorithms.so import BifurcationSolver
-from irrevolutions.algorithms.am import AlternateMinimisation
-from irrevolutions.models import DamageElasticityModel as Brittle
+import json
+import logging
+import os
+import sys
+from pathlib import Path
+
+import dolfinx
 import dolfinx.mesh
+import dolfinx.plot
+import numpy as np
+import pandas as pd
+import petsc4py
+import ufl
+import yaml
+from dolfinx.common import list_timings
 from dolfinx.fem import (
     Constant,
     Function,
@@ -18,21 +25,14 @@ from dolfinx.fem import (
     set_bc,
 )
 from dolfinx.io import XDMFFile, gmshio
-import numpy as np
-import yaml
-import json
-from pathlib import Path
-import sys
-import os
+from irrevolutions.algorithms.am import AlternateMinimisation
+from irrevolutions.algorithms.so import BifurcationSolver
+from irrevolutions.meshes.primitives import mesh_bar_gmshapi
+from irrevolutions.models import DamageElasticityModel as Brittle
+from irrevolutions.utils import ColorPrint
+from irrevolutions.utils.plots import plot_energies
 from mpi4py import MPI
-import petsc4py
 from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-import ufl
-from dolfinx.common import list_timings
-
-import logging
 
 logging.basicConfig(level=logging.INFO)
 

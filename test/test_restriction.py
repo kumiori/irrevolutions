@@ -1,11 +1,11 @@
-from irrevolutions.utils import sample_data
-from dolfinx.cpp.la.petsc import get_local_vectors
-from mpi4py import MPI
-import numpy as np
-import dolfinx
-from irrevolutions.utils import _logger
-import irrevolutions.solvers.restriction as restriction
 import sys
+
+import dolfinx
+import irrevolutions.solvers.restriction as restriction
+import numpy as np
+from dolfinx.cpp.la.petsc import get_local_vectors
+from irrevolutions.utils import _logger, sample_data
+from mpi4py import MPI
 
 sys.path.append("../")
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from mpi4py import MPI
 import numpy as np
+from mpi4py import MPI
 
 
 def mesh_V_notch(

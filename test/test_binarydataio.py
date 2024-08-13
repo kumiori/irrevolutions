@@ -1,6 +1,8 @@
-from .test_errorcodes import translatePETScERROR
-from petsc4py import PETSc
 import pickle
+
+from petsc4py import PETSc
+
+from .test_errorcodes import translatePETScERROR
 
 
 def save_binary_data(filename, data):

@@ -1,10 +1,10 @@
 import typing
-import numpy
 
 import dolfinx
-from petsc4py import PETSc
+import numpy
 import ufl
 from dolfinx.fem import Function
+from petsc4py import PETSc
 
 
 def extract_blocks(

@@ -1,17 +1,17 @@
 import logging
-from irrevolutions.utils import norm_H1
-
-from dolfinx.fem import (
-    Function,
-    form,
-    assemble_scalar,
-)
-from petsc4py import PETSc
-from dolfinx.cpp.log import log, LogLevel
-import numpy as np
+import random
 
 import mpi4py
-import random
+import numpy as np
+from dolfinx.cpp.log import LogLevel, log
+from dolfinx.fem import (
+    Function,
+    assemble_scalar,
+    form,
+)
+from petsc4py import PETSc
+
+from irrevolutions.utils import norm_H1
 
 # Set up logging configuration
 logging.basicConfig(level=logging.INFO)
