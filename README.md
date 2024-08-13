@@ -7,27 +7,22 @@
  
 Let $y=(\alpha, u)$ be an admissible state of a brittle system where $\alpha: \Omega \mapsto [0, 1]$ is a smooth damage field which identifies cracks (where $\alpha =1$) and $u$ is a displacement field. Provided a material model (an energy) $E_\ell$, given a time horizon $T$, let's find a map $t \in [0, T]\mapsto y_t$ such that: damage is non-decreasing and the observed state $y_t$ is energy-minimal, among admissible variations. 
 
+## How to contribute
 
-#### Feature branch workflow
+### Reporting bugs
+If you find a bug in `irrevolutions`, please report it on the GitHub issue tracker.
 
-For each new feature you wish to implement, create a branch named ```{yourname}-{feature}```, 
-as in ```andres-meshes```.
+## Suggesting enhancements
+If you wish to suggest a new feature or an improvement of a current feature, you can submit this on the issue tracker.
 
-https://docs.gitlab.com/ee/gitlab-basics/feature_branch_workflow.html
+## Contributing code (submitting a pull request)
+To contribute code `irrevolutions`, create a pull request. If you want to contribute, but are unsure where to start, get in touch with the authors.
 
- - Create your feature branch:`git checkout -b username-feature`
- - To push your branch: `git push -u origin feature_branch_name`
- - Create a pull request on the main branch for merging. Somebody should approve the pull-request. -
+On opening a pull request, unit tests will run on GitHub CI. You can click on these in the pull request to see where (if anywhere) the tests are failing.
 
-### Weekly updates (merge from main)
-```
-git checkout main
-git pull
-git checkout yourname-branch
-git merge main
-```
+For more details on the pull request workflow, check
+https://docs.godotengine.org/en/3.1/community/contributing/pr_workflow.html
 
-Asymmetrically, feature-work is `rebased`.
 
 ### To run the code (on Docker)
 
