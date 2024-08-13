@@ -2,8 +2,7 @@ from irrevolutions.utils import sample_data
 from test_restriction import (
     get_inactive_dofset,
 )
-from test_extend import test_extend_vector
-from irrevolutions.utils import load_binary_data, load_binary_matrix, load_binary_vector
+from irrevolutions.utils import load_binary_matrix, load_binary_vector
 from mpi4py import MPI
 from petsc4py import PETSc
 import numpy as np
@@ -50,7 +49,7 @@ def _cone_project_restricted(v, _x, constraints):
     Returns:
         Vector: The projected vector.
     """
-    with dolfinx.common.Timer(f"~Second Order: Cone Project"):
+    with dolfinx.common.Timer("~Second Order: Cone Project"):
         [
             (V.dofmap.index_map, V.dofmap.index_map_bs)
             for V in constraints.function_spaces
@@ -67,8 +66,8 @@ def _cone_project_restricted(v, _x, constraints):
             x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
 
             _logger.debug(f"Local dofs: {_dofs}")
-            _logger.debug(f"x_local")
-            _logger.debug(f"x_local truncated")
+            _logger.debug("x_local")
+            _logger.debug("x_local truncated")
 
         _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
         # x_u, x_alpha = get_local_vectors(_x, maps)

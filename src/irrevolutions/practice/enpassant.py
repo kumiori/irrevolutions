@@ -14,47 +14,31 @@ import logging
 import sys
 
 sys.path.append("../")
-import os
 import pyvista
 from utils.viz import plot_mesh
-from utils.viz import plot_mesh, plot_vector, plot_scalar
-from irrevolutions.utils import viz
+from utils.viz import plot_vector, plot_scalar
 from meshes import primitives
 import meshes
 from pyvista.utilities import xvfb
 import matplotlib.pyplot as plt
 from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
     assemble_scalar,
     dirichletbc,
-    form,
     locate_dofs_geometrical,
-    set_bc,
 )
 import dolfinx.io
 import numpy as np
-import yaml
-import json
 
-from pathlib import Path
 
-from mpi4py import MPI
 
-import petsc4py
 from petsc4py import PETSc
 
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
-import models
 from models import DamageElasticityModel as Brittle
-import algorithms
 from algorithms import am
 
-from dolfinx.io import XDMFFile
 
 logging.basicConfig()
 # logging.getLogger().setLevel(logging.DEBUG)
@@ -149,7 +133,7 @@ mesh, mts = meshes.gmsh_model_to_mesh(
 plt.figure()
 ax = plot_mesh(mesh)
 fig = ax.get_figure()
-fig.savefig(f"mesh.png")
+fig.savefig("mesh.png")
 
 mesh.topology.create_entities(tdim - 1)
 
@@ -173,7 +157,7 @@ mesh_refined_local3 = dolfinx.mesh.refine(mesh_refined_local2, edges, redistribu
 plt.figure()
 ax = plot_mesh(mesh_refined_local2)
 fig = ax.get_figure()
-fig.savefig(f"mesh_refined_local_bulk.png")
+fig.savefig("mesh_refined_local_bulk.png")
 
 # Enables opportunity to improve mesh at specific places, might lead to deformed elements
 mesh = mesh_refined_local2
@@ -321,7 +305,7 @@ for i_t, t in enumerate(loads):
         if surface_energy > 0.1 and i_t % 25 == 0:
             # if(i_t>1050 and i_t<1100):
             _plt = plot_scalar(alpha, plotter)
-            _plt.screenshot(f"./plots/s05_fine/alpha" + str(i_t) + ".png")
+            _plt.screenshot("./plots/s05_fine/alpha" + str(i_t) + ".png")
         # if i_t>1100:
         #    break
     if i_t > 20 and elastic_energy < 1e-3 and elastic_energy < surface_energy:
@@ -366,7 +350,7 @@ plotter = pyvista.Plotter(
 
 # _plt = plot_scalar(u_.sub(0), plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 1))
-_plt.screenshot(f"displacement_MPI.png")
+_plt.screenshot("displacement_MPI.png")
 
 
 xvfb.start_xvfb(wait=0.05)
@@ -379,4 +363,4 @@ plotter = pyvista.Plotter(
 )
 
 _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-_plt.screenshot(f"alpha2.png")
+_plt.screenshot("alpha2.png")

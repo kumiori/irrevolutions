@@ -11,9 +11,7 @@ from dolfinx.cpp.log import log, LogLevel
 import numpy as np
 
 import mpi4py
-import numpy as np
 import random
-import logging
 
 # Set up logging configuration
 logging.basicConfig(level=logging.INFO)

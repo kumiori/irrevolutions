@@ -348,5 +348,5 @@ if __name__ == "__main__":
         _storage = f"output/rayleigh-benchmark-parametric/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
         ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-        with dolfinx.common.Timer(f"~Random Computation Experiment") as timer:
+        with dolfinx.common.Timer("~Random Computation Experiment") as timer:
             history_data, stability_data, state = rayleigh(parameters, _storage)

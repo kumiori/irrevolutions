@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-import pdb
 import pandas as pd
 import numpy as np
-from sympy import derive_by_array
 import yaml
 import json
 from pathlib import Path
@@ -10,16 +8,12 @@ import sys
 import os
 
 from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
 import dolfinx.mesh
 from dolfinx.fem import (
     Constant,
     Function,
-    FunctionSpace,
     assemble_scalar,
-    dirichletbc,
     form,
-    locate_dofs_geometrical,
     set_bc,
 )
 from mpi4py import MPI
@@ -27,20 +21,17 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 
-from dolfinx.fem.petsc import set_bc, assemble_vector
-from dolfinx.io import XDMFFile, gmshio
+from dolfinx.fem.petsc import assemble_vector
+from dolfinx.io import XDMFFile
 import logging
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 
 sys.path.append("../")
 from algorithms.so import BifurcationSolver, StabilitySolver
 from solvers import SNESSolver
-from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
 from irrevolutions.utils import norm_H1, norm_L2
 from utils.viz import plot_matrix
 
@@ -60,7 +51,6 @@ load: displacement hard-t
 """
 
 
-from solvers.function import functions_to_vec
 
 logging.getLogger().setLevel(logging.CRITICAL)
 
@@ -495,7 +485,6 @@ def discrete_atk(arg_N=2):
         _alpha.vector[:] = _alphah
         _u.vector[:] = _uh
 
-    import scipy
 
     for i_t, t in enumerate(loads):
         logging.critical(f"-- Solving for t = {t:3.2f} --")
@@ -579,7 +568,7 @@ def discrete_atk(arg_N=2):
 def postprocess(history_data, prefix, nameExp):
     """docstring for postprocess"""
 
-    from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+    from utils.plots import plot_force_displacement
 
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{nameExp}_energies.pdf")

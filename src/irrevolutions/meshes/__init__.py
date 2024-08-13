@@ -7,17 +7,10 @@
 # =========================================
 
 from functools import wraps
-import numpy
-import gmsh
 
-from mpi4py import MPI
 
-from dolfinx.cpp.io import perm_gmsh, distribute_entity_data
-from dolfinx.cpp.mesh import to_type, cell_entity_type
-from dolfinx.cpp.graph import AdjacencyList_int32
 # from dolfinx.mesh import create_meshtags, create_mesh
 
-from .pacman import mesh_pacman
 
 from gmsh import model
 

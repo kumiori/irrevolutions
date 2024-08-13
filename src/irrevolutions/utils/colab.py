@@ -1,6 +1,5 @@
 # %%capture
 import subprocess
-import sys
 
 try:
     import google.colab  # noqa: F401

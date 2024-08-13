@@ -14,7 +14,6 @@ from dolfinx.fem import (
     Function,
     FunctionSpace,
     assemble_scalar,
-    dirichletbc,
     form,
     set_bc,
 )
@@ -25,7 +24,6 @@ import dolfinx
 import dolfinx.plot
 import ufl
 
-from dolfinx.fem.petsc import set_bc
 from dolfinx.io import XDMFFile, gmshio
 import logging
 
@@ -47,7 +45,7 @@ from irrevolutions.utils import (
 from irrevolutions.utils import _logger
 from irrevolutions.utils.lib import _local_notch_asymptotic
 from irrevolutions.utils.viz import plot_mesh
-from irrevolutions.utils.viz import plot_mesh, plot_scalar, plot_vector
+from irrevolutions.utils.viz import plot_scalar, plot_vector
 
 description = """We solve here a basic 2d of a notched specimen.
 Imagine a dinner a pizza which is missing a slice, and lots of hungry friends
@@ -243,7 +241,7 @@ def run_computation(parameters, storage):
 
         stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia=inertia)
 
-        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
             fracture_energy = comm.allreduce(
                 assemble_scalar(form(model.damage_energy_density(state) * dx)),
                 op=MPI.SUM,
@@ -368,7 +366,7 @@ def test_2d():
     )
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment") as timer:
         history_data, stability_data, state = run_computation(parameters, _storage)
 
     ColorPrint.print_bold(history_data["eigs-cone"])

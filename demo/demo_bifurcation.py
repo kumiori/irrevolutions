@@ -30,7 +30,6 @@ from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
 import ufl
-import numpy as np
 from dolfinx.common import list_timings
 
 import logging

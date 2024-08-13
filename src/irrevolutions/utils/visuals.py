@@ -1,4 +1,3 @@
-import json
 
 
 def matplotlibdefaults(palette="medium", useTex=False):

@@ -9,7 +9,6 @@ sys.path.append("../")
 
 import logging
 
-import dolfinx
 
 logging.basicConfig(level=logging.INFO)
 
@@ -22,13 +21,9 @@ from pyvista.utilities import xvfb
 
 xvfb.start_xvfb(wait=0.05)
 
-import dolfinx.plot
-import matplotlib
-import matplotlib.collections
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 from dolfinx.plot import vtk_mesh as compute_topology
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # try:
 #     from dolfinx.plot import create_vtk_mesh as compute_topology
@@ -210,7 +205,7 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
             points,
             plotter,
             subplot=(0, 0),
-            lineproperties={"c": "k", "label": f"$\\beta$"},
+            lineproperties={"c": "k", "label": "$\\beta$"},
         )
         ax = _plt.gca()
         _plt.legend()
@@ -230,7 +225,7 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
             points,
             plotter,
             subplot=(0, 0),
-            lineproperties={"c": "k", "label": f"$\\beta$"},
+            lineproperties={"c": "k", "label": "$\\beta$"},
         )
         ax = _plt.gca()
         _plt.legend()
@@ -247,7 +242,6 @@ import scipy
 
 def plot_matrix(M):
     import matplotlib.pyplot as plt
-    import numpy as np
 
     fig, ax = plt.subplots()
     indptr, indices, data = M.getValuesCSR()

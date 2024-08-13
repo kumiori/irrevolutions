@@ -23,7 +23,6 @@ from irrevolutions.solvers import SNESSolver as ElasticitySolver
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils.viz import plot_vector
 
-import numpy as np
 import logging
 
 logging.basicConfig(level=logging.INFO)

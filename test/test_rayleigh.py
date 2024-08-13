@@ -2,7 +2,6 @@ import argparse
 import hashlib
 import json
 import logging
-import sys
 from pathlib import Path
 import os
 
@@ -13,7 +12,6 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.fem import dirichletbc, locate_dofs_geometrical
-from dolfinx.fem import form, assemble_scalar
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.utils import ColorPrint, _logger, indicator_function
@@ -222,7 +220,7 @@ def test_rayleigh(parameters=None, storage=None):
             subplot=(1, 3),
             fig=fig,
             ax=axes[0],
-            lineproperties={"c": "k", "label": f"$\\beta$"},
+            lineproperties={"c": "k", "label": "$\\beta$"},
             subplotnumber=1,
         )
         axes[0] = _plt.gca()
@@ -242,7 +240,7 @@ def test_rayleigh(parameters=None, storage=None):
             subplot=(1, 3),
             fig=fig,
             ax=axes[0],
-            lineproperties={"c": "k", "label": f"$v$", "ls": "--"},
+            lineproperties={"c": "k", "label": "$v$", "ls": "--"},
             subplotnumber=1,
         )
         axes[0].set_ylabel("$v,\\beta$")
@@ -254,7 +252,7 @@ def test_rayleigh(parameters=None, storage=None):
             fig=fig,
             ax=axes[1],
             subplot=(1, 3),
-            lineproperties={"c": "k", "label": f"$\\beta$"},
+            lineproperties={"c": "k", "label": "$\\beta$"},
             subplotnumber=2,
         )
         _plt.fill_between(
@@ -268,7 +266,7 @@ def test_rayleigh(parameters=None, storage=None):
             fig=fig,
             ax=axes[1],
             subplot=(1, 3),
-            lineproperties={"c": "k", "label": f"$v$", "ls": "--"},
+            lineproperties={"c": "k", "label": "$v$", "ls": "--"},
             subplotnumber=2,
         )
 
@@ -289,7 +287,7 @@ def test_rayleigh(parameters=None, storage=None):
             fig=fig,
             ax=axes[2],
             subplot=(1, 3),
-            lineproperties={"c": "k", "label": f"$\\zeta$"},
+            lineproperties={"c": "k", "label": "$\\zeta$"},
             subplotnumber=3,
         )
         _plt.fill_between(
@@ -303,7 +301,7 @@ def test_rayleigh(parameters=None, storage=None):
             fig=fig,
             ax=axes[2],
             subplot=(1, 3),
-            lineproperties={"c": "k", "label": f"$w$", "ls": "--"},
+            lineproperties={"c": "k", "label": "$w$", "ls": "--"},
             subplotnumber=3,
         )
 
@@ -448,5 +446,5 @@ if __name__ == "__main__":
     _storage = f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment") as timer:
         history_data, stability_data, state = test_rayleigh(parameters, _storage)

@@ -1,26 +1,20 @@
 #!/usr/bin/env python3
-import pdb
 import pandas as pd
 import numpy as np
-from sympy import derive_by_array
 import yaml
 import json
 from pathlib import Path
 import sys
 import os
-import matplotlib.pyplot as plt
 
 from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
 import dolfinx.mesh
 from dolfinx.fem import (
     Constant,
     Function,
     FunctionSpace,
     assemble_scalar,
-    dirichletbc,
     form,
-    locate_dofs_geometrical,
     set_bc,
 )
 
@@ -29,35 +23,26 @@ from pyvista.utilities import xvfb
 
 #
 from mpi4py import MPI
-import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
-from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
-from dolfinx.fem import locate_dofs_topological
 
-from dolfinx.fem.petsc import (
-    set_bc,
-)
 from dolfinx.io import XDMFFile, gmshio
 import logging
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 
 sys.path.append("../")
 from models import BrittleMembraneOverElasticFoundation as ThinFilm
-from algorithms.am import AlternateMinimisation, HybridSolver
+from algorithms.am import HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2
 
 # from meshes.pacman import mesh_pacman
-from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
-from utils.lib import _local_notch_asymptotic
-from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+from utils.viz import plot_vector, plot_scalar, plot_profile
+from utils.plots import plot_AMit_load, plot_force_displacement
 from irrevolutions.utils import table_timing_data
 from utils.parametric import parameters_vs_elle
 from solvers.function import vec_to_functions
@@ -276,12 +261,12 @@ def main(parameters, storage=None):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        ColorPrint.print_bold(f"   Solving first order: AM   ")
-        ColorPrint.print_bold(f"===================-=========")
+        ColorPrint.print_bold("   Solving first order: AM   ")
+        ColorPrint.print_bold("===================-=========")
 
         logger.critical(f"{i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
-        ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
-        ColorPrint.print_bold(f"===================-=============")
+        ColorPrint.print_bold("   Solving first order: Hybrid   ")
+        ColorPrint.print_bold("===================-=============")
 
         logger.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
@@ -310,15 +295,15 @@ def main(parameters, storage=None):
         rate_12_norm = equilibrium.scaled_rate_norm(alphadot, parameters)
         rate_12_norm_unscaled = equilibrium.unscaled_rate_norm(alphadot)
 
-        ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
         is_stable = bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
         inertia = bifurcation.get_inertia()
 
-        ColorPrint.print_bold(f"   Solving second order: Stability Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Stability Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
         stable = stability.my_solve(
             alpha_lb, eig0=bifurcation._spectrum, inertia=inertia
@@ -342,7 +327,7 @@ def main(parameters, storage=None):
                 points,
                 plotter,
                 subplot=(0, 0),
-                lineproperties={"c": "k", "label": f"$\\beta$"},
+                lineproperties={"c": "k", "label": "$\\beta$"},
             )
             ax = _plt.gca()
             _plt.legend()
@@ -362,7 +347,7 @@ def main(parameters, storage=None):
                 points,
                 plotter,
                 subplot=(0, 0),
-                lineproperties={"c": "k", "label": f"$\\beta$"},
+                lineproperties={"c": "k", "label": "$\\beta$"},
             )
             ax = _plt.gca()
             _plt.legend()
@@ -407,7 +392,7 @@ def main(parameters, storage=None):
         history_data["inertia"].append(inertia)
 
         # postprocessing
-        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
                 plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
@@ -422,7 +407,7 @@ def main(parameters, storage=None):
             file.write_function(alpha, t)
 
     # postprocessing
-    with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+    with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
         if comm.Get_rank == 1:
             xvfb.start_xvfb(wait=0.05)
             pyvista.OFF_SCREEN = True
@@ -517,7 +502,7 @@ if __name__ == "__main__":
     print(pretty_parameters)
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment") as timer:
         history_data, state = main(parameters, _storage)
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 

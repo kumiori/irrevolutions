@@ -381,7 +381,7 @@ class SecondOrderSolver:
         # Check if the system is damage-critical and log it
         self.log_critical_state()
 
-        with dolfinx.common.Timer(f"~Second Order: Bifurcation") as timer:
+        with dolfinx.common.Timer("~Second Order: Bifurcation") as timer:
             # Set up constraints
             constraints = self.setup_constraints(alpha_old)
             self.inertia_setup(constraints)
@@ -666,8 +666,8 @@ class StabilitySolver(SecondOrderSolver):
 
         self.solution = {"lambda_t": np.nan, "xt": [], "yt": []}
 
-        with dolfinx.common.Timer(f"~Second Order: Stability"):
-            with dolfinx.common.Timer(f"~Second Order: Cone Project"):
+        with dolfinx.common.Timer("~Second Order: Stability"):
+            with dolfinx.common.Timer("~Second Order: Cone Project"):
                 # self._converged = False
                 self._v = create_vector_block(self.F)
 
@@ -736,7 +736,7 @@ class StabilitySolver(SecondOrderSolver):
         self._converged = False
         errors.append(1)
 
-        with dolfinx.common.Timer(f"~Second Order: Stability"):
+        with dolfinx.common.Timer("~Second Order: Stability"):
             constraints = self.setup_constraints(alpha_old)
             self.constraints = constraints
 
@@ -1076,7 +1076,7 @@ class StabilitySolver(SecondOrderSolver):
         Returns:
             Vector: The projected vector.
         """
-        with dolfinx.common.Timer(f"~Second Order: Cone Project"):
+        with dolfinx.common.Timer("~Second Order: Cone Project"):
             maps = [
                 (V.dofmap.index_map, V.dofmap.index_map_bs)
                 for V in self.constraints.function_spaces
@@ -1093,8 +1093,8 @@ class StabilitySolver(SecondOrderSolver):
                 x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
 
                 _logger.debug(f"Local dofs: {_dofs}")
-                _logger.debug(f"x_local")
-                _logger.debug(f"x_local truncated")
+                _logger.debug("x_local")
+                _logger.debug("x_local truncated")
 
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 

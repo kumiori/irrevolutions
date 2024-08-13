@@ -23,24 +23,18 @@
 #!/usr/bin/env python3
 import pdb
 import sys
-import os
 import yaml
 import json
-from pathlib import Path
 import numpy as np
-import pandas as pd
-from sympy import derive_by_array
 import ufl
 import logging
 
-import petsc4py
 from mpi4py import MPI
 from petsc4py import PETSc
 
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 from dolfinx.fem import (
     Constant,
     Function,
@@ -51,19 +45,14 @@ from dolfinx.fem import (
     locate_dofs_geometrical,
     set_bc,
 )
-from dolfinx.fem.petsc import set_bc
 from dolfinx.io import XDMFFile, gmshio
-from dolfinx.mesh import CellType
 import dolfinx.mesh
 
 sys.path.append("../")
 
 # from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
 from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2
 
 
 # Configuration handling (load parameters from YAML)
@@ -127,7 +116,6 @@ def create_mesh(parameters):
         dolfinx.Mesh: Generated mesh.
     """
     # Extract mesh parameters from parameters dictionary
-    from meshes.primitives import mesh_bar_gmshapi
 
     Lx = parameters["geometry"]["Lx"]
     Ly = parameters["geometry"]["Ly"]

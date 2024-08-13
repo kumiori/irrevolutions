@@ -8,7 +8,6 @@ import dolfinx.io
 from dolfinx.fem import (
     Function,
     FunctionSpace,
-    assemble_scalar,
     dirichletbc,
 )
 import dolfinx.mesh

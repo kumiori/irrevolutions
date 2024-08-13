@@ -150,7 +150,6 @@ def setspines4():
 
 # setspines()
 
-import json
 
 
 def setspines2():

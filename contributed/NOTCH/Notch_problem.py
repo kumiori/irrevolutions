@@ -1,49 +1,32 @@
 # Numpy -> numerical library for Python. We'll use it for all array operations.
 # It's written in C and it's faster (than traditional Python)
 from algorithms import am
-import algorithms
 from models import DamageElasticityModel as Brittle
-import models
 from pyvista.utilities import xvfb
 import pyvista
 from utils.viz import plot_mesh, plot_vector, plot_scalar
-from irrevolutions.utils import viz
-from meshes import primitives
 import meshes
 import matplotlib.pyplot as plt
 import gmsh
-from dolfinx.io import XDMFFile
 import ufl
 from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
     assemble_scalar,
     dirichletbc,
-    form,
     locate_dofs_geometrical,
     set_bc,
 )
 import dolfinx.io
 import logging
-from dolfinx import log
 import dolfinx.plot
 import dolfinx
 from petsc4py import PETSc
-import petsc4py
-from mpi4py import MPI
-import pdb
-from pathlib import Path
-import os
 import numpy as np
 
 # Yaml (Yet another markup language) -> We'll use it to pass, read and structure
 # light text data in .yml files.
-import yaml
 
 # Json -> Another form to work with data. It comes from JavaScript. Similar functions
 # that Yaml. Used speacily with API request, when we need data "fetch".
-import json
 
 # Communication with the machine:
 # Sys -> allows to acess the system and launch commandes.
@@ -323,7 +306,7 @@ mesh, facet_tags = meshes.gmsh_model_to_mesh(
 plt.figure()
 ax = plot_mesh(mesh)
 fig = ax.get_figure()
-fig.savefig(f"mesh.png")
+fig.savefig("mesh.png")
 
 # Functional setting
 # 'u' represents the displacement in this problem. In order to solve it, the
@@ -569,7 +552,7 @@ plotter = pyvista.Plotter(
     shape=(1, 2),
 )
 _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-_plt.screenshot(f"alpha.png")
+_plt.screenshot("alpha.png")
 
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
@@ -581,7 +564,7 @@ plotter = pyvista.Plotter(
 # plt = plot_scalar(u.sub(0), plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 0))
 
-_plt.screenshot(f"displacement_MPI.png")
+_plt.screenshot("displacement_MPI.png")
 
 
 plt.figure()

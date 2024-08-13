@@ -4,41 +4,27 @@
 import pyvista
 from solvers import SNESSolver
 from utils.viz import plot_mesh, plot_vector, plot_scalar
-from irrevolutions.utils import viz
 from meshes import primitives
 import meshes
 from pyvista.utilities import xvfb
 import matplotlib.pyplot as plt
 from dolfinx.fem import (
-    Constant,
     Function,
-    FunctionSpace,
-    assemble_scalar,
     dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
 )
 import dolfinx.io
 import numpy as np
 import yaml
-import json
 import sys
-import os
-from pathlib import Path
 
-from mpi4py import MPI
 
-import petsc4py
 from petsc4py import PETSc
 
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 
 
-from dolfinx.io import XDMFFile
 
 import logging
 
@@ -143,7 +129,7 @@ mesh, mts = meshes.gmsh_model_to_mesh(
 plt.figure()
 ax = plot_mesh(mesh)
 fig = ax.get_figure()
-fig.savefig(f"mesh.png")
+fig.savefig("mesh.png")
 
 boundaries = [
     (1, lambda x: np.isclose(x[0], 0)),
@@ -295,4 +281,4 @@ plotter = pyvista.Plotter(
 
 # _plt = plot_scalar(u_.sub(0), plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 1))
-_plt.screenshot(f"displacement_MPI.png")
+_plt.screenshot("displacement_MPI.png")

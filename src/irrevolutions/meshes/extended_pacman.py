@@ -118,7 +118,6 @@ if __name__ == "__main__":
 
     # , merge_meshtags, locate_dofs_topological
     from mpi4py import MPI
-    import dolfinx.plot
 
     _geom_parameters = """
         elltomesh: 1

@@ -18,7 +18,7 @@ __log_incipit = f"rank {rank}#{size}/"
 
 def get_inactive_dofset(v, F):
     """docstring for get_inactive_dofset"""
-    _logger.info(f"inactive dofset")
+    _logger.info("inactive dofset")
     V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
 
     __names = ["u", "alpha"]
@@ -100,9 +100,9 @@ def test_restriction():
         f"{__log_incipit} constraints.bglobal_dofs_vec_stacked {constraints.bglobal_dofs_vec_stacked}"
     )
 
-    _logger.info(f"v")
+    _logger.info("v")
     v.view()
-    _logger.info(f"vr")
+    _logger.info("vr")
     vr.view()
 
     # assert we get the right number of restricted dofs

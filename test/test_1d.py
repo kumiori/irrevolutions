@@ -24,7 +24,7 @@ from dolfinx.fem import (
     set_bc,
 )
 from dolfinx.common import list_timings
-from dolfinx.fem.petsc import assemble_vector, set_bc
+from dolfinx.fem.petsc import assemble_vector
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -44,7 +44,6 @@ from irrevolutions.utils import (
 from irrevolutions.utils.plots import (
     plot_AMit_load,
     plot_energies,
-    plot_force_displacement,
 )
 
 #
@@ -484,7 +483,7 @@ def run_computation(parameters, storage=None):
 
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
-        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
             if comm.Get_size() == 1:
                 if bifurcation._spectrum:
                     vec_to_functions(bifurcation._spectrum[0]["xk"], [v, β])
@@ -504,7 +503,7 @@ def run_computation(parameters, storage=None):
                         points,
                         plotter,
                         subplot=(1, 2),
-                        lineproperties={"c": "k", "label": f"$\\beta$"},
+                        lineproperties={"c": "k", "label": "$\\beta$"},
                         subplotnumber=1,
                     )
                     ax = _plt.gca()
@@ -531,7 +530,7 @@ def run_computation(parameters, storage=None):
                         points,
                         plotter,
                         subplot=(1, 2),
-                        lineproperties={"c": "k", "label": f"$\\beta$"},
+                        lineproperties={"c": "k", "label": "$\\beta$"},
                         subplotnumber=2,
                         ax=ax,
                     )
@@ -688,7 +687,6 @@ def load_parameters(file_path, ndofs, model="at1"):
 
 
 def test_1d():
-    import argparse
 
     from mpi4py import MPI
 
@@ -707,7 +705,7 @@ def test_1d():
     )
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment") as timer:
         history_data, stability_data, state = run_computation(parameters, _storage)
 
     from irrevolutions.utils import ResultsStorage, Visualization

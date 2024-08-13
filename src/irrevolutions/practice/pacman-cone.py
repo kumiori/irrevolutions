@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-import pdb
 import pandas as pd
 import numpy as np
-from sympy import derive_by_array
 import yaml
 import json
 from pathlib import Path
@@ -10,17 +8,14 @@ import sys
 import os
 import matplotlib.pyplot as plt
 
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
+from dolfinx.fem import dirichletbc
 import dolfinx.mesh
 from dolfinx.fem import (
     Constant,
     Function,
     FunctionSpace,
     assemble_scalar,
-    dirichletbc,
     form,
-    locate_dofs_geometrical,
     set_bc,
 )
 
@@ -29,31 +24,23 @@ from pyvista.utilities import xvfb
 
 #
 from mpi4py import MPI
-import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
-from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
+from dolfinx.mesh import locate_entities_boundary
 from dolfinx.fem import locate_dofs_topological
 import hashlib
 
-from dolfinx.fem.petsc import (
-    set_bc,
-)
 from dolfinx.io import XDMFFile, gmshio
 import logging
-from dolfinx.common import Timer, list_timings, TimingType, timing
+from dolfinx.common import list_timings, timing
 
 sys.path.append("../")
 from models import DamageElasticityModel as Brittle
 from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
-from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2
 from meshes.pacman import mesh_pacman
 from utils.viz import plot_mesh, plot_vector, plot_scalar
 from utils.lib import _local_notch_asymptotic
@@ -325,8 +312,8 @@ def pacman_cone(resolution=2, slug="pacman"):
 
         ColorPrint.print_pass(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
-        ColorPrint.print_bold(f"   Solving first order: AM*Hybrid   ")
-        ColorPrint.print_bold(f"===================-=============")
+        ColorPrint.print_bold("   Solving first order: AM*Hybrid   ")
+        ColorPrint.print_bold("===================-=============")
 
         hybrid.solve(alpha_lb)
 
@@ -340,15 +327,15 @@ def pacman_cone(resolution=2, slug="pacman"):
         rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
         urate_12_norm = hybrid.unscaled_rate_norm(alpha)
 
-        ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
         is_stable = bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
         inertia = bifurcation.get_inertia()
 
-        ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Cone Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
         stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum)
 
@@ -399,11 +386,10 @@ def pacman_cone(resolution=2, slug="pacman"):
             a_file.close()
 
         # Viz
-        if not "SINGULARITY_CONTAINER" in os.environ:
+        if "SINGULARITY_CONTAINER" not in os.environ:
             from utils.plots import (
                 plot_energies,
                 plot_AMit_load,
-                plot_force_displacement,
             )
 
             if comm.rank == 0:
@@ -411,7 +397,7 @@ def pacman_cone(resolution=2, slug="pacman"):
                 plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
                 # plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
-            ColorPrint.print_bold(f"   Written timely data.    ")
+            ColorPrint.print_bold("   Written timely data.    ")
             print()
             print()
             print()
@@ -466,7 +452,7 @@ def pacman_cone(resolution=2, slug="pacman"):
 
     try:
         performance["2ndOrder-Stability"].append(timing("~Second Order: Cone Solver"))
-    except Exception as e:
+    except Exception:
         performance["2ndOrder-Stability"].append(np.nan)
 
     if comm.rank == 0:

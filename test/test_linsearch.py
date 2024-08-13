@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import petsc4py
-import pytest
 import pyvista
 import ufl
 import yaml
@@ -36,8 +35,6 @@ from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import DamageElasticityModel as Brittle
 from irrevolutions.utils.plots import (
     plot_energies,
-    plot_AMit_load,
-    plot_force_displacement,
 )
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.utils import (
@@ -45,7 +42,6 @@ from irrevolutions.utils import (
     history_data,
     _write_history_data,
     norm_H1,
-    find_offending_columns_lengths,
 )
 from irrevolutions.utils.viz import (
     plot_profile,
@@ -221,15 +217,15 @@ def test_linsearch():
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        ColorPrint.print_bold(f"   Solving first order: AM   ")
-        ColorPrint.print_bold(f"===================-=========")
+        ColorPrint.print_bold("   Solving first order: AM   ")
+        ColorPrint.print_bold("===================-=========")
 
         logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
         equilibrium.solve()
 
-        ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
-        ColorPrint.print_bold(f"===================-=============")
+        ColorPrint.print_bold("   Solving first order: Hybrid   ")
+        ColorPrint.print_bold("===================-=============")
 
         logging.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
         hybrid.solve(alpha_lb)
@@ -244,16 +240,16 @@ def test_linsearch():
         rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
         urate_12_norm = hybrid.unscaled_rate_norm(alpha)
 
-        ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
         # n_eigenvalues = 10
         is_unique = bifurcation.solve(alpha_lb)
         is_elastic = not bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
 
-        ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Cone Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
         z0 = (
             bifurcation._spectrum[0]["xk"]
@@ -344,7 +340,7 @@ def test_linsearch():
                 β,
                 points,
                 plotter,
-                lineproperties={"c": "k", "label": f"$\\beta$"},
+                lineproperties={"c": "k", "label": "$\\beta$"},
             )
             _plt.gca()
             _plt.legend()
@@ -418,7 +414,7 @@ def test_linsearch():
             json.dump(history_data, a_file)
             a_file.close()
 
-        ColorPrint.print_bold(f"   Written timely data.    ")
+        ColorPrint.print_bold("   Written timely data.    ")
         print()
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
     df = pd.DataFrame(history_data)

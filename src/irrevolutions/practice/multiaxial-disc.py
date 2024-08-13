@@ -1,61 +1,23 @@
 #!/usr/bin/env python3
-import pdb
 import pandas as pd
-import numpy as np
-from sympy import derive_by_array
 import yaml
-import json
 from pathlib import Path
 import sys
 import os
-import matplotlib.pyplot as plt
 
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
 import dolfinx.mesh
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
 
-import pyvista
-from pyvista.utilities import xvfb
 
 #
 from mpi4py import MPI
-import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
-import ufl
-from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
-from dolfinx.fem import locate_dofs_topological
 
-from dolfinx.fem.petsc import (
-    set_bc,
-)
-from dolfinx.io import XDMFFile, gmshio
 import logging
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 
 sys.path.append("../")
-from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from meshes.primitives import mesh_bar_gmshapi
-from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2
-from meshes.pacman import mesh_pacman
-from utils.viz import plot_mesh, plot_vector, plot_scalar
-from utils.lib import _local_notch_asymptotic
 
 logging.basicConfig(level=logging.DEBUG)
 

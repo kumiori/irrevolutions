@@ -150,19 +150,19 @@ for i, space in enumerate([V_u, V_alpha]):
 
 x0_local = _cpp.la.petsc.get_local_vectors(x, maps)
 
-print(f"this should scatter x0_local into the global vector v")
+print("this should scatter x0_local into the global vector v")
 
 _cpp.la.petsc.scatter_local_vectors(v, x0_local, maps)
 v.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.FORWARD)
 
-print(f"v should now be zero")
+print("v should now be zero")
 print(f"v restored (projected) {v.array}")
 
 _sub = v.getSubVector(_is)
 _sub.pointwiseMax(_sub, a)
 
 # _cpp.la.petsc.scatter_local_vectors(v, x0_local, maps)
-print(f"v should now be harmless")
+print("v should now be harmless")
 
 print(f"v restored {v.array}")
 
@@ -186,7 +186,7 @@ def converged(x):
     # if not converged:
     #     its += 1
 
-    print("converged" if _converged else f" converging")
+    print("converged" if _converged else " converging")
 
     return _converged
 

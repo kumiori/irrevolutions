@@ -5,7 +5,6 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 import dolfinx
 import dolfinx.mesh
@@ -21,35 +20,27 @@ from dolfinx.fem import (
     Constant,
     Function,
     assemble_scalar,
-    dirichletbc,
     form,
     locate_dofs_geometrical,
-    set_bc,
 )
-from dolfinx.fem.petsc import assemble_vector, set_bc
 from dolfinx.io import XDMFFile, gmshio
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import BrittleMembraneOverElasticFoundation as ThinFilm
-from irrevolutions.solvers.function import vec_to_functions
-from irrevolutions.test.test_1d import _AlternateMinimisation1D as am1d
 from irrevolutions.utils import (
     ColorPrint,
-    ResultsStorage,
     Visualization,
     _logger,
     _write_history_data,
     history_data,
-    norm_H1,
-    norm_L2,
 )
 from irrevolutions.utils.plots import (
     plot_AMit_load,
     plot_energies,
     plot_force_displacement,
 )
-from irrevolutions.utils.viz import plot_mesh, plot_profile, plot_scalar, plot_vector
+from irrevolutions.utils.viz import plot_profile, plot_scalar, plot_vector
 from mpi4py import MPI
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
@@ -95,7 +86,7 @@ def run_computation(parameters, storage=None):
     outdir = os.path.join(os.path.dirname(__file__), "output")
 
     if storage is None:
-        prefix = os.path.join(outdir, f"thin-film-at2-2d")
+        prefix = os.path.join(outdir, "thin-film-at2-2d")
     else:
         prefix = storage
 
@@ -240,7 +231,7 @@ def run_computation(parameters, storage=None):
         _logger.critical(f"-- Solving Stability (Stability) for t = {t:3.2f} --")
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
-        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
                 plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
@@ -428,7 +419,7 @@ if __name__ == "__main__":
     visualization = Visualization(_storage)
     ColorPrint.print_bold(f"===================- {_storage} -=================")
 
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment") as timer:
         history_data, stability_data, state = run_computation(parameters, _storage)
 
     from irrevolutions.utils import table_timing_data

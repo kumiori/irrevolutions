@@ -3,46 +3,31 @@ import sys
 
 sys.path.append("../")
 from algorithms import am
-import algorithms
 import pyvista
 from utils.viz import plot_mesh, plot_vector, plot_scalar
 from models import DamageElasticityModel as Brittle
-from irrevolutions.utils import viz
-from meshes import primitives
 import meshes
 from pyvista.utilities import xvfb
 import matplotlib.pyplot as plt
 from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
     assemble_scalar,
     dirichletbc,
-    form,
     locate_dofs_geometrical,
     set_bc,
 )
 import gmsh
 import dolfinx.io
 import numpy as np
-import yaml
-import json
 import sys
-import os
-from pathlib import Path
 
-from mpi4py import MPI
 
-import petsc4py
 from petsc4py import PETSc
 
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 
 
-from dolfinx.io import XDMFFile
 
 import logging
 
@@ -224,7 +209,6 @@ geo_parameters = {
     "lc": 0.1,
 }
 
-import pdb
 
 parameters.get("geometry").update(geo_parameters)
 gmsh_model = mesh_V(**geo_parameters)
@@ -236,7 +220,7 @@ mesh, facet_tags = meshes.gmsh_model_to_mesh(
 plt.figure()
 ax = plot_mesh(mesh)
 fig = ax.get_figure()
-fig.savefig(f"output/Vnotch_mesh.png")
+fig.savefig("output/Vnotch_mesh.png")
 
 # pdb.set_trace()
 # Functional setting
@@ -391,4 +375,4 @@ plotter = pyvista.Plotter(
 
 _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 1))
-_plt.screenshot(f"./output/vnotch_fields.png")
+_plt.screenshot("./output/vnotch_fields.png")

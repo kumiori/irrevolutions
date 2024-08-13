@@ -11,7 +11,6 @@ import os
 
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 
 from dolfinx.fem import (
@@ -24,10 +23,8 @@ from dolfinx.fem import (
     form,
     set_bc,
 )
-from dolfinx.fem.petsc import assemble_vector
-from dolfinx.mesh import CellType
-from dolfinx.io import XDMFFile, gmshio
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.io import gmshio
+from dolfinx.common import list_timings
 
 from mpi4py import MPI
 import petsc4py
@@ -35,16 +32,13 @@ from petsc4py import PETSc
 
 
 sys.path.append("../")
-from utils.viz import plot_mesh, plot_vector, plot_scalar
+from utils.viz import plot_vector, plot_scalar
 import pyvista
 from pyvista.utilities import xvfb
-from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+from utils.plots import plot_energies, plot_force_displacement
 import hashlib
-from irrevolutions.utils import norm_H1, norm_L2
-from utils.plots import plot_energies
 from irrevolutions.utils import ColorPrint
 from meshes.primitives import mesh_bar_gmshapi
-from solvers import SNESSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from algorithms.am import AlternateMinimisation, HybridSolver
 from models import DamageElasticityModel as Brittle
@@ -305,14 +299,14 @@ def main(parameters, model="at2", storage=None):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        ColorPrint.print_bold(f"   Solving first order: AM   ")
-        ColorPrint.print_bold(f"===================-=========")
+        ColorPrint.print_bold("   Solving first order: AM   ")
+        ColorPrint.print_bold("===================-=========")
 
         logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
         # solver.solve()
 
-        ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
-        ColorPrint.print_bold(f"===================-=============")
+        ColorPrint.print_bold("   Solving first order: Hybrid   ")
+        ColorPrint.print_bold("===================-=============")
 
         logging.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
         hybrid.solve(alpha_lb)
@@ -334,8 +328,8 @@ def main(parameters, model="at2", storage=None):
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
         logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
-        ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
         is_stable = bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
@@ -346,8 +340,8 @@ def main(parameters, model="at2", storage=None):
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
 
-        ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Cone Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
         stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum)
 
@@ -392,13 +386,13 @@ def main(parameters, model="at2", storage=None):
             json.dump(history_data, a_file)
             a_file.close()
 
-        ColorPrint.print_bold(f"   Written timely data.    ")
+        ColorPrint.print_bold("   Written timely data.    ")
 
     df = pd.DataFrame(history_data)
     # print(df.drop(['solver_data', 'cone_data'], axis=1))
     print(df.drop(["cone_data"], axis=1))
 
-    with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+    with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
         if comm.rank == 0:
             plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
             # plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
@@ -419,7 +413,7 @@ def main(parameters, model="at2", storage=None):
         _plt.screenshot(f"{prefix}/traction-state.png")
 
     ColorPrint.print_bold(f"===================-{signature}-=================")
-    ColorPrint.print_bold(f"   Done!    ")
+    ColorPrint.print_bold("   Done!    ")
 
     performance = {
         "N": [],
@@ -504,7 +498,7 @@ def param_vs_s(base_parameters, base_signature):
         )
         ColorPrint.print_bold(f"===================-{signature}-=================")
 
-        with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+        with dolfinx.common.Timer("~Computation Experiment") as timer:
             history_data, performance, state = main(parameters, _storage)
 
         _timings = table_timing_data()
@@ -555,7 +549,7 @@ def param_vs_dry(base_parameters, base_signature):
         )
         ColorPrint.print_bold(f"===================-{signature}-=================")
 
-        with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+        with dolfinx.common.Timer("~Computation Experiment") as timer:
             history_data, performance, state = main(parameters, _storage)
 
         _timings = table_timing_data()
@@ -620,14 +614,14 @@ if __name__ == "__main__":
         parameters, signature = base_parameters, base_signature
         _storage = f"output/parametric/traction-bar/vs_s/{args.model}/base/{signature}"
 
-    ColorPrint.print_bold(f"   Base    ")
+    ColorPrint.print_bold("   Base    ")
     ColorPrint.print_bold(f"===================-model {args.model}-=================")
     ColorPrint.print_bold(f"===================-{base_signature}-=================")
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
     print(json.dumps(parameters, indent=2))
 
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment") as timer:
         history_data, performance, state = main(parameters, args.model, _storage)
 
     # Store and visualise results

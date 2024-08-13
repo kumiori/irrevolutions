@@ -1,24 +1,15 @@
 from matplotlib.ticker import FormatStrFormatter
-from matplotlib.ticker import ScalarFormatter
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
-import sympy as sp
-import sys
 import os
-import sympy
-import shutil
-import math
 
 # import xmltodict
 # import pickle
 import json
 
 # import pandas
-import pylab
-from os import listdir
 import pandas as pd
-import visuals
 import hashlib
 import yaml
 
@@ -545,11 +536,11 @@ def plot_fields_for_time_step(mode_shapes_data):
         axes[0].plot(
             x_values, bifurcation_values_v, label="numerical value", marker="o"
         )
-        axes[0].set_title(f"Bifurcation")
+        axes[0].set_title("Bifurcation")
 
         axes[1].plot(x_values, stability_values, label="numerical value", marker="o")
         axes[1].plot(x_values, stability_values_v, label="numerical value", marker="o")
-        axes[1].set_title(f"Stability")
+        axes[1].set_title("Stability")
 
         for axis in axes:
             axis.axhline(0.0, c="k")

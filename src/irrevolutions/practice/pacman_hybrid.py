@@ -4,20 +4,15 @@ import os
 from pyvista.utilities import xvfb
 import pyvista
 from dolfinx.fem import (
-    Constant,
     Function,
     FunctionSpace,
-    assemble_scalar,
     dirichletbc,
-    form,
-    locate_dofs_geometrical,
     locate_dofs_topological,
     set_bc,
 )
 import matplotlib.pyplot as plt
 from dolfinx.io import XDMFFile, gmshio
-from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
-from dolfinx.fem import locate_dofs_topological
+from dolfinx.mesh import locate_entities_boundary
 import yaml
 import dolfinx.plot
 
@@ -25,7 +20,7 @@ import dolfinx.plot
 sys.path.append("../")
 from irrevolutions.utils import ColorPrint, set_vector_to_constant
 from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation as AM, HybridSolver
+from algorithms.am import HybridSolver
 
 from meshes.pacman import mesh_pacman
 from utils.lib import _local_notch_asymptotic
@@ -35,10 +30,8 @@ from mpi4py import MPI
 import json
 from petsc4py import PETSc
 from solvers.function import functions_to_vec
-from dolfinx.fem import FunctionSpace
 import ufl
 import petsc4py
-from solvers.snesblockproblem import SNESBlockProblem
 import dolfinx
 from datetime import date
 import logging

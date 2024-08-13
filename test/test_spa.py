@@ -79,7 +79,7 @@ def test_spa():
 
         xAx_r = xk.dot(_Axr)
 
-        _logger.debug(f"xk view in update at iteration")
+        _logger.debug("xk view in update at iteration")
 
         _lmbda_t = xAx_r / xk.dot(xk)
         _y.waxpy(-_lmbda_t, xk, _Axr)

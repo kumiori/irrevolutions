@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-import pdb
 import pandas as pd
 import numpy as np
-from sympy import derive_by_array
 import yaml
 import json
 from pathlib import Path
@@ -10,16 +8,13 @@ import sys
 import os
 
 from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
 import dolfinx.mesh
 from dolfinx.fem import (
     Constant,
     Function,
     FunctionSpace,
     assemble_scalar,
-    dirichletbc,
     form,
-    locate_dofs_geometrical,
     set_bc,
 )
 from mpi4py import MPI
@@ -27,15 +22,11 @@ import petsc4py
 from petsc4py import PETSc
 import dolfinx
 import dolfinx.plot
-from dolfinx import log
 import ufl
 
-from dolfinx.fem.petsc import (
-    set_bc,
-)
 from dolfinx.io import XDMFFile, gmshio
 import logging
-from dolfinx.common import Timer, list_timings, TimingType
+from dolfinx.common import list_timings
 
 sys.path.append("../")
 from models import DamageElasticityModel as Brittle
@@ -44,7 +35,6 @@ from algorithms.so import BifurcationSolver, StabilitySolver
 from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2
 
 
 """Traction endommageable bar
@@ -269,15 +259,15 @@ for i_t, t in enumerate(loads):
     logging.critical("")
     logging.critical("")
 
-    ColorPrint.print_bold(f"   Solving first order: AM   ")
-    ColorPrint.print_bold(f"===================-=========")
+    ColorPrint.print_bold("   Solving first order: AM   ")
+    ColorPrint.print_bold("===================-=========")
 
     logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
     solver.solve()
 
-    ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
-    ColorPrint.print_bold(f"===================-=============")
+    ColorPrint.print_bold("   Solving first order: Hybrid   ")
+    ColorPrint.print_bold("===================-=============")
 
     logging.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
     hybrid.solve(alpha_lb)
@@ -299,8 +289,8 @@ for i_t, t in enumerate(loads):
     logging.info(f"scaled rate state_12 norm: {rate_12_norm}")
     logging.info(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
-    ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
-    ColorPrint.print_bold(f"===================-=================")
+    ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
+    ColorPrint.print_bold("===================-=================")
 
     # n_eigenvalues = 10
     is_stable = bifurcation.solve(alpha_lb)
@@ -312,8 +302,8 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"State's inertia: {inertia}")
     # ColorPrint.print_bold(f"State is stable: {is_stable}")
 
-    ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
-    ColorPrint.print_bold(f"===================-=================")
+    ColorPrint.print_bold("   Solving second order: Cone Pb.    ")
+    ColorPrint.print_bold("===================-=================")
 
     stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum)
 
@@ -360,7 +350,7 @@ for i_t, t in enumerate(loads):
         json.dump(history_data, a_file)
         a_file.close()
 
-    ColorPrint.print_bold(f"   Written timely data.    ")
+    ColorPrint.print_bold("   Written timely data.    ")
     print()
     print()
     print()
@@ -374,7 +364,7 @@ print(df.drop(["solver_data", "cone_data"], axis=1))
 
 # Viz
 
-from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+from utils.plots import plot_AMit_load, plot_force_displacement
 
 if comm.rank == 0:
     plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
@@ -385,7 +375,7 @@ if comm.rank == 0:
 from pyvista.utilities import xvfb
 import pyvista
 import sys
-from utils.viz import plot_mesh, plot_vector, plot_scalar
+from utils.viz import plot_vector, plot_scalar
 
 #
 xvfb.start_xvfb(wait=0.05)

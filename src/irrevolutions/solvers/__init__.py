@@ -8,7 +8,6 @@ import petsc4py
 petsc4py.init(sys.argv)
 
 from dolfinx.cpp.log import LogLevel, log
-from dolfinx.fem import form
 # from damage.utils import ColorPrint
 
 from dolfinx.fem.petsc import (
