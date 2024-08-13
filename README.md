@@ -1,10 +1,9 @@
 # Crack Propagation in Brittle Materials
 ## 2024
 
-From little or nothing, to experimental verification of a complex fracture experiment.
-We solve the following (difficult) problem:
+`Irrevolutions` is a computational stability-analyis toolkit designed to solve nonlinear and nonconvex evolutionary problems using advanced numerical methods. It provides efficient algorithms for computing solutions constrained minimum problems with application to irreversible evolutions (hence its name). In particular, this framework is relevant in the context of fracture and damage mechanics.
 
-**Evolution of Damage (irreversible)**
+**Irreversible Evolution of Damage**
  
 Let $y=(\alpha, u)$ be an admissible state of a brittle system where $\alpha: \Omega \mapsto [0, 1]$ is a smooth damage field which identifies cracks (where $\alpha =1$) and $u$ is a displacement field. Provided a material model (an energy) $E_\ell$, given a time horizon $T$, let's find a map $t \in [0, T]\mapsto y_t$ such that: damage is non-decreasing and the observed state $y_t$ is energy-minimal, among admissible variations. 
 
@@ -66,7 +65,10 @@ This code was initially conceived as a support for the teaching course MEC647,
 
 ### Acknowledgements
 
+
 To all the students for their effort, participation, and motivation.
+
+This project contains code from the DOLFINy project (https://github.com/fenics-dolfiny/dolfiny), which is licensed under the LGPLv3 license. We acknowledge and thank the DOLFINy contributors for their work.
 
 See paper.md
 
@@ -76,9 +78,7 @@ See `LICENSE` file.
 
 Each file should have at least the "copyright" line and a pointer to where the full notice is found.
 
-    <Irrevolutions is scientific software, it is conceived to compute evolution paths
-    upon a general notion of (unilateral) stability. It applies to fracture and, maybe,
-    not only.>
+    <Irrevolutions is scientific software, it is conceived to compute evolution paths upon a general notion of (unilateral) stability. It applies to fracture and, maybe, not only.>
 
     Copyright or copyLeft (C) <~0>  <ALB/83252>
 
@@ -97,7 +97,7 @@ Each file should have at least the "copyright" line and a pointer to where the f
     book for further abstraction.
 
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+    along with `irrevolution`.  If not, see <https://www.gnu.org/licenses/>.
 
 
 
