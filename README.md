@@ -18,7 +18,7 @@ If you wish to suggest a new feature or an improvement of a current feature, you
 ## Contributing code (submitting a pull request)
 To contribute code `irrevolutions`, create a pull request. If you want to contribute, but are unsure where to start, get in touch with the authors.
 
-On opening a pull request, unit tests will run on GitHub CI. You can click on these in the pull request to see where (if anywhere) the tests are failing.
+On opening a pull request, unit tests will run on GitHub Continuous Integration. You can click on these in the pull request to see where (if anywhere) the tests are failing.
 
 For more details on the pull request workflow, check
 https://docs.godotengine.org/en/3.1/community/contributing/pr_workflow.html
