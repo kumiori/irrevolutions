@@ -30,7 +30,12 @@ test_dir = os.path.dirname(__file__)
 
 _logger.setLevel(logging.CRITICAL)
 
-
+def parallel_assemble_scalar(ufl_form):
+      compiled_form = dolfinx.fem.form(ufl_form)
+      comm = compiled_form.mesh.comm
+      local_scalar = dolfinx.fem.assemble_scalar(compiled_form)
+      return comm.allreduce(local_scalar, op=MPI.SUM)
+  
 def rayleigh_ratio(z, parameters):
     (v, β) = z
     dx = ufl.Measure("dx", v.function_space.mesh)
@@ -47,7 +52,7 @@ def rayleigh_ratio(z, parameters):
     ) * dx
     denominator = ufl.inner(β, β) * dx
 
-    R = assemble_scalar(form(numerator)) / assemble_scalar(form(denominator))
+    R = parallel_assemble_scalar(form(numerator)) / parallel_assemble_scalar(form(denominator))
 
     return R
 
