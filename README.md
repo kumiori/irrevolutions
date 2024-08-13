@@ -24,32 +24,49 @@ For more details on the pull request workflow, check
 https://docs.godotengine.org/en/3.1/community/contributing/pr_workflow.html
 
 
-### To run the code (on Docker)
 
-First, run the container, attaching an interactive session and sharing data space 
-(the current dir) between the host and the container (the syntax is origin:target).
+### Installation
 
-On an ARM-based machine:
+Before installing `irrevolutions`, ensure you have `dolfinx` and other dependencies installed. You can install `dolfinx` using one of the following methods:
+
+- Using conda
+```
+conda create -n fenicsx-env -c conda-forge fenics-dolfinx=0.7.2 mpich pyvista
+conda activate fenicsx-env
+```
+
+- Using Spack
+see https://github.com/FEniCS/dolfinx/blob/main/README.md#spack
+
+- Using Apt (ubuntu)
+```
+add-apt-repository ppa:fenics-packages/fenics
+apt update
+apt install fenicsx=1:0.7.3-3~ppa1~lunar1
+```
+
+For detailed instructions, see https://github.com/FEniCS/dolfinx/blob/main/README.md#installation
+
+- Using a Docker container
+
+For an ARM-based machine:
 ```
 docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:stable
 ```
-On an AMD64 machine:
+For an AMD64 machine:
 ```
 docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:stable-amd64
 ```
 
-On a windows box:
+For a windows box:
 ```
 docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix:stable-amd64
 ```
 
-### Installation
-
-To install the software, run DOLFINx through the aforementioned docker container and install the irrevolutions-package with 
+Finally, to install `irrevolutions` head to the package root directory and run
 
 ```python3 -m pip install .```
 
-from the root of this repository
 
 
 ----

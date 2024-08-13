@@ -1,5 +1,5 @@
 [project]
-name = "irreversible-variational-solvers"
+name = "irrevolutions"
 authors = [
     {name = "Andrés A León Baldelli", email = "leon.baldelli@cnrs.fr"},
     ]
