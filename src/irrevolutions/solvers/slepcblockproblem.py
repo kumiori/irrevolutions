@@ -306,7 +306,7 @@ class SLEPcBlockProblemRestricted:
         # logging.debug(f"mat rA sizes {self.rA.sizes}")
         # logging.debug(f"mat  A sizes {self.A.sizes}")
 
-        if logging.getLevelName(logging.getLogger().getEffectiveLevel()) == 'DEBUG':
+        if logging.getLevelName(logging.getLogger().getEffectiveLevel()) == "DEBUG":
             viewer = PETSc.Viewer().createASCII(
                 f"rA-{self.eps.getOptionsPrefix()[0:-1]}.txt"
             )
@@ -321,7 +321,6 @@ class SLEPcBlockProblemRestricted:
             # logging.critical(f"mat rB sizes {self.rB.sizes}")
             # logging.critical(f"mat  B sizes {self.B.sizes}")
             # logging.critical(f"mat  B norm {self.B.norm()}")
-
 
         if not self.empty_B():
             # pdb.set_trace()

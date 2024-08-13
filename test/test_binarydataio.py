@@ -123,7 +123,6 @@ def load_minimal_constraints(filename):
 
 
 if __name__ == "__main__":
-
     m, n = 16, 32
 
     # Example usage

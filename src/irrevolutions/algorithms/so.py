@@ -760,7 +760,7 @@ class StabilitySolver(SecondOrderSolver):
             # ... extend ...
             self._extend_vector(_yr, _y)
             self._extend_vector(_xk, _x)
-            
+
             y = self.normalise_eigenmode(_y, mode="functional")
             xk = self.normalise_eigenmode(_x, mode="functional")
 
@@ -787,7 +787,7 @@ class StabilitySolver(SecondOrderSolver):
         - _xk (petsc4py.PETSc.Vec): Updated solution vector after convergence.
         - _lmbda_k (float): Updated Lagrange multiplier corresponding to the final solution.
         """
-        
+
         _s = float(self.parameters.get("cone").get("scaling"))
 
         while self.iterate(_xk, errors):

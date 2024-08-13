@@ -249,7 +249,7 @@ class StabilityStepper:
 
     def __next__(self):
         logger.info(f"\n\nCalled next, can time be stopped? {self.stop_time}")
-        
+
         if self.stop_time:
             self.stop_time = False
             index = self.i
@@ -261,8 +261,8 @@ class StabilityStepper:
                 index = self.i
             else:
                 raise StopIteration
-        
-        return index            
+
+        return index
 
     def pause_time(self):
         self.stop_time = True

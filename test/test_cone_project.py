@@ -85,7 +85,6 @@ def _cone_project_restricted(v, _x, constraints):
 
 
 def test_cone_project():
-       
     full_matrix = load_binary_matrix("data/solver/A.mat")
     matrix = load_binary_matrix("data/solver/Ar.mat")
     guess = load_binary_vector("data/solver/x0r.vec")
@@ -103,7 +102,7 @@ def test_cone_project():
     vr = constraints.restrict_vector(v)
     # x = test_cone_project_restricted(vr, constraints, x)
     x = _cone_project_restricted(vr, _x, constraints)
- 
+
 
 if __name__ == "__main__":
     test_cone_project()

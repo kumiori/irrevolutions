@@ -50,6 +50,7 @@ from algorithms.am import AlternateMinimisation, HybridSolver
 from models import DamageElasticityModel as Brittle
 from solvers.function import vec_to_functions
 
+
 class BrittleAT2(Brittle):
     """Brittle AT_2 model, without an elastic phase. For fun only."""
 
@@ -84,12 +85,17 @@ class ResultsStorage:
         alpha = state["alpha"]
 
         if self.comm.rank == 0:
-            with open(f"{self.prefix}/parameters.yaml", 'w') as file:
+            with open(f"{self.prefix}/parameters.yaml", "w") as file:
                 yaml.dump(parameters, file)
 
-        with XDMFFile(self.comm, f"{self.prefix}/simulation_results.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+        with XDMFFile(
+            self.comm,
+            f"{self.prefix}/simulation_results.xdmf",
+            "w",
+            encoding=XDMFFile.Encoding.HDF5,
+        ) as file:
             # for t, data in history_data.items():
-                # file.write_scalar(data, t)
+            # file.write_scalar(data, t)
             file.write_mesh(u.function_space.mesh)
 
             file.write_function(u, t)
@@ -98,6 +104,7 @@ class ResultsStorage:
         if self.comm.rank == 0:
             with open(f"{self.prefix}/time_data.json", "w") as file:
                 json.dump(history_data, file)
+
 
 # Visualization functions/classes
 class Visualization:
@@ -132,8 +139,8 @@ class Visualization:
             json.dump(data.to_json(), a_file)
             a_file.close()
 
-def main(parameters, model='at2', storage=None):
 
+def main(parameters, model="at2", storage=None):
     petsc4py.init(sys.argv)
     comm = MPI.COMM_WORLD
 
@@ -144,34 +151,35 @@ def main(parameters, model='at2', storage=None):
     tdim = parameters["geometry"]["geometric_dimension"]
     _nameExp = parameters["geometry"]["geom_type"]
     ell_ = parameters["model"]["ell"]
-    lc = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]  
+    lc = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]
     geom_type = parameters["geometry"]["geom_type"]
 
     gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
     outdir = os.path.join(os.path.dirname(__file__), "output")
     if storage is None:
         prefix = os.path.join(outdir, "traction_AT2_cone", signature)
     else:
         prefix = storage
-    
+
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
     if comm.rank == 0:
-        with open(f"{prefix}/signature.md5", 'w') as f:
+        with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
 
-
     parameters = {**simulation_info, **parameters}
-    
+
     if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
 
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_mesh(mesh)
 
     element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
@@ -194,10 +202,8 @@ def main(parameters, model='at2', storage=None):
     dx = ufl.Measure("dx", domain=mesh)
     ds = ufl.Measure("ds", domain=mesh)
 
-    dofs_alpha_left = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], Lx))
+    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -207,18 +213,18 @@ def main(parameters, model='at2', storage=None):
     u_.interpolate(lambda x: (np.ones_like(x[0]), 0 * np.ones_like(x[1])))
     alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
-    
+
     # Perturbation
     β = Function(V_alpha, name="DamagePerturbation")
     v = Function(V_u, name="DisplacementPerturbation")
     perturbation = {"v": v, "beta": β}
-    
-    for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
 
-    bc_u_left = dirichletbc(
-        np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
+    for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
+        f.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
+
+    bc_u_left = dirichletbc(np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
     bc_u_right = dirichletbc(u_, dofs_u_right)
     bcs_u = [bc_u_left, bc_u_right]
     bcs_alpha = []
@@ -232,17 +238,17 @@ def main(parameters, model='at2', storage=None):
 
     set_bc(alpha_ub.vector, bcs_alpha)
     alpha_ub.vector.ghostUpdate(
-        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    )
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
-
-    if model == 'at2':
+    if model == "at2":
         model = BrittleAT2(parameters["model"])
-    elif model == 'at1':
+    elif model == "at1":
         model = Brittle(parameters["model"])
     else:
-        raise ValueError('Model not implemented')
-    
+        raise ValueError("Model not implemented")
+
     state = {"u": u, "alpha": alpha}
     z = [u, alpha]
 
@@ -266,14 +272,11 @@ def main(parameters, model='at2', storage=None):
     )
 
     bifurcation = BifurcationSolver(
-        total_energy, state, bcs, 
-        bifurcation_parameters=parameters.get(
-            "stability")
+        total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
     )
 
     stability = StabilitySolver(
-        total_energy, state, bcs,
-        cone_parameters=parameters.get("stability")
+        total_energy, state, bcs, cone_parameters=parameters.get("stability")
     )
 
     history_data = {
@@ -291,7 +294,7 @@ def main(parameters, model='at2', storage=None):
         "alphadot_norm": [],
         "rate_12_norm": [],
         "unscaled_rate_12_norm": [],
-        "cone-stable": []
+        "cone-stable": [],
     }
 
     check_stability = []
@@ -299,13 +302,15 @@ def main(parameters, model='at2', storage=None):
     logging.getLogger().setLevel(logging.INFO)
 
     for i_t, t in enumerate(loads):
-        u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
-        u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+        u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
+        u_.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         alpha.vector.copy(alpha_lb.vector)
         alpha_lb.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         ColorPrint.print_bold(f"   Solving first order: AM   ")
         ColorPrint.print_bold(f"===================-=========")
@@ -328,8 +333,7 @@ def main(parameters, model='at2', storage=None):
         logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
         logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
-        logging.critical(
-            f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+        logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
 
         rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
         urate_12_norm = hybrid.unscaled_rate_norm(alpha)
@@ -351,7 +355,9 @@ def main(parameters, model='at2', storage=None):
         ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
         ColorPrint.print_bold(f"===================-=================")
 
-        stable = stability.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
+        stable = stability.my_solve(
+            alpha_lb, eig0=bifurcation._spectrum, inertia=inertia
+        )
 
         if bifurcation._spectrum:
             plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t)
@@ -375,7 +381,7 @@ def main(parameters, model='at2', storage=None):
         history_data["load"].append(t)
         history_data["fracture_energy"].append(fracture_energy)
         history_data["elastic_energy"].append(elastic_energy)
-        history_data["total_energy"].append(elastic_energy+fracture_energy)
+        history_data["total_energy"].append(elastic_energy + fracture_energy)
         history_data["solver_data"].append(solver.data)
         history_data["eigs"].append(bifurcation.data["eigs"])
         history_data["F"].append(stress)
@@ -388,7 +394,9 @@ def main(parameters, model='at2', storage=None):
         history_data["uniqueness"].append(_unique)
         history_data["inertia"].append(inertia)
 
-        with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+        with XDMFFile(
+            comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+        ) as file:
             file.write_function(u, t)
             file.write_function(alpha, t)
 
@@ -403,12 +411,12 @@ def main(parameters, model='at2', storage=None):
 
     with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
         if comm.Get_size() == 1:
-        # if comm.rank == 0 and comm.Get_size() == 1:
+            # if comm.rank == 0 and comm.Get_size() == 1:
             plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
             plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
             plot_force_displacement(
-                history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
-
+                history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
+            )
 
             xvfb.start_xvfb(wait=0.05)
             pyvista.OFF_SCREEN = True
@@ -427,30 +435,27 @@ def main(parameters, model='at2', storage=None):
 
     return history_data, state
 
+
 def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
-    
-    vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
+    vec_to_functions(bifurcation._spectrum[0]["xk"], [v, β])
     if comm.Get_size() == 1:
         tol = 1e-3
         xs = np.linspace(0 + tol, Lx - tol, 101)
         points = np.zeros((3, 101))
         points[0] = xs
-                
+
         plotter = pyvista.Plotter(
-                    title="Perturbation profile",
-                    window_size=[800, 600],
-                    shape=(1, 1),
-                )
+            title="Perturbation profile",
+            window_size=[800, 600],
+            shape=(1, 1),
+        )
         _plt, data = plot_profile(
-                    β,
-                    points,
-                    plotter,
-                    subplot=(0, 0),
-                    lineproperties={
-                        "c": "k",
-                        "label": f"$\\beta$"
-                    },
-                )
+            β,
+            points,
+            plotter,
+            subplot=(0, 0),
+            lineproperties={"c": "k", "label": f"$\\beta$"},
+        )
         ax = _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
@@ -458,23 +463,19 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
         _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
         _plt.close()
 
-
         plotter = pyvista.Plotter(
-                    title="Cone-Perturbation profile",
-                    window_size=[800, 600],
-                    shape=(1, 1),
-                )
+            title="Cone-Perturbation profile",
+            window_size=[800, 600],
+            shape=(1, 1),
+        )
 
         _plt, data = plot_profile(
-                    stability.perturbation['beta'],
-                    points,
-                    plotter,
-                    subplot=(0, 0),
-                    lineproperties={
-                        "c": "k",
-                        "label": f"$\\beta$"
-                    },
-                )
+            stability.perturbation["beta"],
+            points,
+            plotter,
+            subplot=(0, 0),
+            lineproperties={"c": "k", "label": f"$\\beta$"},
+        )
         ax = _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
@@ -482,10 +483,11 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
         _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
         _plt.close()
 
+
 # Configuration handling (load parameters from YAML)
 
 
-def load_parameters(file_path, model='at2'):
+def load_parameters(file_path, model="at2"):
     """
     Load parameters from a YAML file.
 
@@ -500,19 +502,18 @@ def load_parameters(file_path, model='at2'):
     with open(file_path) as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-    if model == 'at2':
-        parameters["loading"]["min"] = .0
+    if model == "at2":
+        parameters["loading"]["min"] = 0.0
         parameters["loading"]["max"] = 1.3
         parameters["loading"]["steps"] = 30
 
-    elif model == 'at1':
-        parameters["loading"]["min"] = .0
-        parameters["loading"]["max"] = 2.
+    elif model == "at1":
+        parameters["loading"]["min"] = 0.0
+        parameters["loading"]["max"] = 2.0
         parameters["loading"]["steps"] = 50
 
     parameters["geometry"]["geom_type"] = "traction-bar"
     parameters["geometry"]["mesh_size_factor"] = 5
-
 
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-7
@@ -521,27 +522,31 @@ def load_parameters(file_path, model='at2'):
 
     parameters["model"]["model_dimension"] = 2
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = .1
-    parameters["model"]["k_res"] = 0.
+    parameters["model"]["ell"] = 0.1
+    parameters["model"]["k_res"] = 0.0
 
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     return parameters, signature
 
+
 if __name__ == "__main__":
     import argparse
+
     admissible_models = {"at1", "at2"}
-    parser = argparse.ArgumentParser(description='Process evolution.')
-    parser.add_argument("--model", choices=admissible_models, default = 'at1', help="The model to use.")
+    parser = argparse.ArgumentParser(description="Process evolution.")
+    parser.add_argument(
+        "--model", choices=admissible_models, default="at1", help="The model to use."
+    )
     args = parser.parse_args()
 
     parameters, signature = load_parameters("../test/parameters.yml", model=args.model)
     pretty_parameters = json.dumps(parameters, indent=2)
     _logger.info(pretty_parameters)
-    
+
     _storage = f"output/traction-bar/{args.model}/{signature}-MPI{MPI.COMM_WORLD.size}"
     ColorPrint.print_bold(f"===================-{_storage}-=================")
-    
+
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
         history_data, state = main(parameters, args.model, _storage)
 
@@ -552,9 +557,11 @@ if __name__ == "__main__":
     # [[nan], [-0.0021062360599051365]]
     visualization = Visualization(_storage)
 
-    visualization.visualise_results(pd.DataFrame(history_data), drop = ["solver_data", "cone_data"])
+    visualization.visualise_results(
+        pd.DataFrame(history_data), drop=["solver_data", "cone_data"]
+    )
     visualization.save_table(pd.DataFrame(history_data), "history_data")
-    
+
     # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     ColorPrint.print_bold(f"===================-{signature}-=================")
@@ -562,6 +569,7 @@ if __name__ == "__main__":
     # timings
 
     from irrevolutions.utils import table_timing_data
+
     _timings = table_timing_data()
 
     visualization.save_table(_timings, "timing_data")

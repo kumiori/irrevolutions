@@ -45,7 +45,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 
-sys.path.append('./')
+sys.path.append("./")
 
 # meshes
 
@@ -57,8 +57,7 @@ def plot_vector(u, plotter, subplot=None):
         plotter.subplot(subplot[0], subplot[1])
     V = u.function_space
     mesh = V.mesh
-    topology, cell_types = dolfinx.plot.create_vtk_topology(
-        mesh, mesh.topology.dim)
+    topology, cell_types = dolfinx.plot.create_vtk_topology(mesh, mesh.topology.dim)
     num_dofs_local = u.function_space.dofmap.index_map.size_local
     geometry = u.function_space.tabulate_dof_coordinates()[:num_dofs_local]
     values = np.zeros((V.dofmap.index_map.size_local, 3), dtype=np.float64)
@@ -84,8 +83,7 @@ def plot_scalar(alpha, plotter, subplot=None, lineproperties={}):
         plotter.subplot(subplot[0], subplot[1])
     V = alpha.function_space
     mesh = V.mesh
-    topology, cell_types, _ = dolfinx.plot.create_vtk_mesh(
-        mesh, mesh.topology.dim)
+    topology, cell_types, _ = dolfinx.plot.create_vtk_mesh(mesh, mesh.topology.dim)
     grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
 
     plotter.subplot(0, 0)
@@ -95,36 +93,27 @@ def plot_scalar(alpha, plotter, subplot=None, lineproperties={}):
     plotter.view_xy()
     return plotter
 
+
 # Parameters
 
 
 parameters = {
-    'loading': {
-        'min': 0,
-        'max': 1
-    },
-    'geometry': {
-        'geom_type': 'bar',
-        'Lx': 5.,
-        'Ly': 15
-    },
-    'model': {
-        'mu': 1.,
-        'lmbda': 0.
-    },
-    'solvers': {
-        'snes': {
-            'snes_type': 'newtontr',
-            'snes_stol': 1e-8,
-            'snes_atol': 1e-8,
-            'snes_rtol': 1e-8,
-            'snes_max_it': 100,
-            'snes_monitor': "",
-            'ksp_type': 'preonly',
-            'pc_type': 'lu',
-            'pc_factor_mat_solver_type': 'mumps'
+    "loading": {"min": 0, "max": 1},
+    "geometry": {"geom_type": "bar", "Lx": 5.0, "Ly": 15},
+    "model": {"mu": 1.0, "lmbda": 0.0},
+    "solvers": {
+        "snes": {
+            "snes_type": "newtontr",
+            "snes_stol": 1e-8,
+            "snes_atol": 1e-8,
+            "snes_rtol": 1e-8,
+            "snes_max_it": 100,
+            "snes_monitor": "",
+            "ksp_type": "preonly",
+            "pc_type": "lu",
+            "pc_factor_mat_solver_type": "mumps",
         }
-    }
+    },
 }
 
 # parameters.get('loading')
@@ -137,20 +126,16 @@ Ly = parameters["geometry"]["Ly"]
 geom_type = parameters["geometry"]["geom_type"]
 
 
-gmsh_model, tdim = primitives.mesh_ep_gmshapi(geom_type,
-                                              Lx,
-                                              Ly,
-                                              1,
-                                              0.5,
-                                              0.3,
-                                              tdim=2)
+gmsh_model, tdim = primitives.mesh_ep_gmshapi(geom_type, Lx, Ly, 1, 0.5, 0.3, tdim=2)
 
-mesh, mts = meshes.gmsh_model_to_mesh(gmsh_model,
-                                      cell_data=False,
-                                      facet_data=True,
-                                      gdim=2,
-                                      exportMesh=True,
-                                      fileName="epTestMesh.msh")
+mesh, mts = meshes.gmsh_model_to_mesh(
+    gmsh_model,
+    cell_data=False,
+    facet_data=True,
+    gdim=2,
+    exportMesh=True,
+    fileName="epTestMesh.msh",
+)
 
 # TODO: Plot mesh
 
@@ -160,14 +145,16 @@ ax = plot_mesh(mesh)
 fig = ax.get_figure()
 fig.savefig(f"mesh.png")
 
-boundaries = [(1, lambda x: np.isclose(x[0], 0)),
-              (2, lambda x: np.isclose(x[0], Lx)),
-              (3, lambda x: np.isclose(x[1], 0)),
-              (4, lambda x: np.isclose(x[1], Ly))]
+boundaries = [
+    (1, lambda x: np.isclose(x[0], 0)),
+    (2, lambda x: np.isclose(x[0], Lx)),
+    (3, lambda x: np.isclose(x[1], 0)),
+    (4, lambda x: np.isclose(x[1], Ly)),
+]
 
 facet_indices, facet_markers = [], []
 fdim = mesh.topology.dim - 1
-for (marker, locator) in boundaries:
+for marker, locator in boundaries:
     facets = dolfinx.mesh.locate_entities(mesh, fdim, locator)
     facet_indices.append(facets)
     facet_markers.append(np.full(len(facets), marker))
@@ -175,15 +162,12 @@ facet_indices = np.array(np.hstack(facet_indices), dtype=np.int32)
 facet_markers = np.array(np.hstack(facet_markers), dtype=np.int32)
 sorted_facets = np.argsort(facet_indices)
 facet_tag = dolfinx.mesh.MeshTags(
-    mesh,
-    fdim,
-    facet_indices[sorted_facets],
-    facet_markers[sorted_facets])
+    mesh, fdim, facet_indices[sorted_facets], facet_markers[sorted_facets]
+)
 
 # Functional setting
 
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(),
-                              degree=1, dim=2)
+element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
 V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
 
 u = dolfinx.fem.Function(V_u, name="Displacement")
@@ -215,18 +199,16 @@ with g.vector.localForm() as loc:
     loc.set(1.0/100.)
 """
 
-#x = ufl.SpatialCoordinate(mesh)
-#g = dolfinx.Expression ('4 *x[1]')
+# x = ufl.SpatialCoordinate(mesh)
+# g = dolfinx.Expression ('4 *x[1]')
 
 # boundary conditions
 g.interpolate(lambda x: (np.zeros_like(x[0]), np.ones_like(x[1])))
-g.vector.ghostUpdate(
-    addv=PETSc.InsertMode.INSERT,
-    mode=PETSc.ScatterMode.FORWARD)
+g.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
 
 def left(x):
-    return np.isclose(x[0], 0.)
+    return np.isclose(x[0], 0.0)
 
 
 def right(x):
@@ -234,34 +216,35 @@ def right(x):
 
 
 def bottom(x):
-    return np.isclose(x[1], 0.)
+    return np.isclose(x[1], 0.0)
 
 
 def top(x):
     return np.isclose(x[1], Ly)
 
+
 # left side
 
 
 left_facets = dolfinx.mesh.locate_entities_boundary(mesh, 1, left)
-left_dofs = dolfinx.fem.locate_dofs_topological(V_u, mesh.topology.dim - 1,
-                                                left_facets)
+left_dofs = dolfinx.fem.locate_dofs_topological(V_u, mesh.topology.dim - 1, left_facets)
 
 
 # right side
 
 right_facets = dolfinx.mesh.locate_entities_boundary(mesh, 1, right)
-right_dofs = dolfinx.fem.locate_dofs_topological(V_u, mesh.topology.dim - 1,
-                                                 right_facets)
+right_dofs = dolfinx.fem.locate_dofs_topological(
+    V_u, mesh.topology.dim - 1, right_facets
+)
 
 
 top_facets = dolfinx.mesh.locate_entities_boundary(mesh, 1, top)
-top_dofs = dolfinx.fem.locate_dofs_topological(V_u, mesh.topology.dim - 1,
-                                               top_facets)
+top_dofs = dolfinx.fem.locate_dofs_topological(V_u, mesh.topology.dim - 1, top_facets)
 
 bottom_facets = dolfinx.mesh.locate_entities_boundary(mesh, 1, bottom)
-bottom_dofs = dolfinx.fem.locate_dofs_topological(V_u, mesh.topology.dim - 1,
-                                                  bottom_facets)
+bottom_dofs = dolfinx.fem.locate_dofs_topological(
+    V_u, mesh.topology.dim - 1, bottom_facets
+)
 
 # energy
 mu = parameters["model"]["mu"]
@@ -272,11 +255,10 @@ def _e(u):
     return ufl.sym(ufl.grad(u))
 
 
-en_density = 1 / 2 * (2 * mu * ufl.inner(_e(u), _e(u))) + \
-    lmbda * ufl.tr(_e(u))**2
+en_density = 1 / 2 * (2 * mu * ufl.inner(_e(u), _e(u))) + lmbda * ufl.tr(_e(u)) ** 2
 energy = en_density * dx - ufl.inner(u, g) * dS(4)
 
-#bcs = [dirichletbc(zero, bottom_dofs), dirichletbc(one, top_dofs)]
+# bcs = [dirichletbc(zero, bottom_dofs), dirichletbc(one, top_dofs)]
 bcs = [dirichletbc(zero, bottom_dofs)]
 
 # solving

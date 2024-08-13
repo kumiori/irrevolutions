@@ -30,10 +30,7 @@ import dolfinx.plot
 from dolfinx import log
 import ufl
 
-from dolfinx.fem.petsc import (
-    set_bc,
-    assemble_vector
-    )
+from dolfinx.fem.petsc import set_bc, assemble_vector
 from dolfinx.io import XDMFFile, gmshio
 import logging
 from dolfinx.common import Timer, list_timings, TimingType
@@ -45,8 +42,6 @@ from meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
 from irrevolutions.utils import norm_H1, norm_L2
-
-
 
 
 sys.path.append("../")
@@ -65,19 +60,21 @@ load: displacement hard-t
 
 
 from solvers.function import functions_to_vec
+
 logging.getLogger().setLevel(logging.CRITICAL)
 
 comm = MPI.COMM_WORLD
 
+
 class _AlternateMinimisation:
-    def __init__(self,
-                total_energy,
-                state,
-                bcs,
-                solver_parameters={},
-                bounds=(dolfinx.fem.function.Function,
-                        dolfinx.fem.function.Function)
-                ):
+    def __init__(
+        self,
+        total_energy,
+        state,
+        bcs,
+        solver_parameters={},
+        bounds=(dolfinx.fem.function.Function, dolfinx.fem.function.Function),
+    ):
         self.state = state
         self.alpha = state["alpha"]
         self.alpha_old = dolfinx.fem.function.Function(self.alpha.function_space)
@@ -90,8 +87,7 @@ class _AlternateMinimisation:
         V_u = state["u"].function_space
         V_alpha = state["alpha"].function_space
 
-        energy_u = ufl.derivative(
-            self.total_energy, self.u, ufl.TestFunction(V_u))
+        energy_u = ufl.derivative(self.total_energy, self.u, ufl.TestFunction(V_u))
         energy_alpha = ufl.derivative(
             self.total_energy, self.alpha, ufl.TestFunction(V_alpha)
         )
@@ -117,7 +113,6 @@ class _AlternateMinimisation:
         )
 
     def solve(self, outdir=None):
-
         alpha_diff = dolfinx.fem.Function(self.alpha.function_space)
 
         self.data = {
@@ -154,10 +149,7 @@ class _AlternateMinimisation:
             Fv = [assemble_vector(form(F)) for F in self.F]
 
             Fnorm = np.sqrt(
-                np.array(
-                    [comm.allreduce(Fvi.norm(), op=MPI.SUM)
-                        for Fvi in Fv]
-                ).sum()
+                np.array([comm.allreduce(Fvi.norm(), op=MPI.SUM) for Fvi in Fv]).sum()
             )
 
             error_alpha_max = alpha_diff.vector.max()[1]
@@ -204,10 +196,8 @@ class _AlternateMinimisation:
             self.data["solver_u_it"].append(solver_u_it)
             self.data["total_energy"].append(total_energy_int)
 
-
             if (
-                self.solver_parameters.get(
-                    "damage_elasticity").get("criterion")
+                self.solver_parameters.get("damage_elasticity").get("criterion")
                 == "residual_u"
             ):
                 if error_residual_F <= self.solver_parameters.get(
@@ -215,8 +205,7 @@ class _AlternateMinimisation:
                 ).get("alpha_rtol"):
                     break
             if (
-                self.solver_parameters.get(
-                    "damage_elasticity").get("criterion")
+                self.solver_parameters.get("damage_elasticity").get("criterion")
                 == "alpha_H1"
             ):
                 if error_alpha_H1 <= self.solver_parameters.get(
@@ -231,11 +220,10 @@ class _AlternateMinimisation:
 
 petsc4py.init(sys.argv)
 
-def discrete_atk(arg_N=2):
 
+def discrete_atk(arg_N=2):
     # Mesh on node model_rank and then distribute
     model_rank = 0
-
 
     with open("./parameters.yml") as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
@@ -244,14 +232,14 @@ def discrete_atk(arg_N=2):
     # parameters["cone"]["atol"] = 1e-7
 
     parameters["model"]["model_dimension"] = 1
-    parameters["model"]["model_type"] = '1D'
+    parameters["model"]["model_type"] = "1D"
     parameters["model"]["mu"] = 1
     parameters["model"]["w1"] = 1
     parameters["model"]["k_res"] = 1e-4
     parameters["model"]["k"] = 3
     parameters["model"]["N"] = arg_N
     # parameters["loading"]["max"] = 2.
-    parameters["loading"]["max"] = parameters["model"]["k"] 
+    parameters["loading"]["max"] = parameters["model"]["k"]
     parameters["loading"]["steps"] = 100
 
     parameters["geometry"]["geom_type"] = "discrete-damageable"
@@ -268,12 +256,12 @@ def discrete_atk(arg_N=2):
     geom_type = parameters["geometry"]["geom_type"]
     _N = parameters["model"]["N"]
 
-
     # Create the mesh of the specimen with given dimensions
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
     import hashlib
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     outdir = os.path.join(os.path.dirname(__file__), "output")
     prefix = os.path.join(outdir, f"discrete-atk-N{parameters['model']['N']}")
@@ -286,38 +274,37 @@ def discrete_atk(arg_N=2):
         Path(_crunchdir).mkdir(parents=True, exist_ok=True)
 
     if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
 
     if comm.rank == 0:
-        with open(f"{_crunchdir}/{signature}.md5", 'w') as f:
-            f.write('')
+        with open(f"{_crunchdir}/{signature}.md5", "w") as f:
+            f.write("")
 
     if comm.rank == 0:
-        with open(f"{prefix}/signature.md5", 'w') as f:
+        with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
 
     if comm.rank == 0:
-        with open(f"{prefix}/signature.md5", 'w') as f:
+        with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
 
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_mesh(mesh)
 
     # Functional Setting
 
-    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                                degree=1)
+    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
-    element_alpha = ufl.FiniteElement("DG", mesh.ufl_cell(),
-                                    degree=0)
+    element_alpha = ufl.FiniteElement("DG", mesh.ufl_cell(), degree=0)
 
     V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
     V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
 
     u = dolfinx.fem.Function(V_u, name="Displacement")
     u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
-
 
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 
@@ -339,20 +326,16 @@ def discrete_atk(arg_N=2):
     u_ = Function(V_u, name="Boundary Unknown")
     zero_u = Function(V_u, name="Boundary Unknown")
 
-
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
     ds = ufl.Measure("ds", domain=mesh)
 
     # Boundary sets
 
+    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
-    dofs_alpha_left = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], 0.))
-    dofs_alpha_right = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], Lx))
-
-    dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.))
+    dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
 
     # Boundary data
@@ -369,14 +352,13 @@ def discrete_atk(arg_N=2):
     u_.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [zero_u, u_, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+        f.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
-    bc_u_left = dirichletbc(
-        np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u)
+    bc_u_left = dirichletbc(np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
-    bc_u_right = dirichletbc(
-        u_, dofs_u_right)
+    bc_u_right = dirichletbc(u_, dofs_u_right)
     bcs_u = [bc_u_left, bc_u_right]
 
     bcs_alpha = []
@@ -388,17 +370,14 @@ def discrete_atk(arg_N=2):
 
     # mat_par = parameters.get()
 
-
     def a(alpha):
-        k_res = parameters["model"]['k_res']
-        return (1 - alpha)**2 + k_res
-
+        k_res = parameters["model"]["k_res"]
+        return (1 - alpha) ** 2 + k_res
 
     def a_atk(alpha):
-        k_res = parameters["model"]['k_res']
-        _k = parameters["model"]['k']
-        return (1 - alpha) / ((_k-1) * alpha + 1)
-
+        k_res = parameters["model"]["k_res"]
+        _k = parameters["model"]["k"]
+        return (1 - alpha) / ((_k - 1) * alpha + 1)
 
     def w(alpha):
         """
@@ -409,22 +388,20 @@ def discrete_atk(arg_N=2):
         # Return w(alpha) function
         return alpha
 
-
     def elastic_energy_density_atk(state):
         """
         Returns the elastic energy density from the state.
         """
         # Parameters
-        _mu = parameters["model"]['mu']
-        _N = parameters["model"]['N']
+        _mu = parameters["model"]["mu"]
+        _N = parameters["model"]["N"]
 
         alpha = state["alpha"]
         u = state["u"]
-        eps = ufl.grad(u) 
+        eps = ufl.grad(u)
 
-        energy_density = _mu / 2. * a_atk(alpha) * ufl.inner(eps, eps)
+        energy_density = _mu / 2.0 * a_atk(alpha) * ufl.inner(eps, eps)
         return energy_density
-
 
     def damage_energy_density(state):
         """
@@ -439,10 +416,8 @@ def discrete_atk(arg_N=2):
         # Compute the damage gradient
         grad_alpha = ufl.grad(alpha)
         # Compute the damage dissipation density
-        D_d = _w1 * w(alpha) + _w1 * _ell**2 * ufl.dot(
-            grad_alpha, grad_alpha)
+        D_d = _w1 * w(alpha) + _w1 * _ell**2 * ufl.dot(grad_alpha, grad_alpha)
         return D_d
-
 
     def stress(state):
         """
@@ -451,10 +426,11 @@ def discrete_atk(arg_N=2):
         u = state["u"]
         alpha = state["alpha"]
 
-        return parameters["model"]['mu'] * a_atk(alpha) * u.dx() * dx
+        return parameters["model"]["mu"] * a_atk(alpha) * u.dx() * dx
 
-    total_energy = (elastic_energy_density_atk(state) +
-                    damage_energy_density(state)) * dx
+    total_energy = (
+        elastic_energy_density_atk(state) + damage_energy_density(state)
+    ) * dx
 
     # Energy functional
     # f = Constant(mesh, 0)
@@ -463,22 +439,18 @@ def discrete_atk(arg_N=2):
     external_work = f * state["u"] * dx
 
     load_par = parameters["loading"]
-    loads = np.linspace(load_par["min"],
-                        load_par["max"], load_par["steps"])
+    loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
     solver = _AlternateMinimisation(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 
-
     stability = BifurcationSolver(
         total_energy, state, bcs, stability_parameters=parameters.get("stability")
     )
 
-
     cone = StabilitySolver(
-        total_energy, state, bcs,
-        cone_parameters=parameters.get("stability")
+        total_energy, state, bcs, cone_parameters=parameters.get("stability")
     )
 
     history_data = {
@@ -502,8 +474,9 @@ def discrete_atk(arg_N=2):
 
     for i_t, t in enumerate(loads):
         u_.interpolate(lambda x: t * np.ones_like(x[0]))
-        u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+        u_.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         # update the lower bound
         alpha.vector.copy(alpha_lb.vector)
@@ -536,12 +509,12 @@ def discrete_atk(arg_N=2):
             assemble_scalar(form(elastic_energy_density_atk(state) * dx)),
             op=MPI.SUM,
         )
-        _F = assemble_scalar( form(stress(state)) )
-        
+        _F = assemble_scalar(form(stress(state)))
+
         history_data["load"].append(t)
         history_data["fracture_energy"].append(fracture_energy)
         history_data["elastic_energy"].append(elastic_energy)
-        history_data["total_energy"].append(elastic_energy+fracture_energy)
+        history_data["total_energy"].append(elastic_energy + fracture_energy)
         history_data["solver_data"].append(solver.data)
         history_data["cone_data"].append(cone.data)
         history_data["eigs"].append(stability.data["eigs"])
@@ -550,11 +523,13 @@ def discrete_atk(arg_N=2):
         history_data["F"].append(_F)
         history_data["alpha_t"].append(state["alpha"].vector.array.tolist())
         history_data["u_t"].append(state["u"].vector.array.tolist())
-        
+
         logging.critical(f"u_t {u.vector.array}")
         logging.critical(f"u_t norm {state['u'].vector.norm()}")
 
-        with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+        with XDMFFile(
+            comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+        ) as file:
             file.write_function(u, t)
             file.write_function(alpha, t)
 
@@ -569,20 +544,20 @@ def discrete_atk(arg_N=2):
     df = pd.DataFrame(history_data)
     print(df)
 
-
     return history_data, prefix, _nameExp
+
 
 def postprocess(history_data, prefix, nameExp):
     """docstring for postprocess"""
-    
 
     from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{nameExp}_energies.pdf")
         plot_AMit_load(history_data, file=f"{prefix}/{nameExp}_it_load.pdf")
-        plot_force_displacement(history_data, file=f"{prefix}/{nameExp}_stress-load.pdf")
-
+        plot_force_displacement(
+            history_data, file=f"{prefix}/{nameExp}_stress-load.pdf"
+        )
 
     # Viz
 
@@ -590,9 +565,8 @@ def postprocess(history_data, prefix, nameExp):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Process evolution.')
-    parser.add_argument('-N', type=int, default=2,
-                        help='Number of elements')
+    parser = argparse.ArgumentParser(description="Process evolution.")
+    parser.add_argument("-N", type=int, default=2, help="Number of elements")
 
     args = parser.parse_args()
     # print()
@@ -600,10 +574,10 @@ if __name__ == "__main__":
     # __import__('pdb').set_trace()
     history_data, prefix, name = discrete_atk(args.N)
 
-    logging.info(f'Output in {prefix}')
+    logging.info(f"Output in {prefix}")
 
     postprocess(history_data, prefix, name)
 
-    logging.info(f'Output in {prefix}')
+    logging.info(f"Output in {prefix}")
 else:
-   print("File executed when imported")
+    print("File executed when imported")

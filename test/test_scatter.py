@@ -138,7 +138,6 @@ v.restoreSubVector(_is, _sub)
 print(f"v restored (projected) {v.array}")
 
 for i, space in enumerate([V_u, V_alpha]):
-
     bs = space.dofmap.index_map_bs
 
     size_local = space.dofmap.index_map.size_local

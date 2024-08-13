@@ -27,7 +27,6 @@ _logger.setLevel(logging.CRITICAL)
 
 
 def rayleigh_ratio_reduced(β, parameters):
-
     dx = ufl.Measure("dx", β.function_space.mesh)
     a, b, c = (
         parameters["model"]["a"],
@@ -328,7 +327,6 @@ def load_parameters(file_path, ndofs, model="rayleigh"):
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(description="Process evolution.")
     parser.add_argument("-N", help="The number of dofs.", type=int, default=50)
     parser.add_argument(

@@ -41,7 +41,6 @@ def load_minimal_constraints(filename, spaces):
 
 
 def test_spa():
-
     def iterate(x, xold, errors):
         """
         Perform convergence check and handle exceptions (NonConvergenceException).

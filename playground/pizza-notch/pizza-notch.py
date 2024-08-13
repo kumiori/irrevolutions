@@ -221,7 +221,6 @@ def run_computation(parameters, storage):
     _logger.setLevel(level=logging.CRITICAL)
 
     for i_t, t in enumerate(loads):
-
         uD.interpolate(
             lambda x: _local_notch_asymptotic(
                 x, ω=np.deg2rad(_omega / 2.0), t=t, par=parameters["material"]
@@ -245,7 +244,6 @@ def run_computation(parameters, storage):
         stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia=inertia)
 
         with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
-
             fracture_energy = comm.allreduce(
                 assemble_scalar(form(model.damage_energy_density(state) * dx)),
                 op=MPI.SUM,
@@ -299,6 +297,7 @@ def run_computation(parameters, storage):
 
     return history_data, stability.data, state
 
+
 def load_parameters(file_path, ndofs, model="at1"):
     """
     Load parameters from a YAML file.
@@ -350,6 +349,7 @@ def load_parameters(file_path, ndofs, model="at1"):
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     return parameters, signature
+
 
 def test_2d():
     # import argparse

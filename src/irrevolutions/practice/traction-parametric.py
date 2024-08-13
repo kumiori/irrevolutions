@@ -62,7 +62,6 @@ class BrittleAT2(Brittle):
         return self.w1 * alpha**2
 
 
-
 class ResultsStorage:
     """
     Class for storing and saving simulation results.
@@ -85,7 +84,7 @@ class ResultsStorage:
         alpha = state["alpha"]
 
         if self.comm.rank == 0:
-            with open(f"{self.prefix}/parameters.yaml", 'w') as file:
+            with open(f"{self.prefix}/parameters.yaml", "w") as file:
                 yaml.dump(parameters, file)
 
         # with XDMFFile(self.comm, f"{self.prefix}/simulation_results.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
@@ -100,7 +99,9 @@ class ResultsStorage:
             with open(f"{self.prefix}/time_data.json", "w") as file:
                 json.dump(history_data, file)
 
+
 # Visualization functions/classes
+
 
 class Visualization:
     """
@@ -147,8 +148,8 @@ class Visualization:
             json.dump(data, a_file)
             a_file.close()
 
-def main(parameters, model='at2', storage=None):
 
+def main(parameters, model="at2", storage=None):
     petsc4py.init(sys.argv)
     comm = MPI.COMM_WORLD
 
@@ -165,23 +166,23 @@ def main(parameters, model='at2', storage=None):
     gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
     outdir = os.path.join(os.path.dirname(__file__), "output")
 
     if storage is None:
         prefix = os.path.join(outdir, "traction_AT2_cone", signature)
     else:
         prefix = storage
-    
+
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
     if comm.rank == 0:
-        with open(f"{prefix}/signature.md5", 'w') as f:
+        with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
 
     if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
 
     # with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
@@ -207,10 +208,8 @@ def main(parameters, model='at2', storage=None):
     dx = ufl.Measure("dx", domain=mesh)
     ds = ufl.Measure("ds", domain=mesh)
 
-    dofs_alpha_left = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], Lx))
+    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -222,27 +221,28 @@ def main(parameters, model='at2', storage=None):
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+        f.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
-    bc_u_left = dirichletbc(
-        np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
+    bc_u_left = dirichletbc(np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
     bc_u_right = dirichletbc(u_, dofs_u_right)
     bcs_u = [bc_u_left, bc_u_right]
     bcs_alpha = []
 
     set_bc(alpha_ub.vector, bcs_alpha)
     alpha_ub.vector.ghostUpdate(
-        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    )
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
-    if model == 'at2':
+    if model == "at2":
         model = BrittleAT2(parameters["model"])
-    elif model == 'at1':
+    elif model == "at1":
         model = Brittle(parameters["model"])
     else:
-        raise ValueError('Model not implemented')
-    
+        raise ValueError("Model not implemented")
+
     state = {"u": u, "alpha": alpha}
 
     f = Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
@@ -265,8 +265,7 @@ def main(parameters, model='at2', storage=None):
     )
 
     bifurcation = BifurcationSolver(
-        total_energy, state, bcs, bifurcation_parameters=parameters.get(
-            "stability")
+        total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
     )
 
     cone = StabilitySolver(
@@ -288,22 +287,23 @@ def main(parameters, model='at2', storage=None):
         "alphadot_norm": [],
         "rate_12_norm": [],
         "unscaled_rate_12_norm": [],
-        "cone-stable": []
+        "cone-stable": [],
     }
 
     check_stability = []
 
-
     for i_t, t in enumerate(loads):
         logging.getLogger().setLevel(logging.WARNING)
 
-        u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
-        u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+        u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
+        u_.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         alpha.vector.copy(alpha_lb.vector)
         alpha_lb.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         ColorPrint.print_bold(f"   Solving first order: AM   ")
         ColorPrint.print_bold(f"===================-=========")
@@ -370,7 +370,7 @@ def main(parameters, model='at2', storage=None):
         history_data["load"].append(t)
         history_data["fracture_energy"].append(fracture_energy)
         history_data["elastic_energy"].append(elastic_energy)
-        history_data["total_energy"].append(elastic_energy+fracture_energy)
+        history_data["total_energy"].append(elastic_energy + fracture_energy)
         # history_data["solver_data"].append(solver.data)
         history_data["eigs"].append(bifurcation.data["eigs"])
         history_data["F"].append(stress)
@@ -396,15 +396,15 @@ def main(parameters, model='at2', storage=None):
 
     df = pd.DataFrame(history_data)
     # print(df.drop(['solver_data', 'cone_data'], axis=1))
-    print(df.drop(['cone_data'], axis=1))
+    print(df.drop(["cone_data"], axis=1))
 
     with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
         if comm.rank == 0:
             plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
             # plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
             plot_force_displacement(
-                history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
-
+                history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
+            )
 
         xvfb.start_xvfb(wait=0.05)
         pyvista.OFF_SCREEN = True
@@ -421,21 +421,24 @@ def main(parameters, model='at2', storage=None):
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"   Done!    ")
 
-
     performance = {
         "N": [],
         "dofs": [],
     }
     performance["N"].append(MPI.COMM_WORLD.size)
-    performance["dofs"].append(sum([V.dofmap.bs * V.dofmap.index_map.size_global for V in [V_u, V_alpha]]))
+    performance["dofs"].append(
+        sum([V.dofmap.bs * V.dofmap.index_map.size_global for V in [V_u, V_alpha]])
+    )
 
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     return history_data, performance, state
 
+
 # Configuration handling (load parameters from YAML)
 
-def load_parameters(file_path, model='at2'):
+
+def load_parameters(file_path, model="at2"):
     """
     Load parameters from a YAML file.
 
@@ -450,17 +453,17 @@ def load_parameters(file_path, model='at2'):
     with open(file_path) as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-    if model == 'at2':
-        parameters["loading"]["min"] = .9
-        parameters["loading"]["max"] = .9
+    if model == "at2":
+        parameters["loading"]["min"] = 0.9
+        parameters["loading"]["max"] = 0.9
         parameters["loading"]["steps"] = 1
 
-    elif model == 'at1':
+    elif model == "at1":
         parameters["loading"]["min"] = 1.03
         parameters["loading"]["max"] = 1.03
         parameters["loading"]["steps"] = 1
-        
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     return parameters, signature
 
@@ -476,10 +479,9 @@ def param_vs_ell():
 
 
 def param_vs_s(base_parameters, base_signature):
-
     # s_list = [1.e-08, 1.e-07, 1e-6, 1e-5, 2e-5, 5e-5, 1e-4, 0.001, 0.003, 0.005, 0.01, 0.02, 0.05, 0.1]
     s_list = np.logspace(-9, -1, 9).tolist()
-    
+
     from irrevolutions.utils import table_timing_data
 
     _rootdir = f"output/parametric/traction-bar/vs_s/{base_signature}"
@@ -488,15 +490,18 @@ def param_vs_s(base_parameters, base_signature):
         Path(_rootdir).mkdir(parents=True, exist_ok=True)
 
     if MPI.COMM_WORLD.rank == 0:
-        with open(f"{_rootdir}/parameters.yaml", 'w') as file:
+        with open(f"{_rootdir}/parameters.yaml", "w") as file:
             yaml.dump(base_parameters, file)
 
     for s in s_list:
-        parameters, signature = parameters_vs_SPA_scaling(parameters=base_parameters, s=s)
+        parameters, signature = parameters_vs_SPA_scaling(
+            parameters=base_parameters, s=s
+        )
         _storage = f"output/parametric/traction-bar/vs_s/{base_signature}/{signature}"
 
-
-        ColorPrint.print_bold(f"===PARAMETRIC vs S================-{s}-=================")
+        ColorPrint.print_bold(
+            f"===PARAMETRIC vs S================-{s}-================="
+        )
         ColorPrint.print_bold(f"===================-{signature}-=================")
 
         with dolfinx.common.Timer(f"~Computation Experiment") as timer:
@@ -517,21 +522,17 @@ def param_vs_s(base_parameters, base_signature):
 
         visualization.save_json(performance, "performance")
 
-
     ColorPrint.print_bold(f"===================-{signature}-=================")
 
-
     # Store and visualise results
- 
 
     return history_data, _timings
 
 
 def param_vs_dry(base_parameters, base_signature):
-
     # s_list = [1.e-08, 1.e-07, 1e-6, 1e-5, 2e-5, 5e-5, 1e-4, 0.001, 0.003, 0.005, 0.01, 0.02, 0.05, 0.1]
     s_list = np.arange(0, 10).tolist()
-    
+
     from irrevolutions.utils import table_timing_data
 
     _rootdir = f"output/parametric/traction-bar/vs_s/{base_signature}"
@@ -540,7 +541,7 @@ def param_vs_dry(base_parameters, base_signature):
         Path(_rootdir).mkdir(parents=True, exist_ok=True)
 
     if MPI.COMM_WORLD.rank == 0:
-        with open(f"{_rootdir}/parameters.yaml", 'w') as file:
+        with open(f"{_rootdir}/parameters.yaml", "w") as file:
             yaml.dump(base_parameters, file)
 
     for s in s_list:
@@ -549,8 +550,9 @@ def param_vs_dry(base_parameters, base_signature):
         signature = s
         _storage = f"output/parametric/traction-bar/dry/{signature}"
 
-
-        ColorPrint.print_bold(f"===PARAMETRIC vs S================-{s}-=================")
+        ColorPrint.print_bold(
+            f"===PARAMETRIC vs S================-{s}-================="
+        )
         ColorPrint.print_bold(f"===================-{signature}-=================")
 
         with dolfinx.common.Timer(f"~Computation Experiment") as timer:
@@ -571,40 +573,47 @@ def param_vs_dry(base_parameters, base_signature):
 
         visualization.save_json(performance, "performance")
 
-
     ColorPrint.print_bold(f"===================-{signature}-=================")
 
-
     # Store and visualise results
- 
 
     return history_data, _timings
 
+
 if __name__ == "__main__":
     import argparse
-    from utils.parametric import parameters_vs_SPA_scaling, parameters_vs_ell, parameters_vs_n_refinement
+    from utils.parametric import (
+        parameters_vs_SPA_scaling,
+        parameters_vs_ell,
+        parameters_vs_n_refinement,
+    )
+
     admissible_models = {"at1", "at2", "thinfilm"}
 
-    parser = argparse.ArgumentParser(description='Process evolution.')
-    
-    parser.add_argument('-s', type=str, default=1e-4,
-                        help='scaling')
-    
-    parser.add_argument('-n', type=int, default=3,
-                        help='resolution: ell to h ratio')
-    
+    parser = argparse.ArgumentParser(description="Process evolution.")
+
+    parser.add_argument("-s", type=str, default=1e-4, help="scaling")
+
+    parser.add_argument("-n", type=int, default=3, help="resolution: ell to h ratio")
+
     parser.add_argument("--model", choices=admissible_models, help="The model to use.")
 
     args = parser.parse_args()
 
-    base_parameters, base_signature = load_parameters("../test/parameters.yml", model=args.model)
+    base_parameters, base_signature = load_parameters(
+        "../test/parameters.yml", model=args.model
+    )
 
     if "-s" in sys.argv:
-        parameters, signature = parameters_vs_SPA_scaling(parameters=base_parameters, s=np.float(args.s))
+        parameters, signature = parameters_vs_SPA_scaling(
+            parameters=base_parameters, s=np.float(args.s)
+        )
         _storage = f"output/parametric/traction-bar/vs_s/{args.model}/{base_signature}/{signature}"
 
     elif "-n" in sys.argv:
-        parameters, signature = parameters_vs_n_refinement(parameters=base_parameters, r=np.int(args.n))
+        parameters, signature = parameters_vs_n_refinement(
+            parameters=base_parameters, r=np.int(args.n)
+        )
         _storage = f"output/parametric/traction-bar/vs_resolution/{args.model}/{base_signature}/{signature}"
 
     else:
@@ -628,7 +637,7 @@ if __name__ == "__main__":
     visualization = Visualization(_storage)
 
     visualization.visualise_results(history_data)
-    
+
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     ColorPrint.print_bold(f"===================-{signature}-=================")
@@ -636,6 +645,7 @@ if __name__ == "__main__":
     # timings
 
     from irrevolutions.utils import table_timing_data
+
     _timings = table_timing_data()
 
     visualization.save_table(pd.DataFrame(history_data), "_history_data.json")

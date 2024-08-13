@@ -66,9 +66,8 @@ from utils.plots import plot_energies
 from irrevolutions.utils import norm_H1, norm_L2
 
 
-
-
 # Configuration handling (load parameters from YAML)
+
 
 def load_parameters(file_path):
     """
@@ -91,11 +90,11 @@ def load_parameters(file_path):
     parameters["stability"]["cone"]["scaling"] = 0.3
 
     parameters["model"]["model_dimension"] = 2
-    parameters["model"]["model_type"] = '1D'
+    parameters["model"]["model_type"] = "1D"
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = .1
-    parameters["model"]["k_res"] = 0.
-    parameters["loading"]["min"] = .8
+    parameters["model"]["ell"] = 0.1
+    parameters["model"]["k_res"] = 0.0
+    parameters["loading"]["min"] = 0.8
     parameters["loading"]["max"] = 10.5
     parameters["loading"]["steps"] = 10
 
@@ -109,11 +108,13 @@ def load_parameters(file_path):
     _nameExp = parameters["geometry"]["geom_type"]
     ell_ = parameters["model"]["ell"]
 
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     return parameters, signature
 
+
 # Mesh creation function
+
 
 def create_mesh(parameters):
     """
@@ -143,11 +144,11 @@ def create_mesh(parameters):
     # Get mesh and meshtags
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
-
-
     return mesh
 
+
 # Function space creation function
+
 
 def create_function_space(mesh):
     """
@@ -168,6 +169,7 @@ def create_function_space(mesh):
 
     return V_u, V_alpha
 
+
 def init_state(V_u, V_alpha):
     """
     Create the state variables u and alpha.
@@ -186,7 +188,9 @@ def init_state(V_u, V_alpha):
 
     return state
 
+
 # Boundary conditions setup function
+
 
 def setup_boundary_conditions(V_u, V_alpha, Lx):
     """
@@ -200,15 +204,11 @@ def setup_boundary_conditions(V_u, V_alpha, Lx):
     Returns:
         list of dolfinx.DirichletBC: List of boundary conditions.
     """
-    dofs_alpha_left = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], Lx))
+    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
-    dofs_u_left = locate_dofs_geometrical(
-        V_u, lambda x: np.isclose(x[0], 0.0))
-    dofs_u_right = locate_dofs_geometrical(
-        V_u, lambda x: np.isclose(x[0], Lx))
+    dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
+    dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
 
     zero_u = Function(V_u)
     u_ = Function(V_u, name="Boundary Displacement")
@@ -224,7 +224,9 @@ def setup_boundary_conditions(V_u, V_alpha, Lx):
 
     return bcs
 
+
 # Model initialization function
+
 
 def initialise_model(parameters):
     """
@@ -240,7 +242,7 @@ def initialise_model(parameters):
     model_parameters = parameters["model"]
 
     from models import DamageElasticityModel as Brittle
-    
+
     class BrittleAT2(Brittle):
         """Brittle AT_2 model, without an elastic phase. For fun only."""
 
@@ -258,7 +260,9 @@ def initialise_model(parameters):
 
     return model
 
+
 # Energy functional definition function
+
 
 def define_energy_functional(state, model):
     """
@@ -292,7 +296,9 @@ def define_energy_functional(state, model):
 
     return total_energy
 
+
 # Solver initialization functions
+
 
 def initialise_solver(total_energy, state, bcs, parameters):
     """
@@ -309,7 +315,7 @@ def initialise_solver(total_energy, state, bcs, parameters):
     """
 
     # V_u, V_alpha, u, alpha
-    
+
     from algorithms.am import AlternateMinimisation
 
     # alpha = Function(V_alpha, name="Damage")
@@ -319,23 +325,29 @@ def initialise_solver(total_energy, state, bcs, parameters):
     alpha_ub = Function(V_alpha, name="Upper bound")
 
     for f in [alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                            mode=PETSc.ScatterMode.FORWARD)
+        f.vector.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
-    set_bc(alpha_ub.vector, bcs['bcs_alpha'])
+    set_bc(alpha_ub.vector, bcs["bcs_alpha"])
     alpha_ub.vector.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
     # Initialise solver
     solver = AlternateMinimisation(
-        total_energy, state, bcs, solver_parameters = parameters, bounds=(alpha_lb, alpha_ub)
+        total_energy,
+        state,
+        bcs,
+        solver_parameters=parameters,
+        bounds=(alpha_lb, alpha_ub),
     )
-
 
     return solver
 
+
 # Logging setup function
+
 
 def setup_logging():
     """
@@ -343,7 +355,9 @@ def setup_logging():
     """
     logging.basicConfig(level=logging.INFO)
 
+
 # Results storage functions/classes
+
 
 class ResultsStorage:
     """
@@ -367,12 +381,17 @@ class ResultsStorage:
         alpha = state["alpha"]
 
         if self.comm.rank == 0:
-            with open(f"{self.prefix}/parameters.yaml", 'w') as file:
+            with open(f"{self.prefix}/parameters.yaml", "w") as file:
                 yaml.dump(parameters, file)
 
-        with XDMFFile(self.comm, f"{self.prefix}/simulation_results.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+        with XDMFFile(
+            self.comm,
+            f"{self.prefix}/simulation_results.xdmf",
+            "w",
+            encoding=XDMFFile.Encoding.HDF5,
+        ) as file:
             # for t, data in history_data.items():
-                # file.write_scalar(data, t)
+            # file.write_scalar(data, t)
             file.write_mesh(u.function_space.mesh)
 
             file.write_function(u, t)
@@ -382,7 +401,9 @@ class ResultsStorage:
             with open(f"{self.prefix}/time_data.json", "w") as file:
                 json.dump(history_data, file)
 
+
 # Visualization functions/classes
+
 
 class Visualization:
     """
@@ -415,7 +436,9 @@ class Visualization:
             json.dump(data.to_json(), a_file)
             a_file.close()
 
+
 # Time loop function
+
 
 def run_time_loop(parameters, solver, model, bcs):
     """
@@ -436,9 +459,12 @@ def run_time_loop(parameters, solver, model, bcs):
     comm = MPI.COMM_WORLD
     dx = ufl.Measure("dx", domain=state["u"].function_space.mesh)
 
-    loads = np.linspace(parameters["loading"]["min"],
-                        parameters["loading"]["max"], parameters["loading"]["steps"])
-    
+    loads = np.linspace(
+        parameters["loading"]["min"],
+        parameters["loading"]["max"],
+        parameters["loading"]["steps"],
+    )
+
     history_data = {
         "load": [],
         "elastic_energy": [],
@@ -451,19 +477,18 @@ def run_time_loop(parameters, solver, model, bcs):
     cells = np.arange(map.size_local + map.num_ghosts, dtype=np.int32)
 
     from dolfinx import cpp as _cpp
+
     _x = _cpp.fem.interpolation_coords(V_u.element, mesh, cells)
 
     alpha = state["alpha"]
     u = state["u"]
-    
+
     # Main time loop
     for i_t, t in enumerate(loads):
-
-
         # Update boundary conditions or external loads if necessary
-        datum = lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1]))
-        bcs['bcs_u'][1].g.interpolate(datum(_x), cells)
-        bcs['bcs_u'][1].g.x.scatter_forward()
+        datum = lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1]))
+        bcs["bcs_u"][1].g.interpolate(datum(_x), cells)
+        bcs["bcs_u"][1].g.x.scatter_forward()
 
         logging.critical(f"\n\n-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --\n")
 
@@ -474,7 +499,7 @@ def run_time_loop(parameters, solver, model, bcs):
         solver.alpha_lb.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
-        
+
         # Solve for the current time step
         solver.solve()
 
@@ -498,6 +523,7 @@ def run_time_loop(parameters, solver, model, bcs):
 
     return history_data
 
+
 if __name__ == "__main__":
     # Main script execution
     # Load parameters from YAML file
@@ -513,7 +539,6 @@ if __name__ == "__main__":
 
     # Set up boundary conditions
     bcs = setup_boundary_conditions(V_u, V_alpha, parameters["geometry"]["Lx"])
-    
 
     # Initialise material model
     model = initialise_model(parameters)
@@ -541,7 +566,7 @@ if __name__ == "__main__":
 
     visualization = Visualization(f"output/traction_AT2_cone/{signature}")
     visualization.visualise_results(history_data)
-    
+
     pdb.set_trace()
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 

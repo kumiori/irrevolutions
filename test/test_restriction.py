@@ -24,7 +24,6 @@ def get_inactive_dofset(v, F):
     __names = ["u", "alpha"]
 
     for i, space in enumerate([V_u, V_alpha]):
-
         bs = space.dofmap.index_map_bs
 
         size_local = space.dofmap.index_map.size_local
@@ -108,7 +107,7 @@ def test_restriction():
 
     # assert we get the right number of restricted dofs
     assert len(np.concatenate(restricted_dofs)) == vr.getSize()
-    
+
     # return v, vr, constraints
 
 

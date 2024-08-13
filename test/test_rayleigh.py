@@ -25,12 +25,14 @@ test_dir = os.path.dirname(__file__)
 
 _logger.setLevel(logging.CRITICAL)
 
+
 def parallel_assemble_scalar(ufl_form):
-      compiled_form = dolfinx.fem.form(ufl_form)
-      comm = compiled_form.mesh.comm
-      local_scalar = dolfinx.fem.assemble_scalar(compiled_form)
-      return comm.allreduce(local_scalar, op=MPI.SUM)
-  
+    compiled_form = dolfinx.fem.form(ufl_form)
+    comm = compiled_form.mesh.comm
+    local_scalar = dolfinx.fem.assemble_scalar(compiled_form)
+    return comm.allreduce(local_scalar, op=MPI.SUM)
+
+
 def rayleigh_ratio(z, parameters):
     (v, β) = z
     dx = ufl.Measure("dx", v.function_space.mesh)
@@ -52,12 +54,15 @@ def rayleigh_ratio(z, parameters):
     return R
 
 
-def test_rayleigh(parameters = None, storage=None):
-
+def test_rayleigh(parameters=None, storage=None):
     if parameters is None:
-        parameters, signature = load_parameters(os.path.join(test_dir, "parameters.yml"), ndofs=50)
+        parameters, signature = load_parameters(
+            os.path.join(test_dir, "parameters.yml"), ndofs=50
+        )
         pretty_parameters = json.dumps(parameters, indent=2)
-        storage = f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+        storage = (
+            f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+        )
     else:
         signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
@@ -74,7 +79,6 @@ def test_rayleigh(parameters = None, storage=None):
     #     mesh = file.read_mesh(name='mesh')
     N = parameters["geometry"]["N"]
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, N)
-
 
     ColorPrint.print_bold(f"===================-{storage}-=================")
 

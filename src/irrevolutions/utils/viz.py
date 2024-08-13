@@ -36,7 +36,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 #     from dolfinx.plot import create_vtk_topology as compute_topology
 
 
-def plot_vector(u, plotter, subplot=None, scale=1.):
+def plot_vector(u, plotter, subplot=None, scale=1.0):
     if subplot:
         plotter.subplot(subplot[0], subplot[1])
     V = u.function_space
@@ -63,9 +63,10 @@ def plot_vector(u, plotter, subplot=None, scale=1.):
         grid, show_edges=True, color="black", style="wireframe", opacity=0.3
     )
     plotter.view_xy()
-    plotter.set_background('white')
+    plotter.set_background("white")
     return plotter
     # figure = plotter.screenshot(f"./output/test_viz/test_viz_MPI{comm.size}-.png")
+
 
 def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     """Plots a scalar function using pyvista
@@ -78,30 +79,41 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
 
     Returns:
         plotter: Updated plotter object
-   """
+    """
     if subplot:
         plotter.subplot(subplot[0], subplot[1])
     V = u.function_space
     mesh = V.mesh
-    
+
     ret = compute_topology(mesh, mesh.topology.dim)
     if len(ret) == 2:
         topology, cell_types = ret
-    else: 
+    else:
         topology, cell_types, _ = ret
     grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
 
     plotter.subplot(0, 0)
     values = u.vector.array.real.reshape(
-        V.dofmap.index_map.size_local, V.dofmap.index_map_bs)
+        V.dofmap.index_map.size_local, V.dofmap.index_map_bs
+    )
     grid.point_data["u"] = values
     grid.set_active_scalars("u")
     plotter.add_mesh(grid, **lineproperties)
     plotter.view_xy()
-    plotter.set_background('white')
+    plotter.set_background("white")
     return plotter
 
-def plot_profile(u, points, plotter, subplot=None, lineproperties={}, fig=None, ax=None, subplotnumber = 1):
+
+def plot_profile(
+    u,
+    points,
+    plotter,
+    subplot=None,
+    lineproperties={},
+    fig=None,
+    ax=None,
+    subplotnumber=1,
+):
     # import matplotlib.pyplot as plt
     # import dolfinx.geometry
     # mesh = u.function_space.mesh
@@ -124,13 +136,13 @@ def plot_profile(u, points, plotter, subplot=None, lineproperties={}, fig=None, 
     # u_values = u.eval(points_on_proc, cells)
 
     points_on_proc, u_values = get_datapoints(u, points)
-    
+
     if fig is None:
         fig = plt.figure()
 
     if subplot:
         # plotter.subplot(subplot[0], subplot[1])
-    # if subplot:
+        # if subplot:
         plt.subplot(subplot[0], subplot[1], subplotnumber)
     # plt.plot(points_on_proc[:, 0], u_values, "k", ls="-", linewidth=1, label="")
 
@@ -144,6 +156,7 @@ def plot_profile(u, points, plotter, subplot=None, lineproperties={}, fig=None, 
     plt.legend()
     return plt, (points_on_proc[:, 0], u_values)
 
+
 def plot_mesh(mesh, ax=None):
     if ax is None:
         ax = plt.gca()
@@ -154,8 +167,10 @@ def plot_mesh(mesh, ax=None):
     ax.triplot(tria, color="k")
     return ax
 
+
 def get_datapoints(u, points):
     import dolfinx.geometry
+
     mesh = u.function_space.mesh
     cells = []
     bb_tree = dolfinx.geometry.bb_tree(mesh, mesh.topology.dim)
@@ -171,34 +186,32 @@ def get_datapoints(u, points):
 
     points_on_proc = np.array(points_on_proc, dtype=np.float64)
     u_values = u.eval(points_on_proc, cells)
-    
+
     return points_on_proc, u_values
+
 
 def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
     from solvers.function import vec_to_functions
-    
-    vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
+
+    vec_to_functions(bifurcation._spectrum[0]["xk"], [v, β])
     if comm.Get_size() == 1:
         tol = 1e-3
         xs = np.linspace(0 + tol, Lx - tol, 101)
         points = np.zeros((3, 101))
         points[0] = xs
-                
+
         plotter = pyvista.Plotter(
-                    title="Perturbation profile",
-                    window_size=[800, 600],
-                    shape=(1, 1),
-                )
+            title="Perturbation profile",
+            window_size=[800, 600],
+            shape=(1, 1),
+        )
         _plt, data = plot_profile(
-                    β,
-                    points,
-                    plotter,
-                    subplot=(0, 0),
-                    lineproperties={
-                        "c": "k",
-                        "label": f"$\\beta$"
-                    },
-                )
+            β,
+            points,
+            plotter,
+            subplot=(0, 0),
+            lineproperties={"c": "k", "label": f"$\\beta$"},
+        )
         ax = _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
@@ -206,31 +219,28 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
         _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
         _plt.close()
 
-
         plotter = pyvista.Plotter(
-                    title="Cone-Perturbation profile",
-                    window_size=[800, 600],
-                    shape=(1, 1),
-                )
+            title="Cone-Perturbation profile",
+            window_size=[800, 600],
+            shape=(1, 1),
+        )
 
         _plt, data = plot_profile(
-                    stability.perturbation['beta'],
-                    points,
-                    plotter,
-                    subplot=(0, 0),
-                    lineproperties={
-                        "c": "k",
-                        "label": f"$\\beta$"
-                    },
-                )
+            stability.perturbation["beta"],
+            points,
+            plotter,
+            subplot=(0, 0),
+            lineproperties={"c": "k", "label": f"$\\beta$"},
+        )
         ax = _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
         _plt.title("Perurbation from the Cone")
         _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
         _plt.close()
-        
+
     return plotter
+
 
 import scipy
 
@@ -246,7 +256,7 @@ def plot_matrix(M):
 
     for i in range(_M.shape[0]):
         for j in range(_M.shape[0]):
-            c = _M[j,i]
-            ax.text(i, j, f"{c:.3f}", va='center', ha='center')
+            c = _M[j, i]
+            ax.text(i, j, f"{c:.3f}", va="center", ha="center")
 
     return fig
