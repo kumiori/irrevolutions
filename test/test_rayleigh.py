@@ -21,11 +21,6 @@ from irrevolutions.utils.viz import get_datapoints, plot_profile
 from mpi4py import MPI
 from petsc4py import PETSc
 
-# sys.path.append("../")
-# sys.path.append("../playground/nb")
-# from test_extend import test_extend_vector
-# from test_cone_project import _cone_project_restricted
-
 test_dir = os.path.dirname(__file__)
 
 _logger.setLevel(logging.CRITICAL)
@@ -52,7 +47,7 @@ def rayleigh_ratio(z, parameters):
     ) * dx
     denominator = ufl.inner(β, β) * dx
 
-    R = parallel_assemble_scalar(form(numerator)) / parallel_assemble_scalar(form(denominator))
+    R = parallel_assemble_scalar(numerator) / parallel_assemble_scalar(denominator)
 
     return R
 
@@ -202,7 +197,7 @@ def test_rayleigh(parameters = None, storage=None):
         vec_to_functions(bifurcation.spectrum[0]["xk"], [v, β])
 
         _support = indicator_function(stability.perturbation["β"])
-        D_support = dolfinx.fem.assemble_scalar(dolfinx.fem.form(_support * dx))
+        D_support = parallel_assemble_scalar(_support * dx)
 
         tol = 1e-3
         xs = np.linspace(0 + tol, 1 - tol, 101)
