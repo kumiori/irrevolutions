@@ -58,7 +58,6 @@ error_codes = {
 translatePETScERROR = {v: k for k, v in error_codes.items()}
 
 if __name__ == "__main__":
-
     # Example: Look up the description string for an error code
     error_code = 55
     description = translatePETScERROR.get(error_code, "Error code not found")

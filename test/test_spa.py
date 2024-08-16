@@ -1,16 +1,18 @@
-import pickle
 import logging
-from mpi4py import MPI
-from dolfinx.io import XDMFFile
+import os
+import pickle
+import sys
+
+import dolfinx
+import irrevolutions.solvers.restriction as restriction
 import numpy as np
 import ufl
-import dolfinx
+from dolfinx.io import XDMFFile
 from irrevolutions.utils import _logger
+from mpi4py import MPI
 from test_cone_project import _cone_project_restricted
+
 from . import test_binarydataio as bio
-import irrevolutions.solvers.restriction as restriction
-import os
-import sys
 
 sys.path.append("../")
 
@@ -41,7 +43,6 @@ def load_minimal_constraints(filename, spaces):
 
 
 def test_spa():
-
     def iterate(x, xold, errors):
         """
         Perform convergence check and handle exceptions (NonConvergenceException).
@@ -80,7 +81,7 @@ def test_spa():
 
         xAx_r = xk.dot(_Axr)
 
-        _logger.debug(f"xk view in update at iteration")
+        _logger.debug("xk view in update at iteration")
 
         _lmbda_t = xAx_r / xk.dot(xk)
         _y.waxpy(-_lmbda_t, xk, _Axr)

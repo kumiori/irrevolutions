@@ -1,53 +1,47 @@
 #!/usr/bin/env python3
-import pandas as pd
-import numpy as np
-import yaml
-import json
-from pathlib import Path
-import sys
-import os
 import hashlib
+import json
+import logging
+import os
+import sys
+from pathlib import Path
 
-from dolfinx.fem import dirichletbc
+import dolfinx
 import dolfinx.mesh
+import dolfinx.plot
+import numpy as np
+import pandas as pd
+import petsc4py
+import pyvista
+import ufl
+import yaml
 from dolfinx.fem import (
     Function,
     FunctionSpace,
     assemble_scalar,
     dirichletbc,
     form,
+    locate_dofs_topological,
     set_bc,
 )
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-import ufl
-
-from dolfinx.fem.petsc import set_bc
 from dolfinx.io import XDMFFile, gmshio
-import logging
-
-import pyvista
-from pyvista.utilities import xvfb
 from dolfinx.mesh import locate_entities_boundary
-from dolfinx.fem import locate_dofs_topological
-
-from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.algorithms.am import HybridSolver
-from irrevolutions.models import DamageElasticityModel as Brittle
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.meshes.pacman import mesh_pacman
+from irrevolutions.models import DamageElasticityModel as Brittle
 from irrevolutions.utils import (
     ColorPrint,
+    _logger,
     _write_history_data,
     history_data,
     set_vector_to_constant,
 )
-from irrevolutions.utils import _logger
 from irrevolutions.utils.lib import _local_notch_asymptotic
-from irrevolutions.utils.viz import plot_mesh
 from irrevolutions.utils.viz import plot_mesh, plot_scalar, plot_vector
+from mpi4py import MPI
+from petsc4py import PETSc
+from pyvista.utilities import xvfb
 
 description = """We solve here a basic 2d of a notched specimen.
 Imagine a dinner a pizza which is missing a slice, and lots of hungry friends
@@ -221,7 +215,6 @@ def run_computation(parameters, storage):
     _logger.setLevel(level=logging.CRITICAL)
 
     for i_t, t in enumerate(loads):
-
         uD.interpolate(
             lambda x: _local_notch_asymptotic(
                 x, ω=np.deg2rad(_omega / 2.0), t=t, par=parameters["material"]
@@ -244,8 +237,7 @@ def run_computation(parameters, storage):
 
         stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia=inertia)
 
-        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
-
+        with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
             fracture_energy = comm.allreduce(
                 assemble_scalar(form(model.damage_energy_density(state) * dx)),
                 op=MPI.SUM,
@@ -299,6 +291,7 @@ def run_computation(parameters, storage):
 
     return history_data, stability.data, state
 
+
 def load_parameters(file_path, ndofs, model="at1"):
     """
     Load parameters from a YAML file.
@@ -351,6 +344,7 @@ def load_parameters(file_path, ndofs, model="at1"):
 
     return parameters, signature
 
+
 def test_2d():
     # import argparse
     from mpi4py import MPI
@@ -368,7 +362,7 @@ def test_2d():
     )
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment") as timer:
         history_data, stability_data, state = run_computation(parameters, _storage)
 
     ColorPrint.print_bold(history_data["eigs-cone"])

@@ -6,16 +6,17 @@ Summary:
 
 """
 
-import dolfinx.io
-from mpi4py import MPI
+import logging
 
 import dolfinx
+import dolfinx.io
 import dolfinx.plot
+from mpi4py import MPI
 
-import logging
 logging.basicConfig(level=logging.INFO)
 logging.critical(
     f"DOLFINx version: {dolfinx.__version__} based on GIT commit: \
-        {dolfinx.git_commit_hash} of https://github.com/FEniCS/dolfinx/")
+        {dolfinx.git_commit_hash} of https://github.com/FEniCS/dolfinx/"
+)
 
 comm = MPI.COMM_WORLD

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from mpi4py import MPI
-import numpy as np
 
 
 def mesh_tdcb(
@@ -19,7 +18,6 @@ def mesh_tdcb(
     # Perform Gmsh work only on rank = 0
 
     if comm.rank == 0:
-
         import gmsh
 
         # Initialise gmsh and set options
@@ -121,17 +119,16 @@ def mesh_tdcb(
         cell_tag_names = {"Domain": 1}
 
         facet_tag_names = {
-            "top_pin" : 2,
-            "bottom_pin" : 3,
-            "top_boundary" : 4,
-            "bottom_boundary" : 5
+            "top_pin": 2,
+            "bottom_pin": 3,
+            "top_boundary": 4,
+            "bottom_boundary": 5,
         }
 
         # Optional: Write msh file
         if msh_file is not None:
             gmsh.write(msh_file)
 
-    
     tag_names = {"facets": facet_tag_names, "cells": cell_tag_names}
 
     return gmsh.model if comm.rank == 0 else None, tdim, tag_names

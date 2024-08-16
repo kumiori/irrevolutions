@@ -1,16 +1,19 @@
-from irrevolutions.utils import sample_data
+import sys
+
+import dolfinx
+import irrevolutions.solvers.restriction as restriction
+import numpy as np
+from irrevolutions.utils import (
+    _logger,
+    load_binary_matrix,
+    load_binary_vector,
+    sample_data,
+)
+from mpi4py import MPI
+from petsc4py import PETSc
 from test_restriction import (
     get_inactive_dofset,
 )
-from test_extend import test_extend_vector
-from irrevolutions.utils import load_binary_data, load_binary_matrix, load_binary_vector
-from mpi4py import MPI
-from petsc4py import PETSc
-import numpy as np
-import dolfinx
-from irrevolutions.utils import _logger
-import irrevolutions.solvers.restriction as restriction
-import sys
 
 sys.path.append("../")
 
@@ -50,7 +53,7 @@ def _cone_project_restricted(v, _x, constraints):
     Returns:
         Vector: The projected vector.
     """
-    with dolfinx.common.Timer(f"~Second Order: Cone Project"):
+    with dolfinx.common.Timer("~Second Order: Cone Project"):
         [
             (V.dofmap.index_map, V.dofmap.index_map_bs)
             for V in constraints.function_spaces
@@ -67,8 +70,8 @@ def _cone_project_restricted(v, _x, constraints):
             x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
 
             _logger.debug(f"Local dofs: {_dofs}")
-            _logger.debug(f"x_local")
-            _logger.debug(f"x_local truncated")
+            _logger.debug("x_local")
+            _logger.debug("x_local truncated")
 
         _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
         # x_u, x_alpha = get_local_vectors(_x, maps)
@@ -85,7 +88,6 @@ def _cone_project_restricted(v, _x, constraints):
 
 
 def test_cone_project():
-       
     full_matrix = load_binary_matrix("data/solver/A.mat")
     matrix = load_binary_matrix("data/solver/Ar.mat")
     guess = load_binary_vector("data/solver/x0r.vec")
@@ -103,7 +105,7 @@ def test_cone_project():
     vr = constraints.restrict_vector(v)
     # x = test_cone_project_restricted(vr, constraints, x)
     x = _cone_project_restricted(vr, _x, constraints)
- 
+
 
 if __name__ == "__main__":
     test_cone_project()

@@ -1,7 +1,7 @@
 import typing
 
-import numpy
 import dolfinx
+import numpy
 from petsc4py import PETSc
 
 
@@ -39,7 +39,6 @@ class Restriction:
         offset_vec = 0
 
         for i, space in enumerate(function_spaces):
-
             bs = space.dofmap.index_map_bs
 
             size_local = space.dofmap.index_map.size_local
@@ -91,9 +90,9 @@ class Restriction:
         for i, fi in enumerate(f):
             num_rdofs = self.bglobal_dofs_vec[i].shape[0]
 
-            fi.vector.array[
-                self.bglobal_dofs_vec[i] - self.boffsets_vec[i]
-            ] = rx.array_r[rdof_offset : (rdof_offset + num_rdofs)]
+            fi.vector.array[self.bglobal_dofs_vec[i] - self.boffsets_vec[i]] = (
+                rx.array_r[rdof_offset : (rdof_offset + num_rdofs)]
+            )
 
             fi.vector.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD

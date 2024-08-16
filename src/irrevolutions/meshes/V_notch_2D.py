@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from mpi4py import MPI
 import numpy as np
+from mpi4py import MPI
 
 
 def mesh_V_notch(
@@ -22,7 +22,6 @@ def mesh_V_notch(
     # Perform Gmsh work only on rank = 0
 
     if comm.rank == 0:
-
         import gmsh
 
         # Initialise gmsh and set options
@@ -60,8 +59,6 @@ def mesh_V_notch(
         notch_top = model.geo.addLine(p6, p4, tag=12)
         notch_bottom = model.geo.addLine(p4, p5, tag=13)
 
-
-
         cell_tag_names = {"Domain": 15}
 
         cloop = model.geo.addCurveLoop(
@@ -91,13 +88,9 @@ def mesh_V_notch(
 
         model.mesh.generate(tdim)
 
-
-        facet_tag_names = {
-            'extboundary': 100
-        }
+        facet_tag_names = {"extboundary": 100}
         tag_names = {"facets": facet_tag_names, "cells": cell_tag_names}
-        
-        
+
         # Optional: Write msh file
         if msh_file is not None:
             gmsh.write(msh_file)

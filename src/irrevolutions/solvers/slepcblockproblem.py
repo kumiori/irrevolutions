@@ -1,18 +1,15 @@
+import logging
 import typing
 
 # from yaml.tokens import BlockSequenceStartToken
-
 import dolfinx
 import ufl
-from .function import vec_to_functions
-from slepc4py import SLEPc
-from irrevolutions.utils.viz import plot_matrix
 
 # plot_matrix
-
 from petsc4py import PETSc
-import logging
-import pdb
+from slepc4py import SLEPc
+
+from .function import vec_to_functions
 
 
 class SLEPcBlockProblem:
@@ -306,7 +303,7 @@ class SLEPcBlockProblemRestricted:
         # logging.debug(f"mat rA sizes {self.rA.sizes}")
         # logging.debug(f"mat  A sizes {self.A.sizes}")
 
-        if logging.getLevelName(logging.getLogger().getEffectiveLevel()) == 'DEBUG':
+        if logging.getLevelName(logging.getLogger().getEffectiveLevel()) == "DEBUG":
             viewer = PETSc.Viewer().createASCII(
                 f"rA-{self.eps.getOptionsPrefix()[0:-1]}.txt"
             )
@@ -321,7 +318,6 @@ class SLEPcBlockProblemRestricted:
             # logging.critical(f"mat rB sizes {self.rB.sizes}")
             # logging.critical(f"mat  B sizes {self.B.sizes}")
             # logging.critical(f"mat  B norm {self.B.norm()}")
-
 
         if not self.empty_B():
             # pdb.set_trace()

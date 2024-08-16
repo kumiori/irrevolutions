@@ -1,6 +1,5 @@
 # %%capture
 import subprocess
-import sys
 
 try:
     import google.colab  # noqa: F401
@@ -14,7 +13,13 @@ else:
     except ImportError:
         # !wget "https://fem-on-colab.github.io/releases/fenicsx-install.sh" -O "/tmp/fenicsx-install.sh" && bash "/tmp/fenicsx-install.sh";
         try:
-            subprocess.run(["wget", "https://fem-on-colab.github.io/releases/fenicsx-install.sh", "-O /tmp/fenicsx-install.sh"])
+            subprocess.run(
+                [
+                    "wget",
+                    "https://fem-on-colab.github.io/releases/fenicsx-install.sh",
+                    "-O /tmp/fenicsx-install.sh",
+                ]
+            )
         except subprocess.CalledProcessError as ret:
             print("error code", ret.returncode, ret.output)
 

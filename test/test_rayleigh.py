@@ -2,9 +2,8 @@ import argparse
 import hashlib
 import json
 import logging
-import sys
-from pathlib import Path
 import os
+from pathlib import Path
 
 import dolfinx
 import matplotlib.pyplot as plt
@@ -13,7 +12,6 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.fem import dirichletbc, locate_dofs_geometrical
-from dolfinx.fem import form, assemble_scalar
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.utils import ColorPrint, _logger, indicator_function
@@ -21,14 +19,16 @@ from irrevolutions.utils.viz import get_datapoints, plot_profile
 from mpi4py import MPI
 from petsc4py import PETSc
 
-# sys.path.append("../")
-# sys.path.append("../playground/nb")
-# from test_extend import test_extend_vector
-# from test_cone_project import _cone_project_restricted
-
 test_dir = os.path.dirname(__file__)
 
 _logger.setLevel(logging.CRITICAL)
+
+
+def parallel_assemble_scalar(ufl_form):
+    compiled_form = dolfinx.fem.form(ufl_form)
+    comm = compiled_form.mesh.comm
+    local_scalar = dolfinx.fem.assemble_scalar(compiled_form)
+    return comm.allreduce(local_scalar, op=MPI.SUM)
 
 
 def rayleigh_ratio(z, parameters):
@@ -47,17 +47,20 @@ def rayleigh_ratio(z, parameters):
     ) * dx
     denominator = ufl.inner(β, β) * dx
 
-    R = assemble_scalar(form(numerator)) / assemble_scalar(form(denominator))
+    R = parallel_assemble_scalar(numerator) / parallel_assemble_scalar(denominator)
 
     return R
 
 
-def test_rayleigh(parameters = None, storage=None):
-
+def test_rayleigh(parameters=None, storage=None):
     if parameters is None:
-        parameters, signature = load_parameters(os.path.join(test_dir, "parameters.yml"), ndofs=50)
+        parameters, signature = load_parameters(
+            os.path.join(test_dir, "parameters.yml"), ndofs=50
+        )
         pretty_parameters = json.dumps(parameters, indent=2)
-        storage = f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+        storage = (
+            f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+        )
     else:
         signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
@@ -74,7 +77,6 @@ def test_rayleigh(parameters = None, storage=None):
     #     mesh = file.read_mesh(name='mesh')
     N = parameters["geometry"]["N"]
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, N)
-
 
     ColorPrint.print_bold(f"===================-{storage}-=================")
 
@@ -197,7 +199,7 @@ def test_rayleigh(parameters = None, storage=None):
         vec_to_functions(bifurcation.spectrum[0]["xk"], [v, β])
 
         _support = indicator_function(stability.perturbation["β"])
-        D_support = dolfinx.fem.assemble_scalar(dolfinx.fem.form(_support * dx))
+        D_support = parallel_assemble_scalar(_support * dx)
 
         tol = 1e-3
         xs = np.linspace(0 + tol, 1 - tol, 101)
@@ -218,7 +220,7 @@ def test_rayleigh(parameters = None, storage=None):
             subplot=(1, 3),
             fig=fig,
             ax=axes[0],
-            lineproperties={"c": "k", "label": f"$\\beta$"},
+            lineproperties={"c": "k", "label": "$\\beta$"},
             subplotnumber=1,
         )
         axes[0] = _plt.gca()
@@ -238,7 +240,7 @@ def test_rayleigh(parameters = None, storage=None):
             subplot=(1, 3),
             fig=fig,
             ax=axes[0],
-            lineproperties={"c": "k", "label": f"$v$", "ls": "--"},
+            lineproperties={"c": "k", "label": "$v$", "ls": "--"},
             subplotnumber=1,
         )
         axes[0].set_ylabel("$v,\\beta$")
@@ -250,7 +252,7 @@ def test_rayleigh(parameters = None, storage=None):
             fig=fig,
             ax=axes[1],
             subplot=(1, 3),
-            lineproperties={"c": "k", "label": f"$\\beta$"},
+            lineproperties={"c": "k", "label": "$\\beta$"},
             subplotnumber=2,
         )
         _plt.fill_between(
@@ -264,7 +266,7 @@ def test_rayleigh(parameters = None, storage=None):
             fig=fig,
             ax=axes[1],
             subplot=(1, 3),
-            lineproperties={"c": "k", "label": f"$v$", "ls": "--"},
+            lineproperties={"c": "k", "label": "$v$", "ls": "--"},
             subplotnumber=2,
         )
 
@@ -285,7 +287,7 @@ def test_rayleigh(parameters = None, storage=None):
             fig=fig,
             ax=axes[2],
             subplot=(1, 3),
-            lineproperties={"c": "k", "label": f"$\\zeta$"},
+            lineproperties={"c": "k", "label": "$\\zeta$"},
             subplotnumber=3,
         )
         _plt.fill_between(
@@ -299,7 +301,7 @@ def test_rayleigh(parameters = None, storage=None):
             fig=fig,
             ax=axes[2],
             subplot=(1, 3),
-            lineproperties={"c": "k", "label": f"$w$", "ls": "--"},
+            lineproperties={"c": "k", "label": "$w$", "ls": "--"},
             subplotnumber=3,
         )
 
@@ -444,5 +446,5 @@ if __name__ == "__main__":
     _storage = f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment") as timer:
         history_data, stability_data, state = test_rayleigh(parameters, _storage)

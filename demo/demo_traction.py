@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
-import pandas as pd
-from irrevolutions.utils.plots import plot_energies, plot_force_displacement
-from irrevolutions.utils.viz import plot_scalar, plot_vector
-from irrevolutions.meshes.primitives import mesh_bar_gmshapi
-from irrevolutions.algorithms.am import AlternateMinimisation, HybridSolver
-from irrevolutions.models import DamageElasticityModel as Brittle
-import pyvista
-from pyvista.utilities import xvfb
+import json
+import logging
+import os
+import sys
+from pathlib import Path
+
+import dolfinx
 import dolfinx.mesh
+import dolfinx.plot
+import numpy as np
+import pandas as pd
+import petsc4py
+import pyvista
+import ufl
+import yaml
+from dolfinx.common import list_timings
 from dolfinx.fem import (
     Constant,
     Function,
@@ -19,23 +26,14 @@ from dolfinx.fem import (
     set_bc,
 )
 from dolfinx.io import XDMFFile, gmshio
-import numpy as np
-import yaml
-import json
-from pathlib import Path
-import sys
-import os
+from irrevolutions.algorithms.am import AlternateMinimisation, HybridSolver
+from irrevolutions.meshes.primitives import mesh_bar_gmshapi
+from irrevolutions.models import DamageElasticityModel as Brittle
+from irrevolutions.utils.plots import plot_energies, plot_force_displacement
+from irrevolutions.utils.viz import plot_scalar, plot_vector
 from mpi4py import MPI
-import petsc4py
 from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-import ufl
-import numpy as np
-
-from dolfinx.common import list_timings
-
-import logging
+from pyvista.utilities import xvfb
 
 logging.basicConfig(level=logging.INFO)
 

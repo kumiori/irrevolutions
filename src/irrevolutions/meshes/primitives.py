@@ -3,19 +3,10 @@
 from mpi4py import MPI
 
 
-def mesh_ep_gmshapi(name,
-                    Lx,
-                    Ly,
-                    L0, 
-                    s,
-                    lc,
-                    tdim,
-                    order=1,
-                    msh_file=None,
-                    sep=0.1,
-                    comm=MPI.COMM_WORLD):
+def mesh_ep_gmshapi(
+    name, Lx, Ly, L0, s, lc, tdim, order=1, msh_file=None, sep=0.1, comm=MPI.COMM_WORLD
+):
     if comm.rank == 0:
-
         import gmsh
 
         # Initialise gmsh and set options
@@ -30,28 +21,41 @@ def mesh_ep_gmshapi(name,
         p1 = model.geo.addPoint(Lx, 0.0, 0, lc, tag=1)
         p2 = model.geo.addPoint(Lx, Ly, 0.0, lc, tag=2)
         p3 = model.geo.addPoint(0, Ly, 0, lc, tag=3)
-        #pLa= model.geo.addPoint(0, Ly/2-s/2, 0, lc, tag=4)
-        pRa= model.geo.addPoint(Lx, Ly/2+s/2-sep, 0, lc, tag=6)
-        pRb= model.geo.addPoint(Lx, Ly/2+s/2+sep, 0, lc, tag=7)
-        pLa= model.geo.addPoint(0, Ly/2-s/2-sep, 0, lc, tag=8)
-        pLb= model.geo.addPoint(0, Ly/2-s/2+sep, 0, lc, tag=5)
-        plM= model.geo.addPoint(L0, Ly/2-s/2, 0, lc, tag=9)
-        prM= model.geo.addPoint(Lx-L0, Ly/2+s/2, 0, lc, tag=10)
+        # pLa= model.geo.addPoint(0, Ly/2-s/2, 0, lc, tag=4)
+        pRa = model.geo.addPoint(Lx, Ly / 2 + s / 2 - sep, 0, lc, tag=6)
+        pRb = model.geo.addPoint(Lx, Ly / 2 + s / 2 + sep, 0, lc, tag=7)
+        pLa = model.geo.addPoint(0, Ly / 2 - s / 2 - sep, 0, lc, tag=8)
+        pLb = model.geo.addPoint(0, Ly / 2 - s / 2 + sep, 0, lc, tag=5)
+        plM = model.geo.addPoint(L0, Ly / 2 - s / 2, 0, lc, tag=9)
+        prM = model.geo.addPoint(Lx - L0, Ly / 2 + s / 2, 0, lc, tag=10)
         # points = [p0, p1, p2, p3]
         bottom = model.geo.addLine(p0, p1, tag=0)
-        #right = model.geo.addLine(p1, p2, tag=1)
+        # right = model.geo.addLine(p1, p2, tag=1)
         rightB = model.geo.addLine(p1, pRa, tag=1)
-        crackBR= model.geo.addLine(pRa, prM, tag=2)
-        crackTR= model.geo.addLine(prM, pRb, tag=3)
+        crackBR = model.geo.addLine(pRa, prM, tag=2)
+        crackTR = model.geo.addLine(prM, pRb, tag=3)
         rightT = model.geo.addLine(pRb, p2, tag=4)
         top = model.geo.addLine(p2, p3, tag=5)
-        #left=model.geo.addLine(p3, p0, tag=6)
+        # left=model.geo.addLine(p3, p0, tag=6)
         leftT = model.geo.addLine(p3, pLb, tag=6)
         crackTL = model.geo.addLine(pLb, plM, tag=7)
         crackBL = model.geo.addLine(plM, pLa, tag=8)
         leftB = model.geo.addLine(pLa, p0, tag=9)
-        #cloop1 = model.geo.addCurveLoop([bottom, right, top, left])
-        cloop1 = model.geo.addCurveLoop([crackTR, rightT, top, leftT, crackTL, crackBL, leftB, bottom, rightB, crackBR])
+        # cloop1 = model.geo.addCurveLoop([bottom, right, top, left])
+        cloop1 = model.geo.addCurveLoop(
+            [
+                crackTR,
+                rightT,
+                top,
+                leftT,
+                crackTL,
+                crackBL,
+                leftB,
+                bottom,
+                rightB,
+                crackBR,
+            ]
+        )
         # surface_1 =
         model.geo.addPlaneSurface([cloop1])
 
@@ -72,18 +76,18 @@ def mesh_ep_gmshapi(name,
         # domain = 1
         # gmsh.model.addPhysicalGroup(tdim, [v[1] for v in volumes], domain)
         # gmsh.model.setPhysicalName(tdim, domain, 'domain')
-        #gmsh.model.addPhysicalGroup(tdim - 2, [9], tag=18)
-        #gmsh.model.setPhysicalName(tdim - 2, 18, "nodeLeftMiddle")
+        # gmsh.model.addPhysicalGroup(tdim - 2, [9], tag=18)
+        # gmsh.model.setPhysicalName(tdim - 2, 18, "nodeLeftMiddle")
         gmsh.model.addPhysicalGroup(tdim - 1, [0], tag=10)
         gmsh.model.setPhysicalName(tdim - 1, 10, "bottom")
         gmsh.model.addPhysicalGroup(tdim - 1, [5], tag=11)
         gmsh.model.setPhysicalName(tdim - 1, 11, "top")
-        
+
         gmsh.model.addPhysicalGroup(tdim - 1, [6, 7, 8, 9], tag=12)
-        #gmsh.model.addPhysicalGroup(tdim - 1, [6], tag=12)
+        # gmsh.model.addPhysicalGroup(tdim - 1, [6], tag=12)
         gmsh.model.setPhysicalName(tdim - 1, 12, "left")
         gmsh.model.addPhysicalGroup(tdim - 1, [1, 2, 3, 4], tag=13)
-        #gmsh.model.addPhysicalGroup(tdim - 1, [1], tag=13)
+        # gmsh.model.addPhysicalGroup(tdim - 1, [1], tag=13)
         gmsh.model.setPhysicalName(tdim - 1, 13, "right")
         gmsh.model.addPhysicalGroup(tdim - 1, [7], tag=14)
         gmsh.model.setPhysicalName(tdim - 1, 14, "Lliptop")
@@ -93,7 +97,7 @@ def mesh_ep_gmshapi(name,
         gmsh.model.setPhysicalName(tdim - 1, 16, "Rliptop")
         gmsh.model.addPhysicalGroup(tdim - 1, [3], tag=17)
         gmsh.model.setPhysicalName(tdim - 1, 17, "Rlipbot")
-        
+
         model.mesh.generate(tdim)
 
         # Define physical groups for interfaces (! target tag > 0)
@@ -120,19 +124,10 @@ def mesh_ep_gmshapi(name,
     return gmsh.model if comm.rank == 0 else None, tdim
 
 
-def mesh_rightCrack_gmshapi(name,
-                    Lx,
-                    Ly,
-                    L0, 
-                    s,
-                    lc,
-                    tdim,
-                    order=1,
-                    msh_file=None,
-                    sep=0.1,
-                    comm=MPI.COMM_WORLD):
+def mesh_rightCrack_gmshapi(
+    name, Lx, Ly, L0, s, lc, tdim, order=1, msh_file=None, sep=0.1, comm=MPI.COMM_WORLD
+):
     if comm.rank == 0:
-
         import gmsh
 
         # Initialise gmsh and set options
@@ -147,24 +142,26 @@ def mesh_rightCrack_gmshapi(name,
         p1 = model.geo.addPoint(Lx, 0.0, 0, lc, tag=1)
         p2 = model.geo.addPoint(Lx, Ly, 0.0, lc, tag=2)
         p3 = model.geo.addPoint(0, Ly, 0, lc, tag=3)
-        #pLa= model.geo.addPoint(0, Ly/2-s/2, 0, lc, tag=4)
-        pRa= model.geo.addPoint(Lx, Ly/2+s/2-sep, 0, lc, tag=6)
-        pRb= model.geo.addPoint(Lx, Ly/2+s/2+sep, 0, lc, tag=7)
-        pLa= model.geo.addPoint(0, Ly/2-s/2-sep, 0, lc, tag=8)
-        pLb= model.geo.addPoint(0, Ly/2-s/2+sep, 0, lc, tag=5)
-        plM= model.geo.addPoint(L0, Ly/2-s/2, 0, lc, tag=9)
-        prM= model.geo.addPoint(Lx-L0, Ly/2+s/2, 0, lc, tag=10)
+        # pLa= model.geo.addPoint(0, Ly/2-s/2, 0, lc, tag=4)
+        pRa = model.geo.addPoint(Lx, Ly / 2 + s / 2 - sep, 0, lc, tag=6)
+        pRb = model.geo.addPoint(Lx, Ly / 2 + s / 2 + sep, 0, lc, tag=7)
+        pLa = model.geo.addPoint(0, Ly / 2 - s / 2 - sep, 0, lc, tag=8)
+        pLb = model.geo.addPoint(0, Ly / 2 - s / 2 + sep, 0, lc, tag=5)
+        plM = model.geo.addPoint(L0, Ly / 2 - s / 2, 0, lc, tag=9)
+        prM = model.geo.addPoint(Lx - L0, Ly / 2 + s / 2, 0, lc, tag=10)
         # points = [p0, p1, p2, p3]
         bottom = model.geo.addLine(p0, p1, tag=0)
         right = model.geo.addLine(p1, p2, tag=1)
         top = model.geo.addLine(p2, p3, tag=5)
-        #left=model.geo.addLine(p3, p0, tag=6)
+        # left=model.geo.addLine(p3, p0, tag=6)
         leftT = model.geo.addLine(p3, pLb, tag=6)
         crackTL = model.geo.addLine(pLb, plM, tag=7)
         crackBL = model.geo.addLine(plM, pLa, tag=8)
         leftB = model.geo.addLine(pLa, p0, tag=9)
-        #cloop1 = model.geo.addCurveLoop([bottom, right, top, left])
-        cloop1 = model.geo.addCurveLoop([right, top, leftT, crackTL, crackBL, leftB, bottom])
+        # cloop1 = model.geo.addCurveLoop([bottom, right, top, left])
+        cloop1 = model.geo.addCurveLoop(
+            [right, top, leftT, crackTL, crackBL, leftB, bottom]
+        )
         # surface_1 =
         model.geo.addPlaneSurface([cloop1])
 
@@ -185,24 +182,24 @@ def mesh_rightCrack_gmshapi(name,
         # domain = 1
         # gmsh.model.addPhysicalGroup(tdim, [v[1] for v in volumes], domain)
         # gmsh.model.setPhysicalName(tdim, domain, 'domain')
-        #gmsh.model.addPhysicalGroup(tdim - 2, [9], tag=18)
-        #gmsh.model.setPhysicalName(tdim - 2, 18, "nodeLeftMiddle")
+        # gmsh.model.addPhysicalGroup(tdim - 2, [9], tag=18)
+        # gmsh.model.setPhysicalName(tdim - 2, 18, "nodeLeftMiddle")
         gmsh.model.addPhysicalGroup(tdim - 1, [0], tag=10)
         gmsh.model.setPhysicalName(tdim - 1, 10, "bottom")
         gmsh.model.addPhysicalGroup(tdim - 1, [5], tag=11)
         gmsh.model.setPhysicalName(tdim - 1, 11, "top")
-        
-        #gmsh.model.addPhysicalGroup(tdim - 1, [6, 7, 8, 9], tag=12)
+
+        # gmsh.model.addPhysicalGroup(tdim - 1, [6, 7, 8, 9], tag=12)
         gmsh.model.addPhysicalGroup(tdim - 1, [6], tag=12)
         gmsh.model.setPhysicalName(tdim - 1, 12, "left")
-        #gmsh.model.addPhysicalGroup(tdim - 1, [1, 2, 3, 4], tag=13)
+        # gmsh.model.addPhysicalGroup(tdim - 1, [1, 2, 3, 4], tag=13)
         gmsh.model.addPhysicalGroup(tdim - 1, [1], tag=13)
         gmsh.model.setPhysicalName(tdim - 1, 13, "right")
         gmsh.model.addPhysicalGroup(tdim - 1, [7], tag=14)
         gmsh.model.setPhysicalName(tdim - 1, 14, "Lliptop")
         gmsh.model.addPhysicalGroup(tdim - 1, [8], tag=15)
         gmsh.model.setPhysicalName(tdim - 1, 15, "Llipbot")
-        
+
         model.mesh.generate(tdim)
 
         # Define physical groups for interfaces (! target tag > 0)
@@ -228,21 +225,16 @@ def mesh_rightCrack_gmshapi(name,
 
     return gmsh.model if comm.rank == 0 else None, tdim
 
-def mesh_bar_gmshapi(name,
-                     Lx,
-                     Ly,
-                     lc,
-                     tdim,
-                     order=1,
-                     msh_file=None,
-                     comm=MPI.COMM_WORLD):
+
+def mesh_bar_gmshapi(
+    name, Lx, Ly, lc, tdim, order=1, msh_file=None, comm=MPI.COMM_WORLD
+):
     """
     Create mesh of 3d tensile test specimen according to ISO 6892-1:2019 using the Python API of Gmsh.
     """
     # Perform Gmsh work only on rank = 0
 
     if comm.rank == 0:
-
         import gmsh
 
         # Initialise gmsh and set options
@@ -319,13 +311,7 @@ def mesh_bar_gmshapi(name,
     return gmsh.model if comm.rank == 0 else None, tdim
 
 
-def mesh_circle_gmshapi(name,
-                        R,
-                        lc,
-                        tdim,
-                        order=1,
-                        msh_file=None,
-                        comm=MPI.COMM_WORLD):
+def mesh_circle_gmshapi(name, R, lc, tdim, order=1, msh_file=None, comm=MPI.COMM_WORLD):
     """
     Create 2d circle mesh using the Python API of Gmsh.
     """
@@ -376,20 +362,18 @@ if __name__ == "__main__":
     import sys
 
     sys.path.append("../../damage")
-    from xdmf import XDMFFile
+    from pathlib import Path
+
+    import dolfinx.plot
     from mesh import gmsh_to_dolfin
 
     # , merge_meshtags, locate_dofs_topological
     from mpi4py import MPI
-    from pathlib import Path
-    import dolfinx.plot
+    from xdmf import XDMFFile
 
-    gmsh_model, tdim = mesh_bar_gmshapi("bar",
-                                        1,
-                                        0.1,
-                                        0.01,
-                                        2,
-                                        msh_file="output/bar.msh")
+    gmsh_model, tdim = mesh_bar_gmshapi(
+        "bar", 1, 0.1, 0.01, 2, msh_file="output/bar.msh"
+    )
     mesh, mts = gmsh_to_dolfin(gmsh_model, tdim, prune_z=True)
     Path("output").mkdir(parents=True, exist_ok=True)
     with XDMFFile(MPI.COMM_WORLD, "output/bar.xdmf", "w") as ofile:
@@ -401,8 +385,7 @@ if __name__ == "__main__":
     xvfb.start_xvfb(wait=0.05)
     pyvista.OFF_SCREEN = True
     plotter = pyvista.Plotter(title="Bar mesh")
-    topology, cell_types = dolfinx.plot.create_vtk_topology(
-        mesh, mesh.topology.dim)
+    topology, cell_types = dolfinx.plot.create_vtk_topology(mesh, mesh.topology.dim)
     grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
     # plotter.subplot(0, 0)
     actor_1 = plotter.add_mesh(grid, show_edges=True)

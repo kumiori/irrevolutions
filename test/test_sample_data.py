@@ -1,12 +1,13 @@
-from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
-from mpi4py import MPI
-from petsc4py import PETSc
 import random
+import sys
+
+import dolfinx
 import numpy as np
 import ufl
-import dolfinx
+from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
 from irrevolutions.utils import _logger
-import sys
+from mpi4py import MPI
+from petsc4py import PETSc
 
 sys.path.append("../")
 

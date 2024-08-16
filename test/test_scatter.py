@@ -1,16 +1,16 @@
-import random
-from dolfinx import cpp as _cpp
-import numpy as np
-from dolfinx.fem import locate_dofs_geometrical
-import irrevolutions.solvers.restriction as restriction
-import ufl
-import dolfinx
-from petsc4py import PETSc
-from mpi4py import MPI
-import sys
 import os
+import random
+import sys
 
+import dolfinx
+import irrevolutions.solvers.restriction as restriction
+import numpy as np
 import petsc4py
+import ufl
+from dolfinx import cpp as _cpp
+from dolfinx.fem import locate_dofs_geometrical
+from mpi4py import MPI
+from petsc4py import PETSc
 
 petsc4py.init(sys.argv)
 
@@ -138,7 +138,6 @@ v.restoreSubVector(_is, _sub)
 print(f"v restored (projected) {v.array}")
 
 for i, space in enumerate([V_u, V_alpha]):
-
     bs = space.dofmap.index_map_bs
 
     size_local = space.dofmap.index_map.size_local
@@ -151,19 +150,19 @@ for i, space in enumerate([V_u, V_alpha]):
 
 x0_local = _cpp.la.petsc.get_local_vectors(x, maps)
 
-print(f"this should scatter x0_local into the global vector v")
+print("this should scatter x0_local into the global vector v")
 
 _cpp.la.petsc.scatter_local_vectors(v, x0_local, maps)
 v.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.FORWARD)
 
-print(f"v should now be zero")
+print("v should now be zero")
 print(f"v restored (projected) {v.array}")
 
 _sub = v.getSubVector(_is)
 _sub.pointwiseMax(_sub, a)
 
 # _cpp.la.petsc.scatter_local_vectors(v, x0_local, maps)
-print(f"v should now be harmless")
+print("v should now be harmless")
 
 print(f"v restored {v.array}")
 
@@ -187,7 +186,7 @@ def converged(x):
     # if not converged:
     #     its += 1
 
-    print("converged" if _converged else f" converging")
+    print("converged" if _converged else " converging")
 
     return _converged
 

@@ -1,5 +1,5 @@
 [project]
-name = "irreversible-variational-solvers"
+name = "irrevolutions"
 authors = [
     {name = "Andrés A León Baldelli", email = "leon.baldelli@cnrs.fr"},
     ]
@@ -32,7 +32,5 @@ dependencies = [
 [project.optional-dependencies]
 test = ["pytest"]
 
-#    "numpy>=1.26.0",
-#    "mpi4py>=3.1.5",
-#    "slepc4py==3.20.1",
-#    "petsc4py>=3.20.5",
+[tool.ruff.lint.isort.sections]
+"mpi" = ["mpi4py", "petsc4py"]

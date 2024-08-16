@@ -1,56 +1,39 @@
 # Numpy -> numerical library for Python. We'll use it for all array operations.
 # It's written in C and it's faster (than traditional Python)
-from algorithms import am
-import algorithms
-from models import DamageElasticityModel as Brittle
-import models
-from pyvista.utilities import xvfb
-import pyvista
-from utils.viz import plot_mesh, plot_vector, plot_scalar
-from irrevolutions.utils import viz
-from meshes import primitives
-import meshes
-import matplotlib.pyplot as plt
-import gmsh
-from dolfinx.io import XDMFFile
-import ufl
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
-import dolfinx.io
 import logging
-from dolfinx import log
-import dolfinx.plot
-import dolfinx
-from petsc4py import PETSc
-import petsc4py
-from mpi4py import MPI
-import pdb
-from pathlib import Path
-import os
-import numpy as np
 
 # Yaml (Yet another markup language) -> We'll use it to pass, read and structure
 # light text data in .yml files.
-import yaml
-
 # Json -> Another form to work with data. It comes from JavaScript. Similar functions
 # that Yaml. Used speacily with API request, when we need data "fetch".
-import json
-
 # Communication with the machine:
 # Sys -> allows to acess the system and launch commandes.
 # Os - > allows to acess the operation system.
 import sys
+
+import dolfinx
+import dolfinx.io
+import dolfinx.plot
+import gmsh
+import matplotlib.pyplot as plt
+import meshes
+import numpy as np
+import pyvista
+import ufl
+from algorithms import am
+from dolfinx.fem import (
+    assemble_scalar,
+    dirichletbc,
+    locate_dofs_geometrical,
+    set_bc,
+)
+from models import DamageElasticityModel as Brittle
+from petsc4py import PETSc
+from pyvista.utilities import xvfb
+from utils.viz import plot_mesh, plot_scalar, plot_vector
+
 # -> this serves to add a path to the code search for things
-sys.path.append('../')
+sys.path.append("../")
 
 # pdb -> usefull for debugging, it can stop a code operation and allows to read
 # variables and do calculations
@@ -85,65 +68,60 @@ logging.basicConfig(level=logging.INFO)
 parameters = {
     # In case of evolution (nonlinear) problems, it's necessary to define a max
     # and a min. For the elastic solution, just one value in needed.
-    'loading': {
-        'type': 'ID',  # ID -> Imposed Displacement | IF -> Imposed Force
-        'min': 0,
-        'max': 1.5,
-        'steps': 20
+    "loading": {
+        "type": "ID",  # ID -> Imposed Displacement | IF -> Imposed Force
+        "min": 0,
+        "max": 1.5,
+        "steps": 20,
     },
-    'geometry': {
-        'geom_type': 'bar',
-        'Lx': 1.,
-        'Ly': 0.01
+    "geometry": {"geom_type": "bar", "Lx": 1.0, "Ly": 0.01},
+    "model": {
+        "E": 1.0,
+        "nu": 0.3,
+        "mu": 0,  # don't change it -> calculated later
+        "lmbda": 0,  # don't change it -> calculated later
+        "w1": 1.0,
+        "ell": 0.01,
+        "k_res": 1.0e-8,
     },
-    'model': {
-        'E': 1.0,
-        'nu': 0.3,
-        'mu': 0,  # don't change it -> calculated later
-        'lmbda': 0,  # don't change it -> calculated later
-        'w1': 1.,
-        'ell': 0.01,
-        'k_res': 1.e-8
-    },
-    'solvers': {
-        'elasticity': {
-            'snes': {
-                'snes_type': 'newtontr',
-                'snes_stol': 1e-8,
-                'snes_atol': 1e-8,
-                'snes_rtol': 1e-8,
-                'snes_max_it': 100,
-                'snes_monitor': "",
-                'ksp_type': 'preonly',
-                'pc_type': 'lu',
-                'pc_factor_mat_solver_type': 'mumps'
+    "solvers": {
+        "elasticity": {
+            "snes": {
+                "snes_type": "newtontr",
+                "snes_stol": 1e-8,
+                "snes_atol": 1e-8,
+                "snes_rtol": 1e-8,
+                "snes_max_it": 100,
+                "snes_monitor": "",
+                "ksp_type": "preonly",
+                "pc_type": "lu",
+                "pc_factor_mat_solver_type": "mumps",
             }
         },
-        'damage': {
-            'snes': {
-                'snes_type': 'vinewtonrsls',
-                'snes_stol': 1e-5,
-                'snes_atol': 1e-5,
-                'snes_rtol': 1e-8,
-                'snes_max_it': 100,
-                'snes_monitor': "",
-                'ksp_type': 'preonly',
-                'pc_type': 'lu',
-                'pc_factor_mat_solver_type': 'mumps'
+        "damage": {
+            "snes": {
+                "snes_type": "vinewtonrsls",
+                "snes_stol": 1e-5,
+                "snes_atol": 1e-5,
+                "snes_rtol": 1e-8,
+                "snes_max_it": 100,
+                "snes_monitor": "",
+                "ksp_type": "preonly",
+                "pc_type": "lu",
+                "pc_factor_mat_solver_type": "mumps",
             },
         },
-        'damage_elasticity': {
+        "damage_elasticity": {
             "max_it": 100,
             "alpha_rtol": 1.0e-5,
-            "criterion": "alpha_H1"
-        }
-    }
+            "criterion": "alpha_H1",
+        },
+    },
 }
 E = parameters["model"]["E"]
 poisson = parameters["model"]["nu"]
-parameters['model']['lmbda'] = E * poisson / \
-    ((1 + poisson) * (1 - 2 * poisson))
-parameters['model']['mu'] = E / (2 * (1 + poisson))
+parameters["model"]["lmbda"] = E * poisson / ((1 + poisson) * (1 - 2 * poisson))
+parameters["model"]["mu"] = E / (2 * (1 + poisson))
 # parameters.get('loading') -> this parameters can be defined and obtained from
 # a external file. In the first exemple (mec647_VI_1), the parameters were
 # read from a .yml file.
@@ -159,7 +137,7 @@ def mesh_V(
     de2,
     key=0,
     show=False,
-    filename='mesh.unv',
+    filename="mesh.unv",
     order=1,
 ):
     """
@@ -187,8 +165,8 @@ def mesh_V(
     tdim = 2
 
     model = gmsh.model()
-    model.add('TPB')
-    model.setCurrent('TPB')
+    model.add("TPB")
+    model.setCurrent("TPB")
     # Generating the points of the geometrie
     p0 = model.geo.addPoint(0.0, a, 0.0, de2, tag=0)
     p1 = model.geo.addPoint(hopen, 0.0, 0.0, de, tag=1)
@@ -208,7 +186,7 @@ def mesh_V(
     notch_right = model.geo.addLine(p0, p1, tag=8)
     bot_right = model.geo.addLine(p1, p2, tag=9)
     right = model.geo.addLine(p2, p3, tag=10)
-    #top_right = model.geo.addLine(p3, p4, tag=11)
+    # top_right = model.geo.addLine(p3, p4, tag=11)
     if key == 0:
         top_right = model.geo.addLine(p3, p21, tag=11)
         top_left = model.geo.addLine(p22, p5, tag=12)
@@ -224,19 +202,24 @@ def mesh_V(
         fissure = model.geo.addLine(p20, p0, tag=22)
     # Creating the surface using the lines created
     if key == 0:
-        perimeter = model.geo.addCurveLoop([notch_right,
-                                            bot_right,
-                                            right,
-                                            top_right,
-                                            load_right,
-                                            load_left,
-                                            top_left,
-                                            left,
-                                            bot_left,
-                                            notch_left])
+        perimeter = model.geo.addCurveLoop(
+            [
+                notch_right,
+                bot_right,
+                right,
+                top_right,
+                load_right,
+                load_left,
+                top_left,
+                left,
+                bot_left,
+                notch_left,
+            ]
+        )
     elif key == 1:
         perimeter = model.geo.addCurveLoop(
-            [notch_right, bot_right, right, top_right, sym_plan, fissure])
+            [notch_right, bot_right, right, top_right, sym_plan, fissure]
+        )
     surface = model.geo.addPlaneSurface([perimeter])
     # model.geo.addSurfaceLoop([surface,16])
     model.mesh.setOrder(order)
@@ -244,52 +227,52 @@ def mesh_V(
     # Creating Physical Groups to extract data from the geometrie
     if key == 0:
         gmsh.model.addPhysicalGroup(tdim - 1, [left], tag=101)
-        gmsh.model.setPhysicalName(tdim - 1, 101, 'Left')
+        gmsh.model.setPhysicalName(tdim - 1, 101, "Left")
 
         gmsh.model.addPhysicalGroup(tdim - 1, [right], tag=102)
-        gmsh.model.setPhysicalName(tdim - 1, 102, 'Right')
+        gmsh.model.setPhysicalName(tdim - 1, 102, "Right")
 
         gmsh.model.addPhysicalGroup(tdim - 2, [p6], tag=103)
-        gmsh.model.setPhysicalName(tdim - 2, 103, 'Left_point')
+        gmsh.model.setPhysicalName(tdim - 2, 103, "Left_point")
 
         gmsh.model.addPhysicalGroup(tdim - 2, [p2], tag=104)
-        gmsh.model.setPhysicalName(tdim - 2, 104, 'Right_point')
+        gmsh.model.setPhysicalName(tdim - 2, 104, "Right_point")
 
         gmsh.model.addPhysicalGroup(tdim - 2, [p4], tag=105)
-        gmsh.model.setPhysicalName(tdim - 2, 105, 'Load_point')
+        gmsh.model.setPhysicalName(tdim - 2, 105, "Load_point")
 
         gmsh.model.addPhysicalGroup(tdim - 2, [p0], tag=106)
-        gmsh.model.setPhysicalName(tdim - 2, 106, 'Notch_point')
+        gmsh.model.setPhysicalName(tdim - 2, 106, "Notch_point")
 
         gmsh.model.addPhysicalGroup(tdim - 1, [load_right], tag=107)
-        gmsh.model.setPhysicalName(tdim - 1, 107, 'load_right')
+        gmsh.model.setPhysicalName(tdim - 1, 107, "load_right")
 
         gmsh.model.addPhysicalGroup(tdim - 1, [load_left], tag=108)
-        gmsh.model.setPhysicalName(tdim - 1, 108, 'load_left')
+        gmsh.model.setPhysicalName(tdim - 1, 108, "load_left")
 
         gmsh.model.addPhysicalGroup(tdim, [surface], tag=110)
-        gmsh.model.setPhysicalName(tdim, 110, 'mesh_surface')
+        gmsh.model.setPhysicalName(tdim, 110, "mesh_surface")
 
     # Cast3M can't read Physical Groups of points (dim = 0). Instead, we check the number in the mesh and input in manually in the code.
     # The number of a node doesn't change if it's in a point of the geometry
     if key == 1:
         gmsh.model.addPhysicalGroup(tdim, [surface], tag=110)
-        gmsh.model.setPhysicalName(tdim, 110, 'mesh_surface')
+        gmsh.model.setPhysicalName(tdim, 110, "mesh_surface")
 
         gmsh.model.addPhysicalGroup(tdim - 1, [fissure], tag=111)
-        gmsh.model.setPhysicalName(tdim - 1, 111, 'fissure')
+        gmsh.model.setPhysicalName(tdim - 1, 111, "fissure")
 
         gmsh.model.addPhysicalGroup(tdim - 1, [sym_plan], tag=112)
-        gmsh.model.setPhysicalName(tdim - 1, 112, 'sym_plan')
+        gmsh.model.setPhysicalName(tdim - 1, 112, "sym_plan")
 
-        #gmsh.model.addPhysicalGroup(tdim-2, [p20], tag=113)
-        #gmsh.model.setPhysicalName(tdim-2, 113, 'Crack_tip')
+        # gmsh.model.addPhysicalGroup(tdim-2, [p20], tag=113)
+        # gmsh.model.setPhysicalName(tdim-2, 113, 'Crack_tip')
 
-        #gmsh.model.addPhysicalGroup(tdim-2, [p4], tag=114)
-        #gmsh.model.setPhysicalName(tdim-2, 114, 'Load_point')
+        # gmsh.model.addPhysicalGroup(tdim-2, [p4], tag=114)
+        # gmsh.model.setPhysicalName(tdim-2, 114, 'Load_point')
 
-        #gmsh.model.addPhysicalGroup(tdim-2, [p2], tag=115)
-        #gmsh.model.setPhysicalName(tdim-2, 115,'Right_point')
+        # gmsh.model.addPhysicalGroup(tdim-2, [p2], tag=115)
+        # gmsh.model.setPhysicalName(tdim-2, 115,'Right_point')
     # Generating the mesh
     model.geo.synchronize()
     model.mesh.generate(tdim)
@@ -313,17 +296,16 @@ gmsh_model = mesh_V(a, h, L, n, gamma, de, de2)
 # in order to apply Newman Bondary conditions, which means that is a condition
 # applied not in the displacement (variable of interest), but in the correspond
 # variable (in this case, force/pressure)
-mesh, facet_tags = meshes.gmsh_model_to_mesh(gmsh_model,
-                                             cell_data=False,
-                                             facet_data=True,
-                                             gdim=2)
+mesh, facet_tags = meshes.gmsh_model_to_mesh(
+    gmsh_model, cell_data=False, facet_data=True, gdim=2
+)
 
 
 # Plot mesh
 plt.figure()
 ax = plot_mesh(mesh)
 fig = ax.get_figure()
-fig.savefig(f"mesh.png")
+fig.savefig("mesh.png")
 
 # Functional setting
 # 'u' represents the displacement in this problem. In order to solve it, the
@@ -343,10 +325,8 @@ fig.savefig(f"mesh.png")
 # The Lagrange elements are going to be defined in the mesh as such we take the
 # geometry of elements present in the mesh.
 
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(),
-                              degree=1, dim=2)
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(),
-                                  degree=1)
+element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
+element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
 # After defining the Finite Element in ufl, a association with dolfinx is made.
 # To inputs are necessary, the mesh and the element type created. In some sense,
@@ -384,36 +364,34 @@ alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 # define the integral measures, as such one is a integral.
 dx = ufl.Measure("dx", domain=mesh)  # -> volume measure
 # We include here the subdomain data generated at the gmsh file.
-ds = ufl.Measure("ds", subdomain_data=facet_tags,
-                 domain=mesh)  # -> surface measure
+ds = ufl.Measure("ds", subdomain_data=facet_tags, domain=mesh)  # -> surface measure
 # ds(<number of the facet tags>)
 # dS = ufl.Measure("dS", domain = mesh) - inner boundaries of the mesh ->
 # not usefull
 
 
-model = Brittle(parameters.get('model'))
-state = {'u': u, 'alpha': alpha}
+model = Brittle(parameters.get("model"))
+state = {"u": u, "alpha": alpha}
 # The total energy density is calculated this time using a already written
 # function of the "model". This return the elasticity energy (with the a(alpha))
 # and the damage energy term. To count for externals forces, it need to substract it
 # from the total energy
 # - ufl.dot(force,u)*ds(107) - ufl.dot(force,u)*ds(108)
 total_energy = model.total_energy_density(state) * dx
-if parameters['loading']['type'] == 'ID':
+if parameters["loading"]["type"] == "ID":
     total_energy = model.total_energy_density(state) * dx
-if parameters['loading']['type'] == 'IF':
+if parameters["loading"]["type"] == "IF":
     # Getting load parameters
     force = dolfinx.fem.Function(V_u, name="Contact_force")
-    loading_force = -1 * parameters['loading']['max']
+    loading_force = -1 * parameters["loading"]["max"]
     force.interpolate(
-        lambda x: (
-            np.zeros_like(
-                x[0]),
-            loading_force *
-            np.ones_like(
-                x[1])))
-    total_energy = model.total_energy_density(
-        state) * dx - ufl.dot(force, u) * ds(107) - ufl.dot(force, u) * ds(108)
+        lambda x: (np.zeros_like(x[0]), loading_force * np.ones_like(x[1]))
+    )
+    total_energy = (
+        model.total_energy_density(state) * dx
+        - ufl.dot(force, u) * ds(107)
+        - ufl.dot(force, u) * ds(108)
+    )
 
 # Boundary sets
 # Function that returns 'TRUE' if the point of the mesh is in the region you want
@@ -425,7 +403,8 @@ def BC_points(x):
     # Y-coordinate
     return np.logical_and(
         np.logical_or(np.isclose(x[0], -L / 2), np.isclose(x[0], L / 2)),
-        np.isclose(x[1], 0))
+        np.isclose(x[1], 0),
+    )
 
 
 BC_entities = dolfinx.mesh.locate_entities_boundary(mesh, 0, BC_points)
@@ -433,82 +412,77 @@ BC_dofs = dolfinx.fem.locate_dofs_topological(V_u, 0, BC_entities)
 u_.interpolate(lambda x: (np.zeros_like(x[0]), np.zeros_like(x[1])))
 
 # FOR IMPOSED FORCE :
-if parameters['loading']['type'] == 'IF':
+if parameters["loading"]["type"] == "IF":
     bcs_u = [dirichletbc(u_, BC_dofs)]
 # FOR IMPOSED DISPLACEMENT :
-if parameters['loading']['type'] == 'ID':
+if parameters["loading"]["type"] == "ID":
+
     def ID_points(x):
-        return np.logical_and(np.equal(x[1], h),
-                              np.logical_and(np.greater_equal(x[0], -1 * n),
-                                             np.less_equal(x[0], n)
-                                             ))
+        return np.logical_and(
+            np.equal(x[1], h),
+            np.logical_and(np.greater_equal(x[0], -1 * n), np.less_equal(x[0], n)),
+        )
+
     ID_entities = dolfinx.mesh.locate_entities_boundary(mesh, 0, ID_points)
     ID_dofs = dolfinx.fem.locate_dofs_topological(V_u, 0, ID_entities)
-    u_imposed.interpolate(lambda x: (np.zeros_like(
-        x[0]), -1 * parameters['loading']['max'] * np.ones_like(x[1])))
+    u_imposed.interpolate(
+        lambda x: (
+            np.zeros_like(x[0]),
+            -1 * parameters["loading"]["max"] * np.ones_like(x[1]),
+        )
+    )
     bcs_u = [dirichletbc(u_, BC_dofs), dirichletbc(u_imposed, ID_dofs)]
 
-dofs_alpha_left = locate_dofs_geometrical(
-    V_alpha, lambda x: np.isclose(x[0], -L / 2))
-dofs_alpha_right = locate_dofs_geometrical(
-    V_alpha, lambda x: np.isclose(x[0], L / 2))
+dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], -L / 2))
+dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], L / 2))
 BC_dofs_alpha = dolfinx.fem.locate_dofs_topological(V_alpha, 0, BC_entities)
-if parameters['loading']['type'] == 'IF':
+if parameters["loading"]["type"] == "IF":
     bcs_alpha = [
-        dirichletbc(np.array(0., dtype=PETSc.ScalarType),
-                    BC_dofs_alpha,
-                    V_alpha)
+        dirichletbc(np.array(0.0, dtype=PETSc.ScalarType), BC_dofs_alpha, V_alpha)
     ]
-if parameters['loading']['type'] == 'ID':
-    ID_dofs_alpha = dolfinx.fem.locate_dofs_topological(
-        V_alpha, 0, ID_entities)
+if parameters["loading"]["type"] == "ID":
+    ID_dofs_alpha = dolfinx.fem.locate_dofs_topological(V_alpha, 0, ID_entities)
     bcs_alpha = [
-        dirichletbc(np.array(0., dtype=PETSc.ScalarType),
-                    np.concatenate(
-            [dofs_alpha_left, dofs_alpha_right, BC_dofs_alpha, ID_dofs_alpha]),
-            V_alpha)
+        dirichletbc(
+            np.array(0.0, dtype=PETSc.ScalarType),
+            np.concatenate(
+                [dofs_alpha_left, dofs_alpha_right, BC_dofs_alpha, ID_dofs_alpha]
+            ),
+            V_alpha,
+        )
     ]
 bcs_alpha = []
-#dofs_alpha_left, dofs_alpha_right
+# dofs_alpha_left, dofs_alpha_right
 bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
 # Update the bounds
 set_bc(alpha_ub.vector, bcs_alpha)
 set_bc(alpha_lb.vector, bcs_alpha)
 
-solve_it = am.AlternateMinimisation(total_energy,
-                                    state,
-                                    bcs,
-                                    parameters.get("solvers"),
-                                    bounds=(alpha_lb, alpha_ub))
+solve_it = am.AlternateMinimisation(
+    total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
+)
 
 # solve_it.elasticity
 # Loop for evolution
-Loads = np.linspace(parameters.get("loading").get("min"),
-                    parameters.get("loading").get("max"),
-                    parameters.get("loading").get("steps"))
+Loads = np.linspace(
+    parameters.get("loading").get("min"),
+    parameters.get("loading").get("max"),
+    parameters.get("loading").get("steps"),
+)
 
-data = {
-    'elastic': [],
-    'surface': [],
-    'total': [],
-    'load': []
-}
+data = {"elastic": [], "surface": [], "total": [], "load": []}
 
-for (i_t, t) in enumerate(Loads):
+for i_t, t in enumerate(Loads):
     # update bondary conditions
-    if parameters['loading']['type'] == 'ID':
-        u_imposed.interpolate(lambda x: (
-            np.zeros_like(x[0]), -1 * t * np.ones_like(x[1])))
-    if parameters['loading']['type'] == 'IF':
+    if parameters["loading"]["type"] == "ID":
+        u_imposed.interpolate(
+            lambda x: (np.zeros_like(x[0]), -1 * t * np.ones_like(x[1]))
+        )
+    if parameters["loading"]["type"] == "IF":
         force.interpolate(
-            lambda x: (
-                np.zeros_like(
-                    x[0]),
-                loading_force *
-                t *
-                np.ones_like(
-                    x[1])))
+            lambda x: (np.zeros_like(x[0]), loading_force * t * np.ones_like(x[1]))
+        )
     # update lower bound for damage
     alpha.vector.copy(alpha_lb.vector)
     # solve for current load step
@@ -516,31 +490,31 @@ for (i_t, t) in enumerate(Loads):
     # postprocessing
     # global
     surface_energy = assemble_scalar(
-        dolfinx.fem.form(
-            model.damage_energy_density(state) * dx))
-    elastic_energy = assemble_scalar(dolfinx.fem.form(
-        model.elastic_energy_density(state) * dx))
+        dolfinx.fem.form(model.damage_energy_density(state) * dx)
+    )
+    elastic_energy = assemble_scalar(
+        dolfinx.fem.form(model.elastic_energy_density(state) * dx)
+    )
 
-    data.get('elastic').append(elastic_energy)
-    data.get('surface').append(surface_energy)
-    data.get('total').append(surface_energy + elastic_energy)
-    data.get('load').append(t)
+    data.get("elastic").append(elastic_energy)
+    data.get("surface").append(surface_energy)
+    data.get("total").append(surface_energy + elastic_energy)
+    data.get("load").append(t)
 
-    print(f'Solved timestep {i_t}, load {t}')
-    print(
-        f'Elastic energy {elastic_energy:.3g}, Surface energy {surface_energy:.3g}')
+    print(f"Solved timestep {i_t}, load {t}")
+    print(f"Elastic energy {elastic_energy:.3g}, Surface energy {surface_energy:.3g}")
 
     # saving
 
 
-plt.plot(data.get('load'), data.get('surface'), label='surface')
-plt.plot(data.get('load'), data.get('elastic'), label='elastic')
-#plt.plot(data.get('load'), [1./2. * t**2*L for t in data.get('load')], label='anal elast', ls=':', c='k')
+plt.plot(data.get("load"), data.get("surface"), label="surface")
+plt.plot(data.get("load"), data.get("elastic"), label="elastic")
+# plt.plot(data.get('load'), [1./2. * t**2*L for t in data.get('load')], label='anal elast', ls=':', c='k')
 
-plt.title('My specimen')
+plt.title("My specimen")
 plt.legend()
-#plt.yticks([0, 1/20], [0, '$1/2.\sigma_c^2/E_0$'])
-#plt.xticks([0, 1], [0, 1])
+# plt.yticks([0, 1/20], [0, '$1/2.\sigma_c^2/E_0$'])
+# plt.xticks([0, 1], [0, 1])
 
 try:
     from dolfinx.plot import create_vtk_mesh as compute_topology
@@ -577,7 +551,7 @@ plotter = pyvista.Plotter(
     shape=(1, 2),
 )
 _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-_plt.screenshot(f"alpha.png")
+_plt.screenshot("alpha.png")
 
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
@@ -589,14 +563,14 @@ plotter = pyvista.Plotter(
 # plt = plot_scalar(u.sub(0), plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 0))
 
-_plt.screenshot(f"displacement_MPI.png")
+_plt.screenshot("displacement_MPI.png")
 
 
 plt.figure()
-plt.plot(data.get('load'), data.get('surface'), label='surface')
-plt.plot(data.get('load'), data.get('elastic'), label='elastic')
-#plt.plot(data.get('load'), [1./2. * t**2*L for t in data.get('load')], label='anal elast', ls=':', c='k')
+plt.plot(data.get("load"), data.get("surface"), label="surface")
+plt.plot(data.get("load"), data.get("elastic"), label="elastic")
+# plt.plot(data.get('load'), [1./2. * t**2*L for t in data.get('load')], label='anal elast', ls=':', c='k')
 
-plt.title('My specimen')
+plt.title("My specimen")
 plt.legend()
-plt.savefig('energy.png')
+plt.savefig("energy.png")

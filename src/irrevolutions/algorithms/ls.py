@@ -1,19 +1,17 @@
 import logging
-from irrevolutions.utils import norm_H1
-
-from dolfinx.fem import (
-    Function,
-    form,
-    assemble_scalar,
-)
-from petsc4py import PETSc
-from dolfinx.cpp.log import log, LogLevel
-import numpy as np
+import random
 
 import mpi4py
 import numpy as np
-import random
-import logging
+from dolfinx.cpp.log import LogLevel, log
+from dolfinx.fem import (
+    Function,
+    assemble_scalar,
+    form,
+)
+from petsc4py import PETSc
+
+from irrevolutions.utils import norm_H1
 
 # Set up logging configuration
 logging.basicConfig(level=logging.INFO)
@@ -249,7 +247,7 @@ class StabilityStepper:
 
     def __next__(self):
         logger.info(f"\n\nCalled next, can time be stopped? {self.stop_time}")
-        
+
         if self.stop_time:
             self.stop_time = False
             index = self.i
@@ -261,8 +259,8 @@ class StabilityStepper:
                 index = self.i
             else:
                 raise StopIteration
-        
-        return index            
+
+        return index
 
     def pause_time(self):
         self.stop_time = True

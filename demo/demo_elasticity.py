@@ -1,30 +1,27 @@
 #!/usr/bin/env python3
-import pyvista
-import dolfinx.mesh
-from dolfinx.io import XDMFFile, gmshio
-import numpy as np
-import yaml
 import json
-from pathlib import Path
-import sys
+import logging
 import os
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
+import sys
+from pathlib import Path
+
 import dolfinx
+import dolfinx.mesh
 import dolfinx.plot
-from dolfinx import log
+import numpy as np
+import petsc4py
+import pyvista
 import ufl
-
-from pyvista.utilities import xvfb
-
+import yaml
+from dolfinx import log
+from dolfinx.io import XDMFFile, gmshio
+from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import ElasticityModel
 from irrevolutions.solvers import SNESSolver as ElasticitySolver
-from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils.viz import plot_vector
-
-import numpy as np
-import logging
+from mpi4py import MPI
+from petsc4py import PETSc
+from pyvista.utilities import xvfb
 
 logging.basicConfig(level=logging.INFO)
 

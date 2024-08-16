@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import petsc4py
-import pytest
 import pyvista
 import ufl
 import yaml
@@ -34,14 +33,15 @@ from irrevolutions.algorithms.ls import LineSearch
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import DamageElasticityModel as Brittle
-from irrevolutions.utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.utils import (
     ColorPrint,
-    history_data,
     _write_history_data,
+    history_data,
     norm_H1,
-    find_offending_columns_lengths,
+)
+from irrevolutions.utils.plots import (
+    plot_energies,
 )
 from irrevolutions.utils.viz import (
     plot_profile,
@@ -60,6 +60,7 @@ size = comm.Get_size()
 
 model_rank = 0
 test_dir = os.path.dirname(__file__)
+
 
 def test_linsearch():
     parameters, signature = load_parameters(os.path.join(test_dir, "./parameters.yml"))
@@ -102,8 +103,7 @@ def test_linsearch():
         file.write_mesh(mesh)
 
     # Function spaces
-    element_u = ufl.VectorElement(
-        "Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
     V_u = FunctionSpace(mesh, element_u)
 
     element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
@@ -130,10 +130,8 @@ def test_linsearch():
     dx = ufl.Measure("dx", domain=mesh)
     ds = ufl.Measure("ds", domain=mesh)
 
-    dofs_alpha_left = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], Lx))
+    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -149,8 +147,7 @@ def test_linsearch():
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-    bc_u_left = dirichletbc(
-        np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
+    bc_u_left = dirichletbc(np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
     bc_u_right = dirichletbc(u_, dofs_u_right)
     bcs_u = [bc_u_left, bc_u_right]
@@ -195,8 +192,7 @@ def test_linsearch():
     )
 
     bifurcation = BifurcationSolver(
-        total_energy, state, bcs, bifurcation_parameters=parameters.get(
-            "stability")
+        total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
     )
 
     stability = StabilitySolver(
@@ -221,15 +217,15 @@ def test_linsearch():
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        ColorPrint.print_bold(f"   Solving first order: AM   ")
-        ColorPrint.print_bold(f"===================-=========")
+        ColorPrint.print_bold("   Solving first order: AM   ")
+        ColorPrint.print_bold("===================-=========")
 
         logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
         equilibrium.solve()
 
-        ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
-        ColorPrint.print_bold(f"===================-=============")
+        ColorPrint.print_bold("   Solving first order: Hybrid   ")
+        ColorPrint.print_bold("===================-=============")
 
         logging.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
         hybrid.solve(alpha_lb)
@@ -244,16 +240,16 @@ def test_linsearch():
         rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
         urate_12_norm = hybrid.unscaled_rate_norm(alpha)
 
-        ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
         # n_eigenvalues = 10
         is_unique = bifurcation.solve(alpha_lb)
         is_elastic = not bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
 
-        ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Cone Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
         z0 = (
             bifurcation._spectrum[0]["xk"]
@@ -261,13 +257,9 @@ def test_linsearch():
             else None
         )
 
-        stable = stability.solve(
-            alpha_lb,
-            eig0=z0,
-            inertia=inertia)
+        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
         if not stable:
-
             vec_to_functions(stability.solution["xt"], [v, β])
             perturbation = {"v": v, "beta": β}
 
@@ -285,13 +277,7 @@ def test_linsearch():
             x_plot = np.linspace(interval[0], interval[1], order + 1)
             fig, axes = plt.subplots(1, 1)
             plt.scatter(x_plot, energies_1d)
-            plt.scatter(
-                h_opt,
-                0,
-                c="k",
-                s=40,
-                marker="|",
-                label=f"$h^*={h_opt:.2f}$")
+            plt.scatter(h_opt, 0, c="k", s=40, marker="|", label=f"$h^*={h_opt:.2f}$")
             plt.scatter(h_opt, p(h_opt), c="k", s=40, alpha=0.5)
             xs = np.linspace(interval[0], interval[1], 30)
             axes.plot(xs, p(xs), label="Energy slice along perturbation")
@@ -354,7 +340,7 @@ def test_linsearch():
                 β,
                 points,
                 plotter,
-                lineproperties={"c": "k", "label": f"$\\beta$"},
+                lineproperties={"c": "k", "label": "$\\beta$"},
             )
             _plt.gca()
             _plt.legend()
@@ -385,11 +371,9 @@ def test_linsearch():
         logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
         logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
-        logging.critical(
-            f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+        logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
-        logging.critical(
-            f"unscaled scaled rate state_12 norm: {urate_12_norm}")
+        logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
@@ -430,7 +414,7 @@ def test_linsearch():
             json.dump(history_data, a_file)
             a_file.close()
 
-        ColorPrint.print_bold(f"   Written timely data.    ")
+        ColorPrint.print_bold("   Written timely data.    ")
         print()
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
     df = pd.DataFrame(history_data)
@@ -453,9 +437,9 @@ def test_linsearch():
         _plt = plot_vector(u, plotter, subplot=(0, 1))
         _plt.screenshot(f"{prefix}/traction-state.png")
 
-
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+
 
 def load_parameters(file_path):
     """
@@ -491,6 +475,6 @@ def load_parameters(file_path):
 
     return parameters, signature
 
+
 if __name__ == "__main__":
     test_linsearch()
-    
