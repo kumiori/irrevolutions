@@ -1,7 +1,7 @@
 # Crack Propagation in Brittle Materials
 ## 2024
 
-`Irrevolutions` is a computational stability-analyis toolkit designed to solve nonlinear and nonconvex evolutionary problems using advanced numerical methods. It provides efficient algorithms for computing solutions constrained minimum problems with application to irreversible evolutions (hence its name). In particular, this framework is relevant in the context of fracture and damage mechanics.
+`Irrevolutions` is a computational stability analysis toolkit designed to solve nonlinear and nonconvex evolutionary problems using advanced numerical methods. It provides efficient algorithms for computing solutions constrained minimum problems with application to irreversible evolutions (hence its name). In particular, this framework is relevant in the context of fracture and damage mechanics.
 
 **Irreversible Evolution of Damage**
  
