@@ -37,7 +37,7 @@ We study irreversible evolutionary processes with a general energetic notion of 
 
 # Statement of need
 
-Quasi-static evolution problems arising in fracture are strongly nonlinear [@marigo:2023-la-mecanique], [@bourdin:2008-the-variational]. They can admit multiple solutions, or none [@leon-baldelli:2021-numerical]. This demands both a functional theoretical framework and practical computational tools for real case scenarios. Due to the lack of uniqueness of solutions, it is fundamental to leverage the full variational structure of the problem and investigate up to second order, to detect nucleation of stable modes and transitions of unstable states. The stability of a multiscale system along its nontrivial evolutionary paths in phase space is a key property that is difficult to check: numerically, for real case scenarios with several length scales involved, and analytically, in the infinite-dimensional setting. ~~The current literature in computational fracture mechanics predominantly focuses on unilateral first-order criteria, systematically neglecting the exploration of higher-order information for critical points.~~ **Despite the concept of unilateral stability is classical in the variational theory of irreversible systems [@mielke] and the mechanics of fracture [@FRANCFORT] (see also [@bazant, petryk, nguyen]), few studies have explored second-order criteria for crack nucleation and evolution. Although sporadic, these studies are significant, including [@pham:2011-the-issues], [@Pham2013aa], [@SICSIC], [@leon-baldelli:2021-numerical], and [@camilla].** The current literature in computational fracture mechanics predominantly focuses on unilateral first-order criteria, systematically neglecting the exploration of higher-order information for critical points. **To the best of our knowledge, no general numerical tools are available to address second-order criteria in evolutionary nonlinear irreversible systems and fracture mechanics.**
+Quasi-static evolution problems arising in fracture are strongly nonlinear [@marigo:2023-la-mecanique], [@bourdin:2008-the-variational]. They can admit multiple solutions, or none [@leon-baldelli:2021-numerical]. This demands both a functional theoretical framework and practical computational tools for real case scenarios. Due to the lack of uniqueness of solutions, it is fundamental to leverage the full variational structure of the problem and investigate up to second order, to detect nucleation of stable modes and transitions of unstable states. The stability of a multiscale system along its nontrivial evolutionary paths in phase space is a key property that is difficult to check: numerically, for real case scenarios with several length scales involved, and analytically, in the infinite-dimensional setting. ~~The current literature in computational fracture mechanics predominantly focuses on unilateral first-order criteria, systematically neglecting the exploration of higher-order information for critical points.~~ **Despite the concept of unilateral stability is classical in the variational theory of irreversible systems [@mielke] and the mechanics of fracture [@FRANCFORT] (see also [@bazant,  @PETRYK, @Quoc, @Quoc2002]), few studies have explored second-order criteria for crack nucleation and evolution. Although sporadic, these studies are significant, including [@pham:2011-the-issues], [@Pham2013aa], [@SICSIC], [@leon-baldelli:2021-numerical], and [@camilla].** The current literature in computational fracture mechanics predominantly focuses on unilateral first-order criteria, systematically neglecting the exploration of higher-order information for critical points. **To the best of our knowledge, no general numerical tools are available to address second-order criteria in evolutionary nonlinear irreversible systems and fracture mechanics.**
 
 To fill this gap, our nonlinear solvers offer a flexible toolkit for advanced stability analysis of systems which evolve with constraints.
 
@@ -79,7 +79,7 @@ These numerical tools can be used to study general evolutionary problems formula
 
 Our solvers are written in `Python` and are built on  `DOLFINx`, an expressive and performant parallel  distributed computing environment for solving partial differential equations using the finite element method [@dolfinx2023preprint]. It enables us wrapping high-level functional mathematical constructs with full flexibility and control of the underlying linear algebra backend. We use PETSc [@petsc-user-ref], petsc4py [@dalcinpazklercosimo2011], SLEPc.EPS [@hernandez:2005-slepc], and dolfiny [@Habera:aa] for parallel scalability.
 
-Our solver's API receives an abstract energy functional, a user-friendly description of the state of the system **as a dictionary (u, alpha), whre the first elemnt is associated to the reversible field and the second to the irreversible component**, ~~its~~ **the** associated constraints **on the latter**, and the solver's parameters **(see an example in the Appendix)**. Solvers can be instantiated calling
+Our solver's API receives an abstract energy functional, a user-friendly description of the state of the system **as a dictionary (u, alpha), where the first element is associated to the reversible field and the second to the irreversible component**, ~~its~~ **the** associated constraints **on the latter**, and the solver's parameters **(see an example in the Appendix)**. Solvers can be instantiated calling
 ```
 solver = {Hybrid,Bifurcation,Stability}Solver(
       E,              # An energy (dolfinx.fem.form) 
@@ -106,7 +106,11 @@ We dedicate a separate contribution to illustrate how the three solvers are algo
 
 We benchmark our solvers against a nontrivial 1d problem (cf. `test/test_rayleigh.py` in the code repository), namely we compute
 $$
-\min_{X_0} \mathcal R(z) \quad \text{and} \quad \min_{\mathcal K^+_0} \mathcal R(z) \qquad\qquad [2],$$
+\begin{aligned}
+&\min_{X_0} \mathcal R(z) \qquad \qquad [2.1] \\
+&\min_{\mathcal K^+_0} \mathcal R(z) \qquad\qquad [2.2]
+\end{aligned}
+$$
 **where $z = (v, \beta)$ in $X_0$ and $\mathcal K^+_0$,** using `BifurcationSolver` and `StabilitySolver`, **respectively**. The quantity $\mathcal R(z)$ is a Rayleigh ratio, often used in structural mechanics as a dimensionless global quantity (an energetic ratio of elastic and fracture energies) which provides insight into the stability and critical loading conditions for a structure. For definiteness, using the Sobolev spaces which are the natural setting for second order PDE problems, we set $X_0 = H^1_0(0, 1) \times H^1(0, 1)$ and $\mathcal K^+_0 = H^1_0(0, 1) \times \{\beta \in H^1(0, 1), \beta \geq 0\}$. Let
 $$\mathcal R(z):= \dfrac{\int_0^1 a(\beta'(x))^2dx+\int_0^1 b(v'(x) -c\beta(x))^2dx}{\int_0^1\beta(x)^2dx},\qquad\qquad [3]$$ 
  where $a, b, c$ are real coefficients such that $a>0, b>0, c\neq 0$. The quantity above occurs in the stability analysis of a 1d damageable bar, where $b$ is related to the spring constant of the material while $a, c$ encapsulate material, loading, and model parameters, cf. the Appendix of [@pham:2011-the-issues].
@@ -134,34 +138,29 @@ ALB acknowledges the students of MEC647 (Complex Crack Propagation in Brittle Ma
 
 ### **Analytic solutions**
 **Given $\mathcal R(z)$ as in [3], the solutions to the minimum problems [2.1] and [2.2] are**
-**$$
+$$
 \min_{X_0} \mathcal{R}(z) = \min\{bc^2, \pi^2 a\}, \quad \text{and} \quad \min_{\mathcal{K}^+_0} \mathcal{R}(z)= \left\{ 
 \begin{aligned}
     & bc^2, & \text{if }\pi^2 a \geq bc^2 \\
     & \left(\pi^2 a\right)^{1 / 3}\left(b c^2\right)^{2 / 3}, & \text{if }\pi^2 a < bc^2
 \end{aligned}
 \right.
-$$**
-**For details on the computation, cf. [@pham:2011-the-issues]. The associated eigenspace (the minimiser) is, for [2.1], $z^*=(v^*, \beta^*)$ given by**
-**
+$$
+**For details on the computation, cf. [@pham:2011-the-issues]. The associated eigenspace (the minimiser) for [2.1] is $z^*=(v^*, \beta^*)$ given by**
 $$
 \beta^*(x)=C+A \cos \pi x,\quad \text{ and }\quad v^*(x)=\frac{{c} A}{\pi} \sin \pi x,
 $$
 where $A=0$ if ${bc}^2<\pi^2 {a}, C=0$ if ${bc}^2>\pi^2 {a}$. $A$ and $C$ are arbitrary real numbers otherwise.
-**
 **The minimiser $(v^*, \beta^*)$ for [2.2] is given by $v^*$ as above and**
-**1. $\beta^*(x)=C>0$, if $\pi^2 {a}>{bc}^2$. **
-**2.  $\beta^*(x)=C+A \cos (\pi x)$ with $C>0$ and $|A| \leq C$, if $\pi^2 {a}={bc}^2$.**
-**3.
 $$
-\beta^*(x)=\left\{\begin{array}{ll}
-C\left(1+\cos (\pi \frac{x}{{D}})\right) & \text { if } x \in(0, {D}) \\
-0 & \text { otherwise }
-\end{array} \text { and } \quad \tilde{\beta}^*(x)=\beta_*(1-x),\right.
-$$**
-**
-if $\pi^2 a<b c^2$, where $C$ is an arbitrary positive constant and $D^3=\pi^2 a / b c^2$.
-**
+\beta^*(x)=\left\{
+\begin{aligned}
+C>0,\qquad & \text{ if }\pi^2 {a}>{bc}^2 \\
+C+A \cos (\pi x),\qquad & \text{ if } \pi^2 {a}={bc}^2 \text{, with }C>0 \text{ and }|A| \leq C\\
+C\left(1+\cos (\pi \frac{x}{{D}})\right), \qquad & \text{ if } \pi^2 {a}<{bc}^2,  \text { for } x \in(0, {D})
+\end{aligned}\right.
+$$
+**where  $C$ is an arbitrary positive constant and $D^3=\pi^2 a / b c^2$; with the understanding that in the third case ($\pi^2 {a}<{bc}$), $\beta^*(x)=0$ for $x\notin (0, D)$ and $\tilde \beta^*(x):=\beta^*(1-x)$ is also a solution.**
 
 ### **Numerical parameters**
 **We provide an example of the list of numerical parameters associated to the simulation reported in the paper. The list contains all relevant parameters, including geometry, loading (if it applies), and solvers configuration. The rationale is to ensure reproducibility of numerical simulations and clarity in collecting the computational metadata.
