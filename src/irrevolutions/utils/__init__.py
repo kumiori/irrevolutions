@@ -12,6 +12,7 @@ import yaml
 from dolfinx.fem import assemble_scalar, form
 from mpi4py import MPI
 from petsc4py import PETSc
+import pickle
 
 comm = MPI.COMM_WORLD
 
@@ -250,6 +251,15 @@ def table_timing_data():
 
     return df
 
+def find_offending_columns_lengths(data):
+    lengths = {}
+    for key, value in data.items():
+        try:
+            lengths[key] = len(value)
+        except TypeError:
+            lengths[key] = 'Non-iterable'
+    return lengths
+
 from dolfinx.io import XDMFFile
 
 
@@ -371,3 +381,180 @@ def indicator_function(v):
         mode=PETSc.ScatterMode.FORWARD)
     
     return w
+
+
+def save_binary_data(filename, data):
+    viewer = PETSc.Viewer().createBinary(filename, "w")
+
+    if isinstance(data, list):
+        for item in data:
+            item.view(viewer)
+    elif isinstance(data, PETSc.Mat):
+        data.view(viewer)
+    elif isinstance(data, PEtest_binarydataioTSc.Vec):
+        data.view(viewer)
+    else:
+        raise ValueError("Unsupported data type for saving")
+
+
+def load_binary_data(filename):
+    viewer = PETSc.Viewer().createBinary(filename, "r")
+    data = []
+    vectors = []
+
+    i = 0
+    while True:
+        try:
+            vec = PETSc.Vec().load(viewer)
+
+            vectors.append(vec)
+            i += 1
+        except PETSc.Error as e:
+            # __import__('pdb').set_trace()
+            # if e.ierr == PETSc.Error.S_ARG_WRONG:
+            print(f"Error {e.ierr}: {translatePETScERROR.get(e.ierr, 'Unknown error')}")
+            break
+            # else:
+            # raise
+
+    return data
+
+
+def load_binary_vector(filename):
+    """
+    Load a binary file containing a PETSc vector.
+
+    Args:
+        filename (str): Path to the binary file.
+
+    Returns:
+        PETSc.Vec: Loaded PETSc vector.
+    """
+    try:
+        # Create a PETSc viewer for reading
+        viewer = PETSc.Viewer().createBinary(filename, "r")
+
+        # Load the vector from the viewer
+        vector = PETSc.Vec().load(viewer)
+
+        # Close the viewer
+        viewer.destroy()
+
+        return vector
+
+    except PETSc.Error as e:
+        print(f"Error: {e}")
+        return None
+
+
+def load_binary_matrix(filename):
+    """
+    Load a binary file containing a PETSc Matrix.
+
+    Args:
+        filename (str): Path to the binary file.
+
+    Returns:
+        PETSc.Mat: Loaded PETSc Matrix.
+    """
+    try:
+        # Create a PETSc viewer for reading
+        viewer = PETSc.Viewer().createBinary(filename, "r")
+
+        # Load the vector from the viewer
+        vector = PETSc.Mat().load(viewer)
+
+        # Close the viewer
+        viewer.destroy()
+
+        return vector
+
+    except PETSc.Error as e:
+        print(f"Error: {e}")
+        return None
+
+
+def save_minimal_constraints(obj, filename):
+    minimal_constraints = {
+        "bglobal_dofs_mat": obj.bglobal_dofs_mat,
+        "bglobal_dofs_mat_stacked": obj.bglobal_dofs_mat_stacked,
+        "bglobal_dofs_vec": obj.bglobal_dofs_vec,
+        "bglobal_dofs_vec_stacked": obj.bglobal_dofs_vec_stacked,
+        "blocal_dofs": obj.blocal_dofs,
+        "boffsets_mat": obj.boffsets_mat,
+        "boffsets_vec": obj.boffsets_vec,
+    }
+
+    with open(filename, "wb") as file:
+        pickle.dump(minimal_constraints, file)
+
+
+def load_minimal_constraints(filename):
+    import irrevolutions.solvers.restriction as restriction
+    
+    with open(filename, "rb") as file:
+        minimal_constraints = pickle.load(file)
+
+    # Assuming you have a constructor for your class
+    # Modify this accordingly based on your actual class structure
+    reconstructed_obj = restriction.Restriction()
+    for key, value in minimal_constraints.items():
+        setattr(reconstructed_obj, key, value)
+
+    return reconstructed_obj
+
+
+
+
+def sample_data(N, positive=True):
+    import dolfinx
+    from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
+    import random
+    
+    mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, N - 1)
+    comm = MPI.COMM_WORLD
+    comm.Get_rank()
+
+    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+
+    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
+    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+    u = dolfinx.fem.Function(V_u, name="Displacement")
+    alpha = dolfinx.fem.Function(V_alpha, name="Damage")
+    dx = ufl.Measure("dx", alpha.function_space.mesh)
+
+    energy = (1 - alpha) ** 2 * ufl.inner(u, u) * dx
+
+    F_ = [
+        ufl.derivative(energy, u, ufl.TestFunction(u.ufl_function_space())),
+        ufl.derivative(
+            energy,
+            alpha,
+            ufl.TestFunction(alpha.ufl_function_space()),
+        ),
+    ]
+    F = dolfinx.fem.form(F_)
+
+    v = dolfinx.fem.petsc.create_vector_block(F)
+    v.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+
+    if positive:
+        v.array = [
+            np.around(random.uniform(0.1, 1.5), decimals=1) for r in range(v.local_size)
+        ]
+    else:
+        v.array = [
+            np.around(random.uniform(-1.5, 1.5), decimals=1)
+            for r in range(v.local_size)
+        ]
+
+    maps = [(V.dofmap.index_map, V.dofmap.index_map_bs) for V in [V_u, V_alpha]]
+    u, alpha = get_local_vectors(v, maps)
+    # for visibility
+    u *= 100
+    scatter_local_vectors(v, [u, alpha], maps)
+    v.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+
+    return F, v
+

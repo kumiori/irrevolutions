@@ -52,3 +52,4 @@ test_*/
 src/irrevolutions/test/output/*
 **/output/**
 **egg-info**
+.venv/**
