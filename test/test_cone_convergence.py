@@ -126,5 +126,5 @@ tester.store_results(_lmbda_k, _xk, _y)
 
 atol = tester.parameters["cone"]["cone_atol"]
 
-assert tester._isin_cone(_xk) == True
-assert np.isclose(_lmbda_k, -0.044659195907104675, atol=1e-4) == True
+assert tester._isin_cone(_xk)
+assert np.isclose(_lmbda_k, -0.044659195907104675, atol=1e-4)
