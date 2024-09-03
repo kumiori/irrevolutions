@@ -104,7 +104,7 @@ def mesh_V(
     gmsh.option.setNumber("General.Terminal", 1)
     gmsh.option.setNumber("Mesh.Algorithm", 5)
     hopen = a * np.tan((gamma / 2.0) * np.pi / 180)
-    c0 = h / 40
+    h / 40
     load_len = min(h / 40, L / 80)
     tdim = 2
 

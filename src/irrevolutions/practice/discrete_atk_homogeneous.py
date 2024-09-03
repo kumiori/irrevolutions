@@ -211,7 +211,7 @@ petsc4py.init(sys.argv)
 
 def discrete_atk(arg_N=2):
     # Mesh on node model_rank and then distribute
-    model_rank = 0
+    pass
 
     with open("./parameters.yml") as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
@@ -233,15 +233,15 @@ def discrete_atk(arg_N=2):
     parameters["geometry"]["geom_type"] = "discrete-damageable"
     # Get mesh parameters
     Lx = parameters["geometry"]["Lx"]
-    Ly = parameters["geometry"]["Ly"]
-    tdim = parameters["geometry"]["geometric_dimension"]
+    parameters["geometry"]["Ly"]
+    parameters["geometry"]["geometric_dimension"]
 
     _nameExp = parameters["geometry"]["geom_type"]
-    ell_ = parameters["model"]["ell"]
+    parameters["model"]["ell"]
     # lc = ell_ / 5.0
 
     # Get geometry model
-    geom_type = parameters["geometry"]["geom_type"]
+    parameters["geometry"]["geom_type"]
     _N = parameters["model"]["N"]
 
     # Create the mesh of the specimen with given dimensions
@@ -358,7 +358,7 @@ def discrete_atk(arg_N=2):
         return (1 - alpha) ** 2 + k_res
 
     def a_atk(alpha):
-        k_res = parameters["model"]["k_res"]
+        parameters["model"]["k_res"]
         _k = parameters["model"]["k"]
         return (1 - alpha) / ((_k - 1) * alpha + 1)
 
@@ -377,7 +377,7 @@ def discrete_atk(arg_N=2):
         """
         # Parameters
         _mu = parameters["model"]["mu"]
-        _N = parameters["model"]["N"]
+        parameters["model"]["N"]
 
         alpha = state["alpha"]
         u = state["u"]
@@ -391,7 +391,7 @@ def discrete_atk(arg_N=2):
         Return the damage dissipation density from the state.
         """
         # Get the material parameters
-        _mu = parameters["model"]["mu"]
+        parameters["model"]["mu"]
         _w1 = parameters["model"]["w1"]
         _ell = parameters["model"]["ell"]
         # Get the damage
@@ -419,7 +419,7 @@ def discrete_atk(arg_N=2):
     # f = Constant(mesh, 0)
     f = Constant(mesh, np.array(0, dtype=PETSc.ScalarType))
 
-    external_work = f * state["u"] * dx
+    f * state["u"] * dx
 
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])

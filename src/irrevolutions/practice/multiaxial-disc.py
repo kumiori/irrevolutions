@@ -81,7 +81,6 @@ def multiaxial_disc(nest):
     thanks to: Camilla Zolesi"""
 
     # parameters: INPUT
-    model_rank = 0
 
     with open("../test/parameters.yml") as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)

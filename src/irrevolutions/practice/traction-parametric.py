@@ -69,10 +69,10 @@ class ResultsStorage:
         Args:
             history_data (dict): Dictionary containing simulation data.
         """
-        t = history_data["load"][-1]
+        history_data["load"][-1]
 
-        u = state["u"]
-        alpha = state["alpha"]
+        state["u"]
+        state["alpha"]
 
         if self.comm.rank == 0:
             with open(f"{self.prefix}/parameters.yaml", "w") as file:

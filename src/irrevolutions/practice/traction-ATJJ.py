@@ -507,7 +507,7 @@ def traction_with_parameters(parameters, slug=""):
             "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}",
         },
     )
-    ax = _plt.gca()
+    _plt.gca()
     _plt.legend()
     _plt.fill_between(data[0], data[1].reshape(len(data[1])))
     _plt.title("Damage profile")
@@ -742,7 +742,6 @@ def _plot_perturbations_profile(
 
     return plotter, _plt
 
-    pass
 
 
 def param_ell():

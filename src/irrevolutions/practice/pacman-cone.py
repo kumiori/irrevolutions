@@ -95,9 +95,7 @@ comm = MPI.COMM_WORLD
 
 
 def pacman_cone(resolution=2, slug="pacman"):
-    Lx = 1.0
-    Ly = 0.1
-    _nel = 30
+    pass
 
     outdir = os.path.join(os.path.dirname(__file__), "output")
     prefix = os.path.join(outdir, "pacman-cone")
@@ -239,7 +237,7 @@ def pacman_cone(resolution=2, slug="pacman"):
     )
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
-    bcs_z = bcs_u + bcs_alpha
+    bcs_u + bcs_alpha
 
     # Mechanical model
 
@@ -328,7 +326,7 @@ def pacman_cone(resolution=2, slug="pacman"):
         ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
         ColorPrint.print_bold("===================-=================")
 
-        is_stable = bifurcation.solve(alpha_lb)
+        bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
         inertia = bifurcation.get_inertia()
 
@@ -421,7 +419,7 @@ def pacman_cone(resolution=2, slug="pacman"):
         #     shape=(1, 2),
         # )
 
-    _timings = list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     performance = {
         "N": [],

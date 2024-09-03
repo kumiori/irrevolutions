@@ -88,12 +88,12 @@ def load_parameters(file_path):
     parameters["geometry"]["geom_type"] = "traction-bar"
     parameters["geometry"]["ell_lc"] = 5
     # Get mesh parameters
-    Lx = parameters["geometry"]["Lx"]
-    Ly = parameters["geometry"]["Ly"]
-    tdim = parameters["geometry"]["geometric_dimension"]
+    parameters["geometry"]["Lx"]
+    parameters["geometry"]["Ly"]
+    parameters["geometry"]["geometric_dimension"]
 
-    _nameExp = parameters["geometry"]["geom_type"]
-    ell_ = parameters["model"]["ell"]
+    parameters["geometry"]["geom_type"]
+    parameters["model"]["ell"]
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
@@ -199,7 +199,7 @@ def setup_boundary_conditions(V_u, V_alpha, Lx):
     zero_u = Function(V_u)
     u_ = Function(V_u, name="Boundary Displacement")
 
-    zero_alpha = Function(V_alpha)
+    Function(V_alpha)
 
     bc_u_left = dirichletbc(zero_u, dofs_u_left)
     bc_u_right = dirichletbc(u_, dofs_u_right)
@@ -467,7 +467,7 @@ def run_time_loop(parameters, solver, model, bcs):
     _x = _cpp.fem.interpolation_coords(V_u.element, mesh, cells)
 
     alpha = state["alpha"]
-    u = state["u"]
+    state["u"]
 
     # Main time loop
     for i_t, t in enumerate(loads):

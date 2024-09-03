@@ -104,11 +104,9 @@ if comm.rank == 0:
 
 def pacman_hybrid(nest):
     # Parameters
-    Lx = 1.0
-    Ly = 0.1
+    pass
     # tdim = 2
     # _ell = 0.3
-    _nel = 30
 
     with open(f"{prefix}/parameters.yaml") as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
@@ -221,7 +219,7 @@ def pacman_hybrid(nest):
     )
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
-    bcs_z = bcs_u + bcs_alpha
+    bcs_u + bcs_alpha
 
     # Bounds for Newton solver
 
@@ -250,8 +248,8 @@ def pacman_hybrid(nest):
     Eu = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
     Ealpha = ufl.derivative(total_energy, alpha, ufl.TestFunction(V_alpha))
 
-    F = [Eu, Ealpha]
-    z = [u, alpha]
+    [Eu, Ealpha]
+    [u, alpha]
 
     hybrid = HybridSolver(
         total_energy,
@@ -271,7 +269,7 @@ def pacman_hybrid(nest):
         with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
 
-    snes = hybrid.newton.snes
+    hybrid.newton.snes
 
     lb = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
     ub = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)

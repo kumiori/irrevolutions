@@ -140,7 +140,7 @@ def main(parameters, model="at2", storage=None):
     Ly = parameters["geometry"]["Ly"]
     tdim = parameters["geometry"]["geometric_dimension"]
     _nameExp = parameters["geometry"]["geom_type"]
-    ell_ = parameters["model"]["ell"]
+    parameters["model"]["ell"]
     lc = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]
     geom_type = parameters["geometry"]["geom_type"]
 
@@ -397,7 +397,7 @@ def main(parameters, model="at2", storage=None):
 
         ColorPrint.print_bold("   Written timely data.    ")
 
-    df = pd.DataFrame(history_data)
+    pd.DataFrame(history_data)
 
     with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
         if comm.Get_size() == 1:
@@ -446,7 +446,7 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
             subplot=(0, 0),
             lineproperties={"c": "k", "label": "$\\beta$"},
         )
-        ax = _plt.gca()
+        _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
         _plt.title("Perurbation")
@@ -466,7 +466,7 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
             subplot=(0, 0),
             lineproperties={"c": "k", "label": "$\\beta$"},
         )
-        ax = _plt.gca()
+        _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
         _plt.title("Perurbation from the Cone")

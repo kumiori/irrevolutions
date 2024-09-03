@@ -160,7 +160,7 @@ def main(parameters, storage=None):
     v = Function(V_u, name="DisplacementPerturbation")
     perturbation = {"v": v, "beta": β}
 
-    z = [u, alpha]
+    [u, alpha]
     # need upper/lower bound for the damage field
     alpha_lb = Function(V_alpha, name="Lower bound")
     alpha_ub = Function(V_alpha, name="Upper bound")
@@ -175,7 +175,7 @@ def main(parameters, storage=None):
     zero_u = Function(V_u)
     u_ = Function(V_u, name="Boundary Displacement")
 
-    zero_alpha = Function(V_alpha)
+    Function(V_alpha)
 
     bc_u_left = dirichletbc(zero_u, dofs_u_left)
     bc_u_right = dirichletbc(u_, dofs_u_right)
@@ -291,8 +291,8 @@ def main(parameters, storage=None):
         ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
         ColorPrint.print_bold("===================-=================")
 
-        is_stable = bifurcation.solve(alpha_lb)
-        is_elastic = bifurcation.is_elastic()
+        bifurcation.solve(alpha_lb)
+        bifurcation.is_elastic()
         inertia = bifurcation.get_inertia()
 
         ColorPrint.print_bold("   Solving second order: Stability Pb.    ")
@@ -322,7 +322,7 @@ def main(parameters, storage=None):
                 subplot=(0, 0),
                 lineproperties={"c": "k", "label": "$\\beta$"},
             )
-            ax = _plt.gca()
+            _plt.gca()
             _plt.legend()
             _plt.fill_between(data[0], data[1].reshape(len(data[1])))
             _plt.title("Perurbation")
@@ -342,7 +342,7 @@ def main(parameters, storage=None):
                 subplot=(0, 0),
                 lineproperties={"c": "k", "label": "$\\beta$"},
             )
-            ax = _plt.gca()
+            _plt.gca()
             _plt.legend()
             _plt.fill_between(data[0], data[1].reshape(len(data[1])))
             _plt.title("Perurbation from the Cone")
