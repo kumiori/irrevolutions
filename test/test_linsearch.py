@@ -128,7 +128,7 @@ def test_linsearch():
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
     dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
@@ -385,7 +385,7 @@ def test_linsearch():
         )
         _stress = model.stress(model.eps(u), alpha)
 
-        stress = comm.allreduce(
+        comm.allreduce(
             assemble_scalar(form(_stress[0, 0] * dx)),
             op=MPI.SUM,
         )

@@ -57,7 +57,7 @@ def test_rayleigh(parameters=None, storage=None):
         parameters, signature = load_parameters(
             os.path.join(test_dir, "parameters.yml"), ndofs=50
         )
-        pretty_parameters = json.dumps(parameters, indent=2)
+        json.dumps(parameters, indent=2)
         storage = (
             f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
         )
@@ -142,8 +142,8 @@ def test_rayleigh(parameters=None, storage=None):
     ]
     dolfinx.fem.form(F_)
 
-    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 1))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 1))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 1))
@@ -159,7 +159,6 @@ def test_rayleigh(parameters=None, storage=None):
     # Perturbations
     β = dolfinx.fem.Function(V_alpha, name="DamagePerturbation")
     v = dolfinx.fem.Function(V_u, name="DisplacementPerturbation")
-    perturbation = {"v": v, "β": β}
 
     # Pack state
     state = {"u": u, "alpha": alpha}
@@ -189,7 +188,7 @@ def test_rayleigh(parameters=None, storage=None):
     )
     bifurcation.solve(zero_alpha)
     bifurcation.get_inertia()
-    stable = stability.solve(
+    stability.solve(
         zero_alpha, eig0=bifurcation.spectrum[0]["xk"], inertia=(1, 0, 10)
     )
 

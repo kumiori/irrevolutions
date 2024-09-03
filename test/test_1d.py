@@ -285,7 +285,7 @@ def run_computation(parameters, storage=None):
     alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
 
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Useful references
     Lx = parameters.get("geometry").get("Lx")
@@ -482,7 +482,7 @@ def run_computation(parameters, storage=None):
 
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
-        with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis"):
             if comm.Get_size() == 1:
                 if bifurcation._spectrum:
                     vec_to_functions(bifurcation._spectrum[0]["xk"], [v, β])
@@ -695,7 +695,7 @@ def test_1d():
     parameters, signature = load_parameters(
         os.path.join(os.path.dirname(__file__), "parameters.yml"), ndofs=_N
     )
-    pretty_parameters = json.dumps(parameters, indent=2)
+    json.dumps(parameters, indent=2)
     # print(pretty_parameters)
     # _storage = f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{args.N}/{signature}"
     _storage = (
@@ -703,7 +703,7 @@ def test_1d():
     )
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer("~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment"):
         history_data, stability_data, state = run_computation(parameters, _storage)
 
     from irrevolutions.utils import ResultsStorage, Visualization
