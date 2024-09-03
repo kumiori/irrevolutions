@@ -9,12 +9,14 @@ import numpy as np
 import ufl
 import yaml
 from dolfinx.fem import assemble_scalar, dirichletbc, form, locate_dofs_geometrical
-from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import ColorPrint, _logger, indicator_function
-from irrevolutions.utils import eigenspace as eig
-from irrevolutions.utils.viz import get_datapoints
 from mpi4py import MPI
 from petsc4py import PETSc
+
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.utils import ColorPrint, _logger
+from irrevolutions.utils import eigenspace as eig
+from irrevolutions.utils import indicator_function
+from irrevolutions.utils.viz import get_datapoints
 
 sys.path.append("../")
 sys.path.append("../playground/nb")

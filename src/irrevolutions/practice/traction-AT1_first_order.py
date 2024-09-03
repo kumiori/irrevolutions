@@ -14,8 +14,16 @@ import petsc4py
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
-                         dirichletbc, form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    FunctionSpace,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -23,10 +31,11 @@ from petsc4py import PETSc
 sys.path.append("../")
 from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import ColorPrint
 from meshes.primitives import mesh_bar_gmshapi
 from models import DamageElasticityModel as Brittle
 from utils.plots import plot_energies
+
+from irrevolutions.utils import ColorPrint
 
 sys.path.append("../")
 
@@ -362,7 +371,6 @@ import sys
 
 import pyvista
 from pyvista.utilities import xvfb
-
 from utils.viz import plot_scalar, plot_vector
 
 #

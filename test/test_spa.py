@@ -4,13 +4,14 @@ import pickle
 import sys
 
 import dolfinx
-import irrevolutions.solvers.restriction as restriction
 import numpy as np
 import ufl
 from dolfinx.io import XDMFFile
-from irrevolutions.utils import _logger
 from mpi4py import MPI
 from test_cone_project import _cone_project_restricted
+
+import irrevolutions.solvers.restriction as restriction
+from irrevolutions.utils import _logger
 
 from . import test_binarydataio as bio
 

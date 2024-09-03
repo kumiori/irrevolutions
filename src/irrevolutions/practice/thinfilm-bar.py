@@ -14,28 +14,38 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
-                         dirichletbc, form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    FunctionSpace,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.io import XDMFFile, gmshio
+
 #
 from mpi4py import MPI
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
 
 sys.path.append("../")
-from default import ResultsStorage, Visualization
-
 from algorithms.am import HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
-# logging.basicConfig(level=logging.DEBUG)
-from irrevolutions.utils import ColorPrint, setup_logger_mpi, table_timing_data
+from default import ResultsStorage, Visualization
 from meshes.primitives import mesh_bar_gmshapi
 from models import BrittleMembraneOverElasticFoundation as ThinFilm
 from solvers.function import vec_to_functions
 from utils.parametric import parameters_vs_elle
 from utils.plots import plot_AMit_load, plot_energies, plot_force_displacement
+
 # from meshes.pacman import mesh_pacman
 from utils.viz import plot_profile, plot_scalar, plot_vector
+
+# logging.basicConfig(level=logging.DEBUG)
+from irrevolutions.utils import ColorPrint, setup_logger_mpi, table_timing_data
 
 
 # ------------------------------------------------------------------

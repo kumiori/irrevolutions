@@ -15,13 +15,14 @@ import ufl
 import yaml
 from dolfinx import log
 from dolfinx.io import XDMFFile, gmshio
+from mpi4py import MPI
+from petsc4py import PETSc
+from pyvista.utilities import xvfb
+
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import ElasticityModel
 from irrevolutions.solvers import SNESSolver as ElasticitySolver
 from irrevolutions.utils.viz import plot_vector
-from mpi4py import MPI
-from petsc4py import PETSc
-from pyvista.utilities import xvfb
 
 logging.basicConfig(level=logging.INFO)
 

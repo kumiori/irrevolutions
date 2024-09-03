@@ -14,8 +14,15 @@ import petsc4py
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
-                         form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.fem.petsc import assemble_vector
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
@@ -23,9 +30,10 @@ from petsc4py import PETSc
 
 sys.path.append("../")
 from algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import ColorPrint, norm_H1, norm_L2
 from solvers import SNESSolver
 from utils.viz import plot_matrix
+
+from irrevolutions.utils import ColorPrint, norm_H1, norm_L2
 
 sys.path.append("../")
 

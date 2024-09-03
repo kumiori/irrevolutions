@@ -12,12 +12,13 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.fem import dirichletbc, locate_dofs_geometrical
+from mpi4py import MPI
+from petsc4py import PETSc
+
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.utils import ColorPrint, _logger, indicator_function
 from irrevolutions.utils.viz import get_datapoints, plot_profile
-from mpi4py import MPI
-from petsc4py import PETSc
 
 test_dir = os.path.dirname(__file__)
 
@@ -188,9 +189,7 @@ def test_rayleigh(parameters=None, storage=None):
     )
     bifurcation.solve(zero_alpha)
     bifurcation.get_inertia()
-    stability.solve(
-        zero_alpha, eig0=bifurcation.spectrum[0]["xk"], inertia=(1, 0, 10)
-    )
+    stability.solve(zero_alpha, eig0=bifurcation.spectrum[0]["xk"], inertia=(1, 0, 10))
 
     _logger.setLevel(level=logging.INFO)
 

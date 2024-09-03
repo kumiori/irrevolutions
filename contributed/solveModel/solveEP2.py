@@ -13,10 +13,7 @@ import numpy as np
 import pyvista
 import ufl
 import yaml
-from dolfinx.fem import (
-    Function,
-    dirichletbc,
-)
+from dolfinx.fem import Function, dirichletbc
 from meshes import primitives
 from petsc4py import PETSc
 from pyvista.utilities import xvfb

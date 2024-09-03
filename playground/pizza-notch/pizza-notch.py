@@ -26,6 +26,10 @@ from dolfinx.fem import (
 )
 from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
+from mpi4py import MPI
+from petsc4py import PETSc
+from pyvista.utilities import xvfb
+
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.meshes.pacman import mesh_pacman
@@ -39,9 +43,6 @@ from irrevolutions.utils import (
 )
 from irrevolutions.utils.lib import _local_notch_asymptotic
 from irrevolutions.utils.viz import plot_mesh, plot_scalar, plot_vector
-from mpi4py import MPI
-from petsc4py import PETSc
-from pyvista.utilities import xvfb
 
 description = """We solve here a basic 2d of a notched specimen.
 Imagine a dinner a pizza which is missing a slice, and lots of hungry friends

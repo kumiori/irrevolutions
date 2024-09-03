@@ -26,6 +26,10 @@ from dolfinx.fem import (
     locate_dofs_geometrical,
 )
 from dolfinx.io import XDMFFile
+from mpi4py import MPI
+from petsc4py import PETSc
+from pyvista.utilities import xvfb
+
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.utils import (
@@ -41,9 +45,6 @@ from irrevolutions.utils.plots import (
     plot_force_displacement,
 )
 from irrevolutions.utils.viz import plot_profile, plot_scalar
-from mpi4py import MPI
-from petsc4py import PETSc
-from pyvista.utilities import xvfb
 
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD

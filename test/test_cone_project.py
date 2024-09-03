@@ -1,18 +1,17 @@
 import sys
 
 import dolfinx
-import irrevolutions.solvers.restriction as restriction
 import numpy as np
+from mpi4py import MPI
+from petsc4py import PETSc
+from test_restriction import get_inactive_dofset
+
+import irrevolutions.solvers.restriction as restriction
 from irrevolutions.utils import (
     _logger,
     load_binary_matrix,
     load_binary_vector,
     sample_data,
-)
-from mpi4py import MPI
-from petsc4py import PETSc
-from test_restriction import (
-    get_inactive_dofset,
 )
 
 sys.path.append("../")

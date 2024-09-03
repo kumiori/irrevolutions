@@ -5,9 +5,10 @@ import dolfinx
 import numpy as np
 import ufl
 from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
-from irrevolutions.utils import _logger
 from mpi4py import MPI
 from petsc4py import PETSc
+
+from irrevolutions.utils import _logger
 
 sys.path.append("../")
 

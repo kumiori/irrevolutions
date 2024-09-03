@@ -3,14 +3,15 @@ import os
 import pickle
 
 import dolfinx
-import irrevolutions.solvers.restriction as restriction
 import numpy as np
 import ufl
 from dolfinx.io import XDMFFile
+from mpi4py import MPI
+
+import irrevolutions.solvers.restriction as restriction
 from irrevolutions import utils
 from irrevolutions.algorithms.so import StabilitySolver
 from irrevolutions.utils import _logger
-from mpi4py import MPI
 
 _logger.setLevel(logging.CRITICAL)
 

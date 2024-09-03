@@ -28,29 +28,19 @@ from dolfinx.fem import (
     set_bc,
 )
 from dolfinx.io import XDMFFile, gmshio
+from mpi4py import MPI
+from petsc4py import PETSc
+from pyvista.utilities import xvfb
+
 from irrevolutions.algorithms.am import AlternateMinimisation, HybridSolver
 from irrevolutions.algorithms.ls import LineSearch
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import DamageElasticityModel as Brittle
 from irrevolutions.solvers.function import vec_to_functions
-from irrevolutions.utils import (
-    ColorPrint,
-    _write_history_data,
-    history_data,
-    norm_H1,
-)
-from irrevolutions.utils.plots import (
-    plot_energies,
-)
-from irrevolutions.utils.viz import (
-    plot_profile,
-    plot_scalar,
-    plot_vector,
-)
-from mpi4py import MPI
-from petsc4py import PETSc
-from pyvista.utilities import xvfb
+from irrevolutions.utils import ColorPrint, _write_history_data, history_data, norm_H1
+from irrevolutions.utils.plots import plot_energies
+from irrevolutions.utils.viz import plot_profile, plot_scalar, plot_vector
 
 logging.basicConfig(level=logging.INFO)
 

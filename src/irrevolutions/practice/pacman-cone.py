@@ -16,10 +16,19 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings, timing
-from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
-                         dirichletbc, form, locate_dofs_topological, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    FunctionSpace,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_topological,
+    set_bc,
+)
 from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
+
 #
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -28,11 +37,12 @@ from pyvista.utilities import xvfb
 sys.path.append("../")
 from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import ColorPrint
 from meshes.pacman import mesh_pacman
 from models import DamageElasticityModel as Brittle
 from utils.lib import _local_notch_asymptotic
 from utils.viz import plot_mesh, plot_scalar, plot_vector
+
+from irrevolutions.utils import ColorPrint
 
 logging.basicConfig(level=logging.DEBUG)
 

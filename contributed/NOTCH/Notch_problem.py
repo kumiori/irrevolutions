@@ -21,12 +21,7 @@ import numpy as np
 import pyvista
 import ufl
 from algorithms import am
-from dolfinx.fem import (
-    assemble_scalar,
-    dirichletbc,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import assemble_scalar, dirichletbc, locate_dofs_geometrical, set_bc
 from models import DamageElasticityModel as Brittle
 from petsc4py import PETSc
 from pyvista.utilities import xvfb

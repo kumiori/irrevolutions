@@ -10,17 +10,15 @@ import dolfinx.io
 import dolfinx.plot
 import gmsh
 import matplotlib.pyplot as plt
+import meshes
 import numpy as np
 import pyvista
 import ufl
-from dolfinx.fem import (assemble_scalar, dirichletbc, locate_dofs_geometrical,
-                         set_bc)
+from algorithms import am
+from dolfinx.fem import assemble_scalar, dirichletbc, locate_dofs_geometrical, set_bc
+from models import DamageElasticityModel as Brittle
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
-
-import meshes
-from algorithms import am
-from models import DamageElasticityModel as Brittle
 from utils.viz import plot_mesh, plot_scalar, plot_vector
 
 logging.basicConfig(level=logging.INFO)

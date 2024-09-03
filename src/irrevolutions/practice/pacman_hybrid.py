@@ -6,8 +6,13 @@ import dolfinx.plot
 import matplotlib.pyplot as plt
 import pyvista
 import yaml
-from dolfinx.fem import (Function, FunctionSpace, dirichletbc,
-                         locate_dofs_topological, set_bc)
+from dolfinx.fem import (
+    Function,
+    FunctionSpace,
+    dirichletbc,
+    locate_dofs_topological,
+    set_bc,
+)
 from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
 from pyvista.utilities import xvfb
@@ -21,16 +26,16 @@ import dolfinx
 import numpy as np
 import petsc4py
 import ufl
-from mpi4py import MPI
-from petsc4py import PETSc
-
 from algorithms.am import HybridSolver
-from irrevolutions.utils import ColorPrint, set_vector_to_constant
 from meshes.pacman import mesh_pacman
 from models import DamageElasticityModel as Brittle
+from mpi4py import MPI
+from petsc4py import PETSc
 from solvers.function import functions_to_vec
 from utils.lib import _local_notch_asymptotic
 from utils.viz import plot_mesh, plot_scalar, plot_vector
+
+from irrevolutions.utils import ColorPrint, set_vector_to_constant
 
 logging.basicConfig(level=logging.INFO)
 
