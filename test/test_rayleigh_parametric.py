@@ -8,7 +8,8 @@ import dolfinx
 import numpy as np
 import ufl
 import yaml
-from dolfinx.fem import assemble_scalar, dirichletbc, form, locate_dofs_geometrical
+from dolfinx.fem import (assemble_scalar, dirichletbc, form,
+                         locate_dofs_geometrical)
 from mpi4py import MPI
 from petsc4py import PETSc
 

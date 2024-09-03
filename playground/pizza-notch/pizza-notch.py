@@ -15,15 +15,8 @@ import petsc4py
 import pyvista
 import ufl
 import yaml
-from dolfinx.fem import (
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_topological,
-    set_bc,
-)
+from dolfinx.fem import (Function, FunctionSpace, assemble_scalar, dirichletbc,
+                         form, locate_dofs_topological, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
 from mpi4py import MPI
@@ -34,13 +27,8 @@ from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.meshes.pacman import mesh_pacman
 from irrevolutions.models import DamageElasticityModel as Brittle
-from irrevolutions.utils import (
-    ColorPrint,
-    _logger,
-    _write_history_data,
-    history_data,
-    set_vector_to_constant,
-)
+from irrevolutions.utils import (ColorPrint, _logger, _write_history_data,
+                                 history_data, set_vector_to_constant)
 from irrevolutions.utils.lib import _local_notch_asymptotic
 from irrevolutions.utils.viz import plot_mesh, plot_scalar, plot_vector
 

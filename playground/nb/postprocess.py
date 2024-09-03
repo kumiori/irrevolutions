@@ -1,5 +1,4 @@
 import hashlib
-
 # import xmltodict
 # import pickle
 import json
@@ -9,7 +8,6 @@ import os.path
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
-
 # import pandas
 import pandas as pd
 import yaml

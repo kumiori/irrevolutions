@@ -9,16 +9,9 @@ from petsc4py import PETSc
 petsc4py.init(sys.argv)
 
 from dolfinx.cpp.log import LogLevel, log
-
 # from damage.utils import ColorPrint
-from dolfinx.fem.petsc import (
-    apply_lifting,
-    assemble_matrix,
-    assemble_vector,
-    create_matrix,
-    create_vector,
-    set_bc,
-)
+from dolfinx.fem.petsc import (apply_lifting, assemble_matrix, assemble_vector,
+                               create_matrix, create_vector, set_bc)
 
 # import pdb;
 # pdb.set_trace()

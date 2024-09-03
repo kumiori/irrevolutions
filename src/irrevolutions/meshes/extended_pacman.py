@@ -116,7 +116,6 @@ if __name__ == "__main__":
     import sys
 
     import yaml
-
     # , merge_meshtags, locate_dofs_topological
     from mpi4py import MPI
 

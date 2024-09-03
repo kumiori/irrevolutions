@@ -13,16 +13,8 @@ import petsc4py
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
 from dolfinx.io import gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -575,11 +567,9 @@ def param_vs_dry(base_parameters, base_signature):
 if __name__ == "__main__":
     import argparse
 
-    from utils.parametric import (
-        parameters_vs_ell,
-        parameters_vs_n_refinement,
-        parameters_vs_SPA_scaling,
-    )
+    from utils.parametric import (parameters_vs_ell,
+                                  parameters_vs_n_refinement,
+                                  parameters_vs_SPA_scaling)
 
     admissible_models = {"at1", "at2", "thinfilm"}
 

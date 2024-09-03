@@ -7,12 +7,8 @@ from petsc4py import PETSc
 from test_restriction import get_inactive_dofset
 
 import irrevolutions.solvers.restriction as restriction
-from irrevolutions.utils import (
-    _logger,
-    load_binary_matrix,
-    load_binary_vector,
-    sample_data,
-)
+from irrevolutions.utils import (_logger, load_binary_matrix,
+                                 load_binary_vector, sample_data)
 
 sys.path.append("../")
 

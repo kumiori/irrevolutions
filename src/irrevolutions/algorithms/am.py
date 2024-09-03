@@ -11,7 +11,8 @@ from petsc4py import PETSc
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import functions_to_vec
 from irrevolutions.solvers.snesblockproblem import SNESBlockProblem
-from irrevolutions.utils import ColorPrint, norm_H1, norm_L2, set_vector_to_constant
+from irrevolutions.utils import (ColorPrint, norm_H1, norm_L2,
+                                 set_vector_to_constant)
 
 comm = MPI.COMM_WORLD
 

@@ -15,15 +15,8 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (
-    Constant,
-    Function,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
+                         form, locate_dofs_geometrical, set_bc)
 from dolfinx.fem.petsc import assemble_vector
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
@@ -33,16 +26,9 @@ from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import vec_to_functions
-from irrevolutions.utils import (
-    ColorPrint,
-    _logger,
-    _write_history_data,
-    history_data,
-    norm_H1,
-    norm_L2,
-)
+from irrevolutions.utils import (ColorPrint, _logger, _write_history_data,
+                                 history_data, norm_H1, norm_L2)
 from irrevolutions.utils.plots import plot_AMit_load, plot_energies
-
 #
 from irrevolutions.utils.viz import plot_profile
 

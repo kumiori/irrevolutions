@@ -1,7 +1,6 @@
 # Numpy -> numerical library for Python. We'll use it for all array operations.
 # It's written in C and it's faster (than traditional Python)
 import logging
-
 # Yaml (Yet another markup language) -> We'll use it to pass, read and structure
 # light text data in .yml files.
 # Json -> Another form to work with data. It comes from JavaScript. Similar functions
@@ -21,7 +20,8 @@ import numpy as np
 import pyvista
 import ufl
 from algorithms import am
-from dolfinx.fem import assemble_scalar, dirichletbc, locate_dofs_geometrical, set_bc
+from dolfinx.fem import (assemble_scalar, dirichletbc, locate_dofs_geometrical,
+                         set_bc)
 from models import DamageElasticityModel as Brittle
 from petsc4py import PETSc
 from pyvista.utilities import xvfb

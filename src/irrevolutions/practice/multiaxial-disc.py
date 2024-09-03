@@ -10,7 +10,6 @@ import dolfinx.plot
 import pandas as pd
 import yaml
 from dolfinx.common import list_timings
-
 #
 from mpi4py import MPI
 from petsc4py import PETSc
