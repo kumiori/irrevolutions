@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint
+from models import DamageElasticityModel as Brittle
+from meshes.primitives import mesh_bar_gmshapi
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import HybridSolver
 import json
 import logging
 import os
 import sys
 from pathlib import Path
-
+import hashlib
 import dolfinx
 import dolfinx.mesh
 import dolfinx.plot
@@ -14,26 +19,14 @@ import petsc4py
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
-
+from irrevolutions.utils.parametric import (parameters_vs_ell, parameters_vs_SPA_scaling)
 sys.path.append("../")
-from algorithms.am import HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import ColorPrint
-from meshes.primitives import mesh_bar_gmshapi
-from models import DamageElasticityModel as Brittle
+
 
 logging.getLogger().setLevel(logging.ERROR)
 
@@ -137,10 +130,10 @@ def traction_with_parameters(parameters, slug=""):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
-    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -359,7 +352,8 @@ def traction_with_parameters(parameters, slug=""):
 
     # Viz
 
-    from utils.plots import plot_AMit_load, plot_energies, plot_force_displacement
+    from utils.plots import (plot_AMit_load, plot_energies,
+                             plot_force_displacement)
 
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")

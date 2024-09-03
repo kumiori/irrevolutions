@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint, norm_H1, norm_L2
+from utils.viz import plot_matrix
+from utils.plots import plot_energies
+from solvers import SNESSolver
+from algorithms.so import BifurcationSolver, StabilitySolver
 import json
 import logging
 import os
@@ -14,27 +19,13 @@ import petsc4py
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (
-    Constant,
-    Function,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
+                         form, locate_dofs_geometrical, set_bc)
 from dolfinx.fem.petsc import assemble_vector
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
 from petsc4py import PETSc
 
-sys.path.append("../")
-from algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import ColorPrint, norm_H1, norm_L2
-from solvers import SNESSolver
-from utils.viz import plot_matrix
-
-sys.path.append("../")
 
 
 """Discrete endommageable springs in series
@@ -211,7 +202,7 @@ petsc4py.init(sys.argv)
 
 def discrete_atk(arg_N=2):
     # Mesh on node model_rank and then distribute
-    model_rank = 0
+    pass
 
     with open("./parameters.yml") as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
@@ -233,15 +224,15 @@ def discrete_atk(arg_N=2):
     parameters["geometry"]["geom_type"] = "discrete-damageable"
     # Get mesh parameters
     Lx = parameters["geometry"]["Lx"]
-    Ly = parameters["geometry"]["Ly"]
-    tdim = parameters["geometry"]["geometric_dimension"]
+    parameters["geometry"]["Ly"]
+    parameters["geometry"]["geometric_dimension"]
 
     _nameExp = parameters["geometry"]["geom_type"]
-    ell_ = parameters["model"]["ell"]
+    parameters["model"]["ell"]
     # lc = ell_ / 5.0
 
     # Get geometry model
-    geom_type = parameters["geometry"]["geom_type"]
+    parameters["geometry"]["geom_type"]
     _N = parameters["model"]["N"]
 
     # Create the mesh of the specimen with given dimensions
@@ -299,7 +290,7 @@ def discrete_atk(arg_N=2):
     alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
 
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Useful references
     Lx = parameters.get("geometry").get("Lx")
@@ -311,12 +302,12 @@ def discrete_atk(arg_N=2):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Boundary sets
 
-    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -358,7 +349,7 @@ def discrete_atk(arg_N=2):
         return (1 - alpha) ** 2 + k_res
 
     def a_atk(alpha):
-        k_res = parameters["model"]["k_res"]
+        parameters["model"]["k_res"]
         _k = parameters["model"]["k"]
         return (1 - alpha) / ((_k - 1) * alpha + 1)
 
@@ -377,7 +368,7 @@ def discrete_atk(arg_N=2):
         """
         # Parameters
         _mu = parameters["model"]["mu"]
-        _N = parameters["model"]["N"]
+        parameters["model"]["N"]
 
         alpha = state["alpha"]
         u = state["u"]
@@ -391,7 +382,7 @@ def discrete_atk(arg_N=2):
         Return the damage dissipation density from the state.
         """
         # Get the material parameters
-        _mu = parameters["model"]["mu"]
+        parameters["model"]["mu"]
         _w1 = parameters["model"]["w1"]
         _ell = parameters["model"]["ell"]
         # Get the damage
@@ -419,12 +410,12 @@ def discrete_atk(arg_N=2):
     # f = Constant(mesh, 0)
     f = Constant(mesh, np.array(0, dtype=PETSc.ScalarType))
 
-    external_work = f * state["u"] * dx
+    f * state["u"] * dx
 
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
-    solver = _AlternateMinimisation(
+    _AlternateMinimisation(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 

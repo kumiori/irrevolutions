@@ -1,3 +1,19 @@
+from irrevolutions.utils import ColorPrint, set_vector_to_constant
+from utils.viz import plot_mesh, plot_scalar, plot_vector
+from utils.lib import _local_notch_asymptotic
+from solvers.function import functions_to_vec
+from petsc4py import PETSc
+from mpi4py import MPI
+from models import DamageElasticityModel as Brittle
+from meshes.pacman import mesh_pacman
+from algorithms.am import HybridSolver
+import ufl
+import petsc4py
+import numpy as np
+import dolfinx
+from datetime import date
+import logging
+import json
 import os
 import sys
 from pathlib import Path
@@ -6,35 +22,15 @@ import dolfinx.plot
 import matplotlib.pyplot as plt
 import pyvista
 import yaml
-from dolfinx.fem import (
-    Function,
-    FunctionSpace,
-    dirichletbc,
-    locate_dofs_topological,
-    set_bc,
-)
+from dolfinx.fem import (Function, FunctionSpace, dirichletbc,
+                         locate_dofs_topological, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
 from pyvista.utilities import xvfb
 
 sys.path.append("../")
-import json
-import logging
-from datetime import date
 
-import dolfinx
-import numpy as np
-import petsc4py
-import ufl
-from algorithms.am import HybridSolver
-from irrevolutions.utils import ColorPrint, set_vector_to_constant
-from meshes.pacman import mesh_pacman
-from models import DamageElasticityModel as Brittle
-from mpi4py import MPI
-from petsc4py import PETSc
-from solvers.function import functions_to_vec
-from utils.lib import _local_notch_asymptotic
-from utils.viz import plot_mesh, plot_scalar, plot_vector
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -104,11 +100,9 @@ if comm.rank == 0:
 
 def pacman_hybrid(nest):
     # Parameters
-    Lx = 1.0
-    Ly = 0.1
+    pass
     # tdim = 2
     # _ell = 0.3
-    _nel = 30
 
     with open(f"{prefix}/parameters.yaml") as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
@@ -174,7 +168,7 @@ def pacman_hybrid(nest):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Set Bcs Function
 
@@ -221,7 +215,7 @@ def pacman_hybrid(nest):
     )
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
-    bcs_z = bcs_u + bcs_alpha
+    bcs_u + bcs_alpha
 
     # Bounds for Newton solver
 
@@ -250,8 +244,8 @@ def pacman_hybrid(nest):
     Eu = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
     Ealpha = ufl.derivative(total_energy, alpha, ufl.TestFunction(V_alpha))
 
-    F = [Eu, Ealpha]
-    z = [u, alpha]
+    [Eu, Ealpha]
+    [u, alpha]
 
     hybrid = HybridSolver(
         total_energy,
@@ -271,7 +265,7 @@ def pacman_hybrid(nest):
         with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
 
-    snes = hybrid.newton.snes
+    hybrid.newton.snes
 
     lb = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
     ub = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)

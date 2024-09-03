@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint
+from utils.viz import plot_scalar, plot_vector
+from utils.plots import plot_energies, plot_force_displacement
+from pyvista.utilities import xvfb
+from models import DamageElasticityModel as Brittle
+from meshes.primitives import mesh_bar_gmshapi
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import AlternateMinimisation, HybridSolver
+import pyvista
+import hashlib
 import json
 import logging
 import os
@@ -13,32 +23,15 @@ import petsc4py
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
 from dolfinx.io import gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
 
 sys.path.append("../")
-import hashlib
 
-import pyvista
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import ColorPrint
-from meshes.primitives import mesh_bar_gmshapi
-from models import DamageElasticityModel as Brittle
-from pyvista.utilities import xvfb
-from utils.plots import plot_energies, plot_force_displacement
-from utils.viz import plot_scalar, plot_vector
+
 
 
 class BrittleAT2(Brittle):
@@ -69,10 +62,10 @@ class ResultsStorage:
         Args:
             history_data (dict): Dictionary containing simulation data.
         """
-        t = history_data["load"][-1]
+        history_data["load"][-1]
 
-        u = state["u"]
-        alpha = state["alpha"]
+        state["u"]
+        state["alpha"]
 
         if self.comm.rank == 0:
             with open(f"{self.prefix}/parameters.yaml", "w") as file:
@@ -197,10 +190,10 @@ def main(parameters, model="at2", storage=None):
     alpha_ub = Function(V_alpha, name="Upper bound")
 
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
-    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -243,7 +236,7 @@ def main(parameters, model="at2", storage=None):
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
-    solver = AlternateMinimisation(
+    AlternateMinimisation(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 
@@ -389,7 +382,7 @@ def main(parameters, model="at2", storage=None):
     # print(df.drop(['solver_data', 'cone_data'], axis=1))
     print(df.drop(["cone_data"], axis=1))
 
-    with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+    with dolfinx.common.Timer("~Postprocessing and Vis"):
         if comm.rank == 0:
             plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
             # plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
@@ -495,7 +488,7 @@ def param_vs_s(base_parameters, base_signature):
         )
         ColorPrint.print_bold(f"===================-{signature}-=================")
 
-        with dolfinx.common.Timer("~Computation Experiment") as timer:
+        with dolfinx.common.Timer("~Computation Experiment"):
             history_data, performance, state = main(parameters, _storage)
 
         _timings = table_timing_data()
@@ -546,7 +539,7 @@ def param_vs_dry(base_parameters, base_signature):
         )
         ColorPrint.print_bold(f"===================-{signature}-=================")
 
-        with dolfinx.common.Timer("~Computation Experiment") as timer:
+        with dolfinx.common.Timer("~Computation Experiment"):
             history_data, performance, state = main(parameters, _storage)
 
         _timings = table_timing_data()
@@ -574,11 +567,9 @@ def param_vs_dry(base_parameters, base_signature):
 if __name__ == "__main__":
     import argparse
 
-    from utils.parametric import (
-        parameters_vs_ell,
-        parameters_vs_n_refinement,
-        parameters_vs_SPA_scaling,
-    )
+    from utils.parametric import (parameters_vs_ell,
+                                  parameters_vs_n_refinement,
+                                  parameters_vs_SPA_scaling)
 
     admissible_models = {"at1", "at2", "thinfilm"}
 

@@ -103,7 +103,7 @@ def solve_eigenspace_cone(parameters, idx=0):
         dict: A dictionary containing 'v', 'β', and 'D'.
     """
     x = sp.symbols("x", real=True)
-    v = sp.Function("v", real=True)(x)
+    sp.Function("v", real=True)(x)
     β = sp.Function("β", real=True)(x)
     C, A = sp.symbols("C A")
 
@@ -124,11 +124,11 @@ def solve_eigenspace_cone(parameters, idx=0):
             (C * (1 + sp.cos(sp.pi * x / D)), (0 <= x) & (x <= D)), (0, True)
         )
 
-        _min = (np.pi**2 * a) ** (1 / 3) * (b * c**2) ** (2 / 3)
+        (np.pi**2 * a) ** (1 / 3) * (b * c**2) ** (2 / 3)
 
     elif b * c**2 == sp.pi**2 * a:
         print("case eq")
-        _min = b * c**2
+        b * c**2
         _subs = {C: 0}
         C = 0
         β = C + A * sp.cos(sp.pi * x)
@@ -187,3 +187,32 @@ def book_of_the_numbers(scale_b=3, scale_c=3):
             break
 
     return {"a": a, "b": b, "c": c}
+
+
+def l2_norm(components):
+    """
+    Compute the L2 norm of a vector field defined by components on their respective domains.
+
+    Parameters:
+        components (list): List of tuples (x, f) where x is the mesh coordinates and f is the field values.
+
+    Returns:
+        float: L2 norm of the vector field.
+    """
+    norms = []
+
+    for x, f in components:
+        # Compute the square of the field values
+        squared_values = f**2
+
+        # Compute the integral using the trapezoidal rule
+        integral = np.trapz(squared_values, x)
+
+        # Take the square root to get the L2 norm
+        component_norm = np.sqrt(integral)
+        norms.append(component_norm)
+
+    # Compute the vector norm by summing the squared norms and taking the square root
+    vector_norm = np.sqrt(np.sum(np.array(norms)**2))
+
+    return vector_norm

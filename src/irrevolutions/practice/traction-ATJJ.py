@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint
+from models import DamageElasticityModel
+from meshes.primitives import mesh_bar_gmshapi
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import HybridSolver
+from utils.plots import plot_energies
 import json
 import logging
 import os
 import sys
 from pathlib import Path
-
+import hashlib
 import dolfinx
 import dolfinx.mesh
 import dolfinx.plot
@@ -14,27 +20,15 @@ import petsc4py
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
 
 sys.path.append("../")
 
-from algorithms.am import HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import ColorPrint
-from meshes.primitives import mesh_bar_gmshapi
-from models import DamageElasticityModel
+
 
 logging.getLogger().setLevel(logging.ERROR)
 
@@ -205,10 +199,10 @@ def traction_with_parameters(parameters, slug=""):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
-    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -507,7 +501,7 @@ def traction_with_parameters(parameters, slug=""):
             "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}",
         },
     )
-    ax = _plt.gca()
+    _plt.gca()
     _plt.legend()
     _plt.fill_between(data[0], data[1].reshape(len(data[1])))
     _plt.title("Damage profile")
@@ -523,8 +517,8 @@ def _plot_bif_spectrum_profile(
 
     import matplotlib.pyplot as plt
     from utils.viz import plot_profile
-    # __import__('pdb').set_trace()
 
+    # __import__('pdb').set_trace()
     # fields = spectrum["perturbations_beta"]
     # fields = spectrum["perturbations_beta"]
     fields = [item.get("beta") for item in spectrum]
@@ -532,8 +526,9 @@ def _plot_bif_spectrum_profile(
     num_cols = 1
     num_rows = (n + num_cols - 1) // num_cols
 
-    if plotter == None:
+    if plotter is None:
         import pyvista
+
         # from pyvista.utilities import xvfb
 
         plotter = pyvista.Plotter(
@@ -604,8 +599,9 @@ def _plot_bif_spectrum_profile_fullvec(
     num_cols = 1
     num_rows = (n + num_cols - 1) // num_cols
 
-    if plotter == None:
+    if plotter is None:
         import pyvista
+
         # from pyvista.utilities import xvfb
 
         plotter = pyvista.Plotter(
@@ -681,8 +677,9 @@ def _plot_perturbations_profile(
 
     figure = plt.figure()
 
-    if plotter == None:
+    if plotter is None:
         import pyvista
+
         # from pyvista.utilities import xvfb
 
         plotter = pyvista.Plotter(
@@ -741,8 +738,6 @@ def _plot_perturbations_profile(
     # _plt.savefig(f"{prefix}/test_profile{idx}.png")
 
     return plotter, _plt
-
-    pass
 
 
 def param_ell():

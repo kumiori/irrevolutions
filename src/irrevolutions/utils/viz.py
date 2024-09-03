@@ -1,3 +1,11 @@
+import scipy
+from dolfinx.plot import vtk_mesh as compute_topology
+import matplotlib.tri as tri
+import matplotlib.pyplot as plt
+from pyvista.utilities import xvfb
+import pyvista
+from mpi4py import MPI
+import logging
 import sys
 from datetime import date
 
@@ -7,22 +15,15 @@ today = date.today()
 
 sys.path.append("../")
 
-import logging
 
 logging.basicConfig(level=logging.INFO)
 
-from mpi4py import MPI
 
 comm = MPI.COMM_WORLD
 # import pdb
-import pyvista
-from pyvista.utilities import xvfb
 
 xvfb.start_xvfb(wait=0.05)
 
-import matplotlib.pyplot as plt
-import matplotlib.tri as tri
-from dolfinx.plot import vtk_mesh as compute_topology
 
 # try:
 #     from dolfinx.plot import create_vtk_mesh as compute_topology
@@ -206,7 +207,7 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
             subplot=(0, 0),
             lineproperties={"c": "k", "label": "$\\beta$"},
         )
-        ax = _plt.gca()
+        _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
         _plt.title("Perurbation")
@@ -226,7 +227,7 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
             subplot=(0, 0),
             lineproperties={"c": "k", "label": "$\\beta$"},
         )
-        ax = _plt.gca()
+        _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
         _plt.title("Perurbation from the Cone")
@@ -236,7 +237,6 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
     return plotter
 
 
-import scipy
 
 
 def plot_matrix(M):

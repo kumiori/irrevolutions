@@ -1,36 +1,28 @@
-[project]
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry]
 name = "irrevolutions"
-authors = [
-    {name = "Andrés A León Baldelli", email = "leon.baldelli@cnrs.fr"},
-    ]
 version = "0.1.0"
-requires-python = ">=3.8"
+description = "A Python package for solving nonlinear and nonconvex evolutionary problems using a general energetic notion of stability and dolfinx."
+authors = ["Your Name <leon.baldelli@cnrs.fr>"]
 
-# Short description
-description = "Three solvers for irreversible evolutionary processes with a general energetic notion of stability."
+# Optional dependencies are specified in this section
+[tool.poetry.dependencies]
+python = "^3.8"
+pandas = "^1.2"
+sympy = "^1.8"
+pytest = "^6.0"
+matplotlib = "^3.4"
+gmsh = "^4.11.0"
+PyYAML = "^6.0.1"
+scipy = "^1.12.0"
+pyvista = "^0.43"
+numba = "^0.60.0"
 
-# Path to README.md
-readme = "README.md"
+[tool.poetry.extras]
+dolfinx_support = []
 
-# Path to license file
-license = {file = "LICENSE"}
-
-# Direct dependencies
-dependencies = [
-    "fenics-dolfinx==0.7.*",
-    "pandas>=2.2",
-    "sympy",
-    "pytest",
-    "matplotlib",
-    "gmsh>=4.11.0",
-    "PyYAML>=6.0.1",
-    "scipy>=1.12.0",
-    "pyvista>=0.43",
-    "numba>=0.60.0",
-]
-
-[project.optional-dependencies]
-test = ["pytest"]
-
-[tool.ruff.lint.isort.sections]
-"mpi" = ["mpi4py", "petsc4py"]
+[tool.poetry.scripts]
+irrevolutions = 'irrevolutions:main'

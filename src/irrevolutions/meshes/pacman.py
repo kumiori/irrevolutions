@@ -33,7 +33,7 @@ def mesh_pacman(
         omega = np.deg2rad(geom_parameters.get("omega"))
         radius = geom_parameters.get("r")
         lc = geom_parameters.get("meshsize")
-        elltomesh = geom_parameters.get("elltomesh")
+        geom_parameters.get("elltomesh")
 
         refinement = geom_parameters.get("refinement")
 
@@ -45,7 +45,7 @@ def mesh_pacman(
         # print("Model name: " + gmsh.model.getCurrent())
 
         # get all elementary entities in the model
-        entities = gmsh.model.occ.getEntities()
+        gmsh.model.occ.getEntities()
 
         # for e in entities:
         #     print("Entity " + str(e) + " of type " + gmsh.model.getType(e[0], e[1]))
@@ -69,7 +69,7 @@ def mesh_pacman(
         p2 = model.geo.addPoint(
             -radius * np.cos(omega / 2), -radius * np.sin(omega / 2), 0.0, lc, tag=2
         )
-        p3 = model.geo.addPoint(radius, 0, 0.0, lc / refinement, tag=12)
+        model.geo.addPoint(radius, 0, 0.0, lc / refinement, tag=12)
 
         top = model.geo.addLine(p1, p0, tag=3)
         bot = model.geo.addLine(p0, p2, tag=4)

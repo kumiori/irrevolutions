@@ -4,13 +4,14 @@ import pickle
 import sys
 
 import dolfinx
-import irrevolutions.solvers.restriction as restriction
 import numpy as np
 import ufl
 from dolfinx.io import XDMFFile
-from irrevolutions.utils import _logger
 from mpi4py import MPI
 from test_cone_project import _cone_project_restricted
+
+import irrevolutions.solvers.restriction as restriction
+from irrevolutions.utils import _logger
 
 from . import test_binarydataio as bio
 
@@ -166,7 +167,7 @@ def test_spa():
 
     V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
     V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
-    u = dolfinx.fem.Function(V_u, name="Displacement")
+    # u = dolfinx.fem.Function(V_u, name="Displacement")
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
     ufl.Measure("dx", alpha.function_space.mesh)
 
@@ -212,7 +213,7 @@ def test_spa():
         f"lambda_0 = {lmbda_t:.4e}, residual norm = {y.norm(): .4e}, error = {errors[-1]: .4e}"
     )
 
-    assert np.isclose(lmbda_t, -0.044659195907104675, atol=1e-4) == True
+    assert np.isclose(lmbda_t, -0.044659195907104675, atol=1e-4)
 
 
 if __name__ == "__main__":

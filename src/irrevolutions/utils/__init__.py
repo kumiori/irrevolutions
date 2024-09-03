@@ -1,3 +1,7 @@
+from dolfinx.io import XDMFFile
+from slepc4py import __version__ as slepc_version
+from petsc4py import __version__ as petsc_version
+from dolfinx import __version__ as dolfinx_version
 import json
 import logging
 import os
@@ -16,6 +20,64 @@ from petsc4py import PETSc
 
 comm = MPI.COMM_WORLD
 
+error_codes = {
+    "PETSC_SUCCESS": 0,
+    "PETSC_ERR_BOOLEAN_MACRO_FAILURE": 1,
+    "PETSC_ERR_MIN_VALUE": 54,
+    "PETSC_ERR_MEM": 55,
+    "PETSC_ERR_SUP": 56,
+    "PETSC_ERR_SUP_SYS": 57,
+    "PETSC_ERR_ORDER": 58,
+    "PETSC_ERR_SIG": 59,
+    "PETSC_ERR_FP": 72,
+    "PETSC_ERR_COR": 74,
+    "PETSC_ERR_LIB": 76,
+    "PETSC_ERR_PLIB": 77,
+    "PETSC_ERR_MEMC": 78,
+    "PETSC_ERR_CONV_FAILED": 82,
+    "PETSC_ERR_USER": 83,
+    "PETSC_ERR_SYS": 88,
+    "PETSC_ERR_POINTER": 70,
+    "PETSC_ERR_MPI_LIB_INCOMP": 87,
+    "PETSC_ERR_ARG_SIZ": 60,
+    "PETSC_ERR_ARG_IDN": 61,
+    "PETSC_ERR_ARG_WRONG": 62,
+    "PETSC_ERR_ARG_CORRUPT": 64,
+    "PETSC_ERR_ARG_OUTOFRANGE": 63,
+    "PETSC_ERR_ARG_BADPTR": 68,
+    "PETSC_ERR_ARG_NOTSAMETYPE": 69,
+    "PETSC_ERR_ARG_NOTSAMECOMM": 80,
+    "PETSC_ERR_ARG_WRONGSTATE": 73,
+    "PETSC_ERR_ARG_TYPENOTSET": 89,
+    "PETSC_ERR_ARG_INCOMP": 75,
+    "PETSC_ERR_ARG_NULL": 85,
+    "PETSC_ERR_ARG_UNKNOWN_TYPE": 86,
+    "PETSC_ERR_FILE_OPEN": 65,
+    "PETSC_ERR_FILE_READ": 66,
+    "PETSC_ERR_FILE_WRITE": 67,
+    "PETSC_ERR_FILE_UNEXPECTED": 79,
+    "PETSC_ERR_MAT_LU_ZRPVT": 71,
+    "PETSC_ERR_MAT_CH_ZRPVT": 81,
+    "PETSC_ERR_INT_OVERFLOW": 84,
+    "PETSC_ERR_FLOP_COUNT": 90,
+    "PETSC_ERR_NOT_CONVERGED": 91,
+    "PETSC_ERR_MISSING_FACTOR": 92,
+    "PETSC_ERR_OPT_OVERWRITE": 93,
+    "PETSC_ERR_WRONG_MPI_SIZE": 94,
+    "PETSC_ERR_USER_INPUT": 95,
+    "PETSC_ERR_GPU_RESOURCE": 96,
+    "PETSC_ERR_GPU": 97,
+    "PETSC_ERR_MPI": 98,
+    "PETSC_ERR_RETURN": 99,
+    "PETSC_ERR_MEM_LEAK": 100,
+    "PETSC_ERR_MAX_VALUE": 101,
+    "PETSC_ERR_MIN_SIGNED_BOUND_DO_NOT_USE": "INT_MIN",
+    "PETSC_ERR_MAX_SIGNED_BOUND_DO_NOT_USE": "INT_MAX",
+}
+
+
+# Reverse the dictionary to create an inverse mapping
+translatePETScERROR = {v: k for k, v in error_codes.items()}
 
 class ColorPrint:
     """
@@ -84,7 +146,7 @@ def setup_logger_mpi(root_priority: int = logging.INFO):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    size = comm.Get_size()
+    comm.Get_size()
 
     # Desired log level for the root process (rank 0)
     root_process_log_level = logging.INFO  # Adjust as needed
@@ -193,9 +255,6 @@ code_info = {
     "commit_hash": commit_hash,
 }
 
-from dolfinx import __version__ as dolfinx_version
-from petsc4py import __version__ as petsc_version
-from slepc4py import __version__ as slepc_version
 
 library_info = {
     "dolfinx_version": dolfinx_version,
@@ -285,7 +344,6 @@ def find_offending_columns_lengths(data):
     return lengths
 
 
-from dolfinx.io import XDMFFile
 
 
 class ResultsStorage:
@@ -432,7 +490,7 @@ def save_binary_data(filename, data):
             item.view(viewer)
     elif isinstance(data, PETSc.Mat):
         data.view(viewer)
-    elif isinstance(data, PEtest_binarydataioTSc.Vec):
+    elif isinstance(data, PETSc.Vec):
         data.view(viewer)
     else:
         raise ValueError("Unsupported data type for saving")

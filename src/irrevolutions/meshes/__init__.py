@@ -19,7 +19,7 @@ def mesh_bounding_box(mesh, i):
 def get_tag(kwargs):
     return (
         ""
-        if (kwargs.get("tag") == None or kwargs.get("tag") == -1)
+        if (kwargs.get("tag") is None or kwargs.get("tag") == -1)
         else f"({kwargs.get('tag')})"
     )
 

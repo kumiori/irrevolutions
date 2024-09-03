@@ -3,14 +3,15 @@ import os
 import pickle
 
 import dolfinx
-import irrevolutions.solvers.restriction as restriction
 import numpy as np
 import ufl
 from dolfinx.io import XDMFFile
+from mpi4py import MPI
+
+import irrevolutions.solvers.restriction as restriction
 from irrevolutions import utils
 from irrevolutions.algorithms.so import StabilitySolver
 from irrevolutions.utils import _logger
-from mpi4py import MPI
 
 _logger.setLevel(logging.CRITICAL)
 
@@ -125,5 +126,5 @@ tester.store_results(_lmbda_k, _xk, _y)
 
 atol = tester.parameters["cone"]["cone_atol"]
 
-assert tester._isin_cone(_xk) == True
-assert np.isclose(_lmbda_k, -0.044659195907104675, atol=1e-4) == True
+assert tester._isin_cone(_xk)
+assert np.isclose(_lmbda_k, -0.044659195907104675, atol=1e-4)

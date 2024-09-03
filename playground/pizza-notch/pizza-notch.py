@@ -15,33 +15,22 @@ import petsc4py
 import pyvista
 import ufl
 import yaml
-from dolfinx.fem import (
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_topological,
-    set_bc,
-)
+from dolfinx.fem import (Function, FunctionSpace, assemble_scalar, dirichletbc,
+                         form, locate_dofs_topological, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
+from mpi4py import MPI
+from petsc4py import PETSc
+from pyvista.utilities import xvfb
+
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.meshes.pacman import mesh_pacman
 from irrevolutions.models import DamageElasticityModel as Brittle
-from irrevolutions.utils import (
-    ColorPrint,
-    _logger,
-    _write_history_data,
-    history_data,
-    set_vector_to_constant,
-)
+from irrevolutions.utils import (ColorPrint, _logger, _write_history_data,
+                                 history_data, set_vector_to_constant)
 from irrevolutions.utils.lib import _local_notch_asymptotic
 from irrevolutions.utils.viz import plot_mesh, plot_scalar, plot_vector
-from mpi4py import MPI
-from petsc4py import PETSc
-from pyvista.utilities import xvfb
 
 description = """We solve here a basic 2d of a notched specimen.
 Imagine a dinner a pizza which is missing a slice, and lots of hungry friends
@@ -105,7 +94,7 @@ def run_computation(parameters, storage):
     # Define the state
     u = Function(V_u, name="Displacement")
     alpha = Function(V_alpha, name="Damage")
-    alphadot = Function(V_alpha, name="Damage rate")
+    Function(V_alpha, name="Damage rate")
 
     # upper/lower bound for the damage field
     alpha_lb = Function(V_alpha, name="Lower bound")
@@ -119,7 +108,7 @@ def run_computation(parameters, storage):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Set Bcs Function
 
@@ -205,12 +194,6 @@ def run_computation(parameters, storage):
         total_energy, state, bcs, cone_parameters=parameters.get("stability")
     )
 
-    mode_shapes_data = {
-        "time_steps": [],
-        "point_values": {
-            "x_values": [],
-        },
-    }
 
     _logger.setLevel(level=logging.CRITICAL)
 
@@ -237,7 +220,7 @@ def run_computation(parameters, storage):
 
         stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia=inertia)
 
-        with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis"):
             fracture_energy = comm.allreduce(
                 assemble_scalar(form(model.damage_energy_density(state) * dx)),
                 op=MPI.SUM,
@@ -362,7 +345,7 @@ def test_2d():
     )
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer("~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment"):
         history_data, stability_data, state = run_computation(parameters, _storage)
 
     ColorPrint.print_bold(history_data["eigs-cone"])

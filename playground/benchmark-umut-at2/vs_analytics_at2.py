@@ -17,33 +17,20 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (
-    Constant,
-    Function,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-)
+from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
+                         form, locate_dofs_geometrical)
 from dolfinx.io import XDMFFile
-from irrevolutions.algorithms.am import HybridSolver
-from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import (
-    ColorPrint,
-    Visualization,
-    _logger,
-    _write_history_data,
-    history_data,
-)
-from irrevolutions.utils.plots import (
-    plot_AMit_load,
-    plot_energies,
-    plot_force_displacement,
-)
-from irrevolutions.utils.viz import plot_profile, plot_scalar
 from mpi4py import MPI
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
+
+from irrevolutions.algorithms.am import HybridSolver
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.utils import (ColorPrint, Visualization, _logger,
+                                 _write_history_data, history_data)
+from irrevolutions.utils.plots import (plot_AMit_load, plot_energies,
+                                       plot_force_displacement)
+from irrevolutions.utils.viz import plot_profile, plot_scalar
 
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
@@ -165,13 +152,13 @@ def run_computation(parameters, storage=None):
     V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
 
     u = dolfinx.fem.Function(V_u, name="Displacement")
-    u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
+    dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
 
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 
     # Perturbations
-    β = Function(V_alpha, name="DamagePerturbation")
-    v = Function(V_u, name="DisplacementPerturbation")
+    Function(V_alpha, name="DamagePerturbation")
+    Function(V_u, name="DisplacementPerturbation")
 
     # Pack state
     state = {"u": u, "alpha": alpha}
@@ -181,7 +168,7 @@ def run_computation(parameters, storage=None):
     alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
 
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Useful references
     Lx = parameters.get("geometry").get("Lx")
@@ -193,7 +180,7 @@ def run_computation(parameters, storage=None):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -276,7 +263,7 @@ def run_computation(parameters, storage=None):
 
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
-        with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis"):
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
                 plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")

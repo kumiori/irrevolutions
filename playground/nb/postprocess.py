@@ -1,5 +1,4 @@
 import hashlib
-
 # import xmltodict
 # import pickle
 import json
@@ -9,7 +8,6 @@ import os.path
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
-
 # import pandas
 import pandas as pd
 import yaml
@@ -111,7 +109,7 @@ def plot_fills(ax, ell, tc):
 
 def plot_spectrum(params, data, tc, ax=None, tol=1e-12):
     E0 = params["model"]["E"]
-    w1 = params["model"]["sigma_D0"] ** 2 / E0
+    params["model"]["sigma_D0"] ** 2 / E0
     ell = params["model"]["ell"]
     fig = plt.figure()
     for i, d in enumerate(data["eigs"]):
@@ -137,8 +135,8 @@ def plot_spectrum(params, data, tc, ax=None, tol=1e-12):
     ax2 = plt.twinx()
     ax2.plot(data["load"].values, data["alpha_max"].values, label="$$max(\\alpha)$$")
     ax2.legend()
-    tbif = t_bif(ell)
-    tstab = t_stab(ell)
+    t_bif(ell)
+    t_stab(ell)
     ax2.set_ylabel("max $\\alpha$")
     ax2.set_ylim(0, 1.03)
 
@@ -168,14 +166,14 @@ def plot_spectrum(params, data, tc, ax=None, tol=1e-12):
 
 def plot_sigmaeps(params, dataf, tc):
     E0 = params["material"]["E"]
-    w1 = params["material"]["sigma_D0"] ** 2 / E0
+    params["material"]["sigma_D0"] ** 2 / E0
     ell = params["material"]["ell"]
-    Lx = params["geometry"]["Lx"]
-    Ly = params["geometry"]["Ly"]
+    params["geometry"]["Lx"]
+    params["geometry"]["Ly"]
 
     fig = plt.figure()
 
-    t = np.linspace(0.0, params["loading"]["load_max"], 100)
+    np.linspace(0.0, params["loading"]["load_max"], 100)
     fig = plt.figure()
     plt.ylabel("$$\\sigma$$")
     plt.xlabel("$$t$$")
@@ -204,7 +202,7 @@ def plot_sigmaeps(params, dataf, tc):
     ax.set_xticklabels(["0", "$t_c$", "$t_b$", "$t_s$"])
     plt.ylim([0, sigmaC * 1.1])
 
-    stable = dataf["stable"].values
+    dataf["stable"].values
 
     # ax.axvline(tc, c='k', lw=.5, label='$t^{cr}$')
     # ax.axvline(t_stab(ell), c='k', ls='-', lw=2, label='$t^{cr}_s$')
@@ -227,7 +225,7 @@ def plot_energy(params, dataf, tc):
     Lx = params["geometry"]["Lx"]
     Ly = params["geometry"]["Ly"]
     En0 = w1 * Lx * Ly
-    t = np.linspace(0.0, 3.0, 100)
+    np.linspace(0.0, 3.0, 100)
     fig = plt.figure()
     plt.xlabel("$$t$$")
 
@@ -290,8 +288,6 @@ def plot_energy(params, dataf, tc):
 def plot_stability(prefix, tol=1e-5):
     # dirtree = os.path.join(dirroot, signature)
     fig = plt.figure()
-    stab_diag = []
-    global_dfs = []
 
     debug = False
     for subdir, dirs, files in os.walk(prefix):
@@ -425,7 +421,7 @@ def format_params(params):
 
 def _plot_spectrum(data):
     def _stab_cnd(data):
-        return [0 if data["cone-stable"][i] == True else 1 for i in range(len(data))]
+        return [0 if data["cone-stable"][i] is True else 1 for i in range(len(data))]
 
     # _uniq_cnd = [.3 if d[0]>0 else .7 for d in data['eigs']]
     """docstring for plotSpaceVsCone"""
@@ -505,7 +501,7 @@ def read_mode_data_from_npz(npz_file, time_step, num_points=-1, num_modes=1):
         if num_points == -1:
             num_points = len(npz_file["mesh"])
         # Replace with actual x_values
-        x_values = np.linspace(0, 1, num_points)
+        np.linspace(0, 1, num_points)
 
         mode_data["fields"] = {
             "bifurcation_β": field_β_bif_values,

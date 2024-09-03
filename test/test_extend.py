@@ -1,14 +1,12 @@
 from logging import getLevelName
 
 import dolfinx
-import irrevolutions.solvers.restriction as restriction
 from dolfinx.cpp.la.petsc import get_local_vectors
-from irrevolutions.utils import _logger, sample_data
 from mpi4py import MPI
-from test_restriction import (
-    __log_incipit,
-    get_inactive_dofset,
-)
+from test_restriction import __log_incipit, get_inactive_dofset
+
+import irrevolutions.solvers.restriction as restriction
+from irrevolutions.utils import _logger, sample_data
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
