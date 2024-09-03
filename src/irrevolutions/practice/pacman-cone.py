@@ -190,7 +190,7 @@ def pacman_cone(resolution=2, slug="pacman"):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Set Bcs Function
 
@@ -254,7 +254,7 @@ def pacman_cone(resolution=2, slug="pacman"):
 
     # Solvers
 
-    solver = AlternateMinimisation(
+    AlternateMinimisation(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 

@@ -150,7 +150,7 @@ def main(parameters, storage=None):
     u = Function(V_u, name="Displacement")
     zero_u = Function(V_u, name="Boundary Displacement")
     alpha = Function(V_alpha, name="Damage")
-    zero_alpha = Function(V_alpha, name="Damage Boundary Field")
+    Function(V_alpha, name="Damage Boundary Field")
     alphadot = dolfinx.fem.Function(V_alpha, name="Damage_rate")
 
     state = {"u": u, "alpha": alpha}
@@ -158,7 +158,6 @@ def main(parameters, storage=None):
     # Perturbation
     β = Function(V_alpha, name="DamagePerturbation")
     v = Function(V_u, name="DisplacementPerturbation")
-    perturbation = {"v": v, "beta": β}
 
     [u, alpha]
     # need upper/lower bound for the damage field
@@ -167,7 +166,7 @@ def main(parameters, storage=None):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -385,7 +384,7 @@ def main(parameters, storage=None):
         history_data["inertia"].append(inertia)
 
         # postprocessing
-        with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis"):
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
                 plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
@@ -400,7 +399,7 @@ def main(parameters, storage=None):
             file.write_function(alpha, t)
 
     # postprocessing
-    with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+    with dolfinx.common.Timer("~Postprocessing and Vis"):
         if comm.Get_rank == 1:
             xvfb.start_xvfb(wait=0.05)
             pyvista.OFF_SCREEN = True

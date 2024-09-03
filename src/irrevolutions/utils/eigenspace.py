@@ -103,7 +103,7 @@ def solve_eigenspace_cone(parameters, idx=0):
         dict: A dictionary containing 'v', 'β', and 'D'.
     """
     x = sp.symbols("x", real=True)
-    v = sp.Function("v", real=True)(x)
+    sp.Function("v", real=True)(x)
     β = sp.Function("β", real=True)(x)
     C, A = sp.symbols("C A")
 

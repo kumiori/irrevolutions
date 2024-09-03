@@ -190,7 +190,7 @@ def main(parameters, model="at2", storage=None):
     alpha_ub = Function(V_alpha, name="Upper bound")
 
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
     dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
@@ -207,7 +207,6 @@ def main(parameters, model="at2", storage=None):
     # Perturbation
     β = Function(V_alpha, name="DamagePerturbation")
     v = Function(V_u, name="DisplacementPerturbation")
-    perturbation = {"v": v, "beta": β}
 
     for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
         f.vector.ghostUpdate(
@@ -399,7 +398,7 @@ def main(parameters, model="at2", storage=None):
 
     pd.DataFrame(history_data)
 
-    with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+    with dolfinx.common.Timer("~Postprocessing and Vis"):
         if comm.Get_size() == 1:
             # if comm.rank == 0 and comm.Get_size() == 1:
             plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")

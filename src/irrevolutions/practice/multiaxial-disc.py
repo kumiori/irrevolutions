@@ -83,7 +83,7 @@ def multiaxial_disc(nest):
     # parameters: INPUT
 
     with open("../test/parameters.yml") as f:
-        parameters = yaml.load(f, Loader=yaml.FullLoader)
+        yaml.load(f, Loader=yaml.FullLoader)
 
     # history_data: OUTPUT
 

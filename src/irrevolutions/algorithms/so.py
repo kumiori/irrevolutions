@@ -324,7 +324,7 @@ class SecondOrderSolver:
             float: Coefficient used for normalization.
         """
         if mode == "max-beta":
-            v, beta = u[0], u[1]
+            _v, beta = u[0], u[1]
             coeff_glob = beta.vector.norm(3)
 
             logging.debug(f"{rank}, |β|_infty {beta.vector.norm(3):.3f}")
@@ -381,7 +381,7 @@ class SecondOrderSolver:
         # Check if the system is damage-critical and log it
         self.log_critical_state()
 
-        with dolfinx.common.Timer("~Second Order: Bifurcation") as timer:
+        with dolfinx.common.Timer("~Second Order: Bifurcation"):
             # Set up constraints
             constraints = self.setup_constraints(alpha_old)
             self.inertia_setup(constraints)
@@ -836,7 +836,7 @@ class StabilitySolver(SecondOrderSolver):
         _cone_restricted = self._cone_project_restricted(xk)
 
         _logger.debug(f"xk view after cone-project at iteration {self.iterations}")
-        n2 = _cone_restricted.normalize()
+        _cone_restricted.normalize()
 
         # _logger.info(f"Cone project update: normalisation {n2}")
 

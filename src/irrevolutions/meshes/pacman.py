@@ -69,7 +69,7 @@ def mesh_pacman(
         p2 = model.geo.addPoint(
             -radius * np.cos(omega / 2), -radius * np.sin(omega / 2), 0.0, lc, tag=2
         )
-        p3 = model.geo.addPoint(radius, 0, 0.0, lc / refinement, tag=12)
+        model.geo.addPoint(radius, 0, 0.0, lc / refinement, tag=12)
 
         top = model.geo.addLine(p1, p0, tag=3)
         bot = model.geo.addLine(p0, p2, tag=4)

@@ -206,7 +206,7 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
             subplot=(0, 0),
             lineproperties={"c": "k", "label": "$\\beta$"},
         )
-        ax = _plt.gca()
+        _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
         _plt.title("Perurbation")
@@ -226,7 +226,7 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
             subplot=(0, 0),
             lineproperties={"c": "k", "label": "$\\beta$"},
         )
-        ax = _plt.gca()
+        _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
         _plt.title("Perurbation from the Cone")

@@ -190,8 +190,8 @@ def setup_boundary_conditions(V_u, V_alpha, Lx):
     Returns:
         list of dolfinx.DirichletBC: List of boundary conditions.
     """
-    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -266,7 +266,7 @@ def define_energy_functional(state, model):
     """
     u = state["u"]
     dx = ufl.Measure("dx", domain=u.function_space.mesh)
-    ds = ufl.Measure("ds", domain=u.function_space.mesh)
+    ufl.Measure("ds", domain=u.function_space.mesh)
 
     # state = {"u": u, "alpha": alpha}
     # Define the external load
@@ -472,7 +472,8 @@ def run_time_loop(parameters, solver, model, bcs):
     # Main time loop
     for i_t, t in enumerate(loads):
         # Update boundary conditions or external loads if necessary
-        datum = lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1]))
+        def datum(x):
+            return t * np.ones_like(x[0]), np.zeros_like(x[1])
         bcs["bcs_u"][1].g.interpolate(datum(_x), cells)
         bcs["bcs_u"][1].g.x.scatter_forward()
 

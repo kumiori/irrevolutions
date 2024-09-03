@@ -197,10 +197,10 @@ def main(parameters, model="at2", storage=None):
     alpha_ub = Function(V_alpha, name="Upper bound")
 
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
-    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -243,7 +243,7 @@ def main(parameters, model="at2", storage=None):
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
-    solver = AlternateMinimisation(
+    AlternateMinimisation(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 
@@ -389,7 +389,7 @@ def main(parameters, model="at2", storage=None):
     # print(df.drop(['solver_data', 'cone_data'], axis=1))
     print(df.drop(["cone_data"], axis=1))
 
-    with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+    with dolfinx.common.Timer("~Postprocessing and Vis"):
         if comm.rank == 0:
             plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
             # plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
@@ -495,7 +495,7 @@ def param_vs_s(base_parameters, base_signature):
         )
         ColorPrint.print_bold(f"===================-{signature}-=================")
 
-        with dolfinx.common.Timer("~Computation Experiment") as timer:
+        with dolfinx.common.Timer("~Computation Experiment"):
             history_data, performance, state = main(parameters, _storage)
 
         _timings = table_timing_data()
@@ -546,7 +546,7 @@ def param_vs_dry(base_parameters, base_signature):
         )
         ColorPrint.print_bold(f"===================-{signature}-=================")
 
-        with dolfinx.common.Timer("~Computation Experiment") as timer:
+        with dolfinx.common.Timer("~Computation Experiment"):
             history_data, performance, state = main(parameters, _storage)
 
         _timings = table_timing_data()

@@ -84,7 +84,7 @@ def setup_logger_mpi(root_priority: int = logging.INFO):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    size = comm.Get_size()
+    comm.Get_size()
 
     # Desired log level for the root process (rank 0)
     root_process_log_level = logging.INFO  # Adjust as needed

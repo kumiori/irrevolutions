@@ -147,8 +147,6 @@ class LineSearch(object):
         beta = bifurcation[1]
 
         one = max(1.0, max(alpha.vector[:]))
-        upperbound = one
-        lowerbound = alpha_lb
 
         # positive
         mask = np.int32(np.where(beta.vector[:] > 0)[0])

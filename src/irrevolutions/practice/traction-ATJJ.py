@@ -205,10 +205,10 @@ def traction_with_parameters(parameters, slug=""):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
-    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -532,7 +532,7 @@ def _plot_bif_spectrum_profile(
     num_cols = 1
     num_rows = (n + num_cols - 1) // num_cols
 
-    if plotter == None:
+    if plotter is None:
         import pyvista
         # from pyvista.utilities import xvfb
 
@@ -604,7 +604,7 @@ def _plot_bif_spectrum_profile_fullvec(
     num_cols = 1
     num_rows = (n + num_cols - 1) // num_cols
 
-    if plotter == None:
+    if plotter is None:
         import pyvista
         # from pyvista.utilities import xvfb
 
@@ -681,7 +681,7 @@ def _plot_perturbations_profile(
 
     figure = plt.figure()
 
-    if plotter == None:
+    if plotter is None:
         import pyvista
         # from pyvista.utilities import xvfb
 

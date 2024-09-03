@@ -65,7 +65,7 @@ def mesh_extended_pacman(
         p2 = addPoint(
             -radius * np.cos(omega / 2), -radius * np.sin(omega / 2), 0.0, lc, tag=2
         )
-        p3 = addPoint(radius, 0, 0.0, lc / refinement, tag=12)
+        addPoint(radius, 0, 0.0, lc / refinement, tag=12)
 
         p10 = addPoint(
             -rho * radius * np.cos(omega / 2),
@@ -81,7 +81,7 @@ def mesh_extended_pacman(
             lc,
             tag=20,
         )
-        p30 = addPoint(rho * radius, 0, 0.0, lc, tag=120)
+        addPoint(rho * radius, 0, 0.0, lc, tag=120)
 
         top = addLine(p1, p0, tag=3)
         bot = addLine(p0, p2, tag=4)
