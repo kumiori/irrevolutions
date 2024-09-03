@@ -108,16 +108,16 @@ def run_computation(parameters, storage=None):
     V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
 
     u = dolfinx.fem.Function(V_u, name="Displacement")
-    u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
+    dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
     u_zero = Function(V_u, name="InelasticDisplacement")
     zero_u = Function(V_u, name="BoundaryUnknown")
 
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
-    alphadot = dolfinx.fem.Function(V_alpha, name="Damage_rate")
+    dolfinx.fem.Function(V_alpha, name="Damage_rate")
 
     # Perturbations
-    β = Function(V_alpha, name="DamagePerturbation")
-    v = Function(V_u, name="DisplacementPerturbation")
+    Function(V_alpha, name="DamagePerturbation")
+    Function(V_u, name="DisplacementPerturbation")
 
     # Pack state
     state = {"u": u, "alpha": alpha}
@@ -127,17 +127,17 @@ def run_computation(parameters, storage=None):
     alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
 
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Useful references
     Lx = parameters.get("geometry").get("Lx")
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
-    dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
-    dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
+    locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
+    locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
 
     alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
@@ -220,7 +220,7 @@ def run_computation(parameters, storage=None):
         _logger.critical(f"-- Solving Stability (Stability) for t = {t:3.2f} --")
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
-        with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis"):
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
                 plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")

@@ -94,7 +94,7 @@ def run_computation(parameters, storage):
     # Define the state
     u = Function(V_u, name="Displacement")
     alpha = Function(V_alpha, name="Damage")
-    alphadot = Function(V_alpha, name="Damage rate")
+    Function(V_alpha, name="Damage rate")
 
     # upper/lower bound for the damage field
     alpha_lb = Function(V_alpha, name="Lower bound")
@@ -108,7 +108,7 @@ def run_computation(parameters, storage):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Set Bcs Function
 
@@ -194,12 +194,6 @@ def run_computation(parameters, storage):
         total_energy, state, bcs, cone_parameters=parameters.get("stability")
     )
 
-    mode_shapes_data = {
-        "time_steps": [],
-        "point_values": {
-            "x_values": [],
-        },
-    }
 
     _logger.setLevel(level=logging.CRITICAL)
 
@@ -226,7 +220,7 @@ def run_computation(parameters, storage):
 
         stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia=inertia)
 
-        with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis"):
             fracture_energy = comm.allreduce(
                 assemble_scalar(form(model.damage_energy_density(state) * dx)),
                 op=MPI.SUM,
@@ -351,7 +345,7 @@ def test_2d():
     )
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer("~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment"):
         history_data, stability_data, state = run_computation(parameters, _storage)
 
     ColorPrint.print_bold(history_data["eigs-cone"])
