@@ -23,11 +23,7 @@ from dolfinx.fem.petsc import assemble_vector
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
 from petsc4py import PETSc
-
-sys.path.append("../")
-
-
-sys.path.append("../")
+from utils.plots import plot_energies
 
 
 """Discrete endommageable springs in series

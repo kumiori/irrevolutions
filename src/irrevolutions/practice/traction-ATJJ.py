@@ -4,12 +4,13 @@ from models import DamageElasticityModel
 from meshes.primitives import mesh_bar_gmshapi
 from algorithms.so import BifurcationSolver, StabilitySolver
 from algorithms.am import HybridSolver
+from utils.plots import plot_energies
 import json
 import logging
 import os
 import sys
 from pathlib import Path
-
+import hashlib
 import dolfinx
 import dolfinx.mesh
 import dolfinx.plot

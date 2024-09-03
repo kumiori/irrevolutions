@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from irrevolutions.utils import ColorPrint, norm_H1, norm_L2
 from utils.viz import plot_matrix
+from utils.plots import plot_energies
 from solvers import SNESSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 import json
@@ -25,10 +26,6 @@ from dolfinx.io import XDMFFile
 from mpi4py import MPI
 from petsc4py import PETSc
 
-sys.path.append("../")
-
-
-sys.path.append("../")
 
 
 """Discrete endommageable springs in series

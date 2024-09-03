@@ -9,7 +9,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-
+import hashlib
 import dolfinx
 import dolfinx.mesh
 import dolfinx.plot
@@ -24,7 +24,7 @@ from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
-
+from irrevolutions.utils.parametric import (parameters_vs_ell, parameters_vs_SPA_scaling)
 sys.path.append("../")
 
 

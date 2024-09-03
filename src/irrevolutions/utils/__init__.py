@@ -490,7 +490,7 @@ def save_binary_data(filename, data):
             item.view(viewer)
     elif isinstance(data, PETSc.Mat):
         data.view(viewer)
-    elif isinstance(data, PEtest_binarydataioTSc.Vec):
+    elif isinstance(data, PETSc.Vec):
         data.view(viewer)
     else:
         raise ValueError("Unsupported data type for saving")

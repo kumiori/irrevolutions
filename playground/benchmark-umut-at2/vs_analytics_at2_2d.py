@@ -59,7 +59,7 @@ def stress(state):
     alpha = state["alpha"]
     dx = ufl.Measure("dx", domain=u.function_space.mesh)
 
-    return parameters["model"]["E"] * a(alpha) * u.dx() * dx
+    return parameters["model"]["E"] * ThinFilmAT2.a(alpha) * u.dx() * dx
 
 
 def run_computation(parameters, storage=None):

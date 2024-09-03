@@ -139,22 +139,22 @@ if __name__ == "__main__":
     matrix.setUp()
 
     Istart, Iend = matrix.getOwnershipRange()
-    for I in range(Istart, Iend):
-        matrix[I, I] = 4
-        i = I // n
+    for i in range(Istart, Iend):
+        matrix[i, i] = 4
+        i = i // n
         if i > 0:
-            J = I - n
-            matrix[I, J] = -1
+            j = i - n
+            matrix[i, j] = -1
         if i < m - 1:
-            J = I + n
-            matrix[I, J] = -1
-        j = I - i * n
+            j = i + n
+            matrix[i, j] = -1
+        j = i - i * n
         if j > 0:
-            J = I - 1
-            matrix[I, J] = -1
+            j = i - 1
+            matrix[i, j] = -1
         if j < n - 1:
-            J = I + 1
-            matrix[I, J] = -1
+            j = i + 1
+            matrix[i, j] = -1
 
     matrix.assemblyBegin()
     matrix.assemblyEnd()
