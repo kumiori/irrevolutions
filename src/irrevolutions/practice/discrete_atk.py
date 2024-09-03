@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint, norm_H1, norm_L2
+from solvers import SNESSolver
+from algorithms.so import BifurcationSolver, StabilitySolver
 import json
 import logging
 import os
@@ -22,10 +25,7 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 sys.path.append("../")
-from algorithms.so import BifurcationSolver, StabilitySolver
-from solvers import SNESSolver
 
-from irrevolutions.utils import ColorPrint, norm_H1, norm_L2
 
 sys.path.append("../")
 

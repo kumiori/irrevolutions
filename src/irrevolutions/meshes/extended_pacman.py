@@ -1,3 +1,10 @@
+from meshes import _addPoint as addPoint
+from meshes import _addPlaneSurface as _addPlaneSurface
+from meshes import _addPhysicalSurface as _addPhysicalSurface
+from meshes import _addLine as addLine
+from meshes import _addCurveLoop as addCurveLoop
+from meshes import _addCircleArc as addCircleArc
+from pathlib import Path
 import os
 import sys
 
@@ -5,14 +12,7 @@ import numpy as np
 from mpi4py import MPI
 
 sys.path.append("../")
-from pathlib import Path
 
-from meshes import _addCircleArc as addCircleArc
-from meshes import _addCurveLoop as addCurveLoop
-from meshes import _addLine as addLine
-from meshes import _addPhysicalSurface as _addPhysicalSurface
-from meshes import _addPlaneSurface as _addPlaneSurface
-from meshes import _addPoint as addPoint
 
 
 def mesh_extended_pacman(

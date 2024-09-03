@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint
+from utils.viz import plot_mesh, plot_scalar, plot_vector
+from utils.lib import _local_notch_asymptotic
+from models import DamageElasticityModel as Brittle
+from meshes.pacman import mesh_pacman
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 import hashlib
 import json
 import logging
@@ -26,14 +33,7 @@ from petsc4py import PETSc
 from pyvista.utilities import xvfb
 
 sys.path.append("../")
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from meshes.pacman import mesh_pacman
-from models import DamageElasticityModel as Brittle
-from utils.lib import _local_notch_asymptotic
-from utils.viz import plot_mesh, plot_scalar, plot_vector
 
-from irrevolutions.utils import ColorPrint
 
 logging.basicConfig(level=logging.DEBUG)
 

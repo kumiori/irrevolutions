@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+from utils.viz import plot_scalar, plot_vector
+from pyvista.utilities import xvfb
+import pyvista
+from utils.plots import plot_AMit_load, plot_force_displacement
+import hashlib
+from irrevolutions.utils import ColorPrint
+from utils.plots import plot_energies
+from models import DamageElasticityModel as Brittle
+from meshes.primitives import mesh_bar_gmshapi
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 import json
 import logging
 import os
@@ -21,13 +32,7 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 sys.path.append("../")
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from meshes.primitives import mesh_bar_gmshapi
-from models import DamageElasticityModel as Brittle
-from utils.plots import plot_energies
 
-from irrevolutions.utils import ColorPrint
 
 sys.path.append("../")
 
@@ -98,7 +103,6 @@ gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
 mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
 
-import hashlib
 
 signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
@@ -351,7 +355,6 @@ print(df.drop(["solver_data"], axis=1))
 
 # Viz
 
-from utils.plots import plot_AMit_load, plot_force_displacement
 
 if comm.rank == 0:
     plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
@@ -359,11 +362,7 @@ if comm.rank == 0:
     plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
 
-import sys
 
-import pyvista
-from pyvista.utilities import xvfb
-from utils.viz import plot_scalar, plot_vector
 
 #
 xvfb.start_xvfb(wait=0.05)

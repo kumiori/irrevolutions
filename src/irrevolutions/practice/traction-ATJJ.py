@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint
+from models import DamageElasticityModel
+from meshes.primitives import mesh_bar_gmshapi
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import HybridSolver
 import json
 import logging
 import os
@@ -22,12 +27,7 @@ from petsc4py import PETSc
 
 sys.path.append("../")
 
-from algorithms.am import HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from meshes.primitives import mesh_bar_gmshapi
-from models import DamageElasticityModel
 
-from irrevolutions.utils import ColorPrint
 
 logging.getLogger().setLevel(logging.ERROR)
 

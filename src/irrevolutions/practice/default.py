@@ -21,6 +21,8 @@
 
 
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint
+from meshes.primitives import mesh_bar_gmshapi
 import json
 import logging
 import pdb
@@ -41,10 +43,8 @@ from petsc4py import PETSc
 
 sys.path.append("../")
 
-from meshes.primitives import mesh_bar_gmshapi
 
 # from algorithms.am import AlternateMinimisation, HybridSolver
-from irrevolutions.utils import ColorPrint
 
 # Configuration handling (load parameters from YAML)
 

@@ -10,25 +10,25 @@ Reads in geometry data from YAML file, generates mesh, solves Phase Field equati
 To change the data, change the geometry files according to presentation
 """
 
+from utils.viz import plot_mesh, plot_scalar, plot_vector
+from pyvista.utilities import xvfb
+from petsc4py import PETSc
+from models import DamageElasticityModel as Brittle
+from meshes import primitives
+from dolfinx.fem import assemble_scalar, dirichletbc, locate_dofs_geometrical
+from algorithms import am
+import ufl
+import pyvista
+import numpy as np
+import meshes
+import matplotlib.pyplot as plt
+import dolfinx.plot
+import dolfinx.io
+import dolfinx
 import logging
 import sys
 
 sys.path.append("../")
-import dolfinx
-import dolfinx.io
-import dolfinx.plot
-import matplotlib.pyplot as plt
-import meshes
-import numpy as np
-import pyvista
-import ufl
-from algorithms import am
-from dolfinx.fem import assemble_scalar, dirichletbc, locate_dofs_geometrical
-from meshes import primitives
-from models import DamageElasticityModel as Brittle
-from petsc4py import PETSc
-from pyvista.utilities import xvfb
-from utils.viz import plot_mesh, plot_scalar, plot_vector
 
 logging.basicConfig()
 # logging.getLogger().setLevel(logging.DEBUG)

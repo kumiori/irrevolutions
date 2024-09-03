@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint
+from utils.viz import plot_scalar, plot_vector
+from utils.plots import plot_energies, plot_force_displacement
+from pyvista.utilities import xvfb
+from models import DamageElasticityModel as Brittle
+from meshes.primitives import mesh_bar_gmshapi
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import AlternateMinimisation, HybridSolver
+import pyvista
+import hashlib
 import json
 import logging
 import os
@@ -20,18 +30,8 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 sys.path.append("../")
-import hashlib
 
-import pyvista
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from meshes.primitives import mesh_bar_gmshapi
-from models import DamageElasticityModel as Brittle
-from pyvista.utilities import xvfb
-from utils.plots import plot_energies, plot_force_displacement
-from utils.viz import plot_scalar, plot_vector
 
-from irrevolutions.utils import ColorPrint
 
 
 class BrittleAT2(Brittle):

@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint, setup_logger_mpi, table_timing_data
+from utils.viz import plot_profile, plot_scalar, plot_vector
+from utils.plots import plot_AMit_load, plot_energies, plot_force_displacement
+from utils.parametric import parameters_vs_elle
+from solvers.function import vec_to_functions
+from models import BrittleMembraneOverElasticFoundation as ThinFilm
+from meshes.primitives import mesh_bar_gmshapi
+from default import ResultsStorage, Visualization
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import HybridSolver
 import json
 import logging
 import os
@@ -23,19 +33,9 @@ from petsc4py import PETSc
 from pyvista.utilities import xvfb
 
 sys.path.append("../")
-from algorithms.am import HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from default import ResultsStorage, Visualization
-from meshes.primitives import mesh_bar_gmshapi
-from models import BrittleMembraneOverElasticFoundation as ThinFilm
-from solvers.function import vec_to_functions
-from utils.parametric import parameters_vs_elle
-from utils.plots import plot_AMit_load, plot_energies, plot_force_displacement
 # from meshes.pacman import mesh_pacman
-from utils.viz import plot_profile, plot_scalar, plot_vector
 
 # logging.basicConfig(level=logging.DEBUG)
-from irrevolutions.utils import ColorPrint, setup_logger_mpi, table_timing_data
 
 
 # ------------------------------------------------------------------

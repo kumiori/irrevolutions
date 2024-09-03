@@ -1,3 +1,4 @@
+from dolfinx.fem.petsc import assemble_vector, set_bc
 import logging
 
 import dolfinx
@@ -16,7 +17,6 @@ from irrevolutions.utils import (ColorPrint, norm_H1, norm_L2,
 
 comm = MPI.COMM_WORLD
 
-from dolfinx.fem.petsc import assemble_vector, set_bc
 
 logging.basicConfig()
 
