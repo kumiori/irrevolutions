@@ -3,6 +3,7 @@ import pickle
 from petsc4py import PETSc
 
 from .test_errorcodes import translatePETScERROR
+import irrevolutions.solvers.restriction as restriction
 
 
 def save_binary_data(filename, data):
@@ -13,7 +14,7 @@ def save_binary_data(filename, data):
             item.view(viewer)
     elif isinstance(data, PETSc.Mat):
         data.view(viewer)
-    elif isinstance(data, PEtest_binarydataioTSc.Vec):
+    elif isinstance(data, PETSc.Vec):
         data.view(viewer)
     else:
         raise ValueError("Unsupported data type for saving")
@@ -117,7 +118,7 @@ def load_minimal_constraints(filename):
 
     # Assuming you have a constructor for your class
     # Modify this accordingly based on your actual class structure
-    reconstructed_obj = Restriction()
+    reconstructed_obj = restriction.Restriction()
     for key, value in minimal_constraints.items():
         setattr(reconstructed_obj, key, value)
 
