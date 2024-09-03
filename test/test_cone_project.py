@@ -88,9 +88,9 @@ def _cone_project_restricted(v, _x, constraints):
 
 
 def test_cone_project():
-    full_matrix = load_binary_matrix("data/solver/A.mat")
-    matrix = load_binary_matrix("data/solver/Ar.mat")
-    guess = load_binary_vector("data/solver/x0r.vec")
+    load_binary_matrix("data/solver/A.mat")
+    load_binary_matrix("data/solver/Ar.mat")
+    load_binary_vector("data/solver/x0r.vec")
 
     F, v = sample_data(10, positive=False)
     V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
