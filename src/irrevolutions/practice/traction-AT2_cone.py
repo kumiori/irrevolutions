@@ -12,16 +12,8 @@ import pandas as pd
 import petsc4py
 import ufl
 import yaml
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -320,6 +312,7 @@ import sys
 
 import pyvista
 from pyvista.utilities import xvfb
+
 from utils.viz import plot_scalar, plot_vector
 
 xvfb.start_xvfb(wait=0.05)

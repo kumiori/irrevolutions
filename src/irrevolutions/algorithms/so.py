@@ -345,7 +345,7 @@ class SecondOrderSolver:
                 addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
             )
 
-        _norm = np.sqrt(sum(n**2 for n in [v_i.vector.norm(2) for v_i in u]))
+        np.sqrt(sum(n**2 for n in [v_i.vector.norm(2) for v_i in u]))
 
         return coeff_glob
 
@@ -677,7 +677,6 @@ class StabilitySolver(SecondOrderSolver):
                     "1": "converged atol",
                     "2": "converged residual",
                 }
-                _reason = None
 
     def solve(self, alpha_old: dolfinx.fem.function.Function, eig0=None, inertia=None):
         """
@@ -995,7 +994,7 @@ class StabilitySolver(SecondOrderSolver):
         # self.data["error_x_L2"].append(error_x_L2)
 
         _acrit = self._aerror < self.parameters.get("cone").get("cone_atol")
-        _rnorm = self._residual_norm < self.parameters.get("cone").get("cone_rtol")
+        self._residual_norm < self.parameters.get("cone").get("cone_rtol")
 
         _crits = (_acrit, False)
 

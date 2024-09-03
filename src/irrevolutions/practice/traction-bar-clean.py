@@ -12,16 +12,8 @@ import pandas as pd
 import petsc4py
 import ufl
 import yaml
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -30,12 +22,13 @@ sys.path.append("../")
 import hashlib
 
 import pyvista
+from pyvista.utilities import xvfb
+
 from algorithms.am import AlternateMinimisation, HybridSolver
 from algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.utils import ColorPrint, _logger, simulation_info
 from meshes.primitives import mesh_bar_gmshapi
 from models import DamageElasticityModel as Brittle
-from pyvista.utilities import xvfb
 from solvers.function import vec_to_functions
 from utils.plots import plot_AMit_load, plot_energies, plot_force_displacement
 from utils.viz import plot_profile, plot_scalar, plot_vector

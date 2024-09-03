@@ -4,11 +4,7 @@ import random
 import mpi4py
 import numpy as np
 from dolfinx.cpp.log import LogLevel, log
-from dolfinx.fem import (
-    Function,
-    assemble_scalar,
-    form,
-)
+from dolfinx.fem import Function, assemble_scalar, form
 from petsc4py import PETSc
 
 from irrevolutions.utils import norm_H1

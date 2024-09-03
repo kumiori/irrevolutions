@@ -265,6 +265,7 @@ class SNESBlockProblem:
         # init plotter
         import pyvista
         from pyvista.utilities import xvfb
+
         from utils.viz import plot_scalar, plot_vector
 
         xvfb.start_xvfb(wait=0.05)
@@ -284,7 +285,6 @@ class SNESBlockProblem:
             f"./output/test_hybrid/test_newtonblock_MPI{self.comm.size}-{it}-.png"
         )
         _plt.close()
-        pass
 
     def _monitor_nest(self, snes, it, norm):
         self.compute_norms_nest(snes)

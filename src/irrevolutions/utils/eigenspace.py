@@ -124,11 +124,11 @@ def solve_eigenspace_cone(parameters, idx=0):
             (C * (1 + sp.cos(sp.pi * x / D)), (0 <= x) & (x <= D)), (0, True)
         )
 
-        _min = (np.pi**2 * a) ** (1 / 3) * (b * c**2) ** (2 / 3)
+        (np.pi**2 * a) ** (1 / 3) * (b * c**2) ** (2 / 3)
 
     elif b * c**2 == sp.pi**2 * a:
         print("case eq")
-        _min = b * c**2
+        b * c**2
         _subs = {C: 0}
         C = 0
         β = C + A * sp.cos(sp.pi * x)

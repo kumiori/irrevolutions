@@ -14,16 +14,8 @@ import petsc4py
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -468,6 +460,7 @@ def traction_with_parameters(parameters, slug=""):
 
     import pyvista
     from pyvista.utilities import xvfb
+
     from utils.viz import plot_scalar, plot_vector
 
     #
@@ -522,9 +515,10 @@ def _plot_bif_spectrum_profile(
     """docstring for _plot_bif_spectrum_profile"""
 
     import matplotlib.pyplot as plt
-    from utils.viz import plot_profile
-    # __import__('pdb').set_trace()
 
+    from utils.viz import plot_profile
+
+    # __import__('pdb').set_trace()
     # fields = spectrum["perturbations_beta"]
     # fields = spectrum["perturbations_beta"]
     fields = [item.get("beta") for item in spectrum]
@@ -534,6 +528,7 @@ def _plot_bif_spectrum_profile(
 
     if plotter is None:
         import pyvista
+
         # from pyvista.utilities import xvfb
 
         plotter = pyvista.Plotter(
@@ -595,6 +590,7 @@ def _plot_bif_spectrum_profile_fullvec(
     """docstring for _plot_bif_spectrum_profile"""
 
     import matplotlib.pyplot as plt
+
     from utils.viz import plot_profile
 
     # fields = data["perturbations_beta"]
@@ -606,6 +602,7 @@ def _plot_bif_spectrum_profile_fullvec(
 
     if plotter is None:
         import pyvista
+
         # from pyvista.utilities import xvfb
 
         plotter = pyvista.Plotter(
@@ -673,6 +670,7 @@ def _plot_perturbations_profile(
     fields, parameters, prefix, plotter=None, label="", idx="", aux=None
 ):
     import matplotlib.pyplot as plt
+
     from utils.viz import plot_profile
 
     u = fields[0]
@@ -683,6 +681,7 @@ def _plot_perturbations_profile(
 
     if plotter is None:
         import pyvista
+
         # from pyvista.utilities import xvfb
 
         plotter = pyvista.Plotter(

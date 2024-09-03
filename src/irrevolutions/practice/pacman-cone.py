@@ -16,19 +16,10 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings, timing
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_topological,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_topological, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
-
 #
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -383,10 +374,7 @@ def pacman_cone(resolution=2, slug="pacman"):
 
         # Viz
         if "SINGULARITY_CONTAINER" not in os.environ:
-            from utils.plots import (
-                plot_AMit_load,
-                plot_energies,
-            )
+            from utils.plots import plot_AMit_load, plot_energies
 
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")

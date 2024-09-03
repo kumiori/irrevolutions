@@ -3,11 +3,7 @@ import logging
 import dolfinx
 import numpy as np
 import ufl
-from dolfinx.fem import (
-    Function,
-    assemble_scalar,
-    form,
-)
+from dolfinx.fem import Function, assemble_scalar, form
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -15,14 +11,12 @@ from petsc4py import PETSc
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import functions_to_vec
 from irrevolutions.solvers.snesblockproblem import SNESBlockProblem
-from irrevolutions.utils import ColorPrint, norm_H1, norm_L2, set_vector_to_constant
+from irrevolutions.utils import (ColorPrint, norm_H1, norm_L2,
+                                 set_vector_to_constant)
 
 comm = MPI.COMM_WORLD
 
-from dolfinx.fem.petsc import (
-    assemble_vector,
-    set_bc,
-)
+from dolfinx.fem.petsc import assemble_vector, set_bc
 
 logging.basicConfig()
 
