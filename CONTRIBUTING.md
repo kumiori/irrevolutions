@@ -4,14 +4,14 @@ We welcome contributions from everyone in the community
 ### Reporting bugs
 
 If you find a bug in Irrevolutions, please report it on the [GitHub issue
-tracker](https://github.com/fenics/dolfinx/issues/new?labels=bug).
+tracker](https://github.com/kumiori/irrevolutions/issues/new?labels=bug).
 
 
 ### Suggesting enhancements
 
 If you want to suggest a new feature or an improvement of a current
 feature, you can submit this on the [issue
-tracker](https://github.com/fenics/dolfinx/issues).
+tracker](https://github.com/kumiori/irrevolutions/issues).
 
 
 ### Submitting a pull request
