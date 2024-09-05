@@ -69,7 +69,9 @@ class SNESSolver:
 
         self.petsc_options = petsc_options
 
-        self.b = create_vector(self.F_form)
+        assert len(self.F_form.function_spaces) == 1, "F is not a linear form"
+        assert self.F_form.function_spaces[0] == V._cpp_object
+        self.b = dolfinx.fem.Function(V)
         self.a = create_matrix(self.J_form)
 
         self.monitor = monitor
@@ -94,7 +96,7 @@ class SNESSolver:
         # Set options
         snes.setOptionsPrefix(self.prefix)
         self.set_petsc_options()
-        snes.setFunction(self.F, self.b)
+        snes.setFunction(self.F, self.b.x.petsc_vec)
         snes.setJacobian(self.J, self.a)
 
         # We set the bound (Note: they are passed as reference and not as values)
@@ -103,7 +105,7 @@ class SNESSolver:
             snes.setMonitor(self.monitor)
 
         if self.bounds is not None:
-            snes.setVariableBounds(self.lb.vector, self.ub.vector)
+            snes.setVariableBounds(self.lb.x.petsc_vec, self.ub.x.petsc_vec)
 
         snes.setFromOptions()
 
@@ -119,10 +121,9 @@ class SNESSolver:
         b: Vector to assemble the residual into.
         """
         # We need to assign the vector to the function
-
         x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-        x.copy(self.u.vector)
-        self.u.vector.ghostUpdate(
+        x.copy(self.u.x.petsc_vec)
+        self.u.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -152,7 +153,7 @@ class SNESSolver:
         log(LogLevel.INFO, f"Solving {self.prefix}")
 
         try:
-            self.solver.solve(None, self.u.vector)
+            self.solver.solve(None, self.u.x.petsc_vec)
             # print(
             #    f"{self.prefix} SNES solver converged in",
             #    self.solver.getIterationNumber(),
@@ -160,7 +161,7 @@ class SNESSolver:
             #    "with converged reason",
             #    self.solver.getConvergedReason(),
             # )
-            self.u.vector.ghostUpdate(
+            self.u.x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
             return (self.solver.getIterationNumber(), self.solver.getConvergedReason())

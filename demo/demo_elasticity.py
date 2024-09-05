@@ -96,7 +96,7 @@ u_.interpolate(lambda x: (np.ones_like(x[0]), 0 * np.ones_like(x[1])))
 ux_.interpolate(lambda x: np.ones_like(x[0]))
 
 for f in [zero_u, ux_]:
-    f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    f.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
 bcs_u = [
     dolfinx.fem.dirichletbc(zero_u, dofs_u_left),
@@ -133,7 +133,7 @@ history_data = {
 
 for i_t, t in enumerate(loads):
     u_.interpolate(lambda x: (t * np.ones_like(x[0]), 0 * np.ones_like(x[1])))
-    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    u_.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     logging.info(f"-- Solving for t = {t:3.2f} --")
 

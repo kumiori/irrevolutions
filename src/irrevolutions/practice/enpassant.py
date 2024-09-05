@@ -264,11 +264,11 @@ for i_t, t in enumerate(loads):
     # update boundary conditions
 
     u_.interpolate(lambda x: (np.zeros_like(x[0]), t * np.ones_like(x[1])))
-    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    u_.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     # update lower bound for damage
-    alpha.vector.copy(alpha_lb.vector)
-    alpha.vector.ghostUpdate(
+    alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+    alpha.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 

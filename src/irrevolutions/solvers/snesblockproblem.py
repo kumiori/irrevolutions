@@ -101,7 +101,7 @@ class SNESBlockProblem:
         self.snes = PETSc.SNES().create(self.comm)
 
         if bounds:
-            self.snes.setVariableBounds(self.lb.vector, self.ub.vector)
+            self.snes.setVariableBounds(self.lb.x.petsc_vec, self.ub.x.petsc_vec)
 
         if nest:
             if restriction is not None:
@@ -109,7 +109,7 @@ class SNESBlockProblem:
 
             self.J = dolfinx.fem.petsc.create_matrix_nest(self.J_form)
             self.F = dolfinx.fem.petsc.create_vector_nest(self.F_form)
-            self.x = self.F.copy()
+            self.x = dolfinx.fem.petsc.create_vector_nest(self.F_form)
 
             self.snes.setFunction(self._F_nest, self.F)
             self.snes.setJacobian(self._J_nest, self.J)
@@ -118,8 +118,7 @@ class SNESBlockProblem:
         else:
             self.J = dolfinx.fem.petsc.create_matrix_block(self.J_form)
             self.F = dolfinx.fem.petsc.create_vector_block(self.F_form)
-            self.x = self.F.copy()
-
+            self.x = dolfinx.fem.petsc.create_vector_block(self.F_form)
             if restriction is not None:
                 # Need to create new global matrix for the restriction
                 self._J = dolfinx.fem.petsc.create_matrix_block(self.J_form)
@@ -326,7 +325,7 @@ class SNESBlockProblem:
                 # owned restricted dofs
                 size_local = self.restriction.bglobal_dofs_vec[i].shape[0]
             else:
-                size_local = ui.vector.getLocalSize()
+                size_local = ui.x.petsc_vec.getLocalSize()
 
             subvec_r = r[offset : offset + size_local]
             subvec_dx = dx[offset : offset + size_local]

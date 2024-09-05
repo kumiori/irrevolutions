@@ -28,8 +28,8 @@ size = comm.Get_size()
 class LineSearch(object):
     def __init__(self, energy, state, linesearch_parameters={}):
         super(LineSearch, self).__init__()
-        # self.u_0 = dolfin.Vector(state['u'].vector())
-        # self.alpha_0 = dolfin.Vector(state['alpha'].vector())
+        # self.u_0 = dolfin.Vector(state['u'].x.petsc_vec())
+        # self.alpha_0 = dolfin.Vector(state['alpha'].x.petsc_vec())
 
         self.energy = energy
         self.state = state
@@ -52,8 +52,8 @@ class LineSearch(object):
         u_0 = Function(state["u"].function_space)
         alpha_0 = Function(state["alpha"].function_space)
 
-        state["u"].vector.copy(u_0.vector)
-        state["alpha"].vector.copy(alpha_0.vector)
+        state["u"].x.petsc_vec.copy(u_0.x.petsc_vec)
+        state["alpha"].x.petsc_vec.copy(alpha_0.x.petsc_vec)
 
         en_0 = assemble_scalar(form(self.energy))
 
@@ -68,16 +68,16 @@ class LineSearch(object):
         # compute energy at discretised points
 
         for h in htest:
-            with state["u"].vector.localForm() as u_local, state[
+            with state["u"].x.petsc_vec.localForm() as u_local, state[
                 "alpha"
-            ].vector.localForm() as alpha_local, alpha_0.vector.localForm() as alpha0_local, u_0.vector.localForm() as u0_local, v.vector.localForm() as v_local, beta.vector.localForm() as beta_local:
+            ].x.petsc_vec.localForm() as alpha_local, alpha_0.x.petsc_vec.localForm() as alpha0_local, u_0.x.petsc_vec.localForm() as u0_local, v.x.petsc_vec.localForm() as v_local, beta.x.petsc_vec.localForm() as beta_local:
                 u_local.array[:] = u0_local.array[:] + h * v_local.array[:]
                 alpha_local.array[:] = alpha0_local.array[:] + h * beta_local.array[:]
 
-            state["u"].vector.ghostUpdate(
+            state["u"].x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
             )
-            state["alpha"].vector.ghostUpdate(
+            state["alpha"].x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
             )
 
@@ -88,8 +88,8 @@ class LineSearch(object):
             energies_1d.append(en_h - en_0)
 
         # restore state
-        u_0.vector.copy(state["u"].vector)
-        alpha_0.vector.copy(state["alpha"].vector)
+        u_0.x.petsc_vec.copy(state["u"].x.petsc_vec)
+        alpha_0.x.petsc_vec.copy(state["alpha"].x.petsc_vec)
 
         # compute polynomial coefficients
 
@@ -118,16 +118,16 @@ class LineSearch(object):
 
         z0_norm = np.sum([norm_H1(func) for func in state.values()])
 
-        with state["u"].vector.localForm() as u_local, state[
+        with state["u"].x.petsc_vec.localForm() as u_local, state[
             "alpha"
-        ].vector.localForm() as alpha_local, v.vector.localForm() as v_local, beta.vector.localForm() as beta_local:
+        ].x.petsc_vec.localForm() as alpha_local, v.x.petsc_vec.localForm() as v_local, beta.x.petsc_vec.localForm() as beta_local:
             u_local.array[:] = u_local.array[:] + h * v_local.array[:]
             alpha_local.array[:] = alpha_local.array[:] + h * beta_local.array[:]
 
-        state["u"].vector.ghostUpdate(
+        state["u"].x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
         )
-        state["alpha"].vector.ghostUpdate(
+        state["alpha"].x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -146,35 +146,35 @@ class LineSearch(object):
         # beta = perturbation["beta"]
         beta = bifurcation[1]
 
-        one = max(1.0, max(alpha.vector[:]))
+        one = max(1.0, max(alpha.x.petsc_vec[:]))
         upperbound = one
         lowerbound = alpha_lb
 
         # positive
-        mask = np.int32(np.where(beta.vector[:] > 0)[0])
+        mask = np.int32(np.where(beta.x.petsc_vec[:] > 0)[0])
 
         hp2 = (
-            (one - alpha.vector[mask]) / beta.vector[mask]
+            (one - alpha.x.petsc_vec[mask]) / beta.x.petsc_vec[mask]
             if len(mask) > 0
             else [np.inf]
         )
         hp1 = (
-            (alpha_lb.vector[mask] - alpha.vector[mask]) / beta.vector[mask]
+            (alpha_lb.x.petsc_vec[mask] - alpha.x.petsc_vec[mask]) / beta.x.petsc_vec[mask]
             if len(mask) > 0
             else [-np.inf]
         )
         hp = (max(hp1), min(hp2))
 
         # negative
-        mask = np.int32(np.where(beta.vector[:] < 0)[0])
+        mask = np.int32(np.where(beta.x.petsc_vec[:] < 0)[0])
 
         hn2 = (
-            (one - alpha.vector[mask]) / beta.vector[mask]
+            (one - alpha.x.petsc_vec[mask]) / beta.x.petsc_vec[mask]
             if len(mask) > 0
             else [-np.inf]
         )
         hn1 = (
-            (alpha_lb.vector[mask] - alpha.vector[mask]) / beta.vector[mask]
+            (alpha_lb.x.petsc_vec[mask] - alpha.x.petsc_vec[mask]) / beta.x.petsc_vec[mask]
             if len(mask) > 0
             else [np.inf]
         )
@@ -216,13 +216,13 @@ class LineSearch(object):
 
         alpha = state["alpha"]
         beta = perturbation["beta"]
-        assert (beta.vector[:] >= 0).all(), "beta non-negative"
+        assert (beta.x.petsc_vec[:] >= 0).all(), "beta non-negative"
 
-        one = max(1.0, max(alpha.vector[:]))
-        mask = np.int32(np.where(beta.vector[:] > 0)[0])
+        one = max(1.0, max(alpha.x.petsc_vec[:]))
+        mask = np.int32(np.where(beta.x.petsc_vec[:] > 0)[0])
 
         _hmax = (
-            (one - alpha.vector[mask]) / beta.vector[mask]
+            (one - alpha.x.petsc_vec[mask]) / beta.x.petsc_vec[mask]
             if len(mask) > 0
             else [np.inf]
         )

@@ -358,7 +358,7 @@ alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 # It could be better to define it in the energy definition as constant. If not a
 # constant, we might need to define as a space function.
 # g = dolfinx.fem.Function(V_u, name="Body_pressure")
-# with g.vector.localForm() as loc:
+# with g.x.petsc_vec.localForm() as loc:
 #   loc.set(-78500.0)
 
 # Integral measures -> in order to define the energy lately, it's necessary to
@@ -457,8 +457,8 @@ bcs_alpha = []
 bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
 # Update the bounds
-set_bc(alpha_ub.vector, bcs_alpha)
-set_bc(alpha_lb.vector, bcs_alpha)
+set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+set_bc(alpha_lb.x.petsc_vec, bcs_alpha)
 
 solve_it = am.AlternateMinimisation(
     total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
@@ -485,7 +485,7 @@ for i_t, t in enumerate(Loads):
             lambda x: (np.zeros_like(x[0]), loading_force * t * np.ones_like(x[1]))
         )
     # update lower bound for damage
-    alpha.vector.copy(alpha_lb.vector)
+    alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
     # solve for current load step
     solve_it.solve()
     # postprocessing

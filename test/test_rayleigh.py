@@ -120,12 +120,12 @@ def test_rayleigh(parameters=None, storage=None):
 
     for zero in [zero_u, zero_alpha]:
         zero.interpolate(lambda x: np.zeros_like(x[0]))
-        zero.vector.ghostUpdate(
+        zero.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
     one_alpha.interpolate(lambda x: np.zeros_like(x[0]))
-    one_alpha.vector.ghostUpdate(
+    one_alpha.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 

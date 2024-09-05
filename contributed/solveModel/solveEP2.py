@@ -43,7 +43,7 @@ def plot_vector(u, plotter, subplot=None):
     num_dofs_local = u.function_space.dofmap.index_map.size_local
     geometry = u.function_space.tabulate_dof_coordinates()[:num_dofs_local]
     values = np.zeros((V.dofmap.index_map.size_local, 3), dtype=np.float64)
-    values[:, : mesh.geometry.dim] = u.vector.array.real.reshape(
+    values[:, : mesh.geometry.dim] = u.x.petsc_vec.array.real.reshape(
         V.dofmap.index_map.size_local, V.dofmap.index_map_bs
     )
     grid = pyvista.UnstructuredGrid(topology, cell_types, geometry)
@@ -166,18 +166,18 @@ x = ufl.SpatialCoordinate(mesh)
 # Data
 zero = Function(V_u)
 # works in parallel!
-with zero.vector.localForm() as loc:
+with zero.x.petsc_vec.localForm() as loc:
     loc.set(0.0)
 
 one = Function(V_u)
 # works in parallel!
-with one.vector.localForm() as loc:
+with one.x.petsc_vec.localForm() as loc:
     loc.set(1.0)
 
 g = Function(V_u)
 # works in parallel!
 """
-with g.vector.localForm() as loc:
+with g.x.petsc_vec.localForm() as loc:
     loc.set(1.0/100.)
 """
 
@@ -186,7 +186,7 @@ with g.vector.localForm() as loc:
 
 # boundary conditions
 g.interpolate(lambda x: (np.zeros_like(x[0]), np.ones_like(x[1])))
-g.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+g.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
 
 def left(x):

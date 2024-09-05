@@ -126,9 +126,9 @@ class _AlternateMinimisation:
                 (solver_alpha_it, solver_alpha_reason) = self.damage.solve()
 
             # Define error function
-            self.alpha.vector.copy(alpha_diff.vector)
-            alpha_diff.vector.axpy(-1, self.alpha_old.vector)
-            alpha_diff.vector.ghostUpdate(
+            self.alpha.x.petsc_vec.copy(alpha_diff.x.petsc_vec)
+            alpha_diff.x.petsc_vec.axpy(-1, self.alpha_old.x.petsc_vec)
+            alpha_diff.x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
@@ -141,7 +141,7 @@ class _AlternateMinimisation:
                 np.array([comm.allreduce(Fvi.norm(), op=MPI.SUM) for Fvi in Fv]).sum()
             )
 
-            error_alpha_max = alpha_diff.vector.max()[1]
+            error_alpha_max = alpha_diff.x.petsc_vec.max()[1]
             total_energy_int = comm.allreduce(
                 assemble_scalar(form(self.total_energy)), op=MPI.SUM
             )
@@ -149,28 +149,28 @@ class _AlternateMinimisation:
             residual_F.ghostUpdate(
                 addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
             )
-            set_bc(residual_F, self.elasticity.bcs, self.u.vector)
+            set_bc(residual_F, self.elasticity.bcs, self.u.x.petsc_vec)
             error_residual_F = ufl.sqrt(residual_F.dot(residual_F))
 
-            self.alpha.vector.copy(self.alpha_old.vector)
-            self.alpha_old.vector.ghostUpdate(
+            self.alpha.x.petsc_vec.copy(self.alpha_old.x.petsc_vec)
+            self.alpha_old.x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
             logging.critical(
-                f"AM - Iteration: {iteration:3d}, res F Error: {error_residual_F:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+                f"AM - Iteration: {iteration:3d}, res F Error: {error_residual_F:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
             )
 
             logging.critical(
-                f"AM - Iteration: {iteration:3d}, H1 Error: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+                f"AM - Iteration: {iteration:3d}, H1 Error: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
             )
 
             logging.critical(
-                f"AM - Iteration: {iteration:3d}, L2 Error: {error_alpha_L2:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+                f"AM - Iteration: {iteration:3d}, L2 Error: {error_alpha_L2:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
             )
 
             logging.critical(
-                f"AM - Iteration: {iteration:3d}, Linfty Error: {error_alpha_max:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+                f"AM - Iteration: {iteration:3d}, Linfty Error: {error_alpha_max:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
             )
 
             self.data["iteration"].append(iteration)
@@ -336,7 +336,7 @@ def discrete_atk(arg_N=2):
     u_.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [zero_u, u_, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(
+        f.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -480,8 +480,8 @@ def discrete_atk(arg_N=2):
             _e = t / _N
             _uh = [_e * i for i in range(0, _N + 1)]
 
-        _alpha.vector[:] = _alphah
-        _u.vector[:] = _uh
+        _alpha.x.petsc_vec[:] = _alphah
+        _u.x.petsc_vec[:] = _uh
 
     for i_t, t in enumerate(loads):
         logging.critical(f"-- Solving for t = {t:3.2f} --")
@@ -536,11 +536,11 @@ def discrete_atk(arg_N=2):
         history_data["non-bifurcation"].append(not stability.data["stable"])
         history_data["cone-stable"].append(stable)
         history_data["F"].append(_F)
-        history_data["alpha_t"].append(state["alpha"].vector.array.tolist())
-        history_data["u_t"].append(state["u"].vector.array.tolist())
+        history_data["alpha_t"].append(state["alpha"].x.petsc_vec.array.tolist())
+        history_data["u_t"].append(state["u"].x.petsc_vec.array.tolist())
 
-        logging.critical(f"u_t {u.vector.array}")
-        logging.critical(f"u_t norm {state['u'].vector.norm()}")
+        logging.critical(f"u_t {u.x.petsc_vec.array}")
+        logging.critical(f"u_t norm {state['u'].x.petsc_vec.norm()}")
 
         with XDMFFile(
             comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5

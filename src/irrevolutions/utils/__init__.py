@@ -417,10 +417,10 @@ def indicator_function(v):
 
     # Create the indicator function
     w = dolfinx.fem.Function(v.function_space)
-    with w.vector.localForm() as w_loc, v.vector.localForm() as v_loc:
+    with w.x.petsc_vec.localForm() as w_loc, v.x.petsc_vec.localForm() as v_loc:
         w_loc[:] = np.where(v_loc[:] > 0, 1.0, 0.0)
 
-    w.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    w.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     return w
 

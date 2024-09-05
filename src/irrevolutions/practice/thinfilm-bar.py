@@ -185,8 +185,8 @@ def main(parameters, storage=None):
     # boundary conditions
     bcs_u = []
     bcs_alpha = []
-    set_bc(alpha_ub.vector, bcs_alpha)
-    alpha_ub.vector.ghostUpdate(
+    set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+    alpha_ub.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
@@ -250,8 +250,8 @@ def main(parameters, storage=None):
         tau.value = t
 
         # update the lower bound
-        alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+        alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -280,9 +280,9 @@ def main(parameters, storage=None):
         )
 
         # compute rate
-        alpha.vector.copy(alphadot.vector)
-        alphadot.vector.axpy(-1, alpha_lb.vector)
-        alphadot.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alphadot.x.petsc_vec)
+        alphadot.x.petsc_vec.axpy(-1, alpha_lb.x.petsc_vec)
+        alphadot.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -377,7 +377,7 @@ def main(parameters, storage=None):
         history_data["eigs"].append(bifurcation.data["eigs"])
         history_data["F"].append(stress)
         history_data["cone_data"].append(stability.data)
-        history_data["alphadot_norm"].append(alphadot.vector.norm())
+        history_data["alphadot_norm"].append(alphadot.x.petsc_vec.norm())
         history_data["rate_12_norm"].append(rate_12_norm)
         history_data["unscaled_rate_12_norm"].append(rate_12_norm_unscaled)
         history_data["cone-stable"].append(stable)

@@ -86,7 +86,7 @@ F = dolfinx.fem.form(F_)
 
 v = dolfinx.fem.petsc.create_vector_block(F)
 x = dolfinx.fem.petsc.create_vector_block(F)
-# scatter_local_vectors(x, [u.vector.array_r, p.vector.array_r],
+# scatter_local_vectors(x, [u.x.petsc_vec.array_r, p.x.petsc_vec.array_r],
 #                         [(u.function_space.dofmap.index_map, u.function_space.dofmap.index_map_bs),
 #                         (p.function_space.dofmap.index_map, p.function_space.dofmap.index_map_bs)])
 # x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
@@ -181,7 +181,7 @@ def converged(x):
 
     # update xold
     # x.copy(_xold)
-    # x.vector.ghostUpdate(
+    # x.x.petsc_vec.ghostUpdate(
     #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     # )
 

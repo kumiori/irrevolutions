@@ -157,7 +157,7 @@ def run_computation(parameters, storage=None):
     # eps_t = dolfinx.fem.Constant(mesh, np.array(1., dtype=PETSc.ScalarType))
 
     for f in [zero_u, u_zero, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(
+        f.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -206,8 +206,8 @@ def run_computation(parameters, storage=None):
         tau.value = t
 
         # update the lower bound
-        alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+        alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 

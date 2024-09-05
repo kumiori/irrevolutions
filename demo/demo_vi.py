@@ -43,11 +43,11 @@ mesh = dolfinx.mesh.create_rectangle(
 V = FunctionSpace(mesh, ("CG", 1))
 
 zero = Function(V)
-with zero.vector.localForm() as loc:
+with zero.x.petsc_vec.localForm() as loc:
     loc.set(0.0)
 
 one = Function(V)
-with one.vector.localForm() as loc:
+with one.x.petsc_vec.localForm() as loc:
     loc.set(1.0)
 
 
@@ -97,7 +97,7 @@ def monitor(snes, its, fgnorm):
 
 
 solver_snes.setMonitor(monitor)
-solver_snes.solve(None, u.vector)
+solver_snes.solve(None, u.x.petsc_vec)
 # solver_snes.view()
 
 prefix = os.path.join("output", "test-vi")

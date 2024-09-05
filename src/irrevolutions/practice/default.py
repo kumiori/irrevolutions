@@ -313,12 +313,12 @@ def initialise_solver(total_energy, state, bcs, parameters):
     alpha_ub = Function(V_alpha, name="Upper bound")
 
     for f in [alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(
+        f.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-    set_bc(alpha_ub.vector, bcs["bcs_alpha"])
-    alpha_ub.vector.ghostUpdate(
+    set_bc(alpha_ub.x.petsc_vec, bcs["bcs_alpha"])
+    alpha_ub.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
@@ -483,8 +483,8 @@ def run_time_loop(parameters, solver, model, bcs):
         # Implement any necessary updates here
         # update the lower bound
 
-        alpha.vector.copy(solver.alpha_lb.vector)
-        solver.alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(solver.alpha_lb.x.petsc_vec)
+        solver.alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
