@@ -30,6 +30,7 @@ from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
+import basix.ufl
 
 sys.path.append("../")
 from algorithms.am import HybridSolver
@@ -141,10 +142,10 @@ def main(parameters, storage=None):
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
     # functional space
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     u = Function(V_u, name="Displacement")
@@ -480,7 +481,7 @@ if __name__ == "__main__":
 
     if "--ell_e" in sys.argv:
         parameters, signature = parameters_vs_elle(
-            parameters=base_parameters, elle=np.float(args.ell_e)
+            parameters= base_parameters, elle=np.float(args.ell_e)
         )
         _storage = (
             f"output/parametric/thinfilm-bar/vs_ell_e/{base_signature}/{signature}"

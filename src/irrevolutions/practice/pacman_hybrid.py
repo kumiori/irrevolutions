@@ -35,6 +35,7 @@ from petsc4py import PETSc
 from solvers.function import functions_to_vec
 from utils.lib import _local_notch_asymptotic
 from utils.viz import plot_mesh, plot_scalar, plot_vector
+import basix.ufl
 
 logging.basicConfig(level=logging.INFO)
 
@@ -151,10 +152,10 @@ def pacman_hybrid(nest):
         fig.savefig(f"{prefix}/mesh.png")
 
     # Function spaces
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     # Define the state

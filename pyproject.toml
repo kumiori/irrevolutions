@@ -1,8 +1,6 @@
 [project]
 name = "irrevolutions"
-authors = [
-    {name = "Andrés A León Baldelli", email = "leon.baldelli@cnrs.fr"},
-    ]
+authors = [{ name = "Andrés A León Baldelli", email = "leon.baldelli@cnrs.fr" }]
 version = "0.1.0"
 requires-python = ">=3.8"
 
@@ -13,11 +11,11 @@ description = "Three solvers for irreversible evolutionary processes with a gene
 readme = "README.md"
 
 # Path to license file
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 
 # Direct dependencies
 dependencies = [
-    "fenics-dolfinx==0.7.*",
+    "fenics-dolfinx>=0.8.0",
     "pandas>=2.2",
     "sympy",
     "pytest",

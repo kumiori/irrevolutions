@@ -17,6 +17,7 @@ from dolfinx.fem import (
     Function,
     dirichletbc,
 )
+import basix.ufl
 from meshes import primitives
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
@@ -148,8 +149,8 @@ facet_tag = dolfinx.mesh.MeshTags(
 
 # Functional setting
 
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
-V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
+V_u = dolfinx.fem.functionspace(mesh, element_u)
 
 u = dolfinx.fem.Function(V_u, name="Displacement")
 g = dolfinx.fem.Function(V_u, name="Body pressure")

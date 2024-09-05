@@ -26,6 +26,7 @@ from dolfinx.fem import (
 from dolfinx.io import gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
+import basix.ufl
 
 sys.path.append("../")
 import hashlib
@@ -179,10 +180,10 @@ def main(parameters, model="at2", storage=None):
     # with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
     #     file.write_mesh(mesh)
 
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     u = Function(V_u, name="Displacement")
@@ -464,7 +465,7 @@ def param_vs_ell():
     # __import__('pdb').set_trace()
 
     for ell in ell_list:
-        parameters, signature = parameters_vs_ell(parameters=base_parameters, ell=ell)
+        parameters, signature = parameters_vs_ell(parameters= base_parameters, ell=ell)
         _storage = f"output/parametric/traction-bar/vs_ell/{base_signature}/{signature}"
         history_data, performance, state = main(parameters, _storage)
 
@@ -486,7 +487,7 @@ def param_vs_s(base_parameters, base_signature):
 
     for s in s_list:
         parameters, signature = parameters_vs_SPA_scaling(
-            parameters=base_parameters, s=s
+            parameters= base_parameters, s=s
         )
         _storage = f"output/parametric/traction-bar/vs_s/{base_signature}/{signature}"
 
@@ -536,7 +537,7 @@ def param_vs_dry(base_parameters, base_signature):
             yaml.dump(base_parameters, file)
 
     for s in s_list:
-        # parameters, signature = parameters_vs_SPA_scaling(parameters=base_parameters, s=s)
+        # parameters, signature = parameters_vs_SPA_scaling(parameters= base_parameters, s=s)
         parameters = base_parameters
         signature = s
         _storage = f"output/parametric/traction-bar/dry/{signature}"
@@ -598,13 +599,13 @@ if __name__ == "__main__":
 
     if "-s" in sys.argv:
         parameters, signature = parameters_vs_SPA_scaling(
-            parameters=base_parameters, s=np.float(args.s)
+            parameters= base_parameters, s=np.float(args.s)
         )
         _storage = f"output/parametric/traction-bar/vs_s/{args.model}/{base_signature}/{signature}"
 
     elif "-n" in sys.argv:
         parameters, signature = parameters_vs_n_refinement(
-            parameters=base_parameters, r=np.int(args.n)
+            parameters= base_parameters, r=np.int(args.n)
         )
         _storage = f"output/parametric/traction-bar/vs_resolution/{args.model}/{base_signature}/{signature}"
 

@@ -33,6 +33,7 @@ from dolfinx.mesh import locate_entities_boundary
 from mpi4py import MPI
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
+import basix.ufl
 
 sys.path.append("../")
 from algorithms.am import AlternateMinimisation, HybridSolver
@@ -170,10 +171,10 @@ def pacman_cone(resolution=2, slug="pacman"):
     fig.savefig(f"{prefix}/mesh.png")
 
     # Function spaces
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     # Define the state

@@ -8,6 +8,8 @@ from pathlib import Path
 import dolfinx
 import dolfinx.mesh
 import dolfinx.plot
+import basix.ufl
+
 import numpy as np
 import pandas as pd
 import petsc4py
@@ -25,14 +27,15 @@ from dolfinx.fem import (
     set_bc,
 )
 from dolfinx.io import XDMFFile, gmshio
+from mpi4py import MPI
+from petsc4py import PETSc
+
 from irrevolutions.algorithms.am import AlternateMinimisation
 from irrevolutions.algorithms.so import BifurcationSolver
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import DamageElasticityModel as Brittle
 from irrevolutions.utils import ColorPrint
 from irrevolutions.utils.plots import plot_energies
-from mpi4py import MPI
-from petsc4py import PETSc
 
 logging.basicConfig(level=logging.INFO)
 
@@ -81,10 +84,10 @@ with XDMFFile(
     file.write_mesh(mesh)
 
 # Function spaces
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
 V_u = FunctionSpace(mesh, element_u)
 
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 V_alpha = FunctionSpace(mesh, element_alpha)
 
 # Define the state

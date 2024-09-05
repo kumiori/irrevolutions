@@ -22,6 +22,7 @@ from irrevolutions.utils.viz import plot_vector
 from mpi4py import MPI
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
+import basix.ufl
 
 logging.basicConfig(level=logging.INFO)
 
@@ -65,10 +66,10 @@ with XDMFFile(comm, f"{prefix}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as f
     file.write_mesh(mesh)
 
 # Function spaces
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
-V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-V_ux = dolfinx.fem.FunctionSpace(
-    mesh, ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
+V_u = dolfinx.fem.functionspace(mesh, element_u)
+V_ux = dolfinx.fem.functionspace(
+    mesh,basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 )
 
 # Define the state

@@ -25,6 +25,7 @@ from models import DamageElasticityModel as Brittle
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
 from utils.viz import plot_mesh, plot_scalar, plot_vector
+import basix.ufl
 
 logging.basicConfig(level=logging.INFO)
 
@@ -221,10 +222,10 @@ fig.savefig("output/Vnotch_mesh.png")
 # Functional setting
 
 
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
+element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+V_u = dolfinx.fem.functionspace(mesh, element_u)
+V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
 
 u = dolfinx.fem.Function(V_u, name="Displacement")
 # the displacement

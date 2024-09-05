@@ -13,6 +13,7 @@ import yaml
 from dolfinx.fem import assemble_scalar, form
 from mpi4py import MPI
 from petsc4py import PETSc
+import basix.ufl
 
 comm = MPI.COMM_WORLD
 
@@ -555,11 +556,11 @@ def sample_data(N, positive=True):
     comm = MPI.COMM_WORLD
     comm.Get_rank()
 
-    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+    V_u = dolfinx.fem.functionspace(mesh, element_u)
+    V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
     u = dolfinx.fem.Function(V_u, name="Displacement")
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
     dx = ufl.Measure("dx", alpha.function_space.mesh)

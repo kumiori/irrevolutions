@@ -103,7 +103,7 @@ class SecondOrderSolver:
         self.mesh = alpha.function_space.mesh
 
         # Initialize L as a DG(0) function
-        L = dolfinx.fem.FunctionSpace(self.mesh, ("DG", 0))
+        L = dolfinx.fem.functionspace(self.mesh, ("DG", 0))
         self.lmbda0 = dolfinx.fem.Function(L)
 
         # Define the forms associated with the second derivative of the energy

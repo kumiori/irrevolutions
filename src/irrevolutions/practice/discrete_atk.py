@@ -23,6 +23,8 @@ from dolfinx.fem import (
     locate_dofs_geometrical,
     set_bc,
 )
+import basix.ufl
+
 from dolfinx.fem.petsc import assemble_vector
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
@@ -283,12 +285,12 @@ def discrete_atk(arg_N=2):
 
     # Functional Setting
 
-    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-    element_alpha = ufl.FiniteElement("DG", mesh.ufl_cell(), degree=0)
+    element_alpha = basix.ufl.element("DG", mesh.basix_cell(), degree=0)
 
-    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+    V_u = dolfinx.fem.functionspace(mesh, element_u)
+    V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
 
     u = dolfinx.fem.Function(V_u, name="Displacement")
     u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")

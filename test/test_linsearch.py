@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+import basix.ufl
 
 import dolfinx
 import dolfinx.mesh
@@ -103,10 +104,10 @@ def test_linsearch():
         file.write_mesh(mesh)
 
     # Function spaces
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     # Define the state

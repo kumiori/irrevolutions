@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import meshes
 import numpy as np
 import pyvista
+import basix.ufl
 import ufl
 from algorithms import am
 from dolfinx.fem import (
@@ -325,14 +326,14 @@ fig.savefig("mesh.png")
 # The Lagrange elements are going to be defined in the mesh as such we take the
 # geometry of elements present in the mesh.
 
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2, ))
+element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
 # After defining the Finite Element in ufl, a association with dolfinx is made.
 # To inputs are necessary, the mesh and the element type created. In some sense,
 # we obtain the "discretised model w/ elements definied".
-V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+V_u = dolfinx.fem.functionspace(mesh, element_u)
+V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
 
 # In this model, we also defines functions necessaries to solve the problem.
 # This functions are definied in the entire space/model.

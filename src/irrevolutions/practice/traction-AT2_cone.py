@@ -33,6 +33,7 @@ from irrevolutions.utils import ColorPrint
 from meshes.primitives import mesh_bar_gmshapi
 from models import DamageElasticityModel as Brittle
 from utils.plots import plot_energies
+import basix.ufl
 
 sys.path.append("../")
 
@@ -107,10 +108,10 @@ with XDMFFile(
 ) as file:
     file.write_mesh(mesh)
 
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
 V_u = FunctionSpace(mesh, element_u)
 
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 V_alpha = FunctionSpace(mesh, element_alpha)
 
 u = Function(V_u, name="Displacement")

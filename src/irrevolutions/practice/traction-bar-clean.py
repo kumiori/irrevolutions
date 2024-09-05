@@ -25,6 +25,7 @@ from dolfinx.fem import (
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
+import basix.ufl
 
 sys.path.append("../")
 import hashlib
@@ -172,10 +173,10 @@ def main(parameters, model="at2", storage=None):
     ) as file:
         file.write_mesh(mesh)
 
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     u = Function(V_u, name="Displacement")

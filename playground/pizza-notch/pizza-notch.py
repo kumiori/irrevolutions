@@ -42,6 +42,7 @@ from irrevolutions.utils.viz import plot_mesh, plot_scalar, plot_vector
 from mpi4py import MPI
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
+import basix.ufl
 
 description = """We solve here a basic 2d of a notched specimen.
 Imagine a dinner a pizza which is missing a slice, and lots of hungry friends
@@ -96,10 +97,10 @@ def run_computation(parameters, storage):
     hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     # Function spaces
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     # Define the state
