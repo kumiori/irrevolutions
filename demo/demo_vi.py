@@ -12,17 +12,14 @@ import petsc4py
 import pyvista
 import ufl
 import yaml
-from dolfinx.fem import (
-    Function,
-    FunctionSpace,
-    dirichletbc,
-)
+from dolfinx.fem import Function, FunctionSpace, dirichletbc
 from dolfinx.fem.assemble import assemble_scalar
 from dolfinx.mesh import CellType
-from irrevolutions.solvers import SNESSolver
-from irrevolutions.utils.viz import plot_profile, plot_scalar
 from mpi4py import MPI
 from pyvista.utilities import xvfb
+
+from irrevolutions.solvers import SNESSolver
+from irrevolutions.utils.viz import plot_profile, plot_scalar
 
 petsc4py.init(sys.argv)
 

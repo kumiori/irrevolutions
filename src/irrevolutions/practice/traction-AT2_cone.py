@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+from utils.viz import plot_scalar, plot_vector
+from pyvista.utilities import xvfb
+import pyvista
+from utils.plots import plot_AMit_load, plot_force_displacement
+import hashlib
+from irrevolutions.utils import ColorPrint
+from utils.plots import plot_energies
+from models import DamageElasticityModel as Brittle
+from meshes.primitives import mesh_bar_gmshapi
+from algorithms.so_merged import BifurcationSolver, StabilitySolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 import json
 import logging
 import os
@@ -12,27 +23,11 @@ import pandas as pd
 import petsc4py
 import ufl
 import yaml
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
-
-sys.path.append("../")
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so_merged import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import ColorPrint
-from meshes.primitives import mesh_bar_gmshapi
-from models import DamageElasticityModel as Brittle
-from utils.plots import plot_energies
 import basix.ufl
 
 sys.path.append("../")
@@ -86,7 +81,6 @@ geom_type = parameters["geometry"]["geom_type"]
 gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
 mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
-import hashlib
 
 signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 outdir = os.path.join(os.path.dirname(__file__), "output")
@@ -310,18 +304,13 @@ for i_t, t in enumerate(loads):
 df = pd.DataFrame(history_data)
 print(df.drop(["solver_data", "cone_data"], axis=1))
 
-from utils.plots import plot_AMit_load, plot_force_displacement
 
 if comm.rank == 0:
     plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
     plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
     plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
-import sys
 
-import pyvista
-from pyvista.utilities import xvfb
-from utils.viz import plot_scalar, plot_vector
 
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True

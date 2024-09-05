@@ -3,6 +3,7 @@ import pickle
 from petsc4py import PETSc
 
 from .test_errorcodes import translatePETScERROR
+import irrevolutions.solvers.restriction as restriction
 
 
 def save_binary_data(filename, data):
@@ -13,7 +14,7 @@ def save_binary_data(filename, data):
             item.view(viewer)
     elif isinstance(data, PETSc.Mat):
         data.view(viewer)
-    elif isinstance(data, PEtest_binarydataioTSc.Vec):
+    elif isinstance(data, PETSc.Vec):
         data.view(viewer)
     else:
         raise ValueError("Unsupported data type for saving")
@@ -117,7 +118,7 @@ def load_minimal_constraints(filename):
 
     # Assuming you have a constructor for your class
     # Modify this accordingly based on your actual class structure
-    reconstructed_obj = Restriction()
+    reconstructed_obj = restriction.Restriction()
     for key, value in minimal_constraints.items():
         setattr(reconstructed_obj, key, value)
 
@@ -138,22 +139,22 @@ if __name__ == "__main__":
     matrix.setUp()
 
     Istart, Iend = matrix.getOwnershipRange()
-    for I in range(Istart, Iend):
-        matrix[I, I] = 4
-        i = I // n
+    for i in range(Istart, Iend):
+        matrix[i, i] = 4
+        i = i // n
         if i > 0:
-            J = I - n
-            matrix[I, J] = -1
+            j = i - n
+            matrix[i, j] = -1
         if i < m - 1:
-            J = I + n
-            matrix[I, J] = -1
-        j = I - i * n
+            j = i + n
+            matrix[i, j] = -1
+        j = i - i * n
         if j > 0:
-            J = I - 1
-            matrix[I, J] = -1
+            j = i - 1
+            matrix[i, j] = -1
         if j < n - 1:
-            J = I + 1
-            matrix[I, J] = -1
+            j = i + 1
+            matrix[i, j] = -1
 
     matrix.assemblyBegin()
     matrix.assemblyEnd()

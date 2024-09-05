@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint, _logger, simulation_info
+from utils.viz import plot_profile, plot_scalar, plot_vector
+from utils.plots import plot_AMit_load, plot_energies, plot_force_displacement
+from solvers.function import vec_to_functions
+from pyvista.utilities import xvfb
+from models import DamageElasticityModel as Brittle
+from meshes.primitives import mesh_bar_gmshapi
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import AlternateMinimisation, HybridSolver
+import pyvista
+import hashlib
 import json
 import logging
 import os
@@ -12,34 +23,16 @@ import pandas as pd
 import petsc4py
 import ufl
 import yaml
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
 import basix.ufl
 
 sys.path.append("../")
-import hashlib
 
-import pyvista
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import ColorPrint, _logger, simulation_info
-from meshes.primitives import mesh_bar_gmshapi
-from models import DamageElasticityModel as Brittle
-from pyvista.utilities import xvfb
-from solvers.function import vec_to_functions
-from utils.plots import plot_AMit_load, plot_energies, plot_force_displacement
-from utils.viz import plot_profile, plot_scalar, plot_vector
+
 
 
 class BrittleAT2(Brittle):
@@ -141,7 +134,7 @@ def main(parameters, model="at2", storage=None):
     Ly = parameters["geometry"]["Ly"]
     tdim = parameters["geometry"]["geometric_dimension"]
     _nameExp = parameters["geometry"]["geom_type"]
-    ell_ = parameters["model"]["ell"]
+    parameters["model"]["ell"]
     lc = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]
     geom_type = parameters["geometry"]["geom_type"]
 
@@ -191,7 +184,7 @@ def main(parameters, model="at2", storage=None):
     alpha_ub = Function(V_alpha, name="Upper bound")
 
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
     dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
@@ -208,7 +201,6 @@ def main(parameters, model="at2", storage=None):
     # Perturbation
     β = Function(V_alpha, name="DamagePerturbation")
     v = Function(V_u, name="DisplacementPerturbation")
-    perturbation = {"v": v, "beta": β}
 
     for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
         f.x.petsc_vec.ghostUpdate(
@@ -398,9 +390,9 @@ def main(parameters, model="at2", storage=None):
 
         ColorPrint.print_bold("   Written timely data.    ")
 
-    df = pd.DataFrame(history_data)
+    pd.DataFrame(history_data)
 
-    with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+    with dolfinx.common.Timer("~Postprocessing and Vis"):
         if comm.Get_size() == 1:
             # if comm.rank == 0 and comm.Get_size() == 1:
             plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
@@ -447,7 +439,7 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
             subplot=(0, 0),
             lineproperties={"c": "k", "label": "$\\beta$"},
         )
-        ax = _plt.gca()
+        _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
         _plt.title("Perurbation")
@@ -467,7 +459,7 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
             subplot=(0, 0),
             lineproperties={"c": "k", "label": "$\\beta$"},
         )
-        ax = _plt.gca()
+        _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
         _plt.title("Perurbation from the Cone")

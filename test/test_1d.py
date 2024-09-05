@@ -17,38 +17,22 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (
-    Constant,
-    Function,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
+                         form, locate_dofs_geometrical, set_bc)
 from dolfinx.fem.petsc import assemble_vector
 from dolfinx.io import XDMFFile
+from mpi4py import MPI
+from petsc4py import PETSc
+
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import vec_to_functions
-from irrevolutions.utils import (
-    ColorPrint,
-    _logger,
-    _write_history_data,
-    history_data,
-    norm_H1,
-    norm_L2,
-)
-from irrevolutions.utils.plots import (
-    plot_AMit_load,
-    plot_energies,
-)
-
+from irrevolutions.utils import (ColorPrint, _logger, _write_history_data,
+                                 history_data, norm_H1, norm_L2)
+from irrevolutions.utils.plots import plot_AMit_load, plot_energies
 #
 from irrevolutions.utils.viz import plot_profile
-from mpi4py import MPI
-from petsc4py import PETSc
 
 """The fundamental problem of a 1d bar in traction.
 0|(WWWWWWWWWWWWWWWWWWWWWW)|========> t
@@ -287,7 +271,7 @@ def run_computation(parameters, storage=None):
     alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
 
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Useful references
     Lx = parameters.get("geometry").get("Lx")
@@ -484,7 +468,7 @@ def run_computation(parameters, storage=None):
 
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
-        with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis"):
             if comm.Get_size() == 1:
                 if bifurcation._spectrum:
                     vec_to_functions(bifurcation._spectrum[0]["xk"], [v, β])
@@ -697,7 +681,7 @@ def test_1d():
     parameters, signature = load_parameters(
         os.path.join(os.path.dirname(__file__), "parameters.yml"), ndofs=_N
     )
-    pretty_parameters = json.dumps(parameters, indent=2)
+    json.dumps(parameters, indent=2)
     # print(pretty_parameters)
     # _storage = f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{args.N}/{signature}"
     _storage = (
@@ -705,7 +689,7 @@ def test_1d():
     )
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer("~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment"):
         history_data, stability_data, state = run_computation(parameters, _storage)
 
     from irrevolutions.utils import ResultsStorage, Visualization

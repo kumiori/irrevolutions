@@ -27,7 +27,7 @@ def mesh_bar_gmshapi(name, msh_file=None, comm=MPI.COMM_WORLD):
         L, H, r = 1.0, 1.0, 0.1
         hole = gmsh.model.occ.addCircle(L / 2, L / 2, 0.0, r, tag=1)
         domain = gmsh.model.occ.addRectangle(0, 0, 0.0, L, H, tag=2, roundedRadius=0.1)
-        boolean = gmsh.model.occ.cut([(2, hole)], [(2, domain)], tag=3)
+        gmsh.model.occ.cut([(2, hole)], [(2, domain)], tag=3)
 
 
 def mesh_moonslice_gmshapi(

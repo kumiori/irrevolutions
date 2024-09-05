@@ -324,7 +324,7 @@ class SecondOrderSolver:
             float: Coefficient used for normalization.
         """
         if mode == "max-beta":
-            v, beta = u[0], u[1]
+            _v, beta = u[0], u[1]
             coeff_glob = beta.x.petsc_vec.norm(3)
 
             logging.debug(f"{rank}, |β|_infty {beta.x.petsc_vec.norm(3):.3f}")
@@ -345,7 +345,7 @@ class SecondOrderSolver:
                 addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
             )
 
-        _norm = np.sqrt(sum(n**2 for n in [v_i.x.petsc_vec.norm(2) for v_i in u]))
+        np.sqrt(sum(n**2 for n in [v_i.x.petsc_vec.norm(2) for v_i in u]))
 
         return coeff_glob
 
@@ -381,7 +381,7 @@ class SecondOrderSolver:
         # Check if the system is damage-critical and log it
         self.log_critical_state()
 
-        with dolfinx.common.Timer("~Second Order: Bifurcation") as timer:
+        with dolfinx.common.Timer("~Second Order: Bifurcation"):
             # Set up constraints
             constraints = self.setup_constraints(alpha_old)
             self.inertia_setup(constraints)
@@ -677,7 +677,6 @@ class StabilitySolver(SecondOrderSolver):
                     "1": "converged atol",
                     "2": "converged residual",
                 }
-                _reason = None
 
     def solve(self, alpha_old: dolfinx.fem.function.Function, eig0=None, inertia=None):
         """
@@ -836,7 +835,7 @@ class StabilitySolver(SecondOrderSolver):
         _cone_restricted = self._cone_project_restricted(xk)
 
         _logger.debug(f"xk view after cone-project at iteration {self.iterations}")
-        n2 = _cone_restricted.normalize()
+        _cone_restricted.normalize()
 
         # _logger.info(f"Cone project update: normalisation {n2}")
 
@@ -995,7 +994,7 @@ class StabilitySolver(SecondOrderSolver):
         # self.data["error_x_L2"].append(error_x_L2)
 
         _acrit = self._aerror < self.parameters.get("cone").get("cone_atol")
-        _rnorm = self._residual_norm < self.parameters.get("cone").get("cone_rtol")
+        self._residual_norm < self.parameters.get("cone").get("cone_rtol")
 
         _crits = (_acrit, False)
 

@@ -4,11 +4,7 @@ import random
 import mpi4py
 import numpy as np
 from dolfinx.cpp.log import LogLevel, log
-from dolfinx.fem import (
-    Function,
-    assemble_scalar,
-    form,
-)
+from dolfinx.fem import Function, assemble_scalar, form
 from petsc4py import PETSc
 
 from irrevolutions.utils import norm_H1
@@ -147,8 +143,6 @@ class LineSearch(object):
         beta = bifurcation[1]
 
         one = max(1.0, max(alpha.x.petsc_vec[:]))
-        upperbound = one
-        lowerbound = alpha_lb
 
         # positive
         mask = np.int32(np.where(beta.x.petsc_vec[:] > 0)[0])

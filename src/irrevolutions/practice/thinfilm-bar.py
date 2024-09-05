@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint, setup_logger_mpi, table_timing_data
+from utils.viz import plot_profile, plot_scalar, plot_vector
+from utils.plots import plot_AMit_load, plot_energies, plot_force_displacement
+from utils.parametric import parameters_vs_elle
+from solvers.function import vec_to_functions
+from models import BrittleMembraneOverElasticFoundation as ThinFilm
+from meshes.primitives import mesh_bar_gmshapi
+from default import ResultsStorage, Visualization
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import HybridSolver
 import json
 import logging
 import os
@@ -14,18 +24,9 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
 from dolfinx.io import XDMFFile, gmshio
-
 #
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -33,20 +34,9 @@ from pyvista.utilities import xvfb
 import basix.ufl
 
 sys.path.append("../")
-from algorithms.am import HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from default import ResultsStorage, Visualization
+# from meshes.pacman import mesh_pacman
 
 # logging.basicConfig(level=logging.DEBUG)
-from irrevolutions.utils import ColorPrint, setup_logger_mpi, table_timing_data
-from meshes.primitives import mesh_bar_gmshapi
-from models import BrittleMembraneOverElasticFoundation as ThinFilm
-from solvers.function import vec_to_functions
-from utils.parametric import parameters_vs_elle
-from utils.plots import plot_AMit_load, plot_energies, plot_force_displacement
-
-# from meshes.pacman import mesh_pacman
-from utils.viz import plot_profile, plot_scalar, plot_vector
 
 
 # ------------------------------------------------------------------
@@ -151,7 +141,7 @@ def main(parameters, storage=None):
     u = Function(V_u, name="Displacement")
     zero_u = Function(V_u, name="Boundary Displacement")
     alpha = Function(V_alpha, name="Damage")
-    zero_alpha = Function(V_alpha, name="Damage Boundary Field")
+    Function(V_alpha, name="Damage Boundary Field")
     alphadot = dolfinx.fem.Function(V_alpha, name="Damage_rate")
 
     state = {"u": u, "alpha": alpha}
@@ -159,16 +149,15 @@ def main(parameters, storage=None):
     # Perturbation
     β = Function(V_alpha, name="DamagePerturbation")
     v = Function(V_u, name="DisplacementPerturbation")
-    perturbation = {"v": v, "beta": β}
 
-    z = [u, alpha]
+    [u, alpha]
     # need upper/lower bound for the damage field
     alpha_lb = Function(V_alpha, name="Lower bound")
     alpha_ub = Function(V_alpha, name="Upper bound")
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -176,7 +165,7 @@ def main(parameters, storage=None):
     zero_u = Function(V_u)
     u_ = Function(V_u, name="Boundary Displacement")
 
-    zero_alpha = Function(V_alpha)
+    Function(V_alpha)
 
     bc_u_left = dirichletbc(zero_u, dofs_u_left)
     bc_u_right = dirichletbc(u_, dofs_u_right)
@@ -292,8 +281,8 @@ def main(parameters, storage=None):
         ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
         ColorPrint.print_bold("===================-=================")
 
-        is_stable = bifurcation.solve(alpha_lb)
-        is_elastic = bifurcation.is_elastic()
+        bifurcation.solve(alpha_lb)
+        bifurcation.is_elastic()
         inertia = bifurcation.get_inertia()
 
         ColorPrint.print_bold("   Solving second order: Stability Pb.    ")
@@ -323,7 +312,7 @@ def main(parameters, storage=None):
                 subplot=(0, 0),
                 lineproperties={"c": "k", "label": "$\\beta$"},
             )
-            ax = _plt.gca()
+            _plt.gca()
             _plt.legend()
             _plt.fill_between(data[0], data[1].reshape(len(data[1])))
             _plt.title("Perurbation")
@@ -343,7 +332,7 @@ def main(parameters, storage=None):
                 subplot=(0, 0),
                 lineproperties={"c": "k", "label": "$\\beta$"},
             )
-            ax = _plt.gca()
+            _plt.gca()
             _plt.legend()
             _plt.fill_between(data[0], data[1].reshape(len(data[1])))
             _plt.title("Perurbation from the Cone")
@@ -386,7 +375,7 @@ def main(parameters, storage=None):
         history_data["inertia"].append(inertia)
 
         # postprocessing
-        with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis"):
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
                 plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
@@ -401,7 +390,7 @@ def main(parameters, storage=None):
             file.write_function(alpha, t)
 
     # postprocessing
-    with dolfinx.common.Timer("~Postprocessing and Vis") as timer:
+    with dolfinx.common.Timer("~Postprocessing and Vis"):
         if comm.Get_rank == 1:
             xvfb.start_xvfb(wait=0.05)
             pyvista.OFF_SCREEN = True

@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint
+from utils.viz import plot_mesh, plot_scalar, plot_vector
+from utils.lib import _local_notch_asymptotic
+from models import DamageElasticityModel as Brittle
+from meshes.pacman import mesh_pacman
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 import hashlib
 import json
 import logging
@@ -16,19 +23,10 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings, timing
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_topological,
-    set_bc,
-)
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_topological, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
-
 #
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -36,13 +34,7 @@ from pyvista.utilities import xvfb
 import basix.ufl
 
 sys.path.append("../")
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import ColorPrint
-from meshes.pacman import mesh_pacman
-from models import DamageElasticityModel as Brittle
-from utils.lib import _local_notch_asymptotic
-from utils.viz import plot_mesh, plot_scalar, plot_vector
+
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -96,9 +88,7 @@ comm = MPI.COMM_WORLD
 
 
 def pacman_cone(resolution=2, slug="pacman"):
-    Lx = 1.0
-    Ly = 0.1
-    _nel = 30
+    pass
 
     outdir = os.path.join(os.path.dirname(__file__), "output")
     prefix = os.path.join(outdir, "pacman-cone")
@@ -193,7 +183,7 @@ def pacman_cone(resolution=2, slug="pacman"):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Set Bcs Function
 
@@ -240,7 +230,7 @@ def pacman_cone(resolution=2, slug="pacman"):
     )
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
-    bcs_z = bcs_u + bcs_alpha
+    bcs_u + bcs_alpha
 
     # Mechanical model
 
@@ -257,7 +247,7 @@ def pacman_cone(resolution=2, slug="pacman"):
 
     # Solvers
 
-    solver = AlternateMinimisation(
+    AlternateMinimisation(
         total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 
@@ -329,7 +319,7 @@ def pacman_cone(resolution=2, slug="pacman"):
         ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
         ColorPrint.print_bold("===================-=================")
 
-        is_stable = bifurcation.solve(alpha_lb)
+        bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
         inertia = bifurcation.get_inertia()
 
@@ -386,10 +376,7 @@ def pacman_cone(resolution=2, slug="pacman"):
 
         # Viz
         if "SINGULARITY_CONTAINER" not in os.environ:
-            from utils.plots import (
-                plot_AMit_load,
-                plot_energies,
-            )
+            from utils.plots import plot_AMit_load, plot_energies
 
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
@@ -422,7 +409,7 @@ def pacman_cone(resolution=2, slug="pacman"):
         #     shape=(1, 2),
         # )
 
-    _timings = list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     performance = {
         "N": [],

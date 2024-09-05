@@ -9,13 +9,16 @@ import dolfinx
 import numpy as np
 import ufl
 import yaml
-from dolfinx.fem import assemble_scalar, dirichletbc, form, locate_dofs_geometrical
-from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import ColorPrint, _logger, indicator_function
-from irrevolutions.utils import eigenspace as eig
-from irrevolutions.utils.viz import get_datapoints
+from dolfinx.fem import (assemble_scalar, dirichletbc, form,
+                         locate_dofs_geometrical)
 from mpi4py import MPI
 from petsc4py import PETSc
+
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.utils import ColorPrint, _logger
+from irrevolutions.utils import eigenspace as eig
+from irrevolutions.utils import indicator_function
+from irrevolutions.utils.viz import get_datapoints
 
 sys.path.append("../")
 sys.path.append("../playground/nb")
@@ -141,8 +144,8 @@ def rayleigh(parameters, storage=None):
 
     G = 1 / 2 * (a * alpha.dx(0) ** 2 + b * (u.dx(0) - c * alpha) ** 2) * dx
 
-    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 1))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 1))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 1))
@@ -156,8 +159,8 @@ def rayleigh(parameters, storage=None):
     bcs = {"bcs_u": bcs_u, "bcs_alpha": []}
 
     # Perturbations
-    β = dolfinx.fem.Function(V_alpha, name="DamagePerturbation")
-    v = dolfinx.fem.Function(V_u, name="DisplacementPerturbation")
+    dolfinx.fem.Function(V_alpha, name="DamagePerturbation")
+    dolfinx.fem.Function(V_u, name="DisplacementPerturbation")
 
     # Pack state
     state = {"u": u, "alpha": alpha}
@@ -188,7 +191,7 @@ def rayleigh(parameters, storage=None):
 
     bifurcation.solve(zero_alpha)
     bifurcation.get_inertia()
-    stable = stability.solve(zero_alpha, eig0=bifurcation.spectrum, inertia=(1, 0, 10))
+    stability.solve(zero_alpha, eig0=bifurcation.spectrum, inertia=(1, 0, 10))
     # (size of the) support of the cone-eigenfunction - if any.
     #
 

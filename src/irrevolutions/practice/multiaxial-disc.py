@@ -10,7 +10,6 @@ import dolfinx.plot
 import pandas as pd
 import yaml
 from dolfinx.common import list_timings
-
 #
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -81,10 +80,9 @@ def multiaxial_disc(nest):
     thanks to: Camilla Zolesi"""
 
     # parameters: INPUT
-    model_rank = 0
 
     with open("../test/parameters.yml") as f:
-        parameters = yaml.load(f, Loader=yaml.FullLoader)
+        yaml.load(f, Loader=yaml.FullLoader)
 
     # history_data: OUTPUT
 

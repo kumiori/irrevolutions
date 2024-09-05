@@ -21,6 +21,8 @@
 
 
 #!/usr/bin/env python3
+from irrevolutions.utils import ColorPrint
+from meshes.primitives import mesh_bar_gmshapi
 import json
 import logging
 import pdb
@@ -33,27 +35,16 @@ import numpy as np
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
-import basix.ufl
-
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
-
+import basix.ufl
 sys.path.append("../")
 
+
 # from algorithms.am import AlternateMinimisation, HybridSolver
-from irrevolutions.utils import ColorPrint
-from meshes.primitives import mesh_bar_gmshapi
 
 # Configuration handling (load parameters from YAML)
 
@@ -90,12 +81,12 @@ def load_parameters(file_path):
     parameters["geometry"]["geom_type"] = "traction-bar"
     parameters["geometry"]["ell_lc"] = 5
     # Get mesh parameters
-    Lx = parameters["geometry"]["Lx"]
-    Ly = parameters["geometry"]["Ly"]
-    tdim = parameters["geometry"]["geometric_dimension"]
+    parameters["geometry"]["Lx"]
+    parameters["geometry"]["Ly"]
+    parameters["geometry"]["geometric_dimension"]
 
-    _nameExp = parameters["geometry"]["geom_type"]
-    ell_ = parameters["model"]["ell"]
+    parameters["geometry"]["geom_type"]
+    parameters["model"]["ell"]
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
@@ -192,8 +183,8 @@ def setup_boundary_conditions(V_u, V_alpha, Lx):
     Returns:
         list of dolfinx.DirichletBC: List of boundary conditions.
     """
-    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -201,7 +192,7 @@ def setup_boundary_conditions(V_u, V_alpha, Lx):
     zero_u = Function(V_u)
     u_ = Function(V_u, name="Boundary Displacement")
 
-    zero_alpha = Function(V_alpha)
+    Function(V_alpha)
 
     bc_u_left = dirichletbc(zero_u, dofs_u_left)
     bc_u_right = dirichletbc(u_, dofs_u_right)
@@ -268,7 +259,7 @@ def define_energy_functional(state, model):
     """
     u = state["u"]
     dx = ufl.Measure("dx", domain=u.function_space.mesh)
-    ds = ufl.Measure("ds", domain=u.function_space.mesh)
+    ufl.Measure("ds", domain=u.function_space.mesh)
 
     # state = {"u": u, "alpha": alpha}
     # Define the external load
@@ -469,12 +460,14 @@ def run_time_loop(parameters, solver, model, bcs):
     _x = _cpp.fem.interpolation_coords(V_u.element, mesh, cells)
 
     alpha = state["alpha"]
-    u = state["u"]
+    state["u"]
 
     # Main time loop
     for i_t, t in enumerate(loads):
         # Update boundary conditions or external loads if necessary
-        datum = lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1]))
+        def datum(x):
+            return t * np.ones_like(x[0]), np.zeros_like(x[1])
+
         bcs["bcs_u"][1].g.interpolate(datum(_x), cells)
         bcs["bcs_u"][1].g.x.scatter_forward()
 

@@ -5,7 +5,6 @@ import sys
 import basix.ufl
 
 import dolfinx
-import irrevolutions.solvers.restriction as restriction
 import numpy as np
 import petsc4py
 import ufl
@@ -13,6 +12,8 @@ from dolfinx import cpp as _cpp
 from dolfinx.fem import locate_dofs_geometrical
 from mpi4py import MPI
 from petsc4py import PETSc
+
+import irrevolutions.solvers.restriction as restriction
 
 petsc4py.init(sys.argv)
 

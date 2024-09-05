@@ -1,3 +1,10 @@
+from meshes import _addPoint as addPoint
+from meshes import _addPlaneSurface as _addPlaneSurface
+from meshes import _addPhysicalSurface as _addPhysicalSurface
+from meshes import _addLine as addLine
+from meshes import _addCurveLoop as addCurveLoop
+from meshes import _addCircleArc as addCircleArc
+from pathlib import Path
 import os
 import sys
 
@@ -5,26 +12,7 @@ import numpy as np
 from mpi4py import MPI
 
 sys.path.append("../")
-from pathlib import Path
 
-from meshes import (
-    _addCircleArc as addCircleArc,
-)
-from meshes import (
-    _addCurveLoop as addCurveLoop,
-)
-from meshes import (
-    _addLine as addLine,
-)
-from meshes import (
-    _addPhysicalSurface as _addPhysicalSurface,
-)
-from meshes import (
-    _addPlaneSurface as _addPlaneSurface,
-)
-from meshes import (
-    _addPoint as addPoint,
-)
 
 
 def mesh_extended_pacman(
@@ -65,7 +53,7 @@ def mesh_extended_pacman(
         p2 = addPoint(
             -radius * np.cos(omega / 2), -radius * np.sin(omega / 2), 0.0, lc, tag=2
         )
-        p3 = addPoint(radius, 0, 0.0, lc / refinement, tag=12)
+        addPoint(radius, 0, 0.0, lc / refinement, tag=12)
 
         p10 = addPoint(
             -rho * radius * np.cos(omega / 2),
@@ -81,7 +69,7 @@ def mesh_extended_pacman(
             lc,
             tag=20,
         )
-        p30 = addPoint(rho * radius, 0, 0.0, lc, tag=120)
+        addPoint(rho * radius, 0, 0.0, lc, tag=120)
 
         top = addLine(p1, p0, tag=3)
         bot = addLine(p0, p2, tag=4)
@@ -128,7 +116,6 @@ if __name__ == "__main__":
     import sys
 
     import yaml
-
     # , merge_meshtags, locate_dofs_topological
     from mpi4py import MPI
 

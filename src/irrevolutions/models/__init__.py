@@ -1,3 +1,4 @@
+from dolfinx.fem.function import Function
 import os
 
 import ufl
@@ -251,7 +252,6 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
         return ufl.as_tensor(sigma)
 
 
-from dolfinx.fem.function import Function
 
 
 class VariableThickness:
