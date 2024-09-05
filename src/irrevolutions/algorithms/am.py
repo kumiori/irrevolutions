@@ -301,8 +301,8 @@ class HybridSolver(AlternateMinimisation):
         self.newton.snes.setFromOptions()
 
     def compute_bounds(self, v, alpha_lb):
-        lb = dolfinx.fem.create_vector_nest(v)
-        ub = dolfinx.fem.create_vector_nest(v)
+        lb = dolfinx.fem.petsc.create_vector_nest(v)
+        ub = dolfinx.fem.petsc.create_vector_nest(v)
 
         with lb.getNestSubVecs()[0].localForm() as u_sub:
             u_sub.set(PETSc.NINFINITY)
@@ -354,27 +354,27 @@ class HybridSolver(AlternateMinimisation):
         with dolfinx.common.Timer("~First Order: AltMin solver"):
             super().solve(outdir)
 
-        # self.newton_data = {
-        #     "iteration": [],
-        #     "residual_Fnorm": [],
-        #     "residual_Frxnorm": [],
-        # }
+        self.newton_data = {
+            "iteration": [],
+            "residual_Fnorm": [],
+            "residual_Frxnorm": [],
+        }
         # update bounds and perform Newton step
-        # lb, ub = self.compute_bounds(self.newton.F_form, self.alpha)
+        lb, ub = self.compute_bounds(self.newton.F_form, self.alpha)
 
-        # with dolfinx.common.Timer("~First Order: Hybrid solver"):
-        #     functions_to_vec([self.u_lb, self.alpha_lb], self.lb)
-        #     # logging.critical(f"max alpha.x.petsc_vec lb: {max(self.alpha_lb.x.petsc_vec.array)}")
+        with dolfinx.common.Timer("~First Order: Hybrid solver"):
+            functions_to_vec([self.u_lb, self.alpha_lb], self.lb)
+            # logging.critical(f"max alpha.x.petsc_vec lb: {max(self.alpha_lb.x.petsc_vec.array)}")
 
-        #     self.newton.snes.setVariableBounds(self.lb, self.ub)
+            self.newton.snes.setVariableBounds(self.lb, self.ub)
 
-        #     self.newton.solve(u_init=[self.u, self.alpha])
+            self.newton.solve(u_init=[self.u, self.alpha])
 
-        # self.newton_data["iteration"].append(self.newton.snes.getIterationNumber() + 1)
-        # self.newton_data["residual_Fnorm"].append(self.newton.snes.getFunctionNorm())
-        # self.newton_data["residual_Frxnorm"].append(self.getReducedNorm())
+        self.newton_data["iteration"].append(self.newton.snes.getIterationNumber() + 1)
+        self.newton_data["residual_Fnorm"].append(self.newton.snes.getFunctionNorm())
+        self.newton_data["residual_Frxnorm"].append(self.getReducedNorm())
 
-        # self.data.update(self.newton_data)
+        self.data.update(self.newton_data)
 
         # self.data.append(newton_data)
         # self.data["newton_Fnorm"].append(Fnorm)

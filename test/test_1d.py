@@ -120,7 +120,7 @@ class _AlternateMinimisation1D:
                 (solver_alpha_it, solver_alpha_reason) = self.damage.solve()
 
             # Define error function
-            self.alpha.vector.copy(alpha_diff.vector)
+            self.alpha.x.petsc_vec.copy(alpha_diff.vector)
             alpha_diff.vector.axpy(-1, self.alpha_old.vector)
             alpha_diff.vector.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
@@ -146,7 +146,7 @@ class _AlternateMinimisation1D:
             set_bc(residual_F, self.elasticity.bcs, self.u.vector)
             error_residual_F = ufl.sqrt(residual_F.dot(residual_F))
 
-            self.alpha.vector.copy(self.alpha_old.vector)
+            self.alpha.x.petsc_vec.copy(self.alpha_old.vector)
             self.alpha_old.vector.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )

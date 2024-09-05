@@ -1,15 +1,16 @@
+from mpi4py import MPI
+import sys
+import petsc4py
+petsc4py.init(sys.argv)
+from petsc4py import PETSc
+
 from dolfinx.fem.petsc import (apply_lifting, assemble_matrix, assemble_vector,
                                create_matrix, create_vector, set_bc)
 from dolfinx.cpp.log import LogLevel, log
-import sys
 
 import dolfinx
-import petsc4py
 import ufl
-from mpi4py import MPI
-from petsc4py import PETSc
 
-petsc4py.init(sys.argv)
 
 # from damage.utils import ColorPrint
 
@@ -17,7 +18,6 @@ petsc4py.init(sys.argv)
 # pdb.set_trace()
 
 comm = MPI.COMM_WORLD
-
 
 class SNESSolver:
     """
@@ -46,7 +46,6 @@ class SNESSolver:
             prefix = "snes_{}".format(str(id(self))[0:4])
 
         self.prefix = prefix
-
         if self.bounds is not None:
             self.lb = bounds[0]
             self.ub = bounds[1]
@@ -76,7 +75,8 @@ class SNESSolver:
         opts.prefixPush(self.prefix)
         if debug is True:
             print(self.petsc_options)
-
+        if self.petsc_options.get("snes_type") == "newtontr":
+            self.petsc_options["snes_type"] = "newtonls"
         for k, v in self.petsc_options.items():
             opts[k] = v
 
