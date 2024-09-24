@@ -1,24 +1,17 @@
-import os
-import sys
-
-sys.path.append("../")
-import solvers.restriction as restriction
-from algorithms.so import StabilitySolver
-import test_binarydataio as bio
-from test_extend import test_extend_vector
-from test_cone_project import _cone_project_restricted
-from test_spa import load_minimal_constraints
-from utils import _logger
-import dolfinx
-import ufl
-import numpy as np
-from dolfinx.io import XDMFFile
-import random
-
-from petsc4py import PETSc
-from mpi4py import MPI
-import pickle
 import logging
+import os
+import pickle
+
+import dolfinx
+import numpy as np
+import ufl
+from dolfinx.io import XDMFFile
+from mpi4py import MPI
+
+import irrevolutions.solvers.restriction as restriction
+from irrevolutions import utils
+from irrevolutions.algorithms.so import StabilitySolver
+from irrevolutions.utils import _logger
 
 _logger.setLevel(logging.CRITICAL)
 
@@ -68,7 +61,22 @@ class StabilitySolverTester(StabilitySolver):
         return self.convergence_loop(self.errors, self.Ar, self.xk)
 
 
-with XDMFFile(comm, "data/input_data.xdmf", "r") as file:
+def load_minimal_constraints(filename, spaces):
+    with open(filename, "rb") as file:
+        minimal_constraints = pickle.load(file)
+
+    # Assuming you have a constructor for your class
+
+    reconstructed_obj = restriction.Restriction(spaces, np.array([[], []]))
+    for key, value in minimal_constraints.items():
+        setattr(reconstructed_obj, key, value)
+
+    return reconstructed_obj
+
+
+with XDMFFile(
+    comm, os.path.join(os.path.dirname(__file__), "data/input_data.xdmf"), "r"
+) as file:
     mesh = file.read_mesh(name="mesh")
 
 element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
@@ -96,10 +104,16 @@ F_ = [
 ]
 F = dolfinx.fem.form(F_)
 
-constraints = load_minimal_constraints("data/constraints.pkl", [V_u, V_alpha])
-A = bio.load_binary_matrix("data/A_hessian.mat")
-Ar = bio.load_binary_matrix("data/Ar_hessian.mat")
-x0 = bio.load_binary_vector("data/x0.vec")
+constraints = load_minimal_constraints(
+    os.path.join(os.path.dirname(__file__), "data/constraints.pkl"), [V_u, V_alpha]
+)
+A = utils.load_binary_matrix(
+    os.path.join(os.path.dirname(__file__), "data/A_hessian.mat")
+)
+Ar = utils.load_binary_matrix(
+    os.path.join(os.path.dirname(__file__), "data/Ar_hessian.mat")
+)
+x0 = utils.load_binary_vector(os.path.join(os.path.dirname(__file__), "data/x0.vec"))
 
 # zero vector, compatible with the linear system
 _x = x0.duplicate()
@@ -112,5 +126,5 @@ tester.store_results(_lmbda_k, _xk, _y)
 
 atol = tester.parameters["cone"]["cone_atol"]
 
-assert tester._isin_cone(_xk) == True
-assert np.isclose(_lmbda_k, -0.044659195907104675, atol=1e-4) == True
+assert tester._isin_cone(_xk)
+assert np.isclose(_lmbda_k, -0.044659195907104675, atol=1e-4)

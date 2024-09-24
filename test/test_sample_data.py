@@ -1,28 +1,27 @@
-import os
+import random
 import sys
 
-sys.path.append("../")
-import solvers.restriction as restriction
-from utils import _logger
 import dolfinx
-import ufl
 import numpy as np
-import random
-
-from petsc4py import PETSc
+import ufl
+from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
 from mpi4py import MPI
+from petsc4py import PETSc
+
+from irrevolutions.utils import _logger
+
+sys.path.append("../")
+
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
-
 
 def init_data(N, positive=True):
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, N - 1)
     comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
+    comm.Get_rank()
 
     element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
     element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)

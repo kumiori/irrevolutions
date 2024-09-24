@@ -1,86 +1,56 @@
 #!/usr/bin/env python3
 import hashlib
-import numpy as np
-import yaml
 import json
-from pathlib import Path
-import sys
-import os
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-from dolfinx import log
-import ufl
-import numpy as np
-
-sys.path.append("../")
-
-import matplotlib.pyplot as plt
-
-from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver, BifurcationSolver
-from algorithms.ls import LineSearch
-from meshes.primitives import mesh_bar_gmshapi
-from utils import ColorPrint
-from utils.plots import plot_energies
-from utils import norm_H1, norm_L2, seminorm_H1
-
-from meshes.primitives import mesh_bar_gmshapi
-from dolfinx.common import Timer, list_timings, TimingType
-
-from solvers.function import vec_to_functions
-from pyvista.utilities import xvfb
-import pyvista
-import sys
-from utils.viz import plot_vector, plot_scalar, plot_profile
-from utils import history_data, _write_history_data
-
-from utils.viz import plot_vector, plot_scalar, plot_profile
-from utils import history_data, _write_history_data
-
 import logging
+import os
+import sys
+from pathlib import Path
+
+import dolfinx
+import dolfinx.mesh
+import dolfinx.plot
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import petsc4py
+import pyvista
+import ufl
+import yaml
+from dolfinx.common import list_timings
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
+from dolfinx.io import XDMFFile, gmshio
+from mpi4py import MPI
+from petsc4py import PETSc
+from pyvista.utilities import xvfb
+
+from irrevolutions.algorithms.am import AlternateMinimisation, HybridSolver
+from irrevolutions.algorithms.ls import LineSearch
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.meshes.primitives import mesh_bar_gmshapi
+from irrevolutions.models import DamageElasticityModel as Brittle
+from irrevolutions.solvers.function import vec_to_functions
+from irrevolutions.utils import (ColorPrint, _write_history_data, history_data,
+                                 norm_H1)
+from irrevolutions.utils.plots import plot_energies
+from irrevolutions.utils.viz import plot_profile, plot_scalar, plot_vector
 
 logging.basicConfig(level=logging.INFO)
-
-from dolfinx.io import XDMFFile, gmshio
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
-import dolfinx.mesh
-from dolfinx.mesh import CellType
-import ufl
-
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import sys
-import yaml
-
-sys.path.append("../")
-from solvers import SNESSolver
 
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
 size = comm.Get_size()
 
 model_rank = 0
+test_dir = os.path.dirname(__file__)
 
 
-def test_linsearch(parameters, storage):
+def test_linsearch():
+    parameters, signature = load_parameters(os.path.join(test_dir, "./parameters.yml"))
+    storage = f"output/linesearch/{signature}"
     comm = MPI.COMM_WORLD
 
     model_rank = 0
-
     Lx = parameters["geometry"]["Lx"]
     Ly = parameters["geometry"]["Ly"]
     tdim = parameters["geometry"]["geometric_dimension"]
@@ -94,7 +64,7 @@ def test_linsearch(parameters, storage):
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
 
     if storage is None:
         prefix = os.path.join(outdir, "traction_AT2_cone", signature)
@@ -141,7 +111,7 @@ def test_linsearch(parameters, storage):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
     dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
@@ -218,8 +188,6 @@ def test_linsearch(parameters, storage):
         linesearch_parameters=parameters.get("stability").get("linesearch"),
     )
 
-    history_data.update({"F": []})
-
     for i_t, t in enumerate(loads):
         u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
         u_.vector.ghostUpdate(
@@ -232,15 +200,15 @@ def test_linsearch(parameters, storage):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        ColorPrint.print_bold(f"   Solving first order: AM   ")
-        ColorPrint.print_bold(f"===================-=========")
+        ColorPrint.print_bold("   Solving first order: AM   ")
+        ColorPrint.print_bold("===================-=========")
 
         logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
         equilibrium.solve()
 
-        ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
-        ColorPrint.print_bold(f"===================-=============")
+        ColorPrint.print_bold("   Solving first order: Hybrid   ")
+        ColorPrint.print_bold("===================-=============")
 
         logging.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
         hybrid.solve(alpha_lb)
@@ -255,23 +223,26 @@ def test_linsearch(parameters, storage):
         rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
         urate_12_norm = hybrid.unscaled_rate_norm(alpha)
 
-        ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
         # n_eigenvalues = 10
         is_unique = bifurcation.solve(alpha_lb)
         is_elastic = not bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
 
-        ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Cone Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
-        stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia=inertia)
+        z0 = (
+            bifurcation._spectrum[0]["xk"]
+            if bifurcation._spectrum and "xk" in bifurcation._spectrum[0]
+            else None
+        )
+
+        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
         if not stable:
-            import pyvista
-            from pyvista.utilities import xvfb
-
             vec_to_functions(stability.solution["xt"], [v, β])
             perturbation = {"v": v, "beta": β}
 
@@ -352,9 +323,9 @@ def test_linsearch(parameters, storage):
                 β,
                 points,
                 plotter,
-                lineproperties={"c": "k", "label": f"$\\beta$"},
+                lineproperties={"c": "k", "label": "$\\beta$"},
             )
-            ax = _plt.gca()
+            _plt.gca()
             _plt.legend()
             _plt.fill_between(data[0], data[1].reshape(len(data[1])))
             _plt.title("Perurbation")
@@ -368,7 +339,7 @@ def test_linsearch(parameters, storage):
             if kick:
                 linesearch.perturb(state, perturbation, h_opt)
                 hybrid.solve(alpha_lb)
-        
+
             norm_state_post = sum([norm_H1(v) for v in state.values()])
             # print norms and relative norms difference
             logging.critical(f"norm state pre: {norm_state_pre}")
@@ -397,14 +368,12 @@ def test_linsearch(parameters, storage):
         )
         _stress = model.stress(model.eps(u), alpha)
 
-        stress = comm.allreduce(
+        comm.allreduce(
             assemble_scalar(form(_stress[0, 0] * dx)),
             op=MPI.SUM,
         )
 
         _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
-
-        history_data["F"].append(stress)
 
         _write_history_data(
             equilibrium,
@@ -428,20 +397,13 @@ def test_linsearch(parameters, storage):
             json.dump(history_data, a_file)
             a_file.close()
 
-        ColorPrint.print_bold(f"   Written timely data.    ")
+        ColorPrint.print_bold("   Written timely data.    ")
         print()
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
-
-    import pandas as pd
-
     df = pd.DataFrame(history_data)
-    print(df.drop(['equilibrium_data', 'cone_data'], axis=1))
+    print(df.drop(["equilibrium_data", "cone_data"], axis=1))
 
     # Viz
-    from pyvista.utilities import xvfb
-    import pyvista
-    import sys
-    from utils.viz import plot_mesh, plot_vector, plot_scalar
 
     #
     xvfb.start_xvfb(wait=0.05)
@@ -458,14 +420,8 @@ def test_linsearch(parameters, storage):
         _plt = plot_vector(u, plotter, subplot=(0, 1))
         _plt.screenshot(f"{prefix}/traction-state.png")
 
-    from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
-
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
-        plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-        plot_force_displacement(
-            history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
-        )
 
 
 def load_parameters(file_path):
@@ -504,10 +460,4 @@ def load_parameters(file_path):
 
 
 if __name__ == "__main__":
-    parameters, signature = load_parameters("../test/parameters.yml")
-    ColorPrint.print_bold(f"===================- {signature} -=================")
-    _storage = f"output/linesearch/{signature}"
-    ColorPrint.print_bold(f"===================- {_storage} -=================")
-    test_linsearch(parameters, _storage)
-    ColorPrint.print_bold(f"===================- {signature} -=================")
-    ColorPrint.print_bold(f"===================- {_storage} -=================")
+    test_linsearch()

@@ -1,42 +1,25 @@
-from test_scatter_MPI import (
-    mesh,
-    element_alpha,
-    element_u,
-    alpha,
-    u,
-    dofs_alpha_left,
-    dofs_alpha_right,
-    dofs_u_right,
-    dofs_u_left,
-    energy,
-)
-
-import os
 import sys
 
-sys.path.append("../")
-import solvers.restriction as restriction
-from utils import _logger
 import dolfinx
-import ufl
 import numpy as np
-import random
-from test_sample_data import init_data
-
-from petsc4py import PETSc
+from dolfinx.cpp.la.petsc import get_local_vectors
 from mpi4py import MPI
+
+import irrevolutions.solvers.restriction as restriction
+from irrevolutions.utils import _logger, sample_data
+
+sys.path.append("../")
+
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 __log_incipit = f"rank {rank}#{size}/"
 
-from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
-
 
 def get_inactive_dofset(v, F):
     """docstring for get_inactive_dofset"""
-    _logger.info(f"inactive dofset")
+    _logger.info("inactive dofset")
     V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
 
     __names = ["u", "alpha"]
@@ -97,10 +80,10 @@ def get_inactive_dofset(v, F):
 
 
 def test_restriction():
-    F, v = init_data(5)
+    F, v = sample_data(5)
     V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
 
-    x = dolfinx.fem.petsc.create_vector_block(F)
+    dolfinx.fem.petsc.create_vector_block(F)
 
     restricted_dofs = get_inactive_dofset(v, F)
 
@@ -118,13 +101,15 @@ def test_restriction():
         f"{__log_incipit} constraints.bglobal_dofs_vec_stacked {constraints.bglobal_dofs_vec_stacked}"
     )
 
-    _logger.info(f"v")
+    _logger.info("v")
     v.view()
-    _logger.info(f"vr")
+    _logger.info("vr")
     vr.view()
 
-    # return v, vr, constraints, restricted_dofs, F, x
-    return v, vr, constraints
+    # assert we get the right number of restricted dofs
+    assert len(np.concatenate(restricted_dofs)) == vr.getSize()
+
+    # return v, vr, constraints
 
 
 if __name__ == "__main__":

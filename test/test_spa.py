@@ -1,22 +1,22 @@
+import logging
 import os
+import pickle
 import sys
 
-sys.path.append("../")
-import solvers.restriction as restriction
-import test_binarydataio as bio
-from test_extend import test_extend_vector
-from test_cone_project import _cone_project_restricted
-from utils import _logger
 import dolfinx
-import ufl
 import numpy as np
+import ufl
 from dolfinx.io import XDMFFile
-import random
-
-from petsc4py import PETSc
 from mpi4py import MPI
-import pickle
-import logging
+from test_cone_project import _cone_project_restricted
+
+import irrevolutions.solvers.restriction as restriction
+from irrevolutions.utils import _logger
+
+from . import test_binarydataio as bio
+
+sys.path.append("../")
+
 
 _logger.setLevel(logging.CRITICAL)
 
@@ -43,7 +43,7 @@ def load_minimal_constraints(filename, spaces):
     return reconstructed_obj
 
 
-def spa():
+def test_spa():
     def iterate(x, xold, errors):
         """
         Perform convergence check and handle exceptions (NonConvergenceException).
@@ -67,7 +67,7 @@ def spa():
             # iteration += 1
             pass
         else:
-            _converged = True
+            pass
 
         # should we iterate?
         return False if converged else True
@@ -82,11 +82,11 @@ def spa():
 
         xAx_r = xk.dot(_Axr)
 
-        _logger.debug(f"xk view in update at iteration")
+        _logger.debug("xk view in update at iteration")
 
         _lmbda_t = xAx_r / xk.dot(xk)
         _y.waxpy(-_lmbda_t, xk, _Axr)
-        residual_norm = _y.norm()
+        _y.norm()
 
         return _lmbda_t, _y
 
@@ -99,7 +99,7 @@ def spa():
         xk.axpy(-s, y)
 
         _cone_restricted = _cone_project_restricted(xk, _x, constraints)
-        n2 = _cone_restricted.normalize()
+        _cone_restricted.normalize()
 
         return _cone_restricted
 
@@ -120,7 +120,6 @@ def spa():
         _maxit = 1e5
 
         if iteration == _maxit:
-            _reason = -1
             raise NonConvergenceException(
                 f"SPA solver did not converge to atol {_atol} or rtol {_rtol} within maxit={_maxit} iteration."
             )
@@ -137,7 +136,6 @@ def spa():
         else:
             _residual_norm = 1
 
-        error = error_x_L2
         errors.append(error_x_L2)
 
         if not iteration % 1000:
@@ -150,17 +148,18 @@ def spa():
             _converged = True
         else:
             _converged = False
-            _reason_str = "Not converged"
 
         return _converged
 
     comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
+    comm.Get_rank()
+    comm.Get_size()
 
     _s = 1e-3
 
-    with XDMFFile(comm, "data/input_data.xdmf", "r") as file:
+    with XDMFFile(
+        comm, os.path.join(os.path.dirname(__file__), "data/input_data.xdmf"), "r"
+    ) as file:
         mesh = file.read_mesh(name="mesh")
 
     element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
@@ -168,13 +167,13 @@ def spa():
 
     V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
     V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
-    u = dolfinx.fem.Function(V_u, name="Displacement")
+    # u = dolfinx.fem.Function(V_u, name="Displacement")
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
-    dx = ufl.Measure("dx", alpha.function_space.mesh)
+    ufl.Measure("dx", alpha.function_space.mesh)
 
     constraints = load_minimal_constraints("data/constraints.pkl", [V_u, V_alpha])
 
-    A = bio.load_binary_matrix("data/A_hessian.mat")
+    bio.load_binary_matrix("data/A_hessian.mat")
     Ar = bio.load_binary_matrix("data/Ar_hessian.mat")
     x0 = bio.load_binary_vector("data/x0.vec")
 
@@ -214,8 +213,8 @@ def spa():
         f"lambda_0 = {lmbda_t:.4e}, residual norm = {y.norm(): .4e}, error = {errors[-1]: .4e}"
     )
 
-    assert np.isclose(lmbda_t, -0.044659195907104675, atol=1e-4) == True
+    assert np.isclose(lmbda_t, -0.044659195907104675, atol=1e-4)
 
 
 if __name__ == "__main__":
-    spa()
+    test_spa()

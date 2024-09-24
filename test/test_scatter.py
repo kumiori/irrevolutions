@@ -1,18 +1,21 @@
-import sys
 import os
-from ctypes import c_void_p
+import random
+import sys
 
+import dolfinx
+import numpy as np
 import petsc4py
-
-petsc4py.init(sys.argv)
+import ufl
+from dolfinx import cpp as _cpp
+from dolfinx.fem import locate_dofs_geometrical
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import dolfinx
-import ufl
+import irrevolutions.solvers.restriction as restriction
+
+petsc4py.init(sys.argv)
 
 sys.path.append("../")
-import solvers.restriction as restriction
 
 """Discrete endommageable springs in series
         1         2        i        k
@@ -28,7 +31,7 @@ _N = 10
 
 mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
-outdir = "output"
+outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "test_cone")
 
 element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
@@ -39,8 +42,6 @@ V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
 V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
 u = dolfinx.fem.Function(V_u, name="Displacement")
 alpha = dolfinx.fem.Function(V_alpha, name="Damage")
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-import numpy as np
 
 dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
 dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 1.0))
@@ -88,7 +89,6 @@ x = dolfinx.fem.petsc.create_vector_block(F)
 #                         [(u.function_space.dofmap.index_map, u.function_space.dofmap.index_map_bs),
 #                         (p.function_space.dofmap.index_map, p.function_space.dofmap.index_map_bs)])
 # x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-from dolfinx.cpp.la.petsc import scatter_local_vectors
 
 print(f"v original (unadmissible!) {v.array}")
 
@@ -149,23 +149,21 @@ for i, space in enumerate([V_u, V_alpha]):
     print(i, space, "num_ghosts", num_ghosts)
 
 
-from dolfinx import cpp as _cpp
-
 x0_local = _cpp.la.petsc.get_local_vectors(x, maps)
 
-print(f"this should scatter x0_local into the global vector v")
+print("this should scatter x0_local into the global vector v")
 
 _cpp.la.petsc.scatter_local_vectors(v, x0_local, maps)
 v.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.FORWARD)
 
-print(f"v should now be zero")
+print("v should now be zero")
 print(f"v restored (projected) {v.array}")
 
 _sub = v.getSubVector(_is)
 _sub.pointwiseMax(_sub, a)
 
 # _cpp.la.petsc.scatter_local_vectors(v, x0_local, maps)
-print(f"v should now be harmless")
+print("v should now be harmless")
 
 print(f"v restored {v.array}")
 
@@ -175,8 +173,6 @@ print(f"v_restricted.array_r {v_r.array_r}")
 c_dofs = restriction.bglobal_dofs_vec[1]
 
 # its=0
-
-import random
 
 
 def converged(x):
@@ -191,7 +187,7 @@ def converged(x):
     # if not converged:
     #     its += 1
 
-    print("converged" if _converged else f" converging")
+    print("converged" if _converged else " converging")
 
     return _converged
 

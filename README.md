@@ -1,116 +1,127 @@
-# Complex Crack Propagation in Brittle Materials
-## 202* Forall T
+# Crack Propagation in Brittle Materials
+## 2024
 
-From little or nothing, to experimental verification of a complex fracture experiment.
-We solve the following (difficult) problem:
+`Irrevolutions` is a computational stability analysis toolkit designed to solve nonlinear and nonconvex evolutionary problems using advanced numerical methods. It provides efficient algorithms for computing solutions constrained minimum problems with application to irreversible evolutions (hence its name). In particular, this framework is relevant in the context of fracture and damage mechanics.
 
-**Evolution of Damage (in the Cone)**
+**Irreversible Evolution of Damage**
  
 Let $y=(\alpha, u)$ be an admissible state of a brittle system where $\alpha: \Omega \mapsto [0, 1]$ is a smooth damage field which identifies cracks (where $\alpha =1$) and $u$ is a displacement field. Provided a material model (an energy) $E_\ell$, given a time horizon $T$, let's find a map $t \in [0, T]\mapsto y_t$ such that: damage is non-decreasing and the observed state $y_t$ is energy-minimal, among admissible variations. 
 
-## The current branch
+## How to contribute
 
-We implement a Cone-Recipe. Take it as a surprise cake that opens upon critical conditions.
+### Reporting bugs
+If you find a bug in `irrevolutions`, please report it on the GitHub issue tracker.
 
-### Running the notebooks (to be tested *prior* to course start)
+## Suggesting enhancements
+If you wish to suggest a new feature or an improvement of a current feature, you can submit this on the issue tracker.
 
-To run a Docker container on a local machine.
+## Contributing code (submitting a pull request)
+To contribute code `irrevolutions`, create a pull request. If you want to contribute, but are unsure where to start, get in touch with the authors.
 
-1. Install Docker following the instructions at
-   https://www.docker.com/products/docker-desktop.
+On opening a pull request, unit tests will run on GitHub Continuous Integration. You can click on these in the pull request to see where (if anywhere) the tests are failing.
 
-2. Clone this repository using git:
+For more details on the pull request workflow, check
+https://docs.godotengine.org/en/3.1/community/contributing/pr_workflow.html
 
-       git clone https://github.com/kumiori/mec647.git
 
-3. Run `./launcher.sh`.
 
-Although we recommend using Docker locally, you can also use the cloud-based Google Colab service to execute the notebooks:
+### Installation
 
-### Prerequisites
+Before installing `irrevolutions`, ensure you have `dolfinx` and other dependencies installed. You can install `dolfinx` using one of the following methods:
 
-The course will assume basic knowledge of the theory of infinitesimal elasticity and
-finite element methods.
-
-Basic knowledge of Python will be assumed, see https://github.com/jakevdp/WhirlwindTourOfPython
-to brush up if you feel unsure.
-
-Basic knowledge of git as a versioning system with feature-branch workflow
-https://gist.github.com/brandon1024/14b5f9fcfd982658d01811ee3045ff1e
-
-Remember to set your name and email before pushing to the repository,
-either locally or globally, see https://www.phpspiderblog.com/how-to-configure-username-and-email-in-git/
-
-#### Feature branch workflow
-
-For each new feature you wish to implement, create a branch named ```{yourname}-{feature}```, 
-as in ```andres-meshes```.
-
-https://docs.gitlab.com/ee/gitlab-basics/feature_branch_workflow.html
-
- - Create your feature branch:`git checkout -b username-feature`
- - To push your branch: `git push -u origin feature_branch_name`
- - Create a pull request on the main branch for merging. Somebody should approve the pull-request. -
-
-### Weekly updates (merge from main)
+- Using conda
 ```
-git checkout main
-git pull
-git checkout yourname-branch
-git merge main
+conda create -n fenicsx-env -c conda-forge fenics-dolfinx=0.7.2 mpich pyvista
+conda activate fenicsx-env
 ```
 
-Asymmetrically, feature-work is `rebased`.
+- Using Spack
+see https://github.com/FEniCS/dolfinx/blob/main/README.md#spack
 
-### To run the code (on Docker)
-
-First, run the container, attaching an interactive session and sharing data space 
-(the current dir) between the host and the container (the syntax is origin:target).
-
-On a Mac:
+- Using Apt (ubuntu)
 ```
-docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:latest
+add-apt-repository ppa:fenics-packages/fenics
+apt update
+apt install fenicsx=1:0.7.3-3~ppa1~lunar1
 ```
 
-On a Windox:
+For detailed instructions, see https://github.com/FEniCS/dolfinx/blob/main/README.md#installation
+
+- Using a Docker container
+
+For an ARM-based machine:
 ```
-docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix:latest
+docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:stable
 ```
+For an AMD64 machine:
+```
+docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:stable-amd64
+```
+
+For a windows box:
+```
+docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix:stable-amd64
+```
+
+Finally, to install `irrevolutions` head to the package root directory and run
+
+```python3 -m pip install .```
+
+
+
+----
 
 This code was initially conceived as a support for the teaching course MEC647, 
-(Complex) Crack Propagation in Brittle Materials, delivered to the students of the international
-master programme, joint between École Polytechnique and ENSTA-Paristech throughout 2020-2022. 
-Hence the cryptic repository name.
-
-### Course Schedule
-
-
-- 0 Introduction, motivation, and a simple experiment, in theory.
-- 1 Numerics, from the basics to the solution of a linear variational problem 
-- 2 The notion of stability, stability of a brittle bar. The elasticity problem
-- 3 Energetics link fracture to damage. Project walkthrough 
-- 4 The damage problem: analytics and numerics
-- 5 Calibration (material, numerical) and tests
-- 6 Data analysis and presentation
-- Rest
-- 7 Defence
-
-
-### Authors
-- Cf. commit messages
-  
-### Course Instructors/Authors
-
-- V Lazarus, Sorbonne Université.
-- A Leon Baldelli, CR CNRS.
+(Complex) Crack Propagation in Brittle Materials, delivered to the students of the international master programme, joint between École Polytechnique and ENSTA-Paristech throughout 2020-2022. 
 
 
 ### Acknowledgements
 
+
 To all the students for their effort, participation, and motivation.
 
-Corrado Maurini, Sorbonne Université.
+This project contains code from the DOLFINy project (https://github.com/fenics-dolfiny/dolfiny), which is licensed under the LGPLv3 license. We acknowledge and thank the DOLFINy contributors for their work.
+
+See paper.md
 
 ### License
 
-MIT License, see `LICENSE` file.
+See `LICENSE` file.
+
+Each file should have at least the "copyright" line and a pointer to where the full notice is found.
+
+    <Irrevolutions is scientific software, it is conceived to compute evolution paths upon a general notion of (unilateral) stability. It applies to fracture and, maybe, not only.>
+
+    Copyright or copyLeft (C) <~0>  <ALB/83252>
+
+    This program is free software. Here, the term 'free' has all to do
+    with freedom and nothing to do with price. You can redistribute it and/or
+    modify it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed without hope that it will be useful,
+    WITHOUT ANY WARRANTY, but with pointers to ONE or SEVERAL PROOFS; without 
+    even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE,
+    if-not to compute constrained evolutions of complex systems, whether Natural
+    or Social. THIS MATERIAL IS BASED UPON GENERAL RESULTS. See the GNU General 
+    Public License for more details, see your favourite Functional Analysis reference 
+    book for further abstraction.
+
+    You should have received a copy of the GNU General Public License
+    along with `irrevolution`.  If not, see <https://www.gnu.org/licenses/>.
+
+
+### Further information
+
+
+
+## Star History
+
+<a href="https://star-history.com/#kumiori/irrevolutions&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=kumiori/irrevolutions&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=kumiori/irrevolutions&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=kumiori/irrevolutions&type=Date" />
+ </picture>
+</a>

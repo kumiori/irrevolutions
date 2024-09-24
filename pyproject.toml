@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry]
+name = "irrevolutions"
+version = "0.1.0"
+description = "A Python package for solving nonlinear and nonconvex evolutionary problems using a general energetic notion of stability and dolfinx."
+authors = ["Your Name <leon.baldelli@cnrs.fr>"]
+
+# Optional dependencies are specified in this section
+[tool.poetry.dependencies]
+python = "^3.8"
+pandas = "^1.2"
+sympy = "^1.8"
+pytest = "^6.0"
+matplotlib = "^3.4"
+gmsh = "^4.11.0"
+PyYAML = "^6.0.1"
+scipy = "^1.12.0"
+pyvista = "^0.43"
+numba = "^0.60.0"
+
+[tool.poetry.extras]
+dolfinx_support = []
+
+[tool.poetry.scripts]
+irrevolutions = 'irrevolutions:main'

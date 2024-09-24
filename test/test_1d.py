@@ -1,57 +1,36 @@
 #!/usr/bin/env python3
-import pdb
-import pandas as pd
-import numpy as np
-from sympy import derive_by_array
-import yaml
 import json
-from pathlib import Path
-import sys
-import os
-
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
-import dolfinx.mesh
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-from dolfinx import log
-import ufl
-
-from dolfinx.fem.petsc import set_bc, assemble_vector
-from dolfinx.io import XDMFFile, gmshio
 import logging
-from dolfinx.common import Timer, list_timings, TimingType
+import os
+import sys
+from pathlib import Path
 
-sys.path.append("../")
-from algorithms.so import BifurcationSolver, StabilitySolver
-from algorithms.am import AlternateMinimisation, HybridSolver
-from meshes.primitives import mesh_bar_gmshapi
-from utils import ColorPrint
-from utils.plots import plot_energies
-from utils import norm_H1, norm_L2
-from solvers import SNESSolver
-from utils import _logger
-from utils import history_data, _write_history_data
+import dolfinx
+import dolfinx.mesh
+import dolfinx.plot
+import numpy as np
+import pandas as pd
+import petsc4py
 import pyvista
-from pyvista.utilities import xvfb
+import ufl
+import yaml
+from dolfinx.common import list_timings
+from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
+                         form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem.petsc import assemble_vector
+from dolfinx.io import XDMFFile
+from mpi4py import MPI
+from petsc4py import PETSc
 
+from irrevolutions.algorithms.am import HybridSolver
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.solvers import SNESSolver
+from irrevolutions.solvers.function import vec_to_functions
+from irrevolutions.utils import (ColorPrint, _logger, _write_history_data,
+                                 history_data, norm_H1, norm_L2)
+from irrevolutions.utils.plots import plot_AMit_load, plot_energies
 #
-from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
-from solvers.function import vec_to_functions
-
+from irrevolutions.utils.viz import plot_profile
 
 """The fundamental problem of a 1d bar in traction.
 0|(WWWWWWWWWWWWWWWWWWWWWW)|========> t
@@ -60,8 +39,6 @@ from solvers.function import vec_to_functions
 load: displacement hard-t
 """
 
-
-from solvers.function import functions_to_vec
 
 # logging.getLogger().setLevel(logging.INFO)
 
@@ -229,20 +206,20 @@ comm = MPI.COMM_WORLD
 model_rank = 0
 
 
-def main(parameters, storage=None):
+def run_computation(parameters, storage=None):
     Lx = parameters["geometry"]["Lx"]
 
     _nameExp = parameters["geometry"]["geom_type"]
-    ell = parameters["model"]["ell"]
+    parameters["model"]["ell"]
 
     # Get geometry model
-    geom_type = parameters["geometry"]["geom_type"]
+    parameters["geometry"]["geom_type"]
     _N = int(parameters["geometry"]["N"])
 
     # Create the mesh of the specimen with given dimensions
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 
-    outdir = "output"
+    outdir = os.path.join(os.path.dirname(__file__), "output")
     if storage is None:
         prefix = os.path.join(outdir, f"test_1d-N{parameters['model']['N']}")
     else:
@@ -283,7 +260,6 @@ def main(parameters, storage=None):
     # Perturbations
     β = Function(V_alpha, name="DamagePerturbation")
     v = Function(V_u, name="DisplacementPerturbation")
-    perturbation = {"v": v, "beta": β}
 
     # Pack state
     state = {"u": u, "alpha": alpha}
@@ -293,7 +269,7 @@ def main(parameters, storage=None):
     alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
 
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Useful references
     Lx = parameters.get("geometry").get("Lx")
@@ -302,14 +278,13 @@ def main(parameters, storage=None):
     u = Function(V_u, name="Unknown")
     u_ = Function(V_u, name="Boundary Unknown")
     zero_u = Function(V_u, name="Boundary Unknown")
-    # Measures
-    dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
 
     # Boundary sets
 
-    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
+    # dofs_alpha_left = locate_dofs_geometrical(
+    #     V_alpha, lambda x: np.isclose(x[0], 0.))
+    # dofs_alpha_right = locate_dofs_geometrical(
+    #     V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -349,7 +324,7 @@ def main(parameters, storage=None):
         return (1 - alpha) ** 2
 
     def a_atk(alpha):
-        k_res = parameters["model"]["k_res"]
+        parameters["model"]["k_res"]
         _k = parameters["model"]["k"]
         return (1 - alpha) / ((_k - 1) * alpha + 1)
 
@@ -418,8 +393,6 @@ def main(parameters, storage=None):
     # f = Constant(mesh, 0)
     f = Constant(mesh, np.array(0, dtype=PETSc.ScalarType))
 
-    external_work = f * state["u"] * dx
-
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
@@ -454,7 +427,7 @@ def main(parameters, storage=None):
     num_modes = 1
 
     # Extra data fields
-    history_data["F"] = []
+    # history_data["F"] = []
 
     logging.basicConfig(level=logging.INFO)
 
@@ -485,11 +458,15 @@ def main(parameters, storage=None):
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
 
-        z0 = bifurcation._spectrum[0]['xk'] if bifurcation._spectrum and 'xk' in bifurcation._spectrum[0] else None
+        z0 = (
+            bifurcation._spectrum[0]["xk"]
+            if bifurcation._spectrum and "xk" in bifurcation._spectrum[0]
+            else None
+        )
 
-        stable = stability.solve(alpha_lb, eig0=z0, inertia = inertia)
+        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
-        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis"):
             if comm.Get_size() == 1:
                 if bifurcation._spectrum:
                     vec_to_functions(bifurcation._spectrum[0]["xk"], [v, β])
@@ -509,7 +486,7 @@ def main(parameters, storage=None):
                         points,
                         plotter,
                         subplot=(1, 2),
-                        lineproperties={"c": "k", "label": f"$\\beta$"},
+                        lineproperties={"c": "k", "label": "$\\beta$"},
                         subplotnumber=1,
                     )
                     ax = _plt.gca()
@@ -532,18 +509,19 @@ def main(parameters, storage=None):
                     # )
 
                     _plt, data_stability = plot_profile(
-                        stability.perturbation['β'],
+                        stability.perturbation["β"],
                         points,
                         plotter,
                         subplot=(1, 2),
-                        lineproperties={"c": "k", "label": f"$\\beta$"},
+                        lineproperties={"c": "k", "label": "$\\beta$"},
                         subplotnumber=2,
                         ax=ax,
                     )
 
                     # # Set custom ticks and tick locations
                     # plotter.x_tick_labels = np.arange(0, 11, 2)  # Set X-axis tick labels
-                    # plotter.y_tick_locations = np.arange(-5, 6, 1)  # Set Y-axis tick locations
+                    # plotter.y_tick_locations = np.arange(-5, 6, 1)  # Set
+                    # Y-axis tick locations
 
                     ax = _plt.gca()
                     ax.set_xlabel("x")
@@ -559,7 +537,7 @@ def main(parameters, storage=None):
                     _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
                     _plt.close()
 
-                    num_points = len(data_stability[0])
+                    len(data_stability[0])
 
                     mode_shapes_data["time_steps"].append(t)
                     mode_shapes_data["point_values"]["x_values"] = data_stability[0]
@@ -598,7 +576,7 @@ def main(parameters, storage=None):
             assemble_scalar(form(elastic_energy_density(state) * dx)),
             op=MPI.SUM,
         )
-        _F = assemble_scalar(form(stress(state)))
+        # _F = assemble_scalar(form(stress(state)))
 
         ColorPrint.print_bold(stability.solution["lambda_t"])
 
@@ -613,7 +591,7 @@ def main(parameters, storage=None):
             [fracture_energy, elastic_energy],
         )
 
-        history_data["F"].append(_F)
+        # history_data["F"].append(_F)
 
         with XDMFFile(
             comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
@@ -629,19 +607,14 @@ def main(parameters, storage=None):
     df = pd.DataFrame(history_data)
     print(df)
 
-    from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
-
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
         plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-        plot_force_displacement(
-            history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
-        )
+        # plot_force_displacement(
+        #     history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
+        # )
 
     return history_data, stability.data, state
-
-
-# Viz
 
 
 def load_parameters(file_path, ndofs, model="at1"):
@@ -696,24 +669,28 @@ def load_parameters(file_path, ndofs, model="at1"):
     return parameters, signature
 
 
-if __name__ == "__main__":
-    import argparse
+def test_1d():
     from mpi4py import MPI
 
-    parser = argparse.ArgumentParser(description="Process evolution.")
-    parser.add_argument("-N", help="The number of dofs.", type=int, default=10)
-    args = parser.parse_args()
-    parameters, signature = load_parameters("parameters.yml", ndofs=args.N)
-    pretty_parameters = json.dumps(parameters, indent=2)
+    # parser = argparse.ArgumentParser(description="Process evolution.")
+    # parser.add_argument("-N", help="The number of dofs.", type=int, default=10)
+    # args = parser.parse_args()
+    _N = 30
+    parameters, signature = load_parameters(
+        os.path.join(os.path.dirname(__file__), "parameters.yml"), ndofs=_N
+    )
+    json.dumps(parameters, indent=2)
     # print(pretty_parameters)
-
-    _storage = f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{args.N}/{signature}"
+    # _storage = f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{args.N}/{signature}"
+    _storage = (
+        f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{_N}/{signature}"
+    )
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
-        history_data, stability_data, state = main(parameters, _storage)
+    with dolfinx.common.Timer("~Computation Experiment"):
+        history_data, stability_data, state = run_computation(parameters, _storage)
 
-    from utils import ResultsStorage, Visualization
+    from irrevolutions.utils import ResultsStorage, Visualization
 
     storage = ResultsStorage(MPI.COMM_WORLD, _storage)
     storage.store_results(parameters, history_data, state)
@@ -725,9 +702,25 @@ if __name__ == "__main__":
 
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"===================-{_storage}-=================")
-    # list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
-    # from utils import table_timing_data
-    # _timings = table_timing_data()
+    from irrevolutions.utils import table_timing_data
 
-    # visualization.save_table(_timings, "timing_data")
+    _timings = table_timing_data()
+
+    visualization.save_table(_timings, "timing_data")
+    _neg_eigen_ball = [d[0] for d in pd.DataFrame(history_data).inertia.values]
+    _stability = pd.DataFrame(history_data).stable.values
+    _uniqueness = pd.DataFrame(history_data).unique.values
+
+    np.testing.assert_array_equal(_neg_eigen_ball, [0, 0, 0, 1, 2])
+    np.testing.assert_array_equal(
+        _stability, np.array([True, True, True, False, False])
+    )
+    np.testing.assert_array_equal(
+        _uniqueness, np.array([True, True, True, False, False])
+    )
+
+
+if __name__ == "__main__":
+    test_1d()
