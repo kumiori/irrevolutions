@@ -23,35 +23,40 @@ class SNESBlockProblem:
         restriction=None,
         prefix=None,
     ):
-        """SNES problem and solver wrapper
+        """
+        SNES problem and solver wrapper.
+
+        Wrapper for solving systems of nonlinear equations using the 
+        Scalable Nonlinear Equations Solver (SNES) from PETSc.
 
         Parameters
         ----------
-        F_form
-            Residual forms
-        u
-            Current solution functions
-        bcs
-        J_form
-        nest: False
-            True for 'matnest' data layout, False for 'aij'
-        bounds: optional
-            interval bounds on solution [lb, ub]
-        restriction: optional
-            ``Restriction`` class used to provide information about degree-of-freedom
-            indices for which this solver should solve.
-
+        F_form : list of ufl.Form
+            Residual forms of the system.
+        u : list of dolfinx.fem.Function
+            Current solution functions.
+        bcs : list, optional
+            List of boundary conditions (default is []).
+        J_form : list of ufl.Form, optional
+            Jacobian forms. If not provided, they will be automatically derived (default is None).
+        nest : bool, optional
+            Whether to use a matrix nesting for the solver (default is False).
+        bounds : tuple, optional
+            Bounds on the solution for optimization problems [lb, ub] (default is None).
+        restriction : Restriction class, optional
+            Used to restrict the solver to a subset of DOF indices (default is None).
+        prefix : str, optional
+            Prefix for the solver options (default is None).
         """
         self.F_form = F_form
         self.u = u
         self.bounds = bounds
 
+        # Validation checks
         if not len(self.F_form) > 0:
             raise RuntimeError("List of provided residual forms is empty!")
-
         if not len(self.u) > 0:
             raise RuntimeError("List of provided solution functions is empty!")
-
         if not isinstance(self.u[0], dolfinx.fem.Function):
             raise RuntimeError(
                 "Provided solution function not of type dolfinx.fem.Function!"
@@ -60,10 +65,10 @@ class SNESBlockProblem:
         self.comm = self.u[0].function_space.mesh.comm
 
         if J_form is None:
+            # Automatically derive Jacobian forms if not provided
             self.J_form = [
                 [None for i in range(len(self.u))] for j in range(len(self.u))
             ]
-
             for i in range(len(self.u)):
                 for j in range(len(self.u)):
                     self.J_form[i][j] = ufl.algorithms.expand_derivatives(
@@ -73,13 +78,12 @@ class SNESBlockProblem:
                             ufl.TrialFunction(self.u[j].function_space),
                         )
                     )
-
-                    # If the form happens to be empty replace with None
                     if self.J_form[i][j].empty():
                         self.J_form[i][j] = None
         else:
             self.J_form = J_form
 
+        # Create forms
         self.F_form = dolfinx.fem.form(self.F_form)
         self.J_form = dolfinx.fem.form(self.J_form)
 
@@ -88,8 +92,7 @@ class SNESBlockProblem:
 
         self.solution = []
 
-        # Prepare empty functions on the corresponding sub-spaces
-        # These store solution sub-functions
+        # Prepare empty functions on the corresponding sub-spaces to store solution sub-functions
         for i, ui in enumerate(self.u):
             u = dolfinx.fem.Function(self.u[i].function_space, name=self.u[i].name)
             self.solution.append(u)
@@ -98,11 +101,13 @@ class SNESBlockProblem:
         self.norm_dx = {}
         self.norm_x = {}
 
+        # Initialize SNES solver
         self.snes = PETSc.SNES().create(self.comm)
 
         if bounds:
             self.snes.setVariableBounds(self.lb.vector, self.ub.vector)
 
+        # Set up solver for nested or block matrix form
         if nest:
             if restriction is not None:
                 raise RuntimeError("Restriction for MATNEST not yet supported.")
@@ -121,7 +126,6 @@ class SNESBlockProblem:
             self.x = self.F.copy()
 
             if restriction is not None:
-                # Need to create new global matrix for the restriction
                 self._J = dolfinx.fem.petsc.create_matrix_block(self.J_form)
                 self._J.assemble()
 
@@ -144,6 +148,14 @@ class SNESBlockProblem:
         self.snes.setFromOptions()
 
     def update_functions(self, x):
+        """
+        Update solution functions based on the provided vector x.
+
+        Parameters
+        ----------
+        x : PETSc.Vec
+            Vector representing the solution.
+        """
         if self.restriction is not None:
             self.restriction.update_functions(self.u, x)
             functions_to_vec(self.u, self.x)
@@ -155,6 +167,9 @@ class SNESBlockProblem:
             )
 
     def _F_block(self, snes, x, F):
+        """
+        Computes the residual for block matrices.
+        """
         with self.F.localForm() as f_local:
             f_local.set(0.0)
 
@@ -171,6 +186,9 @@ class SNESBlockProblem:
             self.F.copy(F)
 
     def _F_nest(self, snes, x, F):
+        """
+        Computes the residual for nested matrices.
+        """
         vec_to_functions(x, self.u)
         x = x.getNestSubVecs()
 
@@ -184,20 +202,14 @@ class SNESBlockProblem:
             dolfinx.fem.apply_lifting(F_sub, a, bc, x0=x, scale=-1.0)
             F_sub.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
 
-        # Set bc value in RHS
-        bcs0 = dolfinx.cpp.fem.bcs_rows(
-            dolfinx.fem.assemble._create_cpp_form(self.F_form), self.bcs
-        )
-        for F_sub, bc, u_sub in zip(F.getNestSubVecs(), bcs0, x):
-            dolfinx.fem.set_bc(F_sub, bc, u_sub, -1.0)
-
-        # Must assemble F here in the case of nest matrices
         F.assemble()
 
     def _J_block(self, snes, x, J, P):
+        """
+        Assembles the Jacobian for block matrices.
+        """
         self.J.zeroEntries()
         self.update_functions(x)
-
         dolfinx.fem.petsc.assemble_matrix_block(
             self.J, self.J_form, self.bcs, diagonal=1.0
         )
@@ -207,6 +219,9 @@ class SNESBlockProblem:
             self.restriction.restrict_matrix(self.J).copy(self.rJ)
 
     def _J_nest(self, snes, u, J, P):
+        """
+        Assembles the Jacobian for nested matrices.
+        """
         self.J.zeroEntries()
         dolfinx.fem.petsc.assemble_matrix_nest(
             self.J, self.J_form, self.bcs, diagonal=1.0
@@ -214,6 +229,18 @@ class SNESBlockProblem:
         self.J.assemble()
 
     def _converged(self, snes, it, norms):
+        """
+        Convergence test for SNES solver.
+
+        Parameters
+        ----------
+        snes : PETSc.SNES
+            SNES solver.
+        it : int
+            Current iteration number.
+        norms : dict
+            Dictionary storing the norms of residuals, solution, and updates.
+        """
         it = snes.getIterationNumber()
 
         atol_x = []
@@ -228,8 +255,6 @@ class SNESBlockProblem:
             atol_dx.append(self.norm_dx[it][i] < snes.atol)
             atol_r.append(self.norm_r[it][i] < snes.atol)
 
-            # In some cases, 0th residual of a subfield could be 0.0
-            # which would blow relative residual norm
             rtol_r0 = self.norm_r[0][i]
             if np.isclose(rtol_r0, 0.0):
                 rtol_r0 = 1.0
@@ -248,48 +273,30 @@ class SNESBlockProblem:
             return 4
 
     def _monitor_block(self, snes, it, norm):
+        """
+        Monitor for block matrices.
+
+        Parameters
+        ----------
+        snes : PETSc.SNES
+            SNES solver.
+        it : int
+            Current iteration number.
+        norm : float
+            Norm of the solution update.
+        """
         self.compute_norms_block(snes)
         self.print_norms(it)
 
-        logging.debug(f"Residual reduced norms {self.norm_r}")
-        logging.debug(
-            f"Residual reduced norm {np.sqrt(np.array([x**2 for x in self.norm_r[0]]).sum())}"
-        )
-
-        # if logging.root.level <= logging.DEBUG:
-        #     self._plot_solution(it)
-
-    def _plot_solution(self, it):
-        vec_to_functions(self.x, self.solution)
-
-        # init plotter
-        import pyvista
-        from pyvista.utilities import xvfb
-        from utils.viz import plot_scalar, plot_vector
-
-        xvfb.start_xvfb(wait=0.05)
-        pyvista.OFF_SCREEN = True
-
-        plotter = pyvista.Plotter(
-            title=f"Coupled SNES iteration {it}",
-            window_size=[1600, 600],
-            shape=(1, 2),
-        )
-        # plot alpha
-        _plt = plot_scalar(self.solution[1], plotter, subplot=(0, 0))
-        # plot u
-        _plt = plot_vector(self.solution[0], plotter, subplot=(0, 1))
-        # save
-        _plt.screenshot(
-            f"./output/test_hybrid/test_newtonblock_MPI{self.comm.size}-{it}-.png"
-        )
-        _plt.close()
-
-    def _monitor_nest(self, snes, it, norm):
-        self.compute_norms_nest(snes)
-        self.print_norms(it)
-
     def print_norms(self, it):
+        """
+        Print the norms of the solution, updates, and residuals for each block.
+
+        Parameters
+        ----------
+        it : int
+            Current iteration number.
+        """
         logging.info("\n### SNES iteration {}".format(it))
         for i, ui in enumerate(self.u):
             logging.info(
@@ -310,6 +317,9 @@ class SNESBlockProblem:
         )
 
     def compute_norms_block(self, snes):
+        """
+        Compute the norms of residuals, solution, and updates for block matrices.
+        """
         r = snes.getFunction()[0].getArray(readonly=True)
         dx = snes.getSolutionUpdate().getArray(readonly=True)
         x = snes.getSolution().getArray(readonly=True)
@@ -321,8 +331,6 @@ class SNESBlockProblem:
         offset = 0
         for i, ui in enumerate(self.u):
             if self.restriction is not None:
-                # In the restriction case local size if number of
-                # owned restricted dofs
                 size_local = self.restriction.bglobal_dofs_vec[i].shape[0]
             else:
                 size_local = ui.vector.getLocalSize()
@@ -331,8 +339,6 @@ class SNESBlockProblem:
             subvec_dx = dx[offset : offset + size_local]
             subvec_x = x[offset : offset + size_local]
 
-            # Need first apply square, only then sum over processes
-            # i.e. norm is not a linear function
             ei_r.append(
                 np.sqrt(self.comm.allreduce(np.linalg.norm(subvec_r) ** 2, op=MPI.SUM))
             )
@@ -351,6 +357,9 @@ class SNESBlockProblem:
         self.norm_x[it] = ei_x
 
     def compute_norms_nest(self, snes):
+        """
+        Compute the norms of residuals, solution, and updates for nested matrices.
+        """
         r = snes.getFunction()[0].getNestSubVecs()
         dx = snes.getSolutionUpdate().getNestSubVecs()
         x = snes.getSolution().getNestSubVecs()
@@ -370,6 +379,19 @@ class SNESBlockProblem:
         self.norm_x[it] = ei_x
 
     def solve(self, u_init=None):
+        """
+        Solve the nonlinear system.
+
+        Parameters
+        ----------
+        u_init : list, optional
+            Initial guess for the solution (default is None).
+
+        Returns
+        -------
+        list
+            Solution to the nonlinear system.
+        """
         if u_init is not None:
             functions_to_vec(u_init, self.x)
 

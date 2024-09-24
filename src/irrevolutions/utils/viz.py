@@ -8,30 +8,36 @@ from mpi4py import MPI
 import logging
 import sys
 from datetime import date
-
 import numpy as np
 
+# Set current date
 today = date.today()
 
+# Add path to the module search path
 sys.path.append("../")
 
-
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 
-
+# Initialize MPI
 comm = MPI.COMM_WORLD
-# import pdb
 
+# Start Xvfb for PyVista (for offscreen rendering)
 xvfb.start_xvfb(wait=0.05)
 
-
-# try:
-#     from dolfinx.plot import create_vtk_mesh as compute_topology
-# except ImportError:
-#     from dolfinx.plot import create_vtk_topology as compute_topology
-
-
 def plot_vector(u, plotter, subplot=None, scale=1.0):
+    """
+    Plots a vector field using PyVista with glyph representation.
+
+    Args:
+        u: Vector field to plot.
+        plotter: The PyVista plotter object.
+        subplot: Optional tuple to specify subplot coordinates.
+        scale: Scale factor for the vector field.
+
+    Returns:
+        plotter: The updated PyVista plotter object.
+    """
     if subplot:
         plotter.subplot(subplot[0], subplot[1])
     V = u.function_space
@@ -50,8 +56,6 @@ def plot_vector(u, plotter, subplot=None, scale=1.0):
     grid = pyvista.UnstructuredGrid(topology, cell_types, geometry)
     grid["vectors"] = values
     grid.set_active_vectors("vectors")
-    # geom = pyvista.Arrow()
-    # glyphs = grid.glyph(orient="vectors", factor=1, geom=geom)
     glyphs = grid.glyph(orient="vectors", factor=scale)
     plotter.add_mesh(glyphs)
     plotter.add_mesh(
@@ -60,33 +64,30 @@ def plot_vector(u, plotter, subplot=None, scale=1.0):
     plotter.view_xy()
     plotter.set_background("white")
     return plotter
-    # figure = plotter.screenshot(f"./output/test_viz/test_viz_MPI{comm.size}-.png")
-
 
 def plot_scalar(u, plotter, subplot=None, lineproperties={}):
-    """Plots a scalar function using pyvista
+    """
+    Plots a scalar field using PyVista.
 
     Args:
-        u: Scalar field
-        plotter plotter: The plotter object
-        subplot plotter: Optional selection of subplot slot
-        lineproperties: Optional line properties (dictionary)
+        u: Scalar field to plot.
+        plotter: The PyVista plotter object.
+        subplot: Optional tuple to specify subplot coordinates.
+        lineproperties: Dictionary to specify plot line properties.
 
     Returns:
-        plotter: Updated plotter object
+        plotter: The updated PyVista plotter object.
     """
     if subplot:
         plotter.subplot(subplot[0], subplot[1])
     V = u.function_space
     mesh = V.mesh
-
     ret = compute_topology(mesh, mesh.topology.dim)
     if len(ret) == 2:
         topology, cell_types = ret
     else:
         topology, cell_types, _ = ret
     grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
-
     plotter.subplot(0, 0)
     values = u.vector.array.real.reshape(
         V.dofmap.index_map.size_local, V.dofmap.index_map_bs
@@ -98,61 +99,50 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     plotter.set_background("white")
     return plotter
 
+def plot_profile(u, points, plotter, subplot=None, lineproperties={}, fig=None, ax=None, subplotnumber=1):
+    """
+    Plots a profile of the solution at given points.
 
-def plot_profile(
-    u,
-    points,
-    plotter,
-    subplot=None,
-    lineproperties={},
-    fig=None,
-    ax=None,
-    subplotnumber=1,
-):
-    # import matplotlib.pyplot as plt
-    # import dolfinx.geometry
-    # mesh = u.function_space.mesh
-    # bb_tree = dolfinx.geometry.bb_tree(mesh, mesh.topology.dim)
+    Args:
+        u: Scalar or vector field to be evaluated.
+        points: Points at which the field should be evaluated.
+        plotter: PyVista plotter object.
+        subplot: Optional tuple to specify subplot coordinates.
+        lineproperties: Dictionary specifying line properties.
+        fig: Matplotlib figure object, optional.
+        ax: Matplotlib axis object, optional.
+        subplotnumber: Subplot number for Matplotlib.
 
-    # cells = []
-    # points_on_proc = []
-    # # Find cells whose bounding-box collide with the the points
-    # cell_candidates = dolfinx.geometry.compute_collisions_points(bb_tree, points.T)
-    # # Choose one of the cells that contains the point
-    # colliding_cells = dolfinx.geometry.compute_colliding_cells(
-    #     mesh, cell_candidates, points.T
-    # )
-    # for i, point in enumerate(points.T):
-    #     if len(colliding_cells.links(i)) > 0:
-    #         points_on_proc.append(point)
-    #         cells.append(colliding_cells.links(i)[0])
-
-    # points_on_proc = np.array(points_on_proc, dtype=np.float64)
-    # u_values = u.eval(points_on_proc, cells)
-
+    Returns:
+        tuple: Matplotlib plot object and profile data (x, y).
+    """
     points_on_proc, u_values = get_datapoints(u, points)
 
     if fig is None:
         fig = plt.figure()
 
     if subplot:
-        # plotter.subplot(subplot[0], subplot[1])
-        # if subplot:
         plt.subplot(subplot[0], subplot[1], subplotnumber)
-    # plt.plot(points_on_proc[:, 0], u_values, "k", ls="-", linewidth=1, label="")
 
     if ax is not None:
         ax.plot(points_on_proc[:, 0], u_values, **lineproperties)
-        # ax = plt.gca()
         ax.legend()
-
     else:
         plt.plot(points_on_proc[:, 0], u_values, **lineproperties)
     plt.legend()
     return plt, (points_on_proc[:, 0], u_values)
 
-
 def plot_mesh(mesh, ax=None):
+    """
+    Plots the mesh using Matplotlib.
+
+    Args:
+        mesh: Mesh object to plot.
+        ax: Matplotlib axis object, optional.
+
+    Returns:
+        ax: Updated Matplotlib axis object.
+    """
     if ax is None:
         ax = plt.gca()
     ax.set_aspect("equal")
@@ -162,8 +152,17 @@ def plot_mesh(mesh, ax=None):
     ax.triplot(tria, color="k")
     return ax
 
-
 def get_datapoints(u, points):
+    """
+    Retrieves data points for a given solution field evaluated at specific points.
+
+    Args:
+        u: Scalar or vector field.
+        points: Points at which the field should be evaluated.
+
+    Returns:
+        tuple: Points on processor and evaluated values of u at the points.
+    """
     import dolfinx.geometry
 
     mesh = u.function_space.mesh
@@ -184,8 +183,23 @@ def get_datapoints(u, points):
 
     return points_on_proc, u_values
 
-
 def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
+    """
+    Plots the perturbations using PyVista.
+
+    Args:
+        comm: MPI communicator.
+        Lx: Length of the domain in the x-direction.
+        prefix: Directory prefix to save the plots.
+        β: Perturbation field.
+        v: Solution field.
+        bifurcation: Bifurcation data object.
+        stability: Stability object.
+        i_t: Time step index.
+
+    Returns:
+        plotter: Updated PyVista plotter object.
+    """
     from solvers.function import vec_to_functions
 
     vec_to_functions(bifurcation._spectrum[0]["xk"], [v, β])
@@ -210,7 +224,7 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
         _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-        _plt.title("Perurbation")
+        _plt.title("Perturbation")
         _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
         _plt.close()
 
@@ -230,18 +244,22 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
         _plt.gca()
         _plt.legend()
         _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-        _plt.title("Perurbation from the Cone")
+        _plt.title("Perturbation from the Cone")
         _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
         _plt.close()
 
     return plotter
 
-
-
-
 def plot_matrix(M):
-    import matplotlib.pyplot as plt
+    """
+    Plots the matrix as a heatmap using Matplotlib.
 
+    Args:
+        M: PETSc matrix to plot.
+
+    Returns:
+        fig: Matplotlib figure object with the matrix plot.
+    """
     fig, ax = plt.subplots()
     indptr, indices, data = M.getValuesCSR()
     _M = scipy.sparse.csr_matrix((data, indices, indptr), shape=M.sizes[0])
