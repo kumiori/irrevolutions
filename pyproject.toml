@@ -20,6 +20,7 @@ PyYAML = "^6.0.1"
 scipy = "^1.12.0"
 pyvista = "^0.43"
 numba = "^0.60.0"
+pandas = "^1.2.0"
 
 [tool.poetry.extras]
 dolfinx_support = []
