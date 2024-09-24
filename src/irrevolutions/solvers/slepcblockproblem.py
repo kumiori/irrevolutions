@@ -1,10 +1,8 @@
 import logging
 import typing
 
-# from yaml.tokens import BlockSequenceStartToken
 import dolfinx
 import ufl
-# plot_matrix
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
@@ -22,33 +20,34 @@ class SLEPcBlockProblem:
         B_form=None,
         prefix=None,
     ):
-        """SLEPc problem and solver wrapper.
+        """
+        Initialize the SLEPcBlockProblem for solving a generalised eigenvalue problem.
 
         Wrapper for a generalised eigenvalue problem obtained from UFL residual forms.
-
+        
         Parameters
         ----------
-        F_form
-            Residual forms
-        u
-            Current solution vectors
-        lmbda
-            Eigenvalue function. Residual forms must be linear in lmbda for
-            linear eigenvalue problems.
-        bcs
+        F_form : List
+            Residual forms.
+        u : List
+            Current solution vectors.
+        lmbda : dolfinx.fem.Function
+            Eigenvalue function. Residual forms must be linear in lambda for linear eigenvalue problems.
+        bcs : List, optional
             List of boundary conditions.
-        A_form, optional
-            Override automatically derived A
-        B_form, optional
-            Override automatically derived B
+        A_form : optional
+            Override automatically derived A matrix.
+        B_form : optional
+            Override automatically derived B matrix.
+        prefix : str, optional
+            Prefix for SLEPc options.
 
         Note
         ----
-        In general, eigenvalue problems have form T(lmbda) * x = 0,
-        where T(lmbda) is a matrix-valued function.
-        Linear eigenvalue problems have T(lmbda) = A + lmbda * B, and if B is not identity matrix
-        then this problem is called generalized (linear) eigenvalue problem.
-
+        In general, eigenvalue problems have the form T(lambda) * x = 0,
+        where T(lambda) is a matrix-valued function.
+        Linear eigenvalue problems have T(lambda) = A + lambda * B, and if B is not identity matrix
+        then this problem is called a generalized (linear) eigenvalue problem.
         """
         self.F_form = F_form
         self.u = u
@@ -116,6 +115,11 @@ class SLEPcBlockProblem:
             self.B = dolfinx.fem.create_matrix_block(self.B_form)
 
     def solve(self):
+        """
+        Solve the generalized eigenvalue problem.
+
+        Assemble the matrices A and B, and solve the eigenvalue problem using SLEPc.
+        """
         self.A.zeroEntries()
         dolfinx.fem.assemble_matrix_block(self.A, self.A_form, self.bcs)
         self.A.assemble()
@@ -129,6 +133,23 @@ class SLEPcBlockProblem:
         self.eps.solve()
 
     def getEigenpair(self, i):
+        """
+        Get the eigenvalue and eigenvector pair.
+
+        Parameters
+        ----------
+        i : int
+            Index of the eigenvalue/eigenvector to retrieve.
+
+        Returns
+        -------
+        eigval : float
+            The eigenvalue corresponding to the i-th eigenpair.
+        ur : List[dolfinx.fem.Function]
+            The real part of the eigenvector.
+        ui : List[dolfinx.fem.Function]
+            The imaginary part of the eigenvector.
+        """
         xr, xi = self.A.getVecs()
         eigval = self.eps.getEigenpair(i, xr, xi)
 
@@ -138,13 +159,20 @@ class SLEPcBlockProblem:
         return (eigval, self.ur, self.ui)
 
     def empty_B(self):
+        """
+        Check if the B matrix is empty.
+
+        Returns
+        -------
+        bool
+            True if B matrix is empty, False otherwise.
+        """
         for i in range(len(self.B_form)):
             for j in range(len(self.B_form[i])):
                 if self.B_form[i][j] is not None:
                     return False
 
         return True
-
 
 class SLEPcBlockProblemRestricted:
     def __init__(
@@ -158,36 +186,36 @@ class SLEPcBlockProblemRestricted:
         B_form=None,
         prefix=None,
     ):
-        """SLEPc problem and solver wrapper.
+        """
+        Initialize the SLEPcBlockProblemRestricted class for solving a restricted eigenvalue problem.
 
-        Wrapper for a generalised eigenvalue problem obtained from UFL residual forms.
+        Wrapper for a generalized eigenvalue problem obtained from UFL residual forms with restrictions.
 
         Parameters
         ----------
-        F_form
-            Residual forms
-        u
-            Current solution vectors
-        lmbda
-            Eigenvalue function. Residual forms must be linear in lmbda for
-            linear eigenvalue problems.
-        bcs
+        F_form : List
+            Residual forms.
+        u : List
+            Current solution vectors.
+        lmbda : dolfinx.fem.Function
+            Eigenvalue function. Residual forms must be linear in lmbda for linear eigenvalue problems.
+        bcs : List, optional
             List of boundary conditions.
-        restriction: optional
-            ``Restriction`` class used to provide information about degree-of-freedom
-            indices for which this solver should solve.
-        A_form, optional
-            Override automatically derived A
-        B_form, optional
-            Override automatically derived B
+        restriction : optional
+            `Restriction` class used to provide information about the degree-of-freedom indices 
+            for which this solver should solve.
+        A_form : optional
+            Override automatically derived A matrix.
+        B_form : optional
+            Override automatically derived B matrix.
+        prefix : str, optional
+            Prefix for SLEPc options.
 
         Note
         ----
-        In general, eigenvalue problems have form T(lmbda) * x = 0,
-        where T(lmbda) is a matrix-valued function.
-        Linear eigenvalue problems have T(lmbda) = A + lmbda * B, and if B is not identity matrix
-        then this problem is called generalized (linear) eigenvalue problem.
-
+        In general, eigenvalue problems have the form T(lmbda) * x = 0, where T(lmbda) is a matrix-valued function.
+        Linear eigenvalue problems have T(lmbda) = A + lmbda * B, and if B is not the identity matrix,
+        this problem is called a generalized (linear) eigenvalue problem.
         """
         self.F_form = F_form
         self.u = u
@@ -219,7 +247,7 @@ class SLEPcBlockProblemRestricted:
 
             for i in range(len(self.u)):
                 for j in range(len(self.u)):
-                    # Differentiate wrt. lambda and replace all remaining lambda with Zero
+                    # Differentiate with respect to lambda and replace all remaining lambda with zero
                     B0[i][j] = ufl.algorithms.expand_derivatives(
                         ufl.diff(self.M0[i][j], lmbda)
                     )
@@ -251,27 +279,32 @@ class SLEPcBlockProblemRestricted:
         self.eps = SLEPc.EPS().create(self.comm)
         self.eps.setOptionsPrefix(prefix)
         self.eps.setFromOptions()
-        # self.eps.view()
+
         self.A = dolfinx.fem.petsc.create_matrix_block(self.A_form)
         self.B = None
+
         if not self.empty_B():
             self.B = dolfinx.fem.petsc.create_matrix_block(self.B_form)
 
         if self.restriction is not None:
             _A = dolfinx.fem.petsc.create_matrix_block(self.A_form)
-            # dolfinx.fem.assemble_matrix_block(A, self.A_form, [])
             _A.assemble()
             self.rA = self.restriction.restrict_matrix(_A)
             self.rB = None
             self.rA.assemble()
 
             if not self.empty_B():
-                _B = dolfinx.fem.create_matrix_block(self.B_form)
+                _B = dolfinx.fem.petsc.create_matrix_block(self.B_form)
                 _B.assemble()
                 self.rB = self.restriction.restrict_matrix(_B)
                 self.rB.assemble()
 
     def solve(self):
+        """
+        Solve the generalized eigenvalue problem with restrictions if provided.
+
+        Assemble the matrices A and B, apply restrictions if necessary, and solve the eigenvalue problem using SLEPc.
+        """
         if self.restriction is not None:
             self.A.zeroEntries()
             dolfinx.fem.petsc.assemble_matrix_block(self.A, self.A_form, self.bcs)
@@ -298,40 +331,6 @@ class SLEPcBlockProblemRestricted:
                 self.restriction.restrict_matrix(self.B).copy(self.rB)
                 self.rB.assemble()
 
-        # logging.debug(f"mat rA-{self.eps.getOptionsPrefix()[0:-1]}")
-        # logging.debug(f"mat rA sizes {self.rA.sizes}")
-        # logging.debug(f"mat  A sizes {self.A.sizes}")
-
-        if logging.getLevelName(logging.getLogger().getEffectiveLevel()) == "DEBUG":
-            viewer = PETSc.Viewer().createASCII(
-                f"rA-{self.eps.getOptionsPrefix()[0:-1]}.txt"
-            )
-            self.rA.view(viewer)
-
-            # viewer = open(f"rA-{self.eps.getOptionsPrefix()[0:-1]}.txt", "r")
-
-            # for line in viewer.readlines():
-            #     logging.debug(line)
-
-            # logging.critical(f"rB-{self.eps.getOptionsPrefix()[0:-1]}")
-            # logging.critical(f"mat rB sizes {self.rB.sizes}")
-            # logging.critical(f"mat  B sizes {self.B.sizes}")
-            # logging.critical(f"mat  B norm {self.B.norm()}")
-
-        if not self.empty_B():
-            # pdb.set_trace()
-
-            viewer = PETSc.Viewer().createASCII(
-                f"rB-{self.eps.getOptionsPrefix()[0:-1]}.txt"
-            )
-            self.rB.view(viewer)
-            # viewer = open(f"rB-{self.eps.getOptionsPrefix()[0:-1]}.txt", "r")
-            # for line in viewer.readlines():
-            #     logging.debug(line)
-
-            # data_rA = analyse_matrix(self.rA, prefix="rA")
-            # data_rB = analyse_matrix(self.rB, prefix="rB")
-
         if self.restriction is not None:
             self.eps.setOperators(self.rA, self.rB)
         else:
@@ -340,10 +339,28 @@ class SLEPcBlockProblemRestricted:
         self.eps.solve()
 
     def getEigenpair(self, i):
+        """
+        Get the eigenvalue and eigenvector pair for the restricted eigenvalue problem.
+
+        Parameters
+        ----------
+        i : int
+            Index of the eigenvalue/eigenvector to retrieve.
+
+        Returns
+        -------
+        eigval : float
+            The eigenvalue corresponding to the i-th eigenpair.
+        ur : List[dolfinx.fem.Function]
+            The real part of the eigenvector.
+        ui : List[dolfinx.fem.Function]
+            The imaginary part of the eigenvector.
+        """
         if self.restriction is not None:
             xr, xi = self.rA.getVecs()
         else:
             xr, xi = self.A.getVecs()
+
         eigval = self.eps.getEigenpair(i, xr, xi)
 
         if self.restriction is not None:
@@ -353,12 +370,19 @@ class SLEPcBlockProblemRestricted:
             vec_to_functions(xr, self.ur)
             vec_to_functions(xi, self.ui)
 
-        return (eigval, self.ur, self.ui)
+        return eigval, self.ur, self.ui
 
     def empty_B(self):
+        """
+        Check if the B matrix is empty.
+
+        Returns
+        -------
+        bool
+            True if the B matrix is empty, False otherwise.
+        """
         for i in range(len(self.B_form)):
             for j in range(len(self.B_form[i])):
                 if self.B_form[i][j] is not None:
                     return False
-
         return True

@@ -1,5 +1,6 @@
 import hashlib
 import yaml
+import importlib.resources as pkg_resources  # Python 3.7+ for accessing package files
 
 def parameters_vs_ell(parameters=None, ell=0.1):
     """
@@ -113,3 +114,27 @@ def parameters_vs_n_refinement(parameters=None, r=3):
     signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
 
     return parameters, signature
+
+
+def update_parameters(parameters, key, value):
+    """
+    Recursively traverses the dictionary d to find and update the key's value.
+    
+    Args:
+    d (dict): The dictionary to traverse.
+    key (str): The key to find and update.
+    value: The new value to set for the key.
+    
+    Returns:
+    bool: True if the key was found and updated, False otherwise.
+    """
+    if key in parameters:
+        parameters[key] = value
+        return True
+
+    for k, v in parameters.items():
+        if isinstance(v, dict):
+            if update_parameters(v, key, value):
+                return True
+    
+    return False
