@@ -10,6 +10,7 @@ project = 'Irreversible Solvers'
 copyright = '2024, Andrés A León Baldelli'
 author = 'Andrés A León Baldelli'
 release = '0.1'
+master_doc = 'index'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -27,16 +28,17 @@ myst_enable_extensions = [
 ]
 
 autoapi_type = 'python'
-autoapi_dirs = ['../../']
+autoapi_dirs = ['../../src/irrevolutions']
 
 templates_path = ['_templates']
-exclude_patterns = [
-                    ]
-
-
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'furo'
 html_static_path = ['_static']
+
+# include_patterns = ['src/irrevolutions/']
+
+# Exclude virtual environments and external libraries
+exclude_patterns = ['**/.venv/**', '**/site-packages/**', '**/third_party/**', '**/.git']
