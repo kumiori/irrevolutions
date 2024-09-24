@@ -1,9 +1,7 @@
-import logging
 import typing
 
 import dolfinx
 import ufl
-from petsc4py import PETSc
 from slepc4py import SLEPc
 
 from .function import vec_to_functions

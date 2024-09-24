@@ -1,6 +1,5 @@
 import hashlib
 import yaml
-import importlib.resources as pkg_resources  # Python 3.7+ for accessing package files
 
 def parameters_vs_ell(parameters=None, ell=0.1):
     """
