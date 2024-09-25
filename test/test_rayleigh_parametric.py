@@ -191,7 +191,7 @@ def rayleigh(parameters, storage=None):
 
     bifurcation.solve(zero_alpha)
     bifurcation.get_inertia()
-    stability.solve(zero_alpha, eig0=bifurcation.spectrum, inertia=(1, 0, 10))
+    stability.solve(zero_alpha, eig0=bifurcation.spectrum[0]["xk"], inertia=(1, 0, 10))
     # (size of the) support of the cone-eigenfunction - if any.
     #
 
