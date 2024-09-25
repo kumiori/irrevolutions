@@ -144,7 +144,6 @@ class AlternateMinimisation:
             self.alpha.x.petsc_vec.copy(alpha_diff.x.petsc_vec)
             alpha_diff.x.petsc_vec.axpy(-1, self.alpha_old.x.petsc_vec)
             alpha_diff.x.petsc_vec.ghostUpdate(
-
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
