@@ -175,7 +175,7 @@ class SNESBlockProblem:
         self.update_functions(x)
 
         dolfinx.fem.petsc.assemble_vector_block(
-            self.F, self.F_form, self.J_form, self.bcs, x0=self.x, scale=-1.0
+            self.F, self.F_form, self.J_form, self.bcs, x0=self.x, alpha=-1.0
         )
 
         if self.restriction is not None:
@@ -198,7 +198,7 @@ class SNESBlockProblem:
             with F_sub.localForm() as F_sub_local:
                 F_sub_local.set(0.0)
             dolfinx.fem.assemble_vector(F_sub, L)
-            dolfinx.fem.apply_lifting(F_sub, a, bc, x0=x, scale=-1.0)
+            dolfinx.fem.apply_lifting(F_sub, a, bc, x0=x, alpha=-1.0)
             F_sub.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
 
         F.assemble()
