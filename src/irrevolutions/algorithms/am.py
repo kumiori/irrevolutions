@@ -363,7 +363,7 @@ class HybridSolver(AlternateMinimisation):
         with ub.getNestSubVecs()[0].localForm() as u_sub:
             u_sub.set(PETSc.PINFINITY)
 
-        with lb.getNestSubVecs()[1].localForm() as alpha_sub, alpha_lb.vector.localForm() as alpha_lb_loc:
+        with lb.getNestSubVecs()[1].localForm() as alpha_sub, alpha_lb.x.petsc_vec.localForm() as alpha_lb_loc:
             alpha_lb_loc.copy(result=alpha_sub)
 
         with ub.getNestSubVecs()[1].localForm() as alpha_sub:
