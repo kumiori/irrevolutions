@@ -55,4 +55,4 @@ jobs:
           source $(conda info --base)/etc/profile.d/conda.sh  # Ensure conda is properly initialized
           echo "Running tests"
           conda activate fenicsx-env
-          cd test && pytest -v . || echo "Tests failed"
+          cd test && python3 -m pytest . || echo "Tests failed"

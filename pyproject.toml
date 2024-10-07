@@ -2,41 +2,40 @@
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.poetry]
+[project]
 name = "irrevolutions"
 version = "0.1.0"
 description = "A Python package for solving nonlinear and nonconvex evolutionary problems using a general energetic notion of stability and dolfinx."
-authors = ["Your Name <leon.baldelli@cnrs.fr>"]
-
-# Optional dependencies are specified in this section
-[tool.poetry.dependencies]
-python = "^3.9"
-pandas = "^1.2"
-sympy = "^1.8"
-pytest = "^6.0"
-matplotlib = "^3.4"
-gmsh = "^4.11.0"
-PyYAML = "^6.0.1"
-scipy = "^1.12.0"
-pyvista = "^0.43"
-numba = "^0.60.0"
-
-[tool.poetry.extras]
-dolfinx_support = []
-
-[tool.poetry.scripts]
-irrevolutions = 'irrevolutions:main'
-
-# Ensure that non-code files (e.g., default_parameters.yml) are included in the package
-[tool.poetry.include]
-irrevolutions = ["src/irrevolutions/models/default_parameters.yml"]
-
-# Additional files to include (e.g., readme, licenses, configs)
-include = [
-    "README.md",
-    "LICENSE",
-    "src/irrevolutions/models/default_parameters.yml"
+authors = [
+    {name = "Andrés A León Baldelli", email = "leon.baldelli@cnrs.fr"}
 ]
+dependencies = [
+    "pandas>=1.2",
+    "sympy>=1.8",
+    "pytest>=6.0",
+    "matplotlib>=3.4",
+    "gmsh>=4.11.0",
+    "PyYAML>=6.0.1",
+    "scipy>=1.12.0",
+    "pyvista>=0.43",
+    "numpy<2",  # Pin NumPy to this version
+    "numba>=0.60.0"
+]
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "GNU Lesser General Public License v3.0"}
 
-[tool.poetry.packages]
-irrevolutions = { from = "src/irrevolutions" }
+[project.urls]
+homepage = "https://github.com/kumiori3/irrevolutions"
+repository = "https://github.com/kumiori3/irrevolutions"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["irrevolutions*"]
+
+[project.scripts]
+irrevolutions = "irrevolutions:main"
+
+# Optional include files like configuration, license, etc.
+[tool.setuptools.package-data]
+irrevolutions = ["models/default_parameters.yml"]
