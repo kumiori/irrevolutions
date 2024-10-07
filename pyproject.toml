@@ -10,7 +10,7 @@ authors = ["Your Name <leon.baldelli@cnrs.fr>"]
 
 # Optional dependencies are specified in this section
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 pandas = "^1.2"
 sympy = "^1.8"
 pytest = "^6.0"
@@ -26,3 +26,17 @@ dolfinx_support = []
 
 [tool.poetry.scripts]
 irrevolutions = 'irrevolutions:main'
+
+# Ensure that non-code files (e.g., default_parameters.yml) are included in the package
+[tool.poetry.include]
+irrevolutions = ["src/irrevolutions/models/default_parameters.yml"]
+
+# Additional files to include (e.g., readme, licenses, configs)
+include = [
+    "README.md",
+    "LICENSE",
+    "src/irrevolutions/models/default_parameters.yml"
+]
+
+[tool.poetry.packages]
+irrevolutions = { from = "src/irrevolutions" }

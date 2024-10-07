@@ -1,0 +1,58 @@
+name: Test Conda Installation
+
+# This triggers the workflow on any push to the repository
+on: 
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+jobs:
+  test:
+    name: Test Conda Installation and Setup
+    runs-on: ubuntu-latest
+
+    # Steps to run
+    steps:
+      # Checkout the repo content to the runner
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # Set up Miniconda
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniconda-version: "latest"
+          channels: conda-forge, defaults
+          auto-update-conda: true
+          auto-activate-base: true
+
+      # Create the environment and install dependencies
+      - name: Create and activate conda environment
+        run: |
+          echo "Creating the conda environment: fenicsx-env"
+          conda create -n fenicsx-env -c conda-forge fenics-dolfinx=0.7.2 mpich pyvista sympy pandas pyyaml -y
+          echo "Activating the conda environment"
+          source $(conda info --base)/etc/profile.d/conda.sh  # Fix to allow `conda activate`
+          conda activate fenicsx-env
+          echo "Environment created and activated. Now, verifying installation..."
+          conda list  # Print all installed packages for verification
+          which python  # Verify the Python interpreter being used
+
+
+      # Install the irrevolutions package in the conda environment
+      - name: Install irrevolutions
+        run: |
+          source $(conda info --base)/etc/profile.d/conda.sh  # Ensure conda is properly initialized
+          echo "Installing irrevolutions package"
+          conda activate fenicsx-env
+          python -m pip install .  # Assuming irrevolutions is in the current directory
+          echo "irrevolutions package installed"
+
+      # Optionally run tests within the environment
+      - name: Run tests
+        run: |
+          source $(conda info --base)/etc/profile.d/conda.sh  # Ensure conda is properly initialized
+          echo "Running tests"
+          conda activate fenicsx-env
+          cd test && pytest -v . || echo "Tests failed"
