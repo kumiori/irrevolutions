@@ -33,6 +33,7 @@ jobs:
           echo "Creating the conda environment: fenicsx-env"
           conda create -n fenicsx-env -c conda-forge fenics-dolfinx=0.7.2 mpich pyvista sympy pandas pyyaml -y
           echo "Activating the conda environment"
+          source $(conda info --base)/etc/profile.d/conda.sh  # Fix to allow `conda activate`
           conda activate fenicsx-env
           echo "Environment created and activated. Now, verifying installation..."
           conda list  # Print all installed packages for verification
@@ -42,6 +43,7 @@ jobs:
       # Install the irrevolutions package in the conda environment
       - name: Install irrevolutions
         run: |
+          source $(conda info --base)/etc/profile.d/conda.sh  # Ensure conda is properly initialized
           echo "Installing irrevolutions package"
           conda activate fenicsx-env
           python -m pip install .  # Assuming irrevolutions is in the current directory
@@ -50,6 +52,7 @@ jobs:
       # Optionally run tests within the environment
       - name: Run tests
         run: |
+          source $(conda info --base)/etc/profile.d/conda.sh  # Ensure conda is properly initialized
           echo "Running tests"
           conda activate fenicsx-env
           cd test && pytest -v . || echo "Tests failed"
