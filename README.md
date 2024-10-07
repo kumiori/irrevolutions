@@ -1,11 +1,14 @@
 # Crack Propagation in Brittle Materials
 ## 2024
+[![Run Tests in Docker Container](https://github.com/kumiori/irrevolutions/actions/workflows/workflow.yaml/badge.svg)](https://github.com/kumiori/irrevolutions/actions/workflows/workflow.yaml)
+[![Test Conda Installation](https://github.com/kumiori/irrevolutions/actions/workflows/conda.yml/badge.svg)](https://github.com/kumiori/irrevolutions/actions/workflows/conda.yml)
+[![Test Ubuntu Installation](https://github.com/kumiori/irrevolutions/actions/workflows/ubuntu.yml/badge.svg)](https://github.com/kumiori/irrevolutions/actions/workflows/ubuntu.yml)
 
-`Irrevolutions` is a computational stability analysis toolkit designed to solve nonlinear and nonconvex evolutionary problems using advanced numerical methods. It provides efficient algorithms for computing solutions constrained minimum problems with application to irreversible evolutions (hence its name). In particular, this framework is relevant in the context of fracture and damage mechanics.
+`Irrevolutions` is a computational stability analysis toolkit designed to solve nonlinear and nonconvex evolutionary problems using advanced numerical methods. It provides efficient algorithms for computing solutions for constrained minimum problems with application to irreversible evolutions (hence its name). In particular, this framework is relevant in the context of fracture and damage mechanics.
 
 **Irreversible Evolution of Damage**
  
-Let $y=(\alpha, u)$ be an admissible state of a brittle system where $\alpha: \Omega \mapsto [0, 1]$ is a smooth damage field which identifies cracks (where $\alpha =1$) and $u$ is a displacement field. Provided a material model (an energy) $E_\ell$, given a time horizon $T$, let's find a map $t \in [0, T]\mapsto y_t$ such that: damage is non-decreasing and the observed state $y_t$ is energy-minimal, among admissible variations. 
+Let $y=(\alpha, u)$ be an admissible state of a brittle system where $\alpha: \Omega \mapsto [0, 1]$ is a smooth damage field which identifies cracks (where $\alpha =1$) and $u$ is a displacement field. Provided a material model (an energy functional) $E_\ell$, given a time horizon $T$, let's find a map $t \in [0, T]\mapsto y_t$ such that: damage is non-decreasing and the observed state $y_t$ is energy-minimal, among admissible variations. 
 
 ## How to contribute
 
