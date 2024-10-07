@@ -71,26 +71,15 @@ For a windows box:
 docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix:stable-amd64
 ```
 
-
-We recommend using Poetry to manage Python dependencies and the virtual environment for the project. Follow the instructions below to install Poetry and set up the environment.
-
-```
-curl -sSL https://install.python-poetry.org | python3 -
-export PATH="$HOME/.local/bin:$PATH"
-```
-
 Clone this repository:
 
 ```
-git clone https://github.com/kumiori/irrevolutions.git
+git clone https://github.com/kumiori/irrevolutions.gt
 cd irrevolutions
 ```
 
 
-Finally, to install `irrevolutions` with poetry run
-```poetry install```
-
-Alternatively, `irrevolutions` can be installed using setuptools from the root directory
+Finally, `irrevolutions` can be installed using setuptools from the root directory
 ```python3 -m pip install .```
 
 

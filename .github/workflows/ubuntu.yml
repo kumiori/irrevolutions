@@ -38,7 +38,6 @@ jobs:
         run: |
           echo "Installing Python dependencies and irrevolutions"
           python3 -m pip install --upgrade pip
-          python3 -m pip install -r requirements.txt  # Adjust this if you're using a different file for dependencies
           python3 -m pip install .  # Install irrevolutions package
 
       # Optionally run tests within the environment
