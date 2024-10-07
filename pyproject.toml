@@ -38,6 +38,5 @@ include = [
     "src/irrevolutions/models/default_parameters.yml"
 ]
 
-[tool.poetry.package]
-# Map the source code to the correct directory structure
-package = { "irrevolutions": "src/irrevolutions" }
+[tool.poetry.packages]
+irrevolutions = { from = "src/irrevolutions" }
