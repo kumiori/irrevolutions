@@ -40,7 +40,11 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install --upgrade --force-reinstall numpy
           python3 -m pip install .  # Install irrevolutions package
-
+      - name: Check versions of installed packages
+        run: |
+            python3 -c "import numpy; print(f'NumPy version: {numpy.__version__}')"
+            python3 -c "import scipy; print(f'SciPy version: {scipy.__version__}')"
+            python3 -c "import pyvista; print(f'PyVista version: {pyvista.__version__}')"
       # Optionally run tests within the environment
       - name: Run tests
         run: |
