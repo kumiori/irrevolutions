@@ -44,5 +44,4 @@ jobs:
       - name: Run tests
         run: |
           echo "Running tests"
-          conda activate fenicsx-env
-          cd test && pytest -v . || echo "Tests failed"
+          cd test && python3 -m pytest . || echo "Tests failed"
