@@ -31,7 +31,7 @@ jobs:
           echo "Adding FEniCS PPA and installing fenicsx"
           sudo add-apt-repository ppa:fenics-packages/fenics
           sudo apt update
-          sudo apt-get install -y fenicsx=0.7.3-3~ppa1~lunar1
+          sudo apt-get install -y fenicsx
 
       # Install irrevolutions dependencies (if any) and the package itself
       - name: Install Python dependencies and irrevolutions
