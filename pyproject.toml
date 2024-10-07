@@ -10,7 +10,7 @@ authors = ["Your Name <leon.baldelli@cnrs.fr>"]
 
 # Optional dependencies are specified in this section
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 pandas = "^1.2"
 sympy = "^1.8"
 pytest = "^6.0"
