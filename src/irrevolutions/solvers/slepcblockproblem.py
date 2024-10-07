@@ -8,6 +8,30 @@ from slepc4py import SLEPc
 
 from .function import vec_to_functions
 
+# -----------------------------------------------------------------------------
+#  License
+#  The code is based on dolfiny, by Michal Habera and Andreas Zilian.
+#  dolfiny is free software: you can redistribute it and/or modify it under the terms of
+#  the GNU Lesser General Public License as published by the Free Software Foundation, 
+#  either version 3 of the License, or (at your option) any later version.
+#
+#  dolfiny is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+#  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+#  See the GNU Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License along with 
+#  dolfiny. If not, see http://www.gnu.org/licenses/.
+#
+#  The original code can be found at:
+#  https://github.com/fenics-dolfiny/dolfiny
+#
+#  Original Authors:
+#    Michal Habera, Rafinex, Luxembourg.
+#    Andreas Zilian, University of Luxembourg, Luxembourg.
+#
+#  Modifications and contributions:
+#    Andrés A León Baldelli, CNRS.
+# -----------------------------------------------------------------------------
 
 class SLEPcBlockProblem:
     def __init__(
