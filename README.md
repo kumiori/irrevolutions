@@ -1,11 +1,14 @@
 # Crack Propagation in Brittle Materials
 ## 2024
+[![Run Tests in Docker Container](https://github.com/kumiori/irrevolutions/actions/workflows/workflow.yaml/badge.svg)](https://github.com/kumiori/irrevolutions/actions/workflows/workflow.yaml)
+[![Test Conda Installation](https://github.com/kumiori/irrevolutions/actions/workflows/conda.yml/badge.svg)](https://github.com/kumiori/irrevolutions/actions/workflows/conda.yml)
+[![Test Ubuntu Installation](https://github.com/kumiori/irrevolutions/actions/workflows/ubuntu.yml/badge.svg)](https://github.com/kumiori/irrevolutions/actions/workflows/ubuntu.yml)
 
-`Irrevolutions` is a computational stability analysis toolkit designed to solve nonlinear and nonconvex evolutionary problems using advanced numerical methods. It provides efficient algorithms for computing solutions constrained minimum problems with application to irreversible evolutions (hence its name). In particular, this framework is relevant in the context of fracture and damage mechanics.
+`Irrevolutions` is a computational stability analysis toolkit designed to solve nonlinear and nonconvex evolutionary problems using advanced numerical methods. It provides efficient algorithms for computing solutions for constrained minimum problems with application to irreversible evolutions (hence its name). In particular, this framework is relevant in the context of fracture and damage mechanics.
 
 **Irreversible Evolution of Damage**
  
-Let $y=(\alpha, u)$ be an admissible state of a brittle system where $\alpha: \Omega \mapsto [0, 1]$ is a smooth damage field which identifies cracks (where $\alpha =1$) and $u$ is a displacement field. Provided a material model (an energy) $E_\ell$, given a time horizon $T$, let's find a map $t \in [0, T]\mapsto y_t$ such that: damage is non-decreasing and the observed state $y_t$ is energy-minimal, among admissible variations. 
+Let $y=(\alpha, u)$ be an admissible state of a brittle system where $\alpha: \Omega \mapsto [0, 1]$ is a smooth damage field which identifies cracks (where $\alpha =1$) and $u$ is a displacement field. Provided a material model (an energy functional) $E_\ell$, given a time horizon $T$, let's find a map $t \in [0, T]\mapsto y_t$ such that: damage is non-decreasing and the observed state $y_t$ is energy-minimal, among admissible variations. 
 
 ## How to contribute
 
@@ -27,22 +30,30 @@ https://docs.godotengine.org/en/3.1/community/contributing/pr_workflow.html
 
 ### Installation
 
-Before installing `irrevolutions`, ensure you have `dolfinx` and other dependencies installed. You can install `dolfinx` using one of the following methods:
+Before installing `irrevolutions`, ensure you have `dolfinx` and other dependencies installed.
+
+DOLFINx (and some other libraries like MPI and PyVista) have complex dependencies, it may be best to install them using conda from the conda-forge channel. Conda handles the environment setup and dependency conflicts well for these low-level libraries. Otherwise, you install from source using Spack or us a pre-built docker image.
+
+Then, install your Python package dependencies with Poetry. After installing system-level dependencies with Conda (or another method), you can use Poetry to manage the Python-specific packages and virtual environment for your project. Poetry will not attempt to reinstall DOLFINx or other system-level packages.
+
+More specifically, you can install `dolfinx` using one of the following methods:
 
 - Using conda
 ```
-conda create -n fenicsx-env -c conda-forge fenics-dolfinx=0.7.2 mpich pyvista
+conda create -n fenicsx-env -c conda-forge fenics-dolfinx=0.7.2 mpich pyvista sympy pandas pyyaml
 conda activate fenicsx-env
 ```
 
 - Using Spack
 see https://github.com/FEniCS/dolfinx/blob/main/README.md#spack
 
-- Using Apt (ubuntu)
+- Using Apt (ubuntu 23.04 build)
 ```
+apt-get install -y  software-properties-common python3-pip git libgl1-mesa-glx xvfb libglu1 libxcursor1 libxinerama1
+
 add-apt-repository ppa:fenics-packages/fenics
 apt update
-apt install fenicsx=1:0.7.3-3~ppa1~lunar1
+apt-install fenicsx
 ```
 
 For detailed instructions, see https://github.com/FEniCS/dolfinx/blob/main/README.md#installation
@@ -63,8 +74,15 @@ For a windows box:
 docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix:stable-amd64
 ```
 
-Finally, to install `irrevolutions` head to the package root directory and run
+Clone this repository:
 
+```
+git clone https://github.com/kumiori/irrevolutions.gt
+cd irrevolutions
+```
+
+
+Finally, `irrevolutions` can be installed using setuptools from the root directory
 ```python3 -m pip install .```
 
 
@@ -76,7 +94,6 @@ This code was initially conceived as a support for the teaching course MEC647,
 
 
 ### Acknowledgements
-
 
 To all the students for their effort, participation, and motivation.
 
