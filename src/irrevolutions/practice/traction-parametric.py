@@ -28,6 +28,7 @@ from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
 from dolfinx.io import gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
+import basix.ufl
 
 sys.path.append("../")
 
@@ -172,10 +173,10 @@ def main(parameters, model="at2", storage=None):
     # with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
     #     file.write_mesh(mesh)
 
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     u = Function(V_u, name="Displacement")
@@ -205,7 +206,7 @@ def main(parameters, model="at2", storage=None):
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(
+        f.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -214,8 +215,8 @@ def main(parameters, model="at2", storage=None):
     bcs_u = [bc_u_left, bc_u_right]
     bcs_alpha = []
 
-    set_bc(alpha_ub.vector, bcs_alpha)
-    alpha_ub.vector.ghostUpdate(
+    set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+    alpha_ub.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
@@ -280,12 +281,12 @@ def main(parameters, model="at2", storage=None):
         logging.getLogger().setLevel(logging.WARNING)
 
         u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
-        u_.vector.ghostUpdate(
+        u_.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+        alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -301,17 +302,17 @@ def main(parameters, model="at2", storage=None):
         logging.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
         hybrid.solve(alpha_lb)
 
-        alpha.vector.copy(alphadot.vector)
-        alphadot.vector.axpy(-1, alpha_lb.vector)
-        alphadot.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alphadot.x.petsc_vec)
+        alphadot.x.petsc_vec.axpy(-1, alpha_lb.x.petsc_vec)
+        alphadot.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
-        logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
-        logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
+        logging.critical(f"alpha vector norm: {alpha.x.petsc_vec.norm()}")
+        logging.critical(f"alpha lb norm: {alpha_lb.x.petsc_vec.norm()}")
+        logging.critical(f"alphadot norm: {alphadot.x.petsc_vec.norm()}")
         # logging.critical(
-        #     f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+        #     f"vector norms [u, alpha]: {[zi.x.petsc_vec.norm() for zi in z]}")
 
         rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
         urate_12_norm = hybrid.unscaled_rate_norm(alpha)
@@ -359,7 +360,7 @@ def main(parameters, model="at2", storage=None):
         history_data["eigs"].append(bifurcation.data["eigs"])
         history_data["F"].append(stress)
         history_data["cone_data"].append(cone.data)
-        history_data["alphadot_norm"].append(alphadot.vector.norm())
+        history_data["alphadot_norm"].append(alphadot.x.petsc_vec.norm())
         history_data["rate_12_norm"].append(rate_12_norm)
         history_data["unscaled_rate_12_norm"].append(urate_12_norm)
         history_data["cone-stable"].append(stable)

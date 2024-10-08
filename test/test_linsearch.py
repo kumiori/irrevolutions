@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+import basix.ufl
 
 import dolfinx
 import dolfinx.mesh
@@ -17,12 +18,13 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+from dolfinx.fem import (Constant, Function, functionspace, assemble_scalar,
                          dirichletbc, form, locate_dofs_geometrical, set_bc)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
+import basix.ufl
 
 from irrevolutions.algorithms.am import AlternateMinimisation, HybridSolver
 from irrevolutions.algorithms.ls import LineSearch
@@ -86,11 +88,11 @@ def test_linsearch():
         file.write_mesh(mesh)
 
     # Function spaces
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
-    V_u = FunctionSpace(mesh, element_u)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
+    V_u = functionspace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-    V_alpha = FunctionSpace(mesh, element_alpha)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+    V_alpha = functionspace(mesh, element_alpha)
 
     # Define the state
     u = Function(V_u, name="Displacement")
@@ -126,7 +128,7 @@ def test_linsearch():
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(
+        f.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -144,8 +146,8 @@ def test_linsearch():
     ]
     bcs_alpha = []
 
-    set_bc(alpha_ub.vector, bcs_alpha)
-    alpha_ub.vector.ghostUpdate(
+    set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+    alpha_ub.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
@@ -190,13 +192,13 @@ def test_linsearch():
 
     for i_t, t in enumerate(loads):
         u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
-        u_.vector.ghostUpdate(
+        u_.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
         # update the lower bound
-        alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+        alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -214,9 +216,9 @@ def test_linsearch():
         hybrid.solve(alpha_lb)
 
         # compute the rate
-        alpha.vector.copy(alphadot.vector)
-        alphadot.vector.axpy(-1, alpha_lb.vector)
-        alphadot.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alphadot.x.petsc_vec)
+        alphadot.x.petsc_vec.axpy(-1, alpha_lb.x.petsc_vec)
+        alphadot.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -351,10 +353,10 @@ def test_linsearch():
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
         ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
-        logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
-        logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
-        logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
-        logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+        logging.critical(f"alpha vector norm: {alpha.x.petsc_vec.norm()}")
+        logging.critical(f"alpha lb norm: {alpha_lb.x.petsc_vec.norm()}")
+        logging.critical(f"alphadot norm: {alphadot.x.petsc_vec.norm()}")
+        logging.critical(f"vector norms [u, alpha]: {[zi.x.petsc_vec.norm() for zi in z]}")
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
         logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 

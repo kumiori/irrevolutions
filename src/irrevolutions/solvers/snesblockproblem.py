@@ -129,7 +129,7 @@ class SNESBlockProblem:
         self.snes = PETSc.SNES().create(self.comm)
 
         if bounds:
-            self.snes.setVariableBounds(self.lb.vector, self.ub.vector)
+            self.snes.setVariableBounds(self.lb.x.petsc_vec, self.ub.x.petsc_vec)
 
         # Set up solver for nested or block matrix form
         if nest:
@@ -138,7 +138,7 @@ class SNESBlockProblem:
 
             self.J = dolfinx.fem.petsc.create_matrix_nest(self.J_form)
             self.F = dolfinx.fem.petsc.create_vector_nest(self.F_form)
-            self.x = self.F.copy()
+            self.x = dolfinx.fem.petsc.create_vector_nest(self.F_form)
 
             self.snes.setFunction(self._F_nest, self.F)
             self.snes.setJacobian(self._J_nest, self.J)
@@ -147,8 +147,7 @@ class SNESBlockProblem:
         else:
             self.J = dolfinx.fem.petsc.create_matrix_block(self.J_form)
             self.F = dolfinx.fem.petsc.create_vector_block(self.F_form)
-            self.x = self.F.copy()
-
+            self.x = dolfinx.fem.petsc.create_vector_block(self.F_form)
             if restriction is not None:
                 self._J = dolfinx.fem.petsc.create_matrix_block(self.J_form)
                 self._J.assemble()
@@ -200,7 +199,7 @@ class SNESBlockProblem:
         self.update_functions(x)
 
         dolfinx.fem.petsc.assemble_vector_block(
-            self.F, self.F_form, self.J_form, self.bcs, x0=self.x, scale=-1.0
+            self.F, self.F_form, self.J_form, self.bcs, x0=self.x, alpha=-1.0
         )
 
         if self.restriction is not None:
@@ -223,7 +222,7 @@ class SNESBlockProblem:
             with F_sub.localForm() as F_sub_local:
                 F_sub_local.set(0.0)
             dolfinx.fem.assemble_vector(F_sub, L)
-            dolfinx.fem.apply_lifting(F_sub, a, bc, x0=x, scale=-1.0)
+            dolfinx.fem.apply_lifting(F_sub, a, bc, x0=x, alpha=-1.0)
             F_sub.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
 
         F.assemble()
@@ -357,7 +356,7 @@ class SNESBlockProblem:
             if self.restriction is not None:
                 size_local = self.restriction.bglobal_dofs_vec[i].shape[0]
             else:
-                size_local = ui.vector.getLocalSize()
+                size_local = ui.x.petsc_vec.getLocalSize()
 
             subvec_r = r[offset : offset + size_local]
             subvec_dx = dx[offset : offset + size_local]

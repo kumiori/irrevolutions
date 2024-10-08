@@ -2,6 +2,8 @@ import os
 import random
 import sys
 
+import basix.ufl
+
 import dolfinx
 import numpy as np
 import petsc4py
@@ -34,12 +36,12 @@ mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "test_cone")
 
-element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+V_u = dolfinx.fem.functionspace(mesh, element_u)
+V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
 u = dolfinx.fem.Function(V_u, name="Displacement")
 alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 
@@ -85,7 +87,7 @@ F = dolfinx.fem.form(F_)
 
 v = dolfinx.fem.petsc.create_vector_block(F)
 x = dolfinx.fem.petsc.create_vector_block(F)
-# scatter_local_vectors(x, [u.vector.array_r, p.vector.array_r],
+# scatter_local_vectors(x, [u.x.petsc_vec.array_r, p.x.petsc_vec.array_r],
 #                         [(u.function_space.dofmap.index_map, u.function_space.dofmap.index_map_bs),
 #                         (p.function_space.dofmap.index_map, p.function_space.dofmap.index_map_bs)])
 # x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
@@ -180,7 +182,7 @@ def converged(x):
 
     # update xold
     # x.copy(_xold)
-    # x.vector.ghostUpdate(
+    # x.x.petsc_vec.ghostUpdate(
     #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     # )
 

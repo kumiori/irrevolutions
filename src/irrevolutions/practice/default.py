@@ -40,7 +40,7 @@ from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
-
+import basix.ufl
 sys.path.append("../")
 
 
@@ -140,10 +140,10 @@ def create_function_space(mesh):
         dolfinx.FunctionSpace: Function space for displacement.
         dolfinx.FunctionSpace: Function space for damage.
     """
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     return V_u, V_alpha
@@ -304,12 +304,12 @@ def initialise_solver(total_energy, state, bcs, parameters):
     alpha_ub = Function(V_alpha, name="Upper bound")
 
     for f in [alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(
+        f.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-    set_bc(alpha_ub.vector, bcs["bcs_alpha"])
-    alpha_ub.vector.ghostUpdate(
+    set_bc(alpha_ub.x.petsc_vec, bcs["bcs_alpha"])
+    alpha_ub.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
@@ -476,8 +476,8 @@ def run_time_loop(parameters, solver, model, bcs):
         # Implement any necessary updates here
         # update the lower bound
 
-        alpha.vector.copy(solver.alpha_lb.vector)
-        solver.alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(solver.alpha_lb.x.petsc_vec)
+        solver.alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 

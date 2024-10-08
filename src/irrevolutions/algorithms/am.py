@@ -61,8 +61,8 @@ class AlternateMinimisation:
         self.u = state["u"]
         self.alpha = state["alpha"]
         self.alpha_old = Function(self.alpha.function_space)
-        self.alpha.vector.copy(self.alpha_old.vector)
-        self.alpha.vector.ghostUpdate(
+        self.alpha.x.petsc_vec.copy(self.alpha_old.x.petsc_vec)
+        self.alpha.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -141,9 +141,9 @@ class AlternateMinimisation:
                 (solver_alpha_it, solver_alpha_reason) = self.damage.solve()
 
             # Compute errors and residuals
-            self.alpha.vector.copy(alpha_diff.vector)
-            alpha_diff.vector.axpy(-1, self.alpha_old.vector)
-            alpha_diff.vector.ghostUpdate(
+            self.alpha.x.petsc_vec.copy(alpha_diff.x.petsc_vec)
+            alpha_diff.x.petsc_vec.axpy(-1, self.alpha_old.x.petsc_vec)
+            alpha_diff.x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
@@ -153,17 +153,18 @@ class AlternateMinimisation:
             Fv = [assemble_vector(form(F)) for F in self.F]
             Fnorm = np.sqrt(np.array([comm.allreduce(Fvi.norm(), op=MPI.SUM) for Fvi in Fv]).sum())
 
-            error_alpha_max = alpha_diff.vector.max()[1]
+            error_alpha_max = alpha_diff.x.petsc_vec.max()[1]
             total_energy_int = comm.allreduce(assemble_scalar(form(self.total_energy)), op=MPI.SUM)
+
             residual_u = assemble_vector(self.elasticity.F_form)
             residual_u.ghostUpdate(
                 addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
             )
-            set_bc(residual_u, self.elasticity.bcs, self.u.vector)
+            set_bc(residual_u, self.elasticity.bcs, self.u.x.petsc_vec)
             error_residual_u = ufl.sqrt(residual_u.dot(residual_u))
 
-            self.alpha.vector.copy(self.alpha_old.vector)
-            self.alpha_old.vector.ghostUpdate(
+            self.alpha.x.petsc_vec.copy(self.alpha_old.x.petsc_vec)
+            self.alpha_old.x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
@@ -198,13 +199,13 @@ class AlternateMinimisation:
 
             # Convergence criteria
             if self.solver_parameters.get("damage_elasticity").get("criterion") == "residual_u":
-                logging.debug(f"AM - Iteration: {iteration:3d}, Error: ||Du E||_L2 {error_residual_u:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}")
+                logging.debug(f"AM - Iteration: {iteration:3d}, Error: ||Du E||_L2 {error_residual_u:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}")
                 if error_residual_u <= self.solver_parameters.get("damage_elasticity").get("alpha_rtol"):
                     error = error_residual_u
                     break
 
             if self.solver_parameters.get("damage_elasticity").get("criterion") == "alpha_H1":
-                logging.debug(f"AM - Iteration: {iteration:3d}, Error ||Δα_i||_H1: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}")
+                logging.debug(f"AM - Iteration: {iteration:3d}, Error ||Δα_i||_H1: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}")
                 if error_alpha_H1 <= self.solver_parameters.get("damage_elasticity").get("alpha_rtol"):
                     error = error_alpha_H1
                     break
@@ -212,7 +213,7 @@ class AlternateMinimisation:
             raise RuntimeError(f"Could not converge after {iteration:3d} iterations, error {error_alpha_H1:3.4e}")
 
         _crit = self.solver_parameters.get("damage_elasticity").get("criterion")
-        ColorPrint.print_info(f"ALTMIN - Iterations: {iteration:3d}, Error: {error:3.4e}, {_crit}, alpha_max: {self.alpha.vector.max()[1]:3.4e}")
+        ColorPrint.print_info(f"ALTMIN - Iterations: {iteration:3d}, Error: {error:3.4e}, {_crit}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}")
 
 
 class HybridSolver(AlternateMinimisation):
@@ -266,15 +267,14 @@ class HybridSolver(AlternateMinimisation):
         self.alpha_lb = bounds[0]
         self.alpha_ub = bounds[1]
 
-        set_vector_to_constant(self.u_lb.vector, PETSc.NINFINITY)
-        set_vector_to_constant(self.u_ub.vector, PETSc.PINFINITY)
-        set_vector_to_constant(self.alpha_lb.vector, 0)
-        set_vector_to_constant(self.alpha_ub.vector, 1)
+        set_vector_to_constant(self.u_lb.x.petsc_vec, PETSc.NINFINITY)
+        set_vector_to_constant(self.u_ub.x.petsc_vec, PETSc.PINFINITY)
+        set_vector_to_constant(self.alpha_lb.x.petsc_vec, 0)
+        set_vector_to_constant(self.alpha_ub.x.petsc_vec, 1)
 
         self.z = [self.u, self.alpha]
         bcs_z = bcs.get("bcs_u") + bcs.get("bcs_alpha")
         self.prefix = "blocknewton"
-
         nest = False
         self.newton = SNESBlockProblem(
             self.F, self.z, bcs=bcs_z, nest=nest, prefix="block"
@@ -363,7 +363,7 @@ class HybridSolver(AlternateMinimisation):
         with ub.getNestSubVecs()[0].localForm() as u_sub:
             u_sub.set(PETSc.PINFINITY)
 
-        with lb.getNestSubVecs()[1].localForm() as alpha_sub, alpha_lb.vector.localForm() as alpha_lb_loc:
+        with lb.getNestSubVecs()[1].localForm() as alpha_sub, alpha_lb.x.petsc_vec.localForm() as alpha_lb_loc:
             alpha_lb_loc.copy(result=alpha_sub)
 
         with ub.getNestSubVecs()[1].localForm() as alpha_sub:
