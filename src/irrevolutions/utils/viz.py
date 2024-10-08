@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.INFO)
 comm = MPI.COMM_WORLD
 
 # Start Xvfb for PyVista (for offscreen rendering)
-xvfb.start_xvfb(wait=0.05)
+# xvfb.start_xvfb(wait=0.05)
 
 def plot_vector(u, plotter, subplot=None, scale=1.0):
     """
