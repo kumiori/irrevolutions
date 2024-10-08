@@ -1,11 +1,13 @@
 name: Test Ubuntu Installation
 
 # This triggers the workflow on any push to the repository
-on: 
-  push:
-    branches:
-      - "**"
-  pull_request:
+on:
+  workflow_dispatch:
+
+  # push:
+  #   branches:
+  #     - "**"
+  # pull_request:
 
 jobs:
   test:

@@ -4,8 +4,10 @@ name: Test Conda Installation
 on: 
   push:
     branches:
-      - "**"
+        - "main"
   pull_request:
+    branches:
+        - "main"
 
 jobs:
   test:
