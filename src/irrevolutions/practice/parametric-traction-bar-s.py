@@ -1,6 +1,7 @@
 import subprocess
+
 import numpy as np
-import sys
+
 # List of parameters
 
 # parameters_list = np.logspace(-8, -1, 8)

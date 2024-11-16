@@ -12,7 +12,6 @@ def mesh_bar_gmshapi(
     # Perform Gmsh work only on rank = 0
 
     if comm.rank == 0:
-
         import gmsh
 
         # Initialise gmsh and set options

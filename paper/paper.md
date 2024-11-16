@@ -155,7 +155,7 @@ The minimiser $(v^*, \beta^*)$ for [2.2] is given by $v^*$ as above and
 $$
 \beta^*(x)=\left\{
 \begin{aligned}
-C>0,\qquad & \text{ if }\pi^2 {a}>{bc}^2 \\
+C,\qquad & \text{ if }\pi^2 {a}>{bc}^2 \\
 C+A \cos (\pi x),\qquad & \text{ if } \pi^2 {a}={bc}^2 \text{, with }C>0 \text{ and }|A| \leq C\\
 C\left(1+\cos (\pi \frac{x}{{D}})\right), \qquad & \text{ if } \pi^2 {a}<{bc}^2,  \text { for } x \in(0, {D})
 \end{aligned}\right.

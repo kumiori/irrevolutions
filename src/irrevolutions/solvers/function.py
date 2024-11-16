@@ -1,10 +1,10 @@
 import typing
-import numpy
 
 import dolfinx
-from petsc4py import PETSc
+import numpy
 import ufl
 from dolfinx.fem import Function
+from petsc4py import PETSc
 
 
 def extract_blocks(
@@ -42,7 +42,6 @@ def extract_blocks(
         blocks = [None for i in range(len(test_functions))]
 
     for i, tef in enumerate(test_functions):
-
         if trial_functions is not None:
             for j, trf in enumerate(trial_functions):
                 to_null = dict()

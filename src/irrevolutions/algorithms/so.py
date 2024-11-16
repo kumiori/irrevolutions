@@ -324,7 +324,7 @@ class SecondOrderSolver:
             float: Coefficient used for normalization.
         """
         if mode == "max-beta":
-            v, beta = u[0], u[1]
+            _v, beta = u[0], u[1]
             coeff_glob = beta.vector.norm(3)
 
             logging.debug(f"{rank}, |β|_infty {beta.vector.norm(3):.3f}")
@@ -345,7 +345,7 @@ class SecondOrderSolver:
                 addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
             )
 
-        _norm = np.sqrt(sum(n**2 for n in [v_i.vector.norm(2) for v_i in u]))
+        np.sqrt(sum(n**2 for n in [v_i.vector.norm(2) for v_i in u]))
 
         return coeff_glob
 
@@ -381,7 +381,7 @@ class SecondOrderSolver:
         # Check if the system is damage-critical and log it
         self.log_critical_state()
 
-        with dolfinx.common.Timer(f"~Second Order: Bifurcation") as timer:
+        with dolfinx.common.Timer("~Second Order: Bifurcation"):
             # Set up constraints
             constraints = self.setup_constraints(alpha_old)
             self.inertia_setup(constraints)
@@ -513,6 +513,23 @@ class SecondOrderSolver:
 
     def store_results(self, eigen, spectrum):
         """Store eigenmodes and results."""
+
+        if not spectrum:
+            # Spectrum is empty, handle this case accordingly
+            self.spectrum = []
+            self._spectrum = []
+            self.minmode = None
+            self.mineig = None
+            self.data = {
+                "inf_spectrum": [],
+                "eigs": [],
+                "perturbations_beta": [],
+                "perturbations_v": [],
+                "stable": False,
+            }
+            self.perturbation = {}
+            return False
+
         unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
 
         # spectrum = unstable_spectrum
@@ -649,8 +666,8 @@ class StabilitySolver(SecondOrderSolver):
 
         self.solution = {"lambda_t": np.nan, "xt": [], "yt": []}
 
-        with dolfinx.common.Timer(f"~Second Order: Stability"):
-            with dolfinx.common.Timer(f"~Second Order: Cone Project"):
+        with dolfinx.common.Timer("~Second Order: Stability"):
+            with dolfinx.common.Timer("~Second Order: Cone Project"):
                 # self._converged = False
                 self._v = create_vector_block(self.F)
 
@@ -660,7 +677,6 @@ class StabilitySolver(SecondOrderSolver):
                     "1": "converged atol",
                     "2": "converged residual",
                 }
-                _reason = None
 
     def solve(self, alpha_old: dolfinx.fem.function.Function, eig0=None, inertia=None):
         """
@@ -719,7 +735,7 @@ class StabilitySolver(SecondOrderSolver):
         self._converged = False
         errors.append(1)
 
-        with dolfinx.common.Timer(f"~Second Order: Stability"):
+        with dolfinx.common.Timer("~Second Order: Stability"):
             constraints = self.setup_constraints(alpha_old)
             self.constraints = constraints
 
@@ -728,7 +744,7 @@ class StabilitySolver(SecondOrderSolver):
             self.eigen = eigen
             _Ar = constraints.restrict_matrix(eigen.A)
             _xk = constraints.restrict_vector(_x)
-            _y = constraints.restrict_vector(_y)
+            _yr = constraints.restrict_vector(_y)
             self._Axr = constraints.restrict_vector(_Ax)
             self._xoldr = constraints.restrict_vector(self._xold)
 
@@ -737,12 +753,15 @@ class StabilitySolver(SecondOrderSolver):
             self._residual_norm = 1.0
 
             self.Ar_matrix = _Ar.copy()
-            _y, _xk, _lmbda_k = self.convergence_loop(errors, _Ar, _xk)
+            _yr, _xk, _lmbda_k = self.convergence_loop(errors, _Ar, _xk)
 
             # process eigenmode
-            # ... normalise ...
+            # ... extend ...
+            self._extend_vector(_yr, _y)
+            self._extend_vector(_xk, _x)
+
             y = self.normalise_eigenmode(_y, mode="functional")
-            xk = self.normalise_eigenmode(_xk, mode="functional")
+            xk = self.normalise_eigenmode(_x, mode="functional")
 
             # store
             self.store_results(_lmbda_k, xk, y)
@@ -751,6 +770,23 @@ class StabilitySolver(SecondOrderSolver):
         return stable
 
     def convergence_loop(self, errors, _Ar, _xk):
+        """
+        Perform a convergence loop to iteratively solve the variational inequality problem.
+
+        This method iteratively updates the solution `_xk` until convergence is achieved
+        based on the given convergence criteria `errors`.
+
+        Parameters:
+        - errors (list): List of error tolerances for convergence criteria.
+        - _Ar (petsc4py.PETSc.Mat): Precomputed product of the system matrix `A` and the current solution `_xk`.
+        - _xk (petsc4py.PETSc.Vec): Current solution vector.
+
+        Returns:
+        - _y (petsc4py.PETSc.Vec): Final solution vector.
+        - _xk (petsc4py.PETSc.Vec): Updated solution vector after convergence.
+        - _lmbda_k (float): Updated Lagrange multiplier corresponding to the final solution.
+        """
+
         _s = float(self.parameters.get("cone").get("scaling"))
 
         while self.iterate(_xk, errors):
@@ -760,10 +796,19 @@ class StabilitySolver(SecondOrderSolver):
         return _y, _xk, _lmbda_k
 
     def update_lambda_and_y(self, xk, Ar):
-        # Update λ_t and y computing:
-        # λ_k = <x_k, A x_k> / <x_k, x_k>
-        # y_k = A x_k - λ_k x_k
+        """
+        Update the eigenvalue and solution vector based on the current solution `xk` and the product `Ar`.
+            λ_k = <x_k, A x_k> / <x_k, x_k>
+            y_k = A x_k - λ_k x_k
 
+        Parameters:
+        - xk (petsc4py.PETSc.Vec): Current solution vector.
+        - Ar (petsc4py.PETSc.Mat): Precomputed product of the system matrix and the current solution.
+
+        Returns:
+        - _lmbda_t (float): Updated eigenvalue.
+        - y (petsc4py.PETSc.Vec): Updated solution vector.
+        """
         _Axr = xk.copy()
         y = xk.copy()
 
@@ -790,7 +835,7 @@ class StabilitySolver(SecondOrderSolver):
         _cone_restricted = self._cone_project_restricted(xk)
 
         _logger.debug(f"xk view after cone-project at iteration {self.iterations}")
-        n2 = _cone_restricted.normalize()
+        _cone_restricted.normalize()
 
         # _logger.info(f"Cone project update: normalisation {n2}")
 
@@ -844,14 +889,13 @@ class StabilitySolver(SecondOrderSolver):
     def finalise_eigenmode(self, xt, yt, lmbda_t):
         # Extract, extend, and finalize the converged eigenmode
         self._xk = xt
-        self._extend_vector(xt, self._v)
 
         (v, β) = (
             Function(self.V_u, name="Displacement_perturbation"),
             Function(self.V_alpha, name="Damage_perturbation"),
         )
 
-        vec_to_functions(self._v, [v, β])
+        vec_to_functions(xt, [v, β])
         self.perturbation = {"v": v, "β": β, "λ": lmbda_t}
 
         self._y = create_vector_block(self.F)
@@ -861,8 +905,7 @@ class StabilitySolver(SecondOrderSolver):
             Function(self.V_alpha, name="Damage_residual"),
         )
 
-        self._extend_vector(yt, self._y)
-        vec_to_functions(self._y, [w, ζ])
+        vec_to_functions(yt, [w, ζ])
         self.residual = {"w": w, "ζ": ζ}
 
         return self.perturbation
@@ -951,7 +994,7 @@ class StabilitySolver(SecondOrderSolver):
         # self.data["error_x_L2"].append(error_x_L2)
 
         _acrit = self._aerror < self.parameters.get("cone").get("cone_atol")
-        _rnorm = self._residual_norm < self.parameters.get("cone").get("cone_rtol")
+        self._residual_norm < self.parameters.get("cone").get("cone_rtol")
 
         _crits = (_acrit, False)
 
@@ -1032,7 +1075,7 @@ class StabilitySolver(SecondOrderSolver):
         Returns:
             Vector: The projected vector.
         """
-        with dolfinx.common.Timer(f"~Second Order: Cone Project"):
+        with dolfinx.common.Timer("~Second Order: Cone Project"):
             maps = [
                 (V.dofmap.index_map, V.dofmap.index_map_bs)
                 for V in self.constraints.function_spaces
@@ -1049,8 +1092,8 @@ class StabilitySolver(SecondOrderSolver):
                 x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
 
                 _logger.debug(f"Local dofs: {_dofs}")
-                _logger.debug(f"x_local")
-                _logger.debug(f"x_local truncated")
+                _logger.debug("x_local")
+                _logger.debug("x_local truncated")
 
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
@@ -1060,8 +1103,8 @@ class StabilitySolver(SecondOrderSolver):
             # _logger.info(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
 
             x = self.constraints.restrict_vector(_x)
-
-            _x.copy(result=x)
+            # __import__('pdb').set_trace()
+            # _x.copy(result=x)
             _x.destroy()
 
         return x

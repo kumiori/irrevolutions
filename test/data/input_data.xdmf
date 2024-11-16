@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
+<Xdmf Version="3.0" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <Domain>
+    <Grid Name="mesh" GridType="Uniform">
+      <Topology TopologyType="PolyLine" NumberOfElements="10" NodesPerElement="2">
+        <DataItem Dimensions="10 2" NumberType="Int" Format="HDF">input_data.h5:/Mesh/mesh/topology</DataItem>
+      </Topology>
+      <Geometry GeometryType="XY">
+        <DataItem Dimensions="11 2" Format="HDF">input_data.h5:/Mesh/mesh/geometry</DataItem>
+      </Geometry>
+    </Grid>
+    <Grid Name="LowerBoundDamage" GridType="Collection" CollectionType="Temporal">
+      <Grid Name="LowerBoundDamage" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="0" />
+        <Attribute Name="LowerBoundDamage" AttributeType="Scalar" Center="Node">
+          <DataItem Dimensions="11 1" Format="HDF">input_data.h5:/Function/LowerBoundDamage/0</DataItem>
+        </Attribute>
+      </Grid>
+    </Grid>
+  </Domain>
+</Xdmf>
