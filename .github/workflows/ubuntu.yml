@@ -18,7 +18,7 @@ jobs:
     steps:
       # Checkout the repo content to the runner
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       # Install Ubuntu dependencies via APT
       - name: Install system dependencies via APT
