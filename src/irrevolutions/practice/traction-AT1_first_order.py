@@ -30,6 +30,7 @@ from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
+import basix.ufl
 
 sys.path.append("../")
 
@@ -122,10 +123,10 @@ with XDMFFile(
 # Functional Setting
 
 # Function spaces
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
 V_u = FunctionSpace(mesh, element_u)
 
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 V_alpha = FunctionSpace(mesh, element_alpha)
 
 # Define the state
@@ -160,7 +161,7 @@ alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
 alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
 for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
-    f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    f.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
 bc_u_left = dirichletbc(np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
@@ -175,8 +176,8 @@ bcs_alpha = []
 #     dolfinx.fem.dirichletbc(zero_alpha, dofs_alpha_right),
 # ]
 
-set_bc(alpha_ub.vector, bcs_alpha)
-alpha_ub.vector.ghostUpdate(
+set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+alpha_ub.x.petsc_vec.ghostUpdate(
     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
 )
 
@@ -245,11 +246,11 @@ history_data = {
 for i_t, t in enumerate(loads):
     # for i_t, t in enumerate([0., .99, 1.0, 1.01]):
     u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
-    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    u_.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     # update the lower bound
-    alpha.vector.copy(alpha_lb.vector)
-    alpha_lb.vector.ghostUpdate(
+    alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+    alpha_lb.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
@@ -272,16 +273,16 @@ for i_t, t in enumerate(loads):
     hybrid.solve(alpha_lb)
 
     # compute the rate
-    alpha.vector.copy(alphadot.vector)
-    alphadot.vector.axpy(-1, alpha_lb.vector)
-    alphadot.vector.ghostUpdate(
+    alpha.x.petsc_vec.copy(alphadot.x.petsc_vec)
+    alphadot.x.petsc_vec.axpy(-1, alpha_lb.x.petsc_vec)
+    alphadot.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
-    logging.info(f"alpha vector norm: {alpha.vector.norm()}")
-    logging.info(f"alpha lb norm: {alpha_lb.vector.norm()}")
-    logging.info(f"alphadot norm: {alphadot.vector.norm()}")
-    logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+    logging.info(f"alpha vector norm: {alpha.x.petsc_vec.norm()}")
+    logging.info(f"alpha lb norm: {alpha_lb.x.petsc_vec.norm()}")
+    logging.info(f"alphadot norm: {alphadot.x.petsc_vec.norm()}")
+    logging.info(f"vector norms [u, alpha]: {[zi.x.petsc_vec.norm() for zi in z]}")
 
     rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
     urate_12_norm = hybrid.unscaled_rate_norm(alpha)

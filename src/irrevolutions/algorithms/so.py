@@ -103,7 +103,7 @@ class SecondOrderSolver:
         self.mesh = alpha.function_space.mesh
 
         # Initialize L as a DG(0) function
-        L = dolfinx.fem.FunctionSpace(self.mesh, ("DG", 0))
+        L = dolfinx.fem.functionspace(self.mesh, ("DG", 0))
         self.lmbda0 = dolfinx.fem.Function(L)
 
         # Define the forms associated with the second derivative of the energy
@@ -162,7 +162,7 @@ class SecondOrderSolver:
 
         with self.state[
             1
-        ].vector.localForm() as a_local, a_old.vector.localForm() as a_old_local:
+        ].x.petsc_vec.localForm() as a_local, a_old.x.petsc_vec.localForm() as a_old_local:
             idx_ub_local = np.where(np.isclose(a_local[:], 1.0, rtol=pwtol))[0]
             idx_lb_local = np.where(np.isclose(a_local[:], a_old_local[:], rtol=pwtol))[
                 0
@@ -298,9 +298,9 @@ class SecondOrderSolver:
             raise NotImplementedError("Normalisation mode not implemented")
 
         # for u in [_v, _β]:
-        #     with u.vector.localForm() as u_local:
+        #     with u.x.petsc_vec.localForm() as u_local:
         #         u_local.scale(1.0 / scaling)
-        #     u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+        #     u.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
 
         with x.localForm() as x_local:
             x_local.scale(1.0 / scaling)
@@ -325,27 +325,27 @@ class SecondOrderSolver:
         """
         if mode == "max-beta":
             _v, beta = u[0], u[1]
-            coeff_glob = beta.vector.norm(3)
+            coeff_glob = beta.x.petsc_vec.norm(3)
 
-            logging.debug(f"{rank}, |β|_infty {beta.vector.norm(3):.3f}")
+            logging.debug(f"{rank}, |β|_infty {beta.x.petsc_vec.norm(3):.3f}")
 
         elif mode == "unit":
-            coeff_glob = np.sqrt(sum(n**2 for n in [v_i.vector.norm() for v_i in u]))
+            coeff_glob = np.sqrt(sum(n**2 for n in [v_i.x.petsc_vec.norm() for v_i in u]))
             logging.debug(f"rank {rank}, coeff_glob {coeff_glob:.3f}")
             logging.debug(f"{rank}, |(v, β)^*|_2 {coeff_glob:.3f}")
 
         if coeff_glob == 0.0:
-            logging.error(f"Damage eigenvector is null i.e. |β|={beta.vector.norm()}")
+            logging.error(f"Damage eigenvector is null i.e. |β|={beta.x.petsc_vec.norm()}")
             return 0.0
 
         for v_i in u:
-            with v_i.vector.localForm() as v_local:
+            with v_i.x.petsc_vec.localForm() as v_local:
                 v_local.scale(1.0 / coeff_glob)
-            v_i.vector.ghostUpdate(
+            v_i.x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD
             )
 
-        np.sqrt(sum(n**2 for n in [v_i.vector.norm(2) for v_i in u]))
+        np.sqrt(sum(n**2 for n in [v_i.x.petsc_vec.norm(2) for v_i in u]))
 
         return coeff_glob
 
@@ -503,9 +503,9 @@ class SecondOrderSolver:
         _u = self.normalise_eigenmode(_u, mode="functional")
 
         for u, component in zip(ur, [v_n, β_n]):
-            with u.vector.localForm() as u_loc, component.vector.localForm() as c_loc:
+            with u.x.petsc_vec.localForm() as u_loc, component.x.petsc_vec.localForm() as c_loc:
                 u_loc.copy(result=c_loc)
-            component.vector.ghostUpdate(
+            component.x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 

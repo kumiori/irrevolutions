@@ -23,6 +23,7 @@ from dolfinx.io import XDMFFile
 from mpi4py import MPI
 from petsc4py import PETSc
 from pyvista.utilities import xvfb
+import basix.ufl
 
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
@@ -145,11 +146,11 @@ def run_computation(parameters, storage=None):
         file.write_mesh(mesh)
 
     # Functional Setting
-    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+    V_u = dolfinx.fem.functionspace(mesh, element_u)
+    V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
 
     u = dolfinx.fem.Function(V_u, name="Displacement")
     dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
@@ -192,7 +193,7 @@ def run_computation(parameters, storage=None):
     u_zero.interpolate(lambda x: eps_t / 2.0 * (2 * x[0] - Lx))
 
     for f in [zero_u, u_zero, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(
+        f.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -234,13 +235,13 @@ def run_computation(parameters, storage=None):
         eps_t.value = t
 
         u_zero.interpolate(lambda x: eps_t / 2.0 * (2 * x[0] - Lx))
-        u_zero.vector.ghostUpdate(
+        u_zero.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
         # update the lower bound
-        alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+        alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 

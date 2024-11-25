@@ -153,11 +153,11 @@ class Restriction:
         for i, fi in enumerate(f):
             num_rdofs = self.bglobal_dofs_vec[i].shape[0]
 
-            fi.vector.array[self.bglobal_dofs_vec[i] - self.boffsets_vec[i]] = (
+            fi.x.petsc_vec.array[self.bglobal_dofs_vec[i] - self.boffsets_vec[i]] = (
                 rx.array_r[rdof_offset : (rdof_offset + num_rdofs)]
             )
 
-            fi.vector.ghostUpdate(
+            fi.x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
             rdof_offset += num_rdofs

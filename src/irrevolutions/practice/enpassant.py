@@ -27,7 +27,7 @@ import dolfinx.io
 import dolfinx
 import logging
 import sys
-
+import basix.ufl
 sys.path.append("../")
 
 logging.basicConfig()
@@ -153,12 +153,12 @@ fig.savefig("mesh_refined_local_bulk.png")
 mesh = mesh_refined_local2
 # Functional Setting
 
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
 
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+V_u = dolfinx.fem.functionspace(mesh, element_u)
+V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
 
 u = dolfinx.fem.Function(V_u, name="Displacement")
 u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
@@ -259,11 +259,11 @@ for i_t, t in enumerate(loads):
     # update boundary conditions
 
     u_.interpolate(lambda x: (np.zeros_like(x[0]), t * np.ones_like(x[1])))
-    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    u_.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     # update lower bound for damage
-    alpha.vector.copy(alpha_lb.vector)
-    alpha.vector.ghostUpdate(
+    alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+    alpha.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
