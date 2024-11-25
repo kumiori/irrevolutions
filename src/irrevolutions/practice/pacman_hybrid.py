@@ -27,9 +27,8 @@ from dolfinx.fem import (Function, FunctionSpace, dirichletbc,
 from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
 from pyvista.utilities import xvfb
-
+import basix.ufl
 sys.path.append("../")
-
 
 
 logging.basicConfig(level=logging.INFO)
@@ -145,10 +144,10 @@ def pacman_hybrid(nest):
         fig.savefig(f"{prefix}/mesh.png")
 
     # Function spaces
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     # Define the state
@@ -195,7 +194,7 @@ def pacman_hybrid(nest):
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(
+        f.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -209,8 +208,8 @@ def pacman_hybrid(nest):
         )
     ]
 
-    set_bc(alpha_ub.vector, bcs_alpha)
-    alpha_ub.vector.ghostUpdate(
+    set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+    alpha_ub.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
@@ -223,10 +222,10 @@ def pacman_hybrid(nest):
     u_ub = Function(V_u, name="displacement upper bound")
     alpha_lb = Function(V_alpha, name="damage lower bound")
     alpha_ub = Function(V_alpha, name="damage upper bound")
-    set_vector_to_constant(u_lb.vector, PETSc.NINFINITY)
-    set_vector_to_constant(u_ub.vector, PETSc.PINFINITY)
-    set_vector_to_constant(alpha_lb.vector, 0)
-    set_vector_to_constant(alpha_ub.vector, 1)
+    set_vector_to_constant(u_lb.x.petsc_vec, PETSc.NINFINITY)
+    set_vector_to_constant(u_ub.x.petsc_vec, PETSc.PINFINITY)
+    set_vector_to_constant(alpha_lb.x.petsc_vec, 0)
+    set_vector_to_constant(alpha_ub.x.petsc_vec, 1)
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
@@ -282,8 +281,8 @@ def pacman_hybrid(nest):
         )
 
         # update the lower bound
-        alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+        alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -291,15 +290,15 @@ def pacman_hybrid(nest):
         hybrid.solve()
 
         # compute rate
-        alpha.vector.copy(alphadot.vector)
-        alphadot.vector.axpy(-1, alpha_lb.vector)
-        alphadot.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alphadot.x.petsc_vec)
+        alphadot.x.petsc_vec.axpy(-1, alpha_lb.x.petsc_vec)
+        alphadot.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        alpha.vector.copy(alphadot.vector)
-        alphadot.vector.axpy(-1, alpha_lb.vector)
-        alphadot.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alphadot.x.petsc_vec)
+        alphadot.x.petsc_vec.axpy(-1, alpha_lb.x.petsc_vec)
+        alphadot.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -362,7 +361,7 @@ def pacman_hybrid(nest):
         ColorPrint.print_info(
             f"NEWTON - Iterations: {hybrid.newton.snes.getIterationNumber()+1:3d},\
             Fnorm: {hybrid.newton.snes.getFunctionNorm():3.4e},\
-            alpha_max: {alpha.vector.max()[1]:3.4e}"
+            alpha_max: {alpha.x.petsc_vec.max()[1]:3.4e}"
         )
 
         xvfb.start_xvfb(wait=0.05)

@@ -36,6 +36,7 @@ class LineSearch:
             linesearch_parameters (dict): Parameters for the line search algorithm.
         """
         super(LineSearch, self).__init__()
+
         self.energy = energy
         self.state = state
         self.parameters = linesearch_parameters
@@ -67,8 +68,8 @@ class LineSearch:
         u_0 = Function(state["u"].function_space)
         alpha_0 = Function(state["alpha"].function_space)
 
-        state["u"].vector.copy(u_0.vector)
-        state["alpha"].vector.copy(alpha_0.vector)
+        state["u"].x.petsc_vec.copy(u_0.x.petsc_vec)
+        state["alpha"].x.petsc_vec.copy(alpha_0.x.petsc_vec)
 
         en_0 = assemble_scalar(form(self.energy))
 
@@ -78,12 +79,12 @@ class LineSearch:
         perturbation_norms = []
 
         for h in htest:
-            with state["u"].vector.localForm() as u_local, state["alpha"].vector.localForm() as alpha_local:
-                u_local.array[:] = u_0.vector.array[:] + h * v.vector.array[:]
-                alpha_local.array[:] = alpha_0.vector.array[:] + h * beta.vector.array[:]
+            with state["u"].x.petsc_vec.localForm() as u_local, state["alpha"].x.petsc_vec.localForm() as alpha_local:
+                u_local.array[:] = u_0.x.petsc_vec.array[:] + h * v.x.petsc_vec.array[:]
+                alpha_local.array[:] = alpha_0.x.petsc_vec.array[:] + h * beta.x.petsc_vec.array[:]
 
-            state["u"].vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
-            state["alpha"].vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+            state["u"].x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+            state["alpha"].x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
 
             yh_norm = np.sum([norm_H1(func) for func in state.values()])
             perturbation_norms.append(yh_norm)
@@ -92,8 +93,8 @@ class LineSearch:
             energies_1d.append(en_h - en_0)
 
         # Restore original state
-        u_0.vector.copy(state["u"].vector)
-        alpha_0.vector.copy(state["alpha"].vector)
+        u_0.x.petsc_vec.copy(state["u"].x.petsc_vec)
+        alpha_0.x.petsc_vec.copy(state["alpha"].x.petsc_vec)
 
         # Polynomial fit and optimal step computation
         z = np.polyfit(htest, energies_1d, m)
@@ -129,12 +130,12 @@ class LineSearch:
 
         z0_norm = np.sum([norm_H1(func) for func in state.values()])
 
-        with state["u"].vector.localForm() as u_local, state["alpha"].vector.localForm() as alpha_local:
-            u_local.array[:] = u_local.array[:] + h * v.vector.array[:]
-            alpha_local.array[:] = alpha_local.array[:] + h * beta.vector.array[:]
+        with state["u"].x.petsc_vec.localForm() as u_local, state["alpha"].x.petsc_vec.localForm() as alpha_local:
+            u_local.array[:] = u_local.array[:] + h * v.x.petsc_vec.array[:]
+            alpha_local.array[:] = alpha_local.array[:] + h * beta.x.petsc_vec.array[:]
 
-        state["u"].vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
-        state["alpha"].vector.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+        state["u"].x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
+        state["alpha"].x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT_VALUES, mode=PETSc.ScatterMode.FORWARD)
 
         zh_norm = np.sum([norm_H1(func) for func in state.values()])
 
@@ -159,16 +160,16 @@ class LineSearch:
         alpha = state["alpha"]
         beta = bifurcation[1]
 
-        one = max(1.0, max(alpha.vector[:]))
-        mask = np.int32(np.where(beta.vector[:] > 0)[0])
+        one = max(1.0, max(alpha.x.petsc_vec[:]))
+        mask = np.int32(np.where(beta.x.petsc_vec[:] > 0)[0])
 
-        hp2 = (one - alpha.vector[mask]) / beta.vector[mask] if len(mask) > 0 else [np.inf]
-        hp1 = (alpha_lb.vector[mask] - alpha.vector[mask]) / beta.vector[mask] if len(mask) > 0 else [-np.inf]
+        hp2 = (one - alpha.x.petsc_vec[mask]) / beta.x.petsc_vec[mask] if len(mask) > 0 else [np.inf]
+        hp1 = (alpha_lb.x.petsc_vec[mask] - alpha.x.petsc_vec[mask]) / beta.x.petsc_vec[mask] if len(mask) > 0 else [-np.inf]
         hp = (max(hp1), min(hp2))
 
-        mask_neg = np.int32(np.where(beta.vector[:] < 0)[0])
-        hn2 = (one - alpha.vector[mask_neg]) / beta.vector[mask_neg] if len(mask_neg) > 0 else [-np.inf]
-        hn1 = (alpha_lb.vector[mask_neg] - alpha.vector[mask_neg]) / beta.vector[mask_neg] if len(mask_neg) > 0 else [np.inf]
+        mask_neg = np.int32(np.where(beta.x.petsc_vec[:] < 0)[0])
+        hn2 = (one - alpha.x.petsc_vec[mask_neg]) / beta.x.petsc_vec[mask_neg] if len(mask_neg) > 0 else [-np.inf]
+        hn1 = (alpha_lb.x.petsc_vec[mask_neg] - alpha.x.petsc_vec[mask_neg]) / beta.x.petsc_vec[mask_neg] if len(mask_neg) > 0 else [np.inf]
         hn = (max(hn2), min(hn1))
 
         hmax = np.array(np.min([hp[1], hn[1]]))
@@ -208,14 +209,14 @@ class LineSearch:
         beta = perturbation["beta"]
 
         # Ensure that the perturbation is non-negative
-        assert (beta.vector[:] >= 0).all(), "beta must be non-negative"
+        assert (beta.x.petsc_vec[:] >= 0).all(), "beta must be non-negative"
 
         # Compute the upper bound for the admissible interval
-        one = max(1.0, max(alpha.vector[:]))
-        mask = np.int32(np.where(beta.vector[:] > 0)[0])
+        one = max(1.0, max(alpha.x.petsc_vec[:]))
+        mask = np.int32(np.where(beta.x.petsc_vec[:] > 0)[0])
 
         _hmax = (
-            (one - alpha.vector[mask]) / beta.vector[mask]
+            (one - alpha.x.petsc_vec[mask]) / beta.x.petsc_vec[mask]
             if len(mask) > 0
             else [np.inf]
         )

@@ -31,7 +31,7 @@ from irrevolutions.utils import (ColorPrint, _logger, _write_history_data,
                                  history_data, set_vector_to_constant)
 from irrevolutions.utils.lib import _local_notch_asymptotic
 from irrevolutions.utils.viz import plot_mesh, plot_scalar, plot_vector
-
+import basix.ufl
 description = """We solve here a basic 2d of a notched specimen.
 Imagine a dinner a pizza which is missing a slice, and lots of hungry friends
 that pull from the sides of the pizza. Will a real pizza will break at the centre?
@@ -85,10 +85,10 @@ def run_computation(parameters, storage):
     hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     # Function spaces
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     # Define the state
@@ -135,7 +135,7 @@ def run_computation(parameters, storage):
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(
+        f.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -149,8 +149,8 @@ def run_computation(parameters, storage):
         )
     ]
     bcs_alpha = []
-    set_bc(alpha_ub.vector, bcs_alpha)
-    alpha_ub.vector.ghostUpdate(
+    set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+    alpha_ub.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
@@ -162,10 +162,10 @@ def run_computation(parameters, storage):
     u_ub = Function(V_u, name="displacement upper bound")
     alpha_lb = Function(V_alpha, name="damage lower bound")
     alpha_ub = Function(V_alpha, name="damage upper bound")
-    set_vector_to_constant(u_lb.vector, PETSc.NINFINITY)
-    set_vector_to_constant(u_ub.vector, PETSc.PINFINITY)
-    set_vector_to_constant(alpha_lb.vector, 0)
-    set_vector_to_constant(alpha_ub.vector, 1)
+    set_vector_to_constant(u_lb.x.petsc_vec, PETSc.NINFINITY)
+    set_vector_to_constant(u_ub.x.petsc_vec, PETSc.PINFINITY)
+    set_vector_to_constant(alpha_lb.x.petsc_vec, 0)
+    set_vector_to_constant(alpha_ub.x.petsc_vec, 1)
 
     model = Brittle(parameters["model"])
 
@@ -205,8 +205,8 @@ def run_computation(parameters, storage):
         )
 
         # update the lower bound
-        alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+        alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 

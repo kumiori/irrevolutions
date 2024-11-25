@@ -1,6 +1,7 @@
 import logging
 import os
 import pickle
+import basix.ufl
 
 import dolfinx
 import numpy as np
@@ -79,11 +80,11 @@ with XDMFFile(
 ) as file:
     mesh = file.read_mesh(name="mesh")
 
-element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+V_u = dolfinx.fem.functionspace(mesh, element_u)
+V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
 u = dolfinx.fem.Function(V_u, name="Displacement")
 alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 dx = ufl.Measure("dx", alpha.function_space.mesh)

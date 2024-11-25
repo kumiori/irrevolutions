@@ -5,6 +5,7 @@ import logging
 import os
 from pathlib import Path
 
+import basix.ufl
 import dolfinx
 import matplotlib.pyplot as plt
 import numpy as np
@@ -103,11 +104,11 @@ def test_rayleigh(parameters=None, storage=None):
     #
     _D = (np.pi**2 * _a / (_b * _c**2)) ** (1 / 3)
 
-    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+    V_u = dolfinx.fem.functionspace(mesh, element_u)
+    V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
     u = dolfinx.fem.Function(V_u, name="Displacement")
 
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
@@ -120,12 +121,12 @@ def test_rayleigh(parameters=None, storage=None):
 
     for zero in [zero_u, zero_alpha]:
         zero.interpolate(lambda x: np.zeros_like(x[0]))
-        zero.vector.ghostUpdate(
+        zero.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
     one_alpha.interpolate(lambda x: np.zeros_like(x[0]))
-    one_alpha.vector.ghostUpdate(
+    one_alpha.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 

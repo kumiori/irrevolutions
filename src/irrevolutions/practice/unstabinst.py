@@ -17,7 +17,7 @@ import dolfinx.io
 import dolfinx
 import logging
 import sys
-
+import basix.ufl
 sys.path.append("../")
 
 
@@ -216,10 +216,10 @@ fig.savefig("output/Vnotch_mesh.png")
 # Functional setting
 
 
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
+element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+V_u = dolfinx.fem.functionspace(mesh, element_u)
+V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
 
 u = dolfinx.fem.Function(V_u, name="Displacement")
 # the displacement
@@ -250,7 +250,7 @@ force.interpolate(
 u_corner.interpolate(lambda x: (np.zeros_like(x[0]), np.zeros_like(x[1])))
 
 for u in (u_corner,):
-    u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    u.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
 # total_energy = model.total_energy_density(
 #     state) * dx - ufl.dot(force, u)*ds(107) - ufl.dot(force, u)*ds(108)
@@ -297,8 +297,8 @@ bcs_u = [dirichletbc(u_, dofs_u_smallset), dirichletbc(u_corner, dofs_u_corners)
 
 bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 # Update the bounds
-set_bc(alpha_ub.vector, bcs_alpha)
-set_bc(alpha_lb.vector, bcs_alpha)
+set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+set_bc(alpha_lb.x.petsc_vec, bcs_alpha)
 
 model = Brittle(parameters["model"])
 
@@ -327,11 +327,11 @@ for i_t, t in enumerate(loads):
     # update boundary conditions
 
     u_.interpolate(lambda x: (np.zeros_like(x[0]), t * np.ones_like(x[1])))
-    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    u_.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     # update lower bound for damage
-    alpha.vector.copy(alpha_lb.vector)
-    alpha.vector.ghostUpdate(
+    alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+    alpha.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 

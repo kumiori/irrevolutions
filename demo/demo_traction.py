@@ -27,7 +27,7 @@ from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import DamageElasticityModel as Brittle
 from irrevolutions.utils.plots import plot_energies, plot_force_displacement
 from irrevolutions.utils.viz import plot_scalar, plot_vector
-
+import basix.ufl
 logging.basicConfig(level=logging.INFO)
 
 
@@ -79,10 +79,10 @@ with XDMFFile(
     file.write_mesh(mesh)
 
 # Function spaces
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
 V_u = FunctionSpace(mesh, element_u)
 
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 V_alpha = FunctionSpace(mesh, element_alpha)
 
 # Define the state
@@ -115,7 +115,7 @@ alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
 alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
 for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
-    f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    f.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
 bc_u_left = dirichletbc(np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
@@ -134,8 +134,8 @@ bcs_u = [bc_u_left, bc_u_right]
 
 bcs_alpha = []
 
-set_bc(alpha_ub.vector, bcs_alpha)
-alpha_ub.vector.ghostUpdate(
+set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+alpha_ub.x.petsc_vec.ghostUpdate(
     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
 )
 
@@ -177,11 +177,11 @@ history_data = {
 
 for i_t, t in enumerate(loads):
     u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
-    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    u_.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     # update the lower bound
-    alpha.vector.copy(alpha_lb.vector)
-    alpha_lb.vector.ghostUpdate(
+    alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+    alpha_lb.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
