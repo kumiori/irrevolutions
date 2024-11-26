@@ -22,7 +22,7 @@ authors:
     equal-contrib: false
     affiliation: 2
 affiliations:
- - name: $\partial$'Alembert Institute, CNRS, Sorbonne Université, Place Jussieu 75252 Paris Cedex 05, France
+ - name: Sorbonne Université, CNRS, Institut Jean Le Rond d’Alembert, F-75005 Paris, France
    index: 1
  - name: Institute of Mathematics for Industry, Kyushu University, 744 Motooka, Nishi-ku, Fukuoka, 819-0395, Japan.
    index: 2
