@@ -95,11 +95,11 @@ The positivity of $\lambda^*$ (the smallest eigenvalue) allows to conclude on th
 
 We dedicate a separate contribution to illustrate how the three solvers are algorithmically combined to solve problem P(0) in the case of fracture. \autoref{fig:convergence} illustrates the numerical convergence properties of the `StabilitySolver` in a 1d verification test.
 
-In a [supplementary document](https://doi.org/10.5281/zenodo.14222736), we perform a thorough verification of the code through parametric benchmark for investigating the stability of a 1D mechanical system, providing analytical expressions used for comparison with numerical solutions, as well as all parameters (numerical and physical) employed in the calculations.
+In a [supplementary document](https://doi.org/10.5281/zenodo.14222736), we perform a thorough verification of the code through parametric benchmark for investigating the stability of a 1D mechanical system, providing analytical expressions used for comparison with numerical solutions, as well as all parameters (numerical and physical) employed in the calculations. Accuracy and reliability of the solvers is shown by the close agreement between numerical and analytic solutions in a benchmark minimisation of (a constrained) Rayleigh ratio, a key problem for applications in structural mechanics and stability analysis.
 
 <!-- In conclusion, we also provide a separate appendix that includes the . -->
 
-![Rate of convergence for `StabilitySolver` in 1d (cf. benchmark problem below). Targets are the eigenvalue $\lim_k \lambda_k =: \lambda^*$ (pink) and the associated eigen-vector $x^*$ (error curve in blue). Note that the residual vector (green) for the cone problem need not be zero at a solution.\label{fig:convergence}](media/test_1d_stability-spa.pdf)
+![Rate of convergence for `StabilitySolver` in 1d (cf. benchmark problem in the [Addendum](https://doi.org/10.5281/zenodo.14222736)). Targets are the eigenvalue $\lim_k \lambda_k =: \lambda^*$ (pink) and the associated eigen-vector $x^*$ (error curve in blue). Note that the residual vector (green) for the cone problem need not be zero at a solution.\label{fig:convergence}](media/test_1d_stability-spa.pdf)
 
 ## Acknowledgements
 
