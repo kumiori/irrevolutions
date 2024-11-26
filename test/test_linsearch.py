@@ -23,8 +23,7 @@ from dolfinx.fem import (Constant, Function, functionspace, assemble_scalar,
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.utilities import xvfb
-import basix.ufl
+from pyvista.plotting.utilities import xvfbimport basix.ufl
 
 from irrevolutions.algorithms.am import AlternateMinimisation, HybridSolver
 from irrevolutions.algorithms.ls import LineSearch

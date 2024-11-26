@@ -41,8 +41,7 @@ from irrevolutions.utils.viz import (plot_mesh, plot_profile, plot_scalar,
                                      plot_vector)
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.utilities import xvfb
-import random
+from pyvista.plotting.utilities import xvfbimport random
 import matplotlib.pyplot as plt
 
 from irrevolutions.utils.viz import _plot_bif_spectrum_profiles

@@ -21,8 +21,7 @@ from dolfinx.fem import (Constant, Function, assemble_scalar, form,
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.utilities import xvfb
-import basix.ufl
+from pyvista.plotting.utilities import xvfbimport basix.ufl
 
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver

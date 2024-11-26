@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from utils.viz import plot_scalar, plot_vector
-from pyvista.utilities import xvfb
-import pyvista
+from pyvista.plotting.utilities import xvfbimport pyvista
 from utils.plots import plot_AMit_load, plot_force_displacement
 import hashlib
 from irrevolutions.utils import ColorPrint

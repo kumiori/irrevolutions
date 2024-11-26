@@ -462,8 +462,7 @@ def traction_with_parameters(parameters, slug=""):
         )
 
     import pyvista
-    from pyvista.utilities import xvfb
-    from utils.viz import plot_scalar, plot_vector
+    from pyvista.plotting.utilities import xvfb    from utils.viz import plot_scalar, plot_vector
 
     #
     xvfb.start_xvfb(wait=0.05)
@@ -530,8 +529,7 @@ def _plot_bif_spectrum_profile(
     if plotter is None:
         import pyvista
 
-        # from pyvista.utilities import xvfb
-
+        # from pyvista.plotting.utilities import xvfb
         plotter = pyvista.Plotter(
             title="Bifurcation Spectrum Profile",
             window_size=[1600, 600],
@@ -603,8 +601,7 @@ def _plot_bif_spectrum_profile_fullvec(
     if plotter is None:
         import pyvista
 
-        # from pyvista.utilities import xvfb
-
+        # from pyvista.plotting.utilities import xvfb
         plotter = pyvista.Plotter(
             title="Bifurcation Spectrum Profile",
             window_size=[1600, 600],
@@ -681,8 +678,7 @@ def _plot_perturbations_profile(
     if plotter is None:
         import pyvista
 
-        # from pyvista.utilities import xvfb
-
+        # from pyvista.plotting.utilities import xvfb
         plotter = pyvista.Plotter(
             title="Test Profile",
             window_size=[800, 600],

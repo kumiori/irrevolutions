@@ -17,13 +17,13 @@ from dolfinx import log
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.utilities import xvfb
-
+from pyvista.plotting.utilities import xvfb
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import ElasticityModel
 from irrevolutions.solvers import SNESSolver as ElasticitySolver
 from irrevolutions.utils.viz import plot_vector
 import basix.ufl
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -69,7 +69,7 @@ with XDMFFile(comm, f"{prefix}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as f
 element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
 V_u = dolfinx.fem.functionspace(mesh, element_u)
 V_ux = dolfinx.fem.functionspace(
-    mesh,basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+    mesh, basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 )
 
 # Define the state
@@ -96,7 +96,9 @@ u_.interpolate(lambda x: (np.ones_like(x[0]), 0 * np.ones_like(x[1])))
 ux_.interpolate(lambda x: np.ones_like(x[0]))
 
 for f in [zero_u, ux_]:
-    f.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    f.x.petsc_vec.ghostUpdate(
+        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    )
 
 bcs_u = [
     dolfinx.fem.dirichletbc(zero_u, dofs_u_left),
@@ -133,7 +135,9 @@ history_data = {
 
 for i_t, t in enumerate(loads):
     u_.interpolate(lambda x: (t * np.ones_like(x[0]), 0 * np.ones_like(x[1])))
-    u_.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    u_.x.petsc_vec.ghostUpdate(
+        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    )
 
     logging.info(f"-- Solving for t = {t:3.2f} --")
 

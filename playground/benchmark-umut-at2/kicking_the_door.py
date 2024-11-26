@@ -39,8 +39,7 @@ from .vs_analytics_at2 import elastic_energy_density, damage_energy_density
 
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.utilities import xvfb
-
+from pyvista.plotting.utilities import xvfb
 from irrevolutions.utils.viz import _plot_bif_spectrum_profiles
 
 petsc4py.init(sys.argv)
@@ -252,8 +251,7 @@ def test_linsearch(parameters, storage):
 
         if not stable:
             import pyvista
-            from pyvista.utilities import xvfb
-
+            from pyvista.plotting.utilities import xvfb
             vec_to_functions(stability.solution["xt"], [v, β])
             perturbation = {"v": v, "beta": β}
 
@@ -428,8 +426,7 @@ def test_linsearch(parameters, storage):
     print(df.drop(["equilibrium_data", "cone_data"], axis=1))
 
     # Viz
-    from pyvista.utilities import xvfb
-    import pyvista
+    from pyvista.plotting.utilities import xvfb    import pyvista
     from utils.viz import plot_scalar, plot_vector
 
     #

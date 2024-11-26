@@ -2,8 +2,7 @@
 from irrevolutions.utils import ColorPrint
 from utils.viz import plot_scalar, plot_vector
 from utils.plots import plot_energies, plot_force_displacement
-from pyvista.utilities import xvfb
-from models import DamageElasticityModel as Brittle
+from pyvista.plotting.utilities import xvfbfrom models import DamageElasticityModel as Brittle
 from meshes.primitives import mesh_bar_gmshapi
 from algorithms.so import BifurcationSolver, StabilitySolver
 from algorithms.am import AlternateMinimisation, HybridSolver

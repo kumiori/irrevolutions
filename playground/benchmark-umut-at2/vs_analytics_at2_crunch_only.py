@@ -17,8 +17,15 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
-                         form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.fem.petsc import assemble_vector, set_bc
 from dolfinx.io import XDMFFile
 from irrevolutions.algorithms.am import HybridSolver
@@ -26,17 +33,25 @@ from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.algorithms.am import AlternateMinimisation1D as am1d
-from irrevolutions.utils import (ColorPrint, ResultsStorage, Visualization,
-                                 _logger, _write_history_data, history_data,
-                                 norm_H1, norm_L2)
-from irrevolutions.utils.plots import (plot_AMit_load, plot_energies,
-                                       plot_force_displacement)
-from irrevolutions.utils.viz import (plot_mesh, plot_profile, plot_scalar,
-                                     plot_vector)
+from irrevolutions.utils import (
+    ColorPrint,
+    ResultsStorage,
+    Visualization,
+    _logger,
+    _write_history_data,
+    history_data,
+    norm_H1,
+    norm_L2,
+)
+from irrevolutions.utils.plots import (
+    plot_AMit_load,
+    plot_energies,
+    plot_force_displacement,
+)
+from irrevolutions.utils.viz import plot_mesh, plot_profile, plot_scalar, plot_vector
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.utilities import xvfb
-
+from pyvista.plotting.utilities import xvfb
 from irrevolutions.utils.viz import _plot_bif_spectrum_profiles
 
 petsc4py.init(sys.argv)
@@ -50,6 +65,7 @@ def a(alpha):
     # k_res = parameters["model"]['k_res']
     return (1 - alpha) ** 2
 
+
 def w(alpha):
     """
     Return the homogeneous damage energy term,
@@ -60,8 +76,10 @@ def w(alpha):
     return alpha**2
     # return alpha
 
-def elastic_energy_density(state, 
-                           u_zero: Optional[dolfinx.fem.function.Function] = None):
+
+def elastic_energy_density(
+    state, u_zero: Optional[dolfinx.fem.function.Function] = None
+):
     """
     Returns the elastic energy density of the state.
     """
@@ -72,16 +90,17 @@ def elastic_energy_density(state,
 
     _mu = parameters["model"]["E"]
     _kappa = parameters["model"].get("kappa", 1.0)
-    
+
     # energy_density = _mu / 2.0 * ufl.inner(eps, eps)
     energy_density = _mu / 2.0 * a(alpha) * ufl.inner(eps, eps)
-    
+
     if u_zero is None:
         u_zero = Constant(u.function_space.mesh, 0.0)
 
     substrate_density = _kappa / 2.0 * ufl.inner(u - u_zero, u - u_zero)
 
     return energy_density + substrate_density
+
 
 def damage_energy_density(state):
     """
@@ -95,10 +114,12 @@ def damage_energy_density(state):
     grad_alpha = ufl.grad(alpha)
 
     # Compute the damage dissipation density
-    damage_density = _w1 * w(alpha) + \
-        _w1 * _ell**2 / 2. * ufl.dot(grad_alpha, grad_alpha)
+    damage_density = _w1 * w(alpha) + _w1 * _ell**2 / 2.0 * ufl.dot(
+        grad_alpha, grad_alpha
+    )
 
     return damage_density
+
 
 def stress(state):
     """
@@ -109,6 +130,7 @@ def stress(state):
     dx = ufl.Measure("dx", domain=u.function_space.mesh)
 
     return parameters["model"]["E"] * a(alpha) * u.dx() * dx
+
 
 def run_computation(parameters, storage=None):
     Lx = parameters["geometry"]["Lx"]
@@ -187,24 +209,25 @@ def run_computation(parameters, storage=None):
     alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
-    eps_t = dolfinx.fem.Constant(mesh, np.array(1., dtype=PETSc.ScalarType))
-    u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
-    
+    eps_t = dolfinx.fem.Constant(mesh, np.array(1.0, dtype=PETSc.ScalarType))
+    u_zero.interpolate(lambda x: eps_t / 2.0 * (2 * x[0] - Lx))
+
     for f in [u, zero_u, u_zero, alpha_lb, alpha_ub]:
         f.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-    bcs_u = [dirichletbc(u_zero, dofs_u_right), 
-             dirichletbc(u_zero, dofs_u_left)]
+    bcs_u = [dirichletbc(u_zero, dofs_u_right), dirichletbc(u_zero, dofs_u_left)]
 
     # bcs_u = []
     bcs_alpha = []
-    
+
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
-    
-    total_energy = (elastic_energy_density(state, u_zero) + damage_energy_density(state)) * dx
-    
+
+    total_energy = (
+        elastic_energy_density(state, u_zero) + damage_energy_density(state)
+    ) * dx
+
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
@@ -232,25 +255,24 @@ def run_computation(parameters, storage=None):
         "time_steps": [],
         "mesh": [],
         "point_values": {
-            'equilibrium_u': [],
-            'equilibrium_α': [],
-            'bifurcation_v': [],
-            'bifurcation_β': [],
-            'stability_v': [],
-            'stability_β': [],
+            "equilibrium_u": [],
+            "equilibrium_α": [],
+            "bifurcation_v": [],
+            "bifurcation_β": [],
+            "stability_v": [],
+            "stability_β": [],
         },
         "global_values": {
-            'bifurcation_λ': [],
-            'stability_λ': [],
+            "bifurcation_λ": [],
+            "stability_λ": [],
         },
     }
     POSTPROCESS = False
-    
-    for i_t, t in enumerate(loads):
 
+    for i_t, t in enumerate(loads):
         eps_t.value = t
-        
-        u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
+
+        u_zero.interpolate(lambda x: eps_t / 2.0 * (2 * x[0] - Lx))
         u_zero.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
@@ -303,7 +325,7 @@ def run_computation(parameters, storage=None):
                 [elastic_energy, fracture_energy],
             )
             history_data["F"].append(_F)
-            
+
             with XDMFFile(
                 comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
             ) as file:
@@ -315,11 +337,11 @@ def run_computation(parameters, storage=None):
                 json.dump(history_data, a_file)
                 a_file.close()
 
-    
     # df = pd.DataFrame(history_data)
     print(pd.DataFrame(history_data))
-    
+
     return history_data, stability.data, state
+
 
 def load_parameters(file_path, ndofs, model="at2"):
     """
@@ -360,7 +382,7 @@ def load_parameters(file_path, ndofs, model="at2"):
     parameters["model"]["ell"] = 0.158114
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["kappa"] = (.34)**(-2)/2
+    parameters["model"]["kappa"] = (0.34) ** (-2) / 2
 
     parameters["solvers"]["newton"]["snes_atol"] = 1.0e-12
     parameters["solvers"]["newton"]["snes_rtol"] = 1.0e-12
@@ -369,16 +391,18 @@ def load_parameters(file_path, ndofs, model="at2"):
 
     return parameters, signature
 
+
 if __name__ == "__main__":
     # Set the logging level
     logging.basicConfig(level=logging.INFO)
 
     # Load parameters
     parameters, signature = load_parameters(
-        os.path.join(os.path.dirname(__file__), "parameters.yaml"), 
-        ndofs=100, 
-        model="at2")
-    
+        os.path.join(os.path.dirname(__file__), "parameters.yaml"),
+        ndofs=100,
+        model="at2",
+    )
+
     # Run computation
     _storage = f"output/thinfilm-1d/MPI-{MPI.COMM_WORLD.Get_size()}/{signature[0:6]}"
     visualization = Visualization(_storage)
@@ -386,12 +410,12 @@ if __name__ == "__main__":
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
         history_data, stability_data, state = run_computation(parameters, _storage)
-    
+
     from irrevolutions.utils import table_timing_data
+
     _timings = table_timing_data()
     visualization.save_table(_timings, "timing_data")
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     ColorPrint.print_bold(f"===================- {signature} -=================")
     ColorPrint.print_bold(f"===================- {_storage} -=================")
-

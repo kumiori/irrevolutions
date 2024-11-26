@@ -7,9 +7,14 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from libidris.core import (elastic_energy_density_film, damage_energy_density, stress)
+from libidris.core import elastic_energy_density_film, damage_energy_density, stress
 from libidris.core import a
-from libidris.core import setup_output_directory, save_parameters, create_function_spaces_2d, initialize_functions
+from libidris.core import (
+    setup_output_directory,
+    save_parameters,
+    create_function_spaces_2d,
+    initialize_functions,
+)
 
 import dolfinx
 import dolfinx.mesh
@@ -21,8 +26,15 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
-                         form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.fem.petsc import assemble_vector, set_bc
 from dolfinx.io import XDMFFile, gmshio
 from irrevolutions.algorithms.am import HybridSolver
@@ -30,20 +42,28 @@ from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.algorithms.ls import StabilityStepper, LineSearch
 
 from irrevolutions.solvers.function import vec_to_functions
-from irrevolutions.utils import (ColorPrint, ResultsStorage, Visualization,
-                                 _logger, _write_history_data, history_data,
-                                 norm_H1, norm_L2)
-from irrevolutions.utils.plots import (plot_AMit_load, plot_energies,
-                                       plot_force_displacement)
-from irrevolutions.utils.viz import (plot_mesh, plot_profile, plot_scalar,
-                                     plot_vector)
+from irrevolutions.utils import (
+    ColorPrint,
+    ResultsStorage,
+    Visualization,
+    _logger,
+    _write_history_data,
+    history_data,
+    norm_H1,
+    norm_L2,
+)
+from irrevolutions.utils.plots import (
+    plot_AMit_load,
+    plot_energies,
+    plot_force_displacement,
+)
+from irrevolutions.utils.viz import plot_mesh, plot_profile, plot_scalar, plot_vector
 from irrevolutions.models import BrittleMembraneOverElasticFoundation as ThinFilm
 from irrevolutions.meshes.primitives import mesh_circle_gmshapi
 
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.utilities import xvfb
-
+from pyvista.plotting.utilities import xvfb
 from irrevolutions.utils.viz import _plot_bif_spectrum_profiles
 
 petsc4py.init(sys.argv)
@@ -54,7 +74,6 @@ model_rank = 0
 
 
 class ThinFilmWithImposedDisplacement(ThinFilm):
-    
     def __init__(self, model_parameters={}, u_0=0):
         """
         Initialie material parameters.
@@ -71,7 +90,7 @@ class ThinFilmWithImposedDisplacement(ThinFilm):
         super().__init__(model_parameters)
         if model_parameters:
             self.model_parameters.update(model_parameters)
-        
+
         # Initialize the damage parameters
         self.w1 = self.model_parameters["w1"]
         self.ell = self.model_parameters["ell"]
@@ -86,25 +105,23 @@ class ThinFilmWithImposedDisplacement(ThinFilm):
         # Parameters
         alpha = state["alpha"]
         u = state["u"]
-        u_0 = self.u_0 
+        u_0 = self.u_0
         return self.elastic_energy_density_strain(
-            self.eps(u), alpha) + self.elastic_foundation_density(u - u_0)
+            self.eps(u), alpha
+        ) + self.elastic_foundation_density(u - u_0)
+
 
 def run_computation(parameters, storage=None):
     _nameExp = parameters["geometry"]["geom_type"]
     R = parameters["geometry"]["R"]
-    lc = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]    
-    
+    lc = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]
+
     # Get geometry model
     parameters["geometry"]["geom_type"]
 
-    gmsh_model, tdim = mesh_circle_gmshapi(_nameExp,
-                        R,
-                        lc,
-                        tdim=2,
-                        order=1,
-                        msh_file=None,
-                        comm=MPI.COMM_WORLD)
+    gmsh_model, tdim = mesh_circle_gmshapi(
+        _nameExp, R, lc, tdim=2, order=1, msh_file=None, comm=MPI.COMM_WORLD
+    )
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
     outdir = os.path.join(os.path.dirname(__file__), "output")
@@ -112,7 +129,7 @@ def run_computation(parameters, storage=None):
     prefix = setup_output_directory(storage, parameters, outdir)
 
     signature = save_parameters(parameters, prefix)
-    
+
     with XDMFFile(
         comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
     ) as file:
@@ -130,7 +147,7 @@ def run_computation(parameters, storage=None):
     # Define the state
     zero_u = Function(V_u, name="BoundaryUnknown")
     zero_u.interpolate(lambda x: (np.zeros_like(x[0]), np.zeros_like(x[1])))
-    
+
     u_zero = Function(V_u, name="InelasticDisplacement")
 
     def radial_field(x):
@@ -139,14 +156,14 @@ def run_computation(parameters, storage=None):
         u_y = x[1]
         return np.array([u_x, u_y])
 
-    eps_t = dolfinx.fem.Constant(mesh, np.array(1., dtype=PETSc.ScalarType))
+    eps_t = dolfinx.fem.Constant(mesh, np.array(1.0, dtype=PETSc.ScalarType))
     u_zero.interpolate(lambda x: radial_field(x) * eps_t)
-    
+
     tdim = mesh.topology.dim
     fdim = tdim - 1
     mesh.topology.create_connectivity(fdim, tdim)
     boundary_facets = dolfinx.mesh.exterior_facet_indices(mesh.topology)
-    
+
     alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
@@ -161,11 +178,11 @@ def run_computation(parameters, storage=None):
 
     bcs_alpha = []
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
-    
+
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
     model = ThinFilmWithImposedDisplacement(parameters["model"], u_0=u_zero)
-    
+
     f = Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
     external_work = ufl.dot(f, state["u"]) * dx
     total_energy = model.total_energy_density(state) * dx - external_work
@@ -188,22 +205,22 @@ def run_computation(parameters, storage=None):
     stability = StabilitySolver(
         total_energy, state, bcs, cone_parameters=parameters.get("stability")
     )
-    
+
     linesearch = LineSearch(
         total_energy,
         state,
         linesearch_parameters=parameters.get("stability").get("linesearch"),
     )
-    
+
     iterator = StabilityStepper(loads)
     arclength = []
-    
+
     while True:
         try:
             i_t, t = next(iterator)
         except StopIteration:
             break
-        
+
         eps_t.value = t
         u_zero.interpolate(lambda x: radial_field(x) * eps_t)
         u_zero.vector.ghostUpdate(
@@ -223,7 +240,7 @@ def run_computation(parameters, storage=None):
         is_unique = bifurcation.solve(alpha_lb)
         is_elastic = not bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
-        
+
         z0 = (
             bifurcation._spectrum[0]["xk"]
             if bifurcation._spectrum and "xk" in bifurcation._spectrum[0]
@@ -235,9 +252,9 @@ def run_computation(parameters, storage=None):
         equilibrium.log()
         bifurcation.log()
         ColorPrint.print_bold(f"===================- {_storage} -=================")
-        
+
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
-        
+
         equilibrium.log()
         bifurcation.log()
         stability.log()
@@ -255,16 +272,20 @@ def run_computation(parameters, storage=None):
                 op=MPI.SUM,
             )
             elastic_energy = comm.allreduce(
-                assemble_scalar(form(elastic_energy_density_film(state, parameters, u_zero) * dx)),
+                assemble_scalar(
+                    form(elastic_energy_density_film(state, parameters, u_zero) * dx)
+                ),
                 op=MPI.SUM,
             )
 
         with dolfinx.common.Timer(f"~Output and Storage") as timer:
-            
             BINARY_DATA = False
             if BINARY_DATA:
                 with XDMFFile(
-                    comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+                    comm,
+                    f"{prefix}/{_nameExp}.xdmf",
+                    "a",
+                    encoding=XDMFFile.Encoding.HDF5,
                 ) as file:
                     file.write_function(u, t)
                     file.write_function(alpha, t)
@@ -275,17 +296,18 @@ def run_computation(parameters, storage=None):
                 a_file.close()
 
             _write_history_data(
-            equilibrium = equilibrium,
-            bifurcation = bifurcation,
-            stability = stability,
-            history_data = history_data,
-            t=t,
-            stable = np.nan,
-            energies = [elastic_energy, fracture_energy],
-        )
-        
+                equilibrium=equilibrium,
+                bifurcation=bifurcation,
+                stability=stability,
+                history_data=history_data,
+                t=t,
+                stable=np.nan,
+                energies=[elastic_energy, fracture_energy],
+            )
+
     print(pd.DataFrame(history_data).drop(columns=["cone_data", "equilibrium_data"]))
     return history_data, {}, state
+
 
 def load_parameters(file_path, ndofs, model="at1"):
     """
@@ -315,7 +337,7 @@ def load_parameters(file_path, ndofs, model="at1"):
         parameters["loading"]["min"] = 0.7
         parameters["loading"]["max"] = 1.3
         parameters["loading"]["steps"] = 10
-        
+
     parameters["geometry"]["geom_type"] = "circle"
     parameters["geometry"]["mesh_size_factor"] = 3
 
@@ -328,12 +350,13 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["model"]["ell"] = 0.05
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["ell_e"] = .2
+    parameters["model"]["ell_e"] = 0.2
     # parameters["model"]["kappa"] = (.3)**(-2)
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     return parameters, signature
+
 
 if __name__ == "__main__":
     # Set the logging level
@@ -341,27 +364,29 @@ if __name__ == "__main__":
 
     # Load parameters
     parameters, signature = load_parameters(
-        os.path.join(os.path.dirname(__file__), "../parameters", "2d_parameters.yaml"), 
-        ndofs=100, 
-        model="at1")
-    
+        os.path.join(os.path.dirname(__file__), "../parameters", "2d_parameters.yaml"),
+        ndofs=100,
+        model="at1",
+    )
+
     # Run computation
     _storage = f"../output/2d-film-second-order-stability-kick/MPI-{MPI.COMM_WORLD.Get_size()}/{signature[0:6]}"
     visualization = Visualization(_storage)
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
         history_data, _, state = run_computation(parameters, _storage)
-    
+
     from irrevolutions.utils import table_timing_data
-    
-    tasks = ["~First Order: Equilibrium",
+
+    tasks = [
+        "~First Order: Equilibrium",
         "~First Order: AltMin-Damage solver",
         "~First Order: AltMin-Elastic solver",
         "~Postprocessing and Vis",
         "~Output and Storage",
-        "~Computation Experiment"
-        ]
-    
+        "~Computation Experiment",
+    ]
+
     _timings = table_timing_data(tasks)
     visualization.save_table(_timings, "timing_data")
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])

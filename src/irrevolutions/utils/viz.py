@@ -2,8 +2,7 @@ import scipy
 from dolfinx.plot import vtk_mesh as compute_topology
 import matplotlib.tri as tri
 import matplotlib.pyplot as plt
-from pyvista.utilities import xvfb
-import pyvista
+from pyvista.plotting.utilities import xvfbimport pyvista
 from mpi4py import MPI
 import logging
 import sys

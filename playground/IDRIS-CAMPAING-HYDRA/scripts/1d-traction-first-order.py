@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 import hashlib
 import json
@@ -18,8 +17,15 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
-                         form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.fem.petsc import assemble_vector, set_bc
 from dolfinx.io import XDMFFile
 from irrevolutions.algorithms.am import HybridSolver
@@ -27,17 +33,25 @@ from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.test.test_1d import _AlternateMinimisation1D as am1d
-from irrevolutions.utils import (ColorPrint, ResultsStorage, Visualization,
-                                 _logger, _write_history_data, history_data,
-                                 norm_H1, norm_L2)
-from irrevolutions.utils.plots import (plot_AMit_load, plot_energies,
-                                       plot_force_displacement)
-from irrevolutions.utils.viz import (plot_mesh, plot_profile, plot_scalar,
-                                     plot_vector)
+from irrevolutions.utils import (
+    ColorPrint,
+    ResultsStorage,
+    Visualization,
+    _logger,
+    _write_history_data,
+    history_data,
+    norm_H1,
+    norm_L2,
+)
+from irrevolutions.utils.plots import (
+    plot_AMit_load,
+    plot_energies,
+    plot_force_displacement,
+)
+from irrevolutions.utils.viz import plot_mesh, plot_profile, plot_scalar, plot_vector
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.utilities import xvfb
-
+from pyvista.plotting.utilities import xvfb
 from irrevolutions.utils.viz import _plot_bif_spectrum_profiles
 
 petsc4py.init(sys.argv)
@@ -124,24 +138,25 @@ def run_computation(parameters, storage=None):
     alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
-    eps_t = dolfinx.fem.Constant(mesh, np.array(1., dtype=PETSc.ScalarType))
-    u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
-    
+    eps_t = dolfinx.fem.Constant(mesh, np.array(1.0, dtype=PETSc.ScalarType))
+    u_zero.interpolate(lambda x: eps_t / 2.0 * (2 * x[0] - Lx))
+
     for f in [u, zero_u, u_zero, alpha_lb, alpha_ub]:
         f.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-    bcs_u = [dirichletbc(u_zero, dofs_u_right), 
-             dirichletbc(u_zero, dofs_u_left)]
+    bcs_u = [dirichletbc(u_zero, dofs_u_right), dirichletbc(u_zero, dofs_u_left)]
 
     # bcs_u = []
     bcs_alpha = []
-    
+
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
-    
-    total_energy = (elastic_energy_density(state, u_zero) + damage_energy_density(state)) * dx
-    
+
+    total_energy = (
+        elastic_energy_density(state, u_zero) + damage_energy_density(state)
+    ) * dx
+
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
@@ -165,12 +180,10 @@ def run_computation(parameters, storage=None):
 
     logging.basicConfig(level=logging.INFO)
 
-
     for i_t, t in enumerate(loads):
-
         eps_t.value = t
-        
-        u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
+
+        u_zero.interpolate(lambda x: eps_t / 2.0 * (2 * x[0] - Lx))
         u_zero.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
@@ -207,7 +220,6 @@ def run_computation(parameters, storage=None):
                     history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
                 )
 
-
             xvfb.start_xvfb(wait=0.05)
             pyvista.OFF_SCREEN = True
 
@@ -228,11 +240,10 @@ def run_computation(parameters, storage=None):
                 plotter,
                 lineproperties={
                     "c": "k",
-                    "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}"
+                    "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}",
                 },
             )
             ax = _plt.gca()
-
 
             _plt, data = plot_profile(
                 u_zero,
@@ -240,13 +251,8 @@ def run_computation(parameters, storage=None):
                 plotter,
                 fig=_plt,
                 ax=ax,
-                lineproperties={
-                    "c": "r",
-                    "lw": 3,
-                    "label": "$u_0$"
-                },
+                lineproperties={"c": "r", "lw": 3, "label": "$u_0$"},
             )
-
 
             _plt, data = plot_profile(
                 state["u"],
@@ -254,15 +260,12 @@ def run_computation(parameters, storage=None):
                 plotter,
                 fig=_plt,
                 ax=ax,
-                lineproperties={
-                    "c": "g",
-                    "label": "$u$"
-                },
+                lineproperties={"c": "g", "label": "$u$"},
             )
 
             if bifurcation._spectrum:
-                vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
-                
+                vec_to_functions(bifurcation._spectrum[0]["xk"], [v, β])
+
                 _plt, data = plot_profile(
                     β,
                     points,
@@ -271,47 +274,48 @@ def run_computation(parameters, storage=None):
                     ax=ax,
                     lineproperties={
                         "c": "k",
-                        "label": f"$\\beta, \\lambda = {bifurcation._spectrum[0]['lambda']:.0e}$"
+                        "label": f"$\\beta, \\lambda = {bifurcation._spectrum[0]['lambda']:.0e}$",
                     },
                 )
                 _plt.legend()
                 # _plt.fill_between(data[0], data[1].reshape(len(data[1])))
 
-            if hasattr(stability, 'perturbation'):
-                if stability.perturbation['λ'] < 0:
+            if hasattr(stability, "perturbation"):
+                if stability.perturbation["λ"] < 0:
                     _colour = "r"
                     _style = "--"
                 else:
                     _colour = "b"
                     _style = ":"
-                    
+
                 _plt, data = plot_profile(
-                            stability.perturbation['β'],
-                            points,
-                            plotter,
-                            fig=_plt,
-                            ax=ax,
-                            lineproperties={
-                                "c": _colour,
-                                "ls": _style,
-                                "lw": 3,
-                                "label": f"$\\beta^+, \\lambda = {stability.perturbation['λ']:.0e}$"
-                            },
-                        )
+                    stability.perturbation["β"],
+                    points,
+                    plotter,
+                    fig=_plt,
+                    ax=ax,
+                    lineproperties={
+                        "c": _colour,
+                        "ls": _style,
+                        "lw": 3,
+                        "label": f"$\\beta^+, \\lambda = {stability.perturbation['λ']:.0e}$",
+                    },
+                )
 
             _plt.legend()
             # _plt.fill_between(data[0], data[1].reshape(len(data[1])))
             _plt.title("Solution and Perturbation profile")
             ax.set_ylim(-2.1, 2.1)
-            ax.axhline(0, color="k", lw=.5)
+            ax.axhline(0, color="k", lw=0.5)
             _plt.savefig(f"{prefix}/damage_profile-{i_t}.png")
 
             if bifurcation._spectrum:
-                _plotter, _plt = _plot_bif_spectrum_profiles(bifurcation._spectrum, parameters, prefix, label='')
+                _plotter, _plt = _plot_bif_spectrum_profiles(
+                    bifurcation._spectrum, parameters, prefix, label=""
+                )
                 _plt.title("Bifurcation profiles")
                 _plt.savefig(f"{prefix}/perturbation_profiles-{i_t}.png")
-                
-            
+
             fracture_energy = comm.allreduce(
                 assemble_scalar(form(damage_energy_density(state) * dx)),
                 op=MPI.SUM,
@@ -333,7 +337,7 @@ def run_computation(parameters, storage=None):
                 [elastic_energy, fracture_energy],
             )
             history_data["F"].append(_F)
-            
+
             with XDMFFile(
                 comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
             ) as file:
@@ -345,10 +349,9 @@ def run_computation(parameters, storage=None):
                 json.dump(history_data, a_file)
                 a_file.close()
 
-    
     # df = pd.DataFrame(history_data)
     print(pd.DataFrame(history_data))
-    
+
     return history_data, stability.data, state
 
 
@@ -392,11 +395,12 @@ def load_parameters(file_path, ndofs, model="at2"):
     parameters["model"]["ell"] = 0.158114
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["kappa"] = (.34)**(-2)
+    parameters["model"]["kappa"] = (0.34) ** (-2)
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     return parameters, signature
+
 
 if __name__ == "__main__":
     # Set the logging level
@@ -404,22 +408,23 @@ if __name__ == "__main__":
 
     # Load parameters
     parameters, signature = load_parameters(
-        os.path.join(os.path.dirname(__file__), "parameters.yaml"), 
-        ndofs=100, 
-        model="at2")
-    
+        os.path.join(os.path.dirname(__file__), "parameters.yaml"),
+        ndofs=100,
+        model="at2",
+    )
+
     # Run computation
     _storage = f"../../output/1d-traction-first-order/MPI-{MPI.COMM_WORLD.Get_size()}/{signature[0:6]}"
     visualization = Visualization(_storage)
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
         history_data, stability_data, state = run_computation(parameters, _storage)
-    
+
     from irrevolutions.utils import table_timing_data
+
     _timings = table_timing_data()
     visualization.save_table(_timings, "timing_data")
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     ColorPrint.print_bold(f"===================- {signature} -=================")
     ColorPrint.print_bold(f"===================- {_storage} -=================")
-

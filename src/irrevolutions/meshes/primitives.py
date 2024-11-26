@@ -366,6 +366,7 @@ if __name__ == "__main__":
 
     import dolfinx.plot
     from mesh import gmsh_to_dolfin
+
     # , merge_meshtags, locate_dofs_topological
     from mpi4py import MPI
     from xdmf import XDMFFile
@@ -379,7 +380,7 @@ if __name__ == "__main__":
         ofile.write_mesh_meshtags(mesh, mts)
 
     import pyvista
-    from pyvista.utilities import xvfb
+    from pyvista.plotting.utilities import xvfb
 
     xvfb.start_xvfb(wait=0.05)
     pyvista.OFF_SCREEN = True

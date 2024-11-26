@@ -1,7 +1,6 @@
 # library include
 from utils.viz import plot_mesh, plot_scalar, plot_vector
-from pyvista.utilities import xvfb
-from petsc4py import PETSc
+from pyvista.plotting.utilities import xvfbfrom petsc4py import PETSc
 from models import DamageElasticityModel as Brittle
 from dolfinx.fem import (assemble_scalar, dirichletbc, locate_dofs_geometrical,
                          set_bc)
