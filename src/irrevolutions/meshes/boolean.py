@@ -1,9 +1,7 @@
 from mpi4py import MPI
 
 
-def mesh_bar_gmshapi(name,
-                     msh_file=None,
-                     comm=MPI.COMM_WORLD):
+def mesh_bar_gmshapi(name, msh_file=None, comm=MPI.COMM_WORLD):
     """
     Create mesh.
     """
@@ -15,9 +13,10 @@ def mesh_bar_gmshapi(name,
     # Perform Gmsh work only on rank = 0
 
     if comm.rank == 0:
+        import warnings
 
         import gmsh
-        import warnings
+
         warnings.filterwarnings("ignore")
         # Initialise gmsh and set options
         gmsh.initialize()
@@ -25,10 +24,11 @@ def mesh_bar_gmshapi(name,
         # gmsh.option.setNumber("Mesh.Algorithm", 6)
         # model = gmsh.model()
         gmsh.model.add("Bool 2D")
-        L, H, r = 1., 1., .1
-        hole = gmsh.model.occ.addCircle(L / 2, L / 2, 0., r, tag=1)
-        domain = gmsh.model.occ.addRectangle(0, 0, 0., L, H, tag=2, roundedRadius=.1)
-        boolean = gmsh.model.occ.cut([(2, hole)], [(2, domain)], tag=3)
+        L, H, r = 1.0, 1.0, 0.1
+        hole = gmsh.model.occ.addCircle(L / 2, L / 2, 0.0, r, tag=1)
+        domain = gmsh.model.occ.addRectangle(0, 0, 0.0, L, H, tag=2, roundedRadius=0.1)
+        gmsh.model.occ.cut([(2, hole)], [(2, domain)], tag=3)
+
 
 def mesh_moonslice_gmshapi(
     name,
@@ -36,7 +36,7 @@ def mesh_moonslice_gmshapi(
     lc,
     tdim=2,
     order=1,
-    msh_file='bool',
+    msh_file="bool",
     comm=MPI.COMM_WORLD,
 ):
     """
@@ -49,8 +49,10 @@ def mesh_moonslice_gmshapi(
 
     # Perform Gmsh work only on rank = 0
     if comm.rank == 0:
-        import gmsh
         import warnings
+
+        import gmsh
+
         warnings.filterwarnings("ignore")
         gmsh.initialize()
         gmsh.option.setNumber("General.Terminal", 1)
@@ -66,7 +68,7 @@ def mesh_moonslice_gmshapi(
         # R1=1.; R2=2.3; R3=1.; ex=0.; ey=-.3
 
         gmsh.model.occ.addDisk(0, 0, 0, R1, R1, tag=1)
-        gmsh.model.occ.addDisk(ex, ey, 0., R2, R3, tag=2)
+        gmsh.model.occ.addDisk(ex, ey, 0.0, R2, R3, tag=2)
         gmsh.model.occ.cut([(tdim, 1)], [(tdim, 2)], 3)
         gmsh.model.occ.synchronize()
         model = gmsh.model
@@ -76,13 +78,12 @@ def mesh_moonslice_gmshapi(
         model.setPhysicalName(tdim, domain, "Surface")
         gmsh.model.mesh.setOrder(order)
 
-
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20)
 
         # We can constraint the min and max element sizes to stay within reasonnable
         # values (see `t10.py' for more details):
-        gmsh.option.setNumber("Mesh.MeshSizeMin", lc/2.)
-        gmsh.option.setNumber("Mesh.MeshSizeMax", 2*lc)
+        gmsh.option.setNumber("Mesh.MeshSizeMin", lc / 2.0)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", 2 * lc)
 
         gmsh.model.mesh.generate(tdim)
 

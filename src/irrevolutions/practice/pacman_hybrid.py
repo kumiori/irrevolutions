@@ -1,49 +1,35 @@
-import sys
-from pathlib import Path
-import os
-from pyvista.utilities import xvfb
-import pyvista
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    locate_dofs_topological,
-    set_bc,
-)
-import matplotlib.pyplot as plt
-from dolfinx.io import XDMFFile, gmshio
-from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
-from dolfinx.fem import locate_dofs_topological
-import yaml
-import dolfinx.plot
-
-
-sys.path.append("../")
 from irrevolutions.utils import ColorPrint, set_vector_to_constant
-from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation as AM, HybridSolver
-
-from meshes.pacman import mesh_pacman
+from utils.viz import plot_mesh, plot_scalar, plot_vector
 from utils.lib import _local_notch_asymptotic
-
-from utils.viz import plot_mesh, plot_vector, plot_scalar
-from mpi4py import MPI
-import json
-from petsc4py import PETSc
 from solvers.function import functions_to_vec
-from dolfinx.fem import FunctionSpace
+from petsc4py import PETSc
+from mpi4py import MPI
+from models import DamageElasticityModel as Brittle
+from meshes.pacman import mesh_pacman
+from algorithms.am import HybridSolver
 import ufl
 import petsc4py
-from solvers.snesblockproblem import SNESBlockProblem
+import numpy as np
 import dolfinx
 from datetime import date
 import logging
+import json
+import os
+import sys
+from pathlib import Path
 
-import numpy as np
+import dolfinx.plot
+import matplotlib.pyplot as plt
+import pyvista
+import yaml
+from dolfinx.fem import (Function, FunctionSpace, dirichletbc,
+                         locate_dofs_topological, set_bc)
+from dolfinx.io import XDMFFile, gmshio
+from dolfinx.mesh import locate_entities_boundary
+from pyvista.utilities import xvfb
+import basix.ufl
+sys.path.append("../")
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -68,8 +54,7 @@ class ConvergenceError(Exception):
 
 def _make_reasons(reasons):
     return dict(
-        [(getattr(reasons, r), r)
-         for r in dir(reasons) if not r.startswith("_")]
+        [(getattr(reasons, r), r) for r in dir(reasons) if not r.startswith("_")]
     )
 
 
@@ -111,13 +96,12 @@ prefix = os.path.join(outdir, "pacman")
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
 
+
 def pacman_hybrid(nest):
     # Parameters
-    Lx = 1.0
-    Ly = 0.1
+    pass
     # tdim = 2
     # _ell = 0.3
-    _nel = 30
 
     with open(f"{prefix}/parameters.yaml") as f:
         parameters = yaml.load(f, Loader=yaml.FullLoader)
@@ -129,14 +113,14 @@ def pacman_hybrid(nest):
     _omega = parameters["geometry"]["omega"]
     tdim = parameters["geometry"]["geometric_dimension"]
     _nameExp = parameters["geometry"]["geom_type"]
-    _nameExp = 'pacman'
+    _nameExp = "pacman"
     ell_ = parameters["model"]["ell"]
-    lc = ell_ / 1.
+    lc = ell_ / 1.0
 
     parameters["geometry"]["lc"] = lc
 
-    parameters["loading"]["min"] = 0.
-    parameters["loading"]["max"] = .5
+    parameters["loading"]["min"] = 0.0
+    parameters["loading"]["max"] = 0.5
     # Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
 
@@ -148,7 +132,9 @@ def pacman_hybrid(nest):
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_mesh(mesh)
 
     if comm.rank == 0:
@@ -158,10 +144,10 @@ def pacman_hybrid(nest):
         fig.savefig(f"{prefix}/mesh.png")
 
     # Function spaces
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     # Define the state
@@ -181,28 +167,36 @@ def pacman_hybrid(nest):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Set Bcs Function
 
     ext_bd_facets = locate_entities_boundary(
-        mesh, dim=1, marker=lambda x: np.isclose(x[0]**2. + x[1]**2. - _r**2, 0., atol=1.e-4)
+        mesh,
+        dim=1,
+        marker=lambda x: np.isclose(
+            x[0] ** 2.0 + x[1] ** 2.0 - _r**2, 0.0, atol=1.0e-4
+        ),
     )
 
-    boundary_dofs_u = locate_dofs_topological(
-        V_u, mesh.topology.dim - 1, ext_bd_facets)
+    boundary_dofs_u = locate_dofs_topological(V_u, mesh.topology.dim - 1, ext_bd_facets)
     boundary_dofs_alpha = locate_dofs_topological(
-        V_alpha, mesh.topology.dim - 1, ext_bd_facets)
+        V_alpha, mesh.topology.dim - 1, ext_bd_facets
+    )
 
-    uD.interpolate(lambda x: _local_notch_asymptotic(
-        x, ω=np.deg2rad(_omega / 2.), par=parameters["material"]))
+    uD.interpolate(
+        lambda x: _local_notch_asymptotic(
+            x, ω=np.deg2rad(_omega / 2.0), par=parameters["material"]
+        )
+    )
 
     alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                             mode=PETSc.ScatterMode.FORWARD)
+        f.x.petsc_vec.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
     bcs_u = [dirichletbc(value=uD, dofs=boundary_dofs_u)]
 
@@ -214,13 +208,13 @@ def pacman_hybrid(nest):
         )
     ]
 
-    set_bc(alpha_ub.vector, bcs_alpha)
-    alpha_ub.vector.ghostUpdate(
+    set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+    alpha_ub.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
-    bcs_z = bcs_u + bcs_alpha
+    bcs_u + bcs_alpha
 
     # Bounds for Newton solver
 
@@ -228,10 +222,10 @@ def pacman_hybrid(nest):
     u_ub = Function(V_u, name="displacement upper bound")
     alpha_lb = Function(V_alpha, name="damage lower bound")
     alpha_ub = Function(V_alpha, name="damage upper bound")
-    set_vector_to_constant(u_lb.vector, PETSc.NINFINITY)
-    set_vector_to_constant(u_ub.vector, PETSc.PINFINITY)
-    set_vector_to_constant(alpha_lb.vector, 0)
-    set_vector_to_constant(alpha_ub.vector, 1)
+    set_vector_to_constant(u_lb.x.petsc_vec, PETSc.NINFINITY)
+    set_vector_to_constant(u_ub.x.petsc_vec, PETSc.PINFINITY)
+    set_vector_to_constant(alpha_lb.x.petsc_vec, 0)
+    set_vector_to_constant(alpha_ub.x.petsc_vec, 1)
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
@@ -249,8 +243,8 @@ def pacman_hybrid(nest):
     Eu = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
     Ealpha = ufl.derivative(total_energy, alpha, ufl.TestFunction(V_alpha))
 
-    F = [Eu, Ealpha]
-    z = [u, alpha]
+    [Eu, Ealpha]
+    [u, alpha]
 
     hybrid = HybridSolver(
         total_energy,
@@ -261,17 +255,16 @@ def pacman_hybrid(nest):
     )
 
     load_par = parameters["loading"]
-    loads = np.linspace(load_par["min"],
-                        load_par["max"], load_par["steps"])
+    loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
     # loads = [0.1, 1.0, 1.1]
     # loads = np.linspace(0.3, 1., 10)
 
     if comm.rank == 0:
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
 
-    snes = hybrid.newton.snes
+    hybrid.newton.snes
 
     lb = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
     ub = dolfinx.fem.petsc.create_vector_nest(hybrid.newton.F_form)
@@ -281,17 +274,15 @@ def pacman_hybrid(nest):
     data = []
 
     for i_t, t in enumerate(loads):
-
-        uD.interpolate(lambda x: _local_notch_asymptotic(
-            x,
-            ω=np.deg2rad(_omega / 2.),
-            t=t,
-            par=parameters["material"]
-        ))
+        uD.interpolate(
+            lambda x: _local_notch_asymptotic(
+                x, ω=np.deg2rad(_omega / 2.0), t=t, par=parameters["material"]
+            )
+        )
 
         # update the lower bound
-        alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+        alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -299,30 +290,31 @@ def pacman_hybrid(nest):
         hybrid.solve()
 
         # compute rate
-        alpha.vector.copy(alphadot.vector)
-        alphadot.vector.axpy(-1, alpha_lb.vector)
-        alphadot.vector.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
+        alpha.x.petsc_vec.copy(alphadot.x.petsc_vec)
+        alphadot.x.petsc_vec.axpy(-1, alpha_lb.x.petsc_vec)
+        alphadot.x.petsc_vec.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
-        alpha.vector.copy(alphadot.vector)
-        alphadot.vector.axpy(-1, alpha_lb.vector)
-        alphadot.vector.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
+        alpha.x.petsc_vec.copy(alphadot.x.petsc_vec)
+        alphadot.x.petsc_vec.axpy(-1, alpha_lb.x.petsc_vec)
+        alphadot.x.petsc_vec.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         rate_12_norm = hybrid.scaled_rate_norm(alphadot, parameters)
         rate_12_norm_unscaled = hybrid.unscaled_rate_norm(alphadot)
 
-
         fracture_energy = comm.allreduce(
-            dolfinx.fem.assemble_scalar(dolfinx.fem.form(
-                model.damage_energy_density(state) * dx)),
+            dolfinx.fem.assemble_scalar(
+                dolfinx.fem.form(model.damage_energy_density(state) * dx)
+            ),
             op=MPI.SUM,
         )
         elastic_energy = comm.allreduce(
-            dolfinx.fem.assemble_scalar(dolfinx.fem.form(
-                model.elastic_energy_density(state) * dx)),
+            dolfinx.fem.assemble_scalar(
+                dolfinx.fem.form(model.elastic_energy_density(state) * dx)
+            ),
             op=MPI.SUM,
         )
 
@@ -334,10 +326,10 @@ def pacman_hybrid(nest):
             "load": t,
             "fracture_energy": fracture_energy,
             "elastic_energy": elastic_energy,
-            "total_energy": elastic_energy+fracture_energy,
+            "total_energy": elastic_energy + fracture_energy,
             "solver_data": hybrid.data,
             "rate_12_norm": rate_12_norm,
-            "rate_12_norm_unscaled": rate_12_norm_unscaled
+            "rate_12_norm_unscaled": rate_12_norm_unscaled,
             # "eigs" : stability.data["eigs"],
             # "stable" : stability.data["stable"],
             # "F" : _F
@@ -369,7 +361,7 @@ def pacman_hybrid(nest):
         ColorPrint.print_info(
             f"NEWTON - Iterations: {hybrid.newton.snes.getIterationNumber()+1:3d},\
             Fnorm: {hybrid.newton.snes.getFunctionNorm():3.4e},\
-            alpha_max: {alpha.vector.max()[1]:3.4e}"
+            alpha_max: {alpha.x.petsc_vec.max()[1]:3.4e}"
         )
 
         xvfb.start_xvfb(wait=0.05)

@@ -2,27 +2,31 @@ name: Run Tests in Docker Container
 run-name: We are testing irrevolutions
 
 on:
-  push:
-    branches:
-      - "**"
+    push:
+        branches:
+            - '**'
 
 jobs:
-  set-up-computing-environment:
-    runs-on: ubuntu-latest
-    container: kumiori3/numerix:stable-amd64
+    set-up-computing-environment:
+        runs-on: ubuntu-latest
+        container: kumiori3/numerix:amd-0.9
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: python3 -m pip install .
+            - name: Install dependencies
+              run: python3 -m pip install .
 
-      - name: Test import
-        run: python3 -c "import irrevolutions"
+            - name: List installed packages
+              run: |
+                  pip list
 
-      - name: Run 1d test
-        run: pytest -v test/test_1d.py
+            - name: Test import
+              run: python3 -c "import irrevolutions"
 
-      - name: Run tests
-        run: cd test && pytest -v .
+            - name: Run 1d test
+              run: pytest -v test/test_1d.py
+
+            - name: Run tests
+              run: cd test && pytest -v .

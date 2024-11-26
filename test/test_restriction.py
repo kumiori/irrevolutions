@@ -1,11 +1,12 @@
-from irrevolutions.utils import sample_data
+import sys
+
+import dolfinx
+import numpy as np
 from dolfinx.cpp.la.petsc import get_local_vectors
 from mpi4py import MPI
-import numpy as np
-import dolfinx
-from irrevolutions.utils import _logger
+
 import irrevolutions.solvers.restriction as restriction
-import sys
+from irrevolutions.utils import _logger, sample_data
 
 sys.path.append("../")
 
@@ -18,13 +19,12 @@ __log_incipit = f"rank {rank}#{size}/"
 
 def get_inactive_dofset(v, F):
     """docstring for get_inactive_dofset"""
-    _logger.info(f"inactive dofset")
+    _logger.info("inactive dofset")
     V_u, V_alpha = F[0].function_spaces[0], F[1].function_spaces[0]
 
     __names = ["u", "alpha"]
 
     for i, space in enumerate([V_u, V_alpha]):
-
         bs = space.dofmap.index_map_bs
 
         size_local = space.dofmap.index_map.size_local
@@ -101,14 +101,14 @@ def test_restriction():
         f"{__log_incipit} constraints.bglobal_dofs_vec_stacked {constraints.bglobal_dofs_vec_stacked}"
     )
 
-    _logger.info(f"v")
+    _logger.info("v")
     v.view()
-    _logger.info(f"vr")
+    _logger.info("vr")
     vr.view()
 
     # assert we get the right number of restricted dofs
     assert len(np.concatenate(restricted_dofs)) == vr.getSize()
-    
+
     # return v, vr, constraints
 
 

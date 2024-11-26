@@ -1,10 +1,10 @@
 import typing
-import numpy
 
 import dolfinx
-from petsc4py import PETSc
+import numpy
 import ufl
 from dolfinx.fem import Function
+from petsc4py import PETSc
 
 
 def extract_blocks(
@@ -42,7 +42,6 @@ def extract_blocks(
         blocks = [None for i in range(len(test_functions))]
 
     for i, tef in enumerate(test_functions):
-
         if trial_functions is not None:
             for j, trf in enumerate(trial_functions):
                 to_null = dict()
@@ -78,16 +77,16 @@ def functions_to_vec(u: typing.List[Function], x):
     """Copies functions into block vector."""
     if x.getType() == "nest":
         for i, subvec in enumerate(x.getNestSubVecs()):
-            u[i].vector.copy(subvec)
+            u[i].x.petsc_vec.copy(subvec)
             subvec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
     else:
         offset = 0
         for i in range(len(u)):
-            size_local = u[i].vector.getLocalSize()
+            size_local = u[i].x.petsc_vec.getLocalSize()
             with x.localForm() as loc:
-                loc.array[offset : offset + size_local] = u[i].vector.array_r
+                loc.array[offset : offset + size_local] = u[i].x.petsc_vec.array_r
             offset += size_local
             x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
@@ -97,17 +96,17 @@ def vec_to_functions(x, u: typing.List[dolfinx.fem.Function]):
 
     if x.getType() == "nest":
         for i, subvec in enumerate(x.getNestSubVecs()):
-            subvec.copy(u[i].vector)
-            u[i].vector.ghostUpdate(
+            subvec.copy(u[i].x.petsc_vec)
+            u[i].x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
     else:
         offset = 0
         for i in range(len(u)):
-            size_local = u[i].vector.getLocalSize()
-            u[i].vector.array[:] = x.array_r[offset : offset + size_local]
+            size_local = u[i].x.petsc_vec.getLocalSize()
+            u[i].x.petsc_vec.array[:] = x.array_r[offset : offset + size_local]
             offset += size_local
-            u[i].vector.ghostUpdate(
+            u[i].x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 

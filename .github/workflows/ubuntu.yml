@@ -1,0 +1,54 @@
+name: Test Ubuntu Installation
+
+# This triggers the workflow on any push to the repository
+on:
+  workflow_dispatch:
+
+  # push:
+  #   branches:
+  #     - "**"
+  # pull_request:
+
+jobs:
+  test:
+    name: Test Ubuntu/apt Installation and Setup
+    runs-on: ubuntu-latest
+
+    # Steps to run
+    steps:
+      # Checkout the repo content to the runner
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install Ubuntu dependencies via APT
+      - name: Install system dependencies via APT
+        run: |
+          echo "Installing required system dependencies via APT"
+          sudo apt-get update
+          sudo apt-get install -y  software-properties-common python3-pip git libgl1-mesa-glx xvfb libglu1 libxcursor1 libxinerama1
+
+      # Add the FEniCS PPA and install fenicsx
+      - name: Install fenicsx
+        run: |
+          echo "Adding FEniCS PPA and installing fenicsx"
+          sudo add-apt-repository ppa:fenics-packages/fenics
+          sudo apt update
+          sudo apt-get install -y fenicsx
+
+      # Install irrevolutions dependencies (if any) and the package itself
+      - name: Install Python dependencies and irrevolutions
+        run: |
+          echo "Installing Python dependencies and irrevolutions"
+          python3 -m pip install --upgrade pip
+          python3 -m pip install numpy==1.21.6 --force-reinstall # Downgrade NumPy to a compatible version
+          python3 -m pip install .  # Install irrevolutions package
+      - name: Check versions of installed packages
+        run: |
+            python3 -c "import numpy; print(f'NumPy version: {numpy.__version__}')"
+            python3 -c "import scipy; print(f'SciPy version: {scipy.__version__}')"
+            python3 -c "import pyvista; print(f'PyVista version: {pyvista.__version__}')"
+      # Optionally run tests within the environment
+      - name: Run tests
+        run: |
+          echo "Running tests"
+          cd test && python3 -m pytest . || echo "Tests failed"

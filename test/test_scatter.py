@@ -1,16 +1,19 @@
-import random
-from dolfinx import cpp as _cpp
-import numpy as np
-from dolfinx.fem import locate_dofs_geometrical
-import irrevolutions.solvers.restriction as restriction
-import ufl
-import dolfinx
-from petsc4py import PETSc
-from mpi4py import MPI
-import sys
 import os
+import random
+import sys
 
+import basix.ufl
+
+import dolfinx
+import numpy as np
 import petsc4py
+import ufl
+from dolfinx import cpp as _cpp
+from dolfinx.fem import locate_dofs_geometrical
+from mpi4py import MPI
+from petsc4py import PETSc
+
+import irrevolutions.solvers.restriction as restriction
 
 petsc4py.init(sys.argv)
 
@@ -33,12 +36,12 @@ mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, _N)
 outdir = os.path.join(os.path.dirname(__file__), "output")
 prefix = os.path.join(outdir, "test_cone")
 
-element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+V_u = dolfinx.fem.functionspace(mesh, element_u)
+V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
 u = dolfinx.fem.Function(V_u, name="Displacement")
 alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 
@@ -84,7 +87,7 @@ F = dolfinx.fem.form(F_)
 
 v = dolfinx.fem.petsc.create_vector_block(F)
 x = dolfinx.fem.petsc.create_vector_block(F)
-# scatter_local_vectors(x, [u.vector.array_r, p.vector.array_r],
+# scatter_local_vectors(x, [u.x.petsc_vec.array_r, p.x.petsc_vec.array_r],
 #                         [(u.function_space.dofmap.index_map, u.function_space.dofmap.index_map_bs),
 #                         (p.function_space.dofmap.index_map, p.function_space.dofmap.index_map_bs)])
 # x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
@@ -138,7 +141,6 @@ v.restoreSubVector(_is, _sub)
 print(f"v restored (projected) {v.array}")
 
 for i, space in enumerate([V_u, V_alpha]):
-
     bs = space.dofmap.index_map_bs
 
     size_local = space.dofmap.index_map.size_local
@@ -151,19 +153,19 @@ for i, space in enumerate([V_u, V_alpha]):
 
 x0_local = _cpp.la.petsc.get_local_vectors(x, maps)
 
-print(f"this should scatter x0_local into the global vector v")
+print("this should scatter x0_local into the global vector v")
 
 _cpp.la.petsc.scatter_local_vectors(v, x0_local, maps)
 v.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.FORWARD)
 
-print(f"v should now be zero")
+print("v should now be zero")
 print(f"v restored (projected) {v.array}")
 
 _sub = v.getSubVector(_is)
 _sub.pointwiseMax(_sub, a)
 
 # _cpp.la.petsc.scatter_local_vectors(v, x0_local, maps)
-print(f"v should now be harmless")
+print("v should now be harmless")
 
 print(f"v restored {v.array}")
 
@@ -180,14 +182,14 @@ def converged(x):
 
     # update xold
     # x.copy(_xold)
-    # x.vector.ghostUpdate(
+    # x.x.petsc_vec.ghostUpdate(
     #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     # )
 
     # if not converged:
     #     its += 1
 
-    print("converged" if _converged else f" converging")
+    print("converged" if _converged else " converging")
 
     return _converged
 

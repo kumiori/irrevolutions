@@ -1,54 +1,37 @@
 #!/usr/bin/env python3
-import pandas as pd
-import numpy as np
-import yaml
-import json
-from pathlib import Path
-import sys
-import os
 import hashlib
-
-from dolfinx.fem import dirichletbc
-import dolfinx.mesh
-from dolfinx.fem import (
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    set_bc,
-)
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-import ufl
-
-from dolfinx.fem.petsc import set_bc
-from dolfinx.io import XDMFFile, gmshio
+import json
 import logging
+import os
+import sys
+from pathlib import Path
 
+import dolfinx
+import dolfinx.mesh
+import dolfinx.plot
+import numpy as np
+import pandas as pd
+import petsc4py
 import pyvista
-from pyvista.utilities import xvfb
+import ufl
+import yaml
+from dolfinx.fem import (Function, FunctionSpace, assemble_scalar, dirichletbc,
+                         form, locate_dofs_topological, set_bc)
+from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
-from dolfinx.fem import locate_dofs_topological
+from mpi4py import MPI
+from petsc4py import PETSc
+from pyvista.utilities import xvfb
 
-from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.algorithms.am import HybridSolver
-from irrevolutions.models import DamageElasticityModel as Brittle
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.meshes.pacman import mesh_pacman
-from irrevolutions.utils import (
-    ColorPrint,
-    _write_history_data,
-    history_data,
-    set_vector_to_constant,
-)
-from irrevolutions.utils import _logger
+from irrevolutions.models import DamageElasticityModel as Brittle
+from irrevolutions.utils import (ColorPrint, _logger, _write_history_data,
+                                 history_data, set_vector_to_constant)
 from irrevolutions.utils.lib import _local_notch_asymptotic
-from irrevolutions.utils.viz import plot_mesh
 from irrevolutions.utils.viz import plot_mesh, plot_scalar, plot_vector
-
+import basix.ufl
 description = """We solve here a basic 2d of a notched specimen.
 Imagine a dinner a pizza which is missing a slice, and lots of hungry friends
 that pull from the sides of the pizza. Will a real pizza will break at the centre?
@@ -102,16 +85,16 @@ def run_computation(parameters, storage):
     hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     # Function spaces
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     # Define the state
     u = Function(V_u, name="Displacement")
     alpha = Function(V_alpha, name="Damage")
-    alphadot = Function(V_alpha, name="Damage rate")
+    Function(V_alpha, name="Damage rate")
 
     # upper/lower bound for the damage field
     alpha_lb = Function(V_alpha, name="Lower bound")
@@ -125,7 +108,7 @@ def run_computation(parameters, storage):
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Set Bcs Function
 
@@ -152,7 +135,7 @@ def run_computation(parameters, storage):
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(
+        f.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -166,8 +149,8 @@ def run_computation(parameters, storage):
         )
     ]
     bcs_alpha = []
-    set_bc(alpha_ub.vector, bcs_alpha)
-    alpha_ub.vector.ghostUpdate(
+    set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+    alpha_ub.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
@@ -179,10 +162,10 @@ def run_computation(parameters, storage):
     u_ub = Function(V_u, name="displacement upper bound")
     alpha_lb = Function(V_alpha, name="damage lower bound")
     alpha_ub = Function(V_alpha, name="damage upper bound")
-    set_vector_to_constant(u_lb.vector, PETSc.NINFINITY)
-    set_vector_to_constant(u_ub.vector, PETSc.PINFINITY)
-    set_vector_to_constant(alpha_lb.vector, 0)
-    set_vector_to_constant(alpha_ub.vector, 1)
+    set_vector_to_constant(u_lb.x.petsc_vec, PETSc.NINFINITY)
+    set_vector_to_constant(u_ub.x.petsc_vec, PETSc.PINFINITY)
+    set_vector_to_constant(alpha_lb.x.petsc_vec, 0)
+    set_vector_to_constant(alpha_ub.x.petsc_vec, 1)
 
     model = Brittle(parameters["model"])
 
@@ -211,17 +194,10 @@ def run_computation(parameters, storage):
         total_energy, state, bcs, cone_parameters=parameters.get("stability")
     )
 
-    mode_shapes_data = {
-        "time_steps": [],
-        "point_values": {
-            "x_values": [],
-        },
-    }
 
     _logger.setLevel(level=logging.CRITICAL)
 
     for i_t, t in enumerate(loads):
-
         uD.interpolate(
             lambda x: _local_notch_asymptotic(
                 x, ω=np.deg2rad(_omega / 2.0), t=t, par=parameters["material"]
@@ -229,8 +205,8 @@ def run_computation(parameters, storage):
         )
 
         # update the lower bound
-        alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+        alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -244,8 +220,7 @@ def run_computation(parameters, storage):
 
         stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia=inertia)
 
-        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
-
+        with dolfinx.common.Timer("~Postprocessing and Vis"):
             fracture_energy = comm.allreduce(
                 assemble_scalar(form(model.damage_energy_density(state) * dx)),
                 op=MPI.SUM,
@@ -299,6 +274,7 @@ def run_computation(parameters, storage):
 
     return history_data, stability.data, state
 
+
 def load_parameters(file_path, ndofs, model="at1"):
     """
     Load parameters from a YAML file.
@@ -351,6 +327,7 @@ def load_parameters(file_path, ndofs, model="at1"):
 
     return parameters, signature
 
+
 def test_2d():
     # import argparse
     from mpi4py import MPI
@@ -368,7 +345,7 @@ def test_2d():
     )
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment"):
         history_data, stability_data, state = run_computation(parameters, _storage)
 
     ColorPrint.print_bold(history_data["eigs-cone"])

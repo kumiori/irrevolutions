@@ -1,31 +1,29 @@
 #!/usr/bin/env python3
-import pyvista
-import dolfinx.mesh
-from dolfinx.io import XDMFFile, gmshio
-import numpy as np
-import yaml
 import json
-from pathlib import Path
-import sys
+import logging
 import os
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-from dolfinx import log
-import ufl
+import sys
+from pathlib import Path
 
+import dolfinx
+import dolfinx.mesh
+import dolfinx.plot
+import numpy as np
+import petsc4py
+import pyvista
+import ufl
+import yaml
+from dolfinx import log
+from dolfinx.io import XDMFFile, gmshio
+from mpi4py import MPI
+from petsc4py import PETSc
 from pyvista.utilities import xvfb
 
+from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import ElasticityModel
 from irrevolutions.solvers import SNESSolver as ElasticitySolver
-from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.utils.viz import plot_vector
-
-import numpy as np
-import logging
-
+import basix.ufl
 logging.basicConfig(level=logging.INFO)
 
 
@@ -68,10 +66,10 @@ with XDMFFile(comm, f"{prefix}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as f
     file.write_mesh(mesh)
 
 # Function spaces
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
-V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-V_ux = dolfinx.fem.FunctionSpace(
-    mesh, ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
+V_u = dolfinx.fem.functionspace(mesh, element_u)
+V_ux = dolfinx.fem.functionspace(
+    mesh,basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 )
 
 # Define the state
@@ -98,7 +96,7 @@ u_.interpolate(lambda x: (np.ones_like(x[0]), 0 * np.ones_like(x[1])))
 ux_.interpolate(lambda x: np.ones_like(x[0]))
 
 for f in [zero_u, ux_]:
-    f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    f.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
 bcs_u = [
     dolfinx.fem.dirichletbc(zero_u, dofs_u_left),
@@ -135,7 +133,7 @@ history_data = {
 
 for i_t, t in enumerate(loads):
     u_.interpolate(lambda x: (t * np.ones_like(x[0]), 0 * np.ones_like(x[1])))
-    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    u_.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     logging.info(f"-- Solving for t = {t:3.2f} --")
 

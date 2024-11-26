@@ -1,30 +1,29 @@
 from mpi4py import MPI
-import ufl
-import dolfinx
-from petsc4py import PETSc
 import sys
 import petsc4py
-
 petsc4py.init(sys.argv)
+from petsc4py import PETSc
 
+from dolfinx.fem.petsc import (apply_lifting, assemble_matrix, assemble_vector,
+                               create_matrix, create_vector, set_bc)
 from dolfinx.cpp.log import LogLevel, log
-from dolfinx.fem import form
+
+import dolfinx
+import ufl
+
+
 # from damage.utils import ColorPrint
-
-from dolfinx.fem.petsc import (
-    assemble_matrix, apply_lifting, create_vector, create_matrix, set_bc, assemble_vector)
-
 
 # import pdb;
 # pdb.set_trace()
 
 comm = MPI.COMM_WORLD
 
-
 class SNESSolver:
     """
     Problem class for elasticity, compatible with PETSC.SNES solvers.
     """
+
     def __init__(
         self,
         F_form: ufl.Form,
@@ -38,7 +37,6 @@ class SNESSolver:
         monitor=None,
         prefix=None,
     ):
-
         self.u = u
         self.bcs = bcs
         self.bounds = bounds
@@ -48,7 +46,6 @@ class SNESSolver:
             prefix = "snes_{}".format(str(id(self))[0:4])
 
         self.prefix = prefix
-
         if self.bounds is not None:
             self.lb = bounds[0]
             self.ub = bounds[1]
@@ -64,7 +61,9 @@ class SNESSolver:
 
         self.petsc_options = petsc_options
 
-        self.b = create_vector(self.F_form)
+        assert len(self.F_form.function_spaces) == 1, "F is not a linear form"
+        assert self.F_form.function_spaces[0] == V._cpp_object
+        self.b = dolfinx.fem.Function(V)
         self.a = create_matrix(self.J_form)
 
         self.monitor = monitor
@@ -76,7 +75,8 @@ class SNESSolver:
         opts.prefixPush(self.prefix)
         if debug is True:
             print(self.petsc_options)
-
+        if self.petsc_options.get("snes_type") == "newtontr":
+            self.petsc_options["snes_type"] = "newtonls"
         for k, v in self.petsc_options.items():
             opts[k] = v
 
@@ -89,7 +89,7 @@ class SNESSolver:
         # Set options
         snes.setOptionsPrefix(self.prefix)
         self.set_petsc_options()
-        snes.setFunction(self.F, self.b)
+        snes.setFunction(self.F, self.b.x.petsc_vec)
         snes.setJacobian(self.J, self.a)
 
         # We set the bound (Note: they are passed as reference and not as values)
@@ -98,7 +98,7 @@ class SNESSolver:
             snes.setMonitor(self.monitor)
 
         if self.bounds is not None:
-            snes.setVariableBounds(self.lb.vector, self.ub.vector)
+            snes.setVariableBounds(self.lb.x.petsc_vec, self.ub.x.petsc_vec)
 
         snes.setFromOptions()
 
@@ -114,12 +114,11 @@ class SNESSolver:
         b: Vector to assemble the residual into.
         """
         # We need to assign the vector to the function
-
-        x.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                      mode=PETSc.ScatterMode.FORWARD)
-        x.copy(self.u.vector)
-        self.u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                                  mode=PETSc.ScatterMode.FORWARD)
+        x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        x.copy(self.u.x.petsc_vec)
+        self.u.x.petsc_vec.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         # Zero the residual vector
         with b.localForm() as b_local:
@@ -128,8 +127,7 @@ class SNESSolver:
 
         # Apply boundary conditions
         apply_lifting(b, [self.J_form], [self.bcs], [x], -1.0)
-        b.ghostUpdate(addv=PETSc.InsertMode.ADD,
-                      mode=PETSc.ScatterMode.REVERSE)
+        b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
         set_bc(b, self.bcs, x, -1.0)
 
     def J(self, snes, x: PETSc.Vec, A: PETSc.Mat, P: PETSc.Mat):
@@ -148,7 +146,7 @@ class SNESSolver:
         log(LogLevel.INFO, f"Solving {self.prefix}")
 
         try:
-            self.solver.solve(None, self.u.vector)
+            self.solver.solve(None, self.u.x.petsc_vec)
             # print(
             #    f"{self.prefix} SNES solver converged in",
             #    self.solver.getIterationNumber(),
@@ -156,10 +154,10 @@ class SNESSolver:
             #    "with converged reason",
             #    self.solver.getConvergedReason(),
             # )
-            self.u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                                      mode=PETSc.ScatterMode.FORWARD)
-            return (self.solver.getIterationNumber(),
-                    self.solver.getConvergedReason())
+            self.u.x.petsc_vec.ghostUpdate(
+                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+            )
+            return (self.solver.getIterationNumber(), self.solver.getConvergedReason())
 
         except Warning:
             log(

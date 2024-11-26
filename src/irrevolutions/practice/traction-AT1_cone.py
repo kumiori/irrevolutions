@@ -1,50 +1,38 @@
 #!/usr/bin/env python3
-import pdb
-import pandas as pd
-import numpy as np
-from sympy import derive_by_array
-import yaml
-import json
-from pathlib import Path
-import sys
-import os
-
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
-import dolfinx.mesh
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-from dolfinx import log
-import ufl
-
-from dolfinx.fem.petsc import (
-    set_bc,
-    )
-from dolfinx.io import XDMFFile, gmshio
-import logging
-from dolfinx.common import Timer, list_timings, TimingType
-
-sys.path.append("../")
-from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from meshes.primitives import mesh_bar_gmshapi
+from utils.viz import plot_scalar, plot_vector
+from pyvista.utilities import xvfb
+import pyvista
+from utils.plots import plot_AMit_load, plot_force_displacement
+import hashlib
 from irrevolutions.utils import ColorPrint
 from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2
+from models import DamageElasticityModel as Brittle
+from meshes.primitives import mesh_bar_gmshapi
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import AlternateMinimisation, HybridSolver
+import json
+import logging
+import os
+import sys
+from pathlib import Path
+
+import dolfinx
+import dolfinx.mesh
+import dolfinx.plot
+import numpy as np
+import pandas as pd
+import petsc4py
+import ufl
+import yaml
+from dolfinx.common import list_timings
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
+from dolfinx.io import XDMFFile, gmshio
+from mpi4py import MPI
+from petsc4py import PETSc
+import basix.ufl
+
+sys.path.append("../")
 
 
 """Traction endommageable bar
@@ -73,13 +61,13 @@ parameters["stability"]["cone"]["cone_atol"] = 1e-6
 parameters["stability"]["cone"]["cone_rtol"] = 1e-5
 parameters["stability"]["cone"]["scaling"] = 0.3
 
-parameters["model"]["ell"] = .1
+parameters["model"]["ell"] = 0.1
 parameters["model"]["model_dimension"] = 2
-parameters["model"]["model_type"] = '1D'
+parameters["model"]["model_type"] = "1D"
 parameters["model"]["w1"] = 1
-parameters["model"]["k_res"] = 0.
+parameters["model"]["k_res"] = 0.0
 
-parameters["loading"]["min"] = .98
+parameters["loading"]["min"] = 0.98
 parameters["loading"]["max"] = 1.4
 parameters["loading"]["steps"] = 100
 
@@ -104,7 +92,7 @@ prefix = os.path.join(outdir, "traction_AT1_cone")
 
 if comm.rank == 0:
     Path(prefix).mkdir(parents=True, exist_ok=True)
-_lc = ell_ / parameters["geometry"]["ell_lc"] 
+_lc = ell_ / parameters["geometry"]["ell_lc"]
 # _lc = Lx/2
 
 gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
@@ -113,27 +101,29 @@ gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
 mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
 
-import hashlib
-signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+
+signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
 if comm.rank == 0:
-    with open(f"{prefix}/parameters.yaml", 'w') as file:
+    with open(f"{prefix}/parameters.yaml", "w") as file:
         yaml.dump(parameters, file)
 
 if comm.rank == 0:
-    with open(f"{prefix}/signature.md5", 'w') as f:
+    with open(f"{prefix}/signature.md5", "w") as f:
         f.write(signature)
 
-with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+with XDMFFile(
+    comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+) as file:
     file.write_mesh(mesh)
 
 # Functional Setting
 
 # Function spaces
-element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
 V_u = FunctionSpace(mesh, element_u)
 
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 V_alpha = FunctionSpace(mesh, element_alpha)
 
 # Define the state
@@ -155,10 +145,8 @@ alpha_ub = Function(V_alpha, name="Upper bound")
 dx = ufl.Measure("dx", domain=mesh)
 ds = ufl.Measure("ds", domain=mesh)
 
-dofs_alpha_left = locate_dofs_geometrical(
-    V_alpha, lambda x: np.isclose(x[0], 0.0))
-dofs_alpha_right = locate_dofs_geometrical(
-    V_alpha, lambda x: np.isclose(x[0], Lx))
+dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
 dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
 dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -170,16 +158,13 @@ alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
 alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
 for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
-    f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                         mode=PETSc.ScatterMode.FORWARD)
+    f.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
-bc_u_left = dirichletbc(
-    np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
+bc_u_left = dirichletbc(np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
 # import pdb; pdb.set_trace()
 
-bc_u_right = dirichletbc(
-    u_, dofs_u_right)
+bc_u_right = dirichletbc(u_, dofs_u_right)
 bcs_u = [bc_u_left, bc_u_right]
 
 bcs_alpha = []
@@ -188,8 +173,8 @@ bcs_alpha = []
 #     dolfinx.fem.dirichletbc(zero_alpha, dofs_alpha_right),
 # ]
 
-set_bc(alpha_ub.vector, bcs_alpha)
-alpha_ub.vector.ghostUpdate(
+set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+alpha_ub.x.petsc_vec.ghostUpdate(
     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
 )
 
@@ -209,12 +194,10 @@ external_work = ufl.dot(f, state["u"]) * dx
 total_energy = model.total_energy_density(state) * dx - external_work
 
 load_par = parameters["loading"]
-loads = np.linspace(load_par["min"],
-                    load_par["max"], load_par["steps"])
+loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
 solver = AlternateMinimisation(
-    total_energy, state, bcs, parameters.get("solvers"), 
-    bounds=(alpha_lb, alpha_ub)
+    total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
 )
 
 hybrid = HybridSolver(
@@ -230,8 +213,7 @@ bifurcation = BifurcationSolver(
 )
 
 cone = StabilitySolver(
-    total_energy, state, bcs,
-    cone_parameters=parameters.get("stability")
+    total_energy, state, bcs, cone_parameters=parameters.get("stability")
 )
 
 history_data = {
@@ -245,11 +227,11 @@ history_data = {
     "eigs": [],
     "uniqueness": [],
     "inertia": [],
-    "F": [],    
-    "alphadot_norm" : [],
-    "rate_12_norm" : [], 
-    "unscaled_rate_12_norm" : [],
-    "cone-stable": []
+    "F": [],
+    "alphadot_norm": [],
+    "rate_12_norm": [],
+    "unscaled_rate_12_norm": [],
+    "cone-stable": [],
 }
 
 
@@ -259,14 +241,13 @@ history_data = {
 # logging.getLogger().setLevel(logging.DEBUG)
 
 for i_t, t in enumerate(loads):
-# for i_t, t in enumerate([0., .99, 1.0, 1.01]):
-    u_.interpolate(lambda x: (t * np.ones_like(x[0]),  np.zeros_like(x[1])))
-    u_.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                          mode=PETSc.ScatterMode.FORWARD)
+    # for i_t, t in enumerate([0., .99, 1.0, 1.01]):
+    u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
+    u_.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     # update the lower bound
-    alpha.vector.copy(alpha_lb.vector)
-    alpha_lb.vector.ghostUpdate(
+    alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+    alpha_lb.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
@@ -274,41 +255,39 @@ for i_t, t in enumerate(loads):
     logging.critical("")
     logging.critical("")
     logging.critical("")
-    
-    ColorPrint.print_bold(f"   Solving first order: AM   ")
-    ColorPrint.print_bold(f"===================-=========")
 
+    ColorPrint.print_bold("   Solving first order: AM   ")
+    ColorPrint.print_bold("===================-=========")
 
     logging.critical(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
     solver.solve()
 
-    ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
-    ColorPrint.print_bold(f"===================-=============")
+    ColorPrint.print_bold("   Solving first order: Hybrid   ")
+    ColorPrint.print_bold("===================-=============")
 
     logging.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
     hybrid.solve(alpha_lb)
 
     # compute the rate
-    alpha.vector.copy(alphadot.vector)
-    alphadot.vector.axpy(-1, alpha_lb.vector)
-    alphadot.vector.ghostUpdate(
-            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-        )
+    alpha.x.petsc_vec.copy(alphadot.x.petsc_vec)
+    alphadot.x.petsc_vec.axpy(-1, alpha_lb.x.petsc_vec)
+    alphadot.x.petsc_vec.ghostUpdate(
+        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    )
 
-    logging.info(f"alpha vector norm: {alpha.vector.norm()}")
-    logging.info(f"alpha lb norm: {alpha_lb.vector.norm()}")
-    logging.info(f"alphadot norm: {alphadot.vector.norm()}")
-    logging.info(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+    logging.info(f"alpha vector norm: {alpha.x.petsc_vec.norm()}")
+    logging.info(f"alpha lb norm: {alpha_lb.x.petsc_vec.norm()}")
+    logging.info(f"alphadot norm: {alphadot.x.petsc_vec.norm()}")
+    logging.info(f"vector norms [u, alpha]: {[zi.x.petsc_vec.norm() for zi in z]}")
 
     rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
     urate_12_norm = hybrid.unscaled_rate_norm(alpha)
     logging.info(f"scaled rate state_12 norm: {rate_12_norm}")
     logging.info(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
-
-    ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
-    ColorPrint.print_bold(f"===================-=================")
+    ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
+    ColorPrint.print_bold("===================-=================")
 
     # n_eigenvalues = 10
     is_stable = bifurcation.solve(alpha_lb)
@@ -319,12 +298,12 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold(f"State is elastic: {is_elastic}")
     ColorPrint.print_bold(f"State's inertia: {inertia}")
     # ColorPrint.print_bold(f"State is stable: {is_stable}")
-    
-    ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
-    ColorPrint.print_bold(f"===================-=================")
-    
+
+    ColorPrint.print_bold("   Solving second order: Cone Pb.    ")
+    ColorPrint.print_bold("===================-=================")
+
     stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum)
-    
+
     fracture_energy = comm.allreduce(
         assemble_scalar(form(model.damage_energy_density(state) * dx)),
         op=MPI.SUM,
@@ -344,12 +323,12 @@ for i_t, t in enumerate(loads):
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
-    history_data["total_energy"].append(elastic_energy+fracture_energy)
+    history_data["total_energy"].append(elastic_energy + fracture_energy)
     history_data["solver_data"].append(solver.data)
     history_data["eigs"].append(bifurcation.data["eigs"])
     history_data["F"].append(stress)
     history_data["cone_data"].append(cone.data)
-    history_data["alphadot_norm"].append(alphadot.vector.norm())
+    history_data["alphadot_norm"].append(alphadot.x.petsc_vec.norm())
     history_data["rate_12_norm"].append(rate_12_norm)
     history_data["unscaled_rate_12_norm"].append(urate_12_norm)
     history_data["cone-stable"].append(stable)
@@ -357,7 +336,9 @@ for i_t, t in enumerate(loads):
     history_data["uniqueness"].append(_unique)
     history_data["inertia"].append(inertia)
 
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_function(u, t)
         file.write_function(alpha, t)
 
@@ -366,7 +347,7 @@ for i_t, t in enumerate(loads):
         json.dump(history_data, a_file)
         a_file.close()
 
-    ColorPrint.print_bold(f"   Written timely data.    ")
+    ColorPrint.print_bold("   Written timely data.    ")
     print()
     print()
     print()
@@ -375,13 +356,11 @@ list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 # print(history_data)
 
 
-
 df = pd.DataFrame(history_data)
-print(df.drop(['solver_data', 'cone_data'], axis=1))
+print(df.drop(["solver_data", "cone_data"], axis=1))
 
 # Viz
 
-from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
 
 if comm.rank == 0:
     plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
@@ -390,11 +369,8 @@ if comm.rank == 0:
 
 
 
-from pyvista.utilities import xvfb
-import pyvista
-import sys
-from utils.viz import plot_mesh, plot_vector, plot_scalar
-# 
+
+#
 xvfb.start_xvfb(wait=0.05)
 pyvista.OFF_SCREEN = True
 
@@ -407,5 +383,3 @@ plotter = pyvista.Plotter(
 _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
 _plt = plot_vector(u, plotter, subplot=(0, 1))
 _plt.screenshot(f"{prefix}/traction-state.png")
-
-

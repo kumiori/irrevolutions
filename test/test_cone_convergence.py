@@ -1,16 +1,18 @@
 import logging
 import os
+import pickle
+import basix.ufl
 
 import dolfinx
-from irrevolutions import utils
 import numpy as np
 import ufl
 from dolfinx.io import XDMFFile
-from irrevolutions.algorithms.so import StabilitySolver
-import irrevolutions.solvers.restriction as restriction
-from irrevolutions.utils import _logger
 from mpi4py import MPI
-import pickle
+
+import irrevolutions.solvers.restriction as restriction
+from irrevolutions import utils
+from irrevolutions.algorithms.so import StabilitySolver
+from irrevolutions.utils import _logger
 
 _logger.setLevel(logging.CRITICAL)
 
@@ -78,11 +80,11 @@ with XDMFFile(
 ) as file:
     mesh = file.read_mesh(name="mesh")
 
-element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+V_u = dolfinx.fem.functionspace(mesh, element_u)
+V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
 u = dolfinx.fem.Function(V_u, name="Displacement")
 alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 dx = ufl.Measure("dx", alpha.function_space.mesh)
@@ -125,5 +127,5 @@ tester.store_results(_lmbda_k, _xk, _y)
 
 atol = tester.parameters["cone"]["cone_atol"]
 
-assert tester._isin_cone(_xk) == True
-assert np.isclose(_lmbda_k, -0.044659195907104675, atol=1e-4) == True
+assert tester._isin_cone(_xk)
+assert np.isclose(_lmbda_k, -0.044659195907104675, atol=1e-4)

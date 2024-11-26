@@ -1,76 +1,59 @@
 #!/usr/bin/env python3
-import pdb
-import pandas as pd
-import numpy as np
-from sympy import derive_by_array
-import yaml
-import json
-from pathlib import Path
-import sys
-import os
-import matplotlib.pyplot as plt
-
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
-import dolfinx.mesh
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
-
-import pyvista
-from pyvista.utilities import xvfb
-# 
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-from dolfinx import log
-import ufl
-from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
-from dolfinx.fem import locate_dofs_topological
+from irrevolutions.utils import ColorPrint
+from utils.viz import plot_mesh, plot_scalar, plot_vector
+from utils.lib import _local_notch_asymptotic
+from models import DamageElasticityModel as Brittle
+from meshes.pacman import mesh_pacman
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import AlternateMinimisation, HybridSolver
 import hashlib
-
-from dolfinx.fem.petsc import (
-    set_bc,
-    )
-from dolfinx.io import XDMFFile, gmshio
+import json
 import logging
-from dolfinx.common import Timer, list_timings, TimingType, timing
+import os
+import sys
+from pathlib import Path
+
+import dolfinx
+import dolfinx.mesh
+import dolfinx.plot
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pyvista
+import ufl
+import yaml
+from dolfinx.common import list_timings, timing
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_topological, set_bc)
+from dolfinx.io import XDMFFile, gmshio
+from dolfinx.mesh import locate_entities_boundary
+#
+from mpi4py import MPI
+from petsc4py import PETSc
+from pyvista.utilities import xvfb
+import basix.ufl
 
 sys.path.append("../")
-from models import DamageElasticityModel as Brittle
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from meshes.primitives import mesh_bar_gmshapi
-from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2
-from meshes.pacman import mesh_pacman
-from utils.viz import plot_mesh, plot_vector, plot_scalar
-from utils.lib import _local_notch_asymptotic
+
+
 logging.basicConfig(level=logging.DEBUG)
 
 logging.logMultiprocessing = False
+
+
 class ConvergenceError(Exception):
     """Error raised when a solver fails to converge"""
 
+
 def _make_reasons(reasons):
     return dict(
-        [(getattr(reasons, r), r)
-         for r in dir(reasons) if not r.startswith("_")]
+        [(getattr(reasons, r), r) for r in dir(reasons) if not r.startswith("_")]
     )
 
 
 SNESReasons = _make_reasons(PETSc.SNES.ConvergedReason())
 KSPReasons = _make_reasons(PETSc.KSP.ConvergedReason())
+
 
 def check_snes_convergence(snes):
     r = snes.getConvergedReason()
@@ -100,12 +83,12 @@ def check_snes_convergence(snes):
             % (snes.getIterationNumber(), msg)
         )
 
+
 comm = MPI.COMM_WORLD
 
-def pacman_cone(resolution=2, slug='pacman'):
-    Lx = 1.0
-    Ly = 0.1
-    _nel = 30
+
+def pacman_cone(resolution=2, slug="pacman"):
+    pass
 
     outdir = os.path.join(os.path.dirname(__file__), "output")
     prefix = os.path.join(outdir, "pacman-cone")
@@ -125,9 +108,9 @@ def pacman_cone(resolution=2, slug='pacman'):
     _r = parameters["geometry"]["r"]
     _omega = parameters["geometry"]["omega"]
     tdim = parameters["geometry"]["geometric_dimension"]
-    
+
     _nameExp = parameters["geometry"]["geom_type"]
-    _nameExp = 'pacman'
+    _nameExp = "pacman"
 
     ell_ = parameters["model"]["ell"]
     lc = ell_ / resolution
@@ -135,14 +118,14 @@ def pacman_cone(resolution=2, slug='pacman'):
     parameters["geometry"]["lc"] = lc
 
     parameters["loading"]["min"] = 0.35
-    parameters["loading"]["max"] = .50
+    parameters["loading"]["max"] = 0.50
     parameters["loading"]["steps"] = 100
 
     # Get geometry model
     geom_type = parameters["geometry"]["geom_type"]
 
     model_rank = 0
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     outdir = os.path.join("output", slug, signature)
     prefix = os.path.join(outdir)
@@ -158,31 +141,30 @@ def pacman_cone(resolution=2, slug='pacman'):
 
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
-        with open(f"{prefix}/parameters.yaml", 'w') as file:
+        with open(f"{prefix}/parameters.yaml", "w") as file:
             yaml.dump(parameters, file)
 
         with open(f"{prefix}/parameters.yaml") as f:
             _parameters = yaml.load(f, Loader=yaml.FullLoader)
 
-        with open(f"{prefix}/signature.md5", 'w') as f:
+        with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
 
-
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_mesh(mesh)
-
 
     plt.figure()
     ax = plot_mesh(mesh)
     fig = ax.get_figure()
     fig.savefig(f"{prefix}/mesh.png")
 
-
     # Function spaces
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     # Define the state
@@ -194,37 +176,43 @@ def pacman_cone(resolution=2, slug='pacman'):
     alpha_lb = Function(V_alpha, name="Lower bound")
     alpha_ub = Function(V_alpha, name="Upper bound")
 
-
     # Pack state
     state = {"u": u, "alpha": alpha}
-
 
     uD = Function(V_u, name="Asymptotic Notch Displacement")
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Set Bcs Function
 
     ext_bd_facets = locate_entities_boundary(
-        mesh, dim=1, marker=lambda x: np.isclose(x[0]**2. + x[1]**2. - _r**2, 0., atol=1.e-4)
+        mesh,
+        dim=1,
+        marker=lambda x: np.isclose(
+            x[0] ** 2.0 + x[1] ** 2.0 - _r**2, 0.0, atol=1.0e-4
+        ),
     )
 
-    boundary_dofs_u = locate_dofs_topological(
-        V_u, mesh.topology.dim - 1, ext_bd_facets)
+    boundary_dofs_u = locate_dofs_topological(V_u, mesh.topology.dim - 1, ext_bd_facets)
     boundary_dofs_alpha = locate_dofs_topological(
-        V_alpha, mesh.topology.dim - 1, ext_bd_facets)
+        V_alpha, mesh.topology.dim - 1, ext_bd_facets
+    )
 
-    uD.interpolate(lambda x: _local_notch_asymptotic(
-        x, ω=np.deg2rad(_omega / 2.), par=parameters["material"]))
+    uD.interpolate(
+        lambda x: _local_notch_asymptotic(
+            x, ω=np.deg2rad(_omega / 2.0), par=parameters["material"]
+        )
+    )
 
     alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-                             mode=PETSc.ScatterMode.FORWARD)
+        f.x.petsc_vec.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
     bcs_u = [dirichletbc(value=uD, dofs=boundary_dofs_u)]
 
@@ -236,13 +224,13 @@ def pacman_cone(resolution=2, slug='pacman'):
         )
     ]
 
-    set_bc(alpha_ub.vector, bcs_alpha)
-    alpha_ub.vector.ghostUpdate(
+    set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+    alpha_ub.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
-    bcs_z = bcs_u + bcs_alpha
+    bcs_u + bcs_alpha
 
     # Mechanical model
 
@@ -255,14 +243,12 @@ def pacman_cone(resolution=2, slug='pacman'):
     total_energy = model.total_energy_density(state) * dx - external_work
 
     load_par = parameters["loading"]
-    loads = np.linspace(load_par["min"],
-                        load_par["max"], load_par["steps"])
+    loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
     # Solvers
 
-    solver = AlternateMinimisation(
-        total_energy, state, bcs, parameters.get("solvers"), 
-        bounds=(alpha_lb, alpha_ub)
+    AlternateMinimisation(
+        total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
     )
 
     hybrid = HybridSolver(
@@ -274,14 +260,11 @@ def pacman_cone(resolution=2, slug='pacman'):
     )
 
     bifurcation = BifurcationSolver(
-        total_energy, state, bcs, 
-        bifurcation_parameters=parameters.get(
-            "stability")
+        total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
     )
 
     cone = StabilitySolver(
-        total_energy, state, bcs,
-        cone_parameters=parameters.get("stability")
+        total_energy, state, bcs, cone_parameters=parameters.get("stability")
     )
 
     history_data = {
@@ -300,54 +283,51 @@ def pacman_cone(resolution=2, slug='pacman'):
         "alphadot_norm": [],
         "rate_12_norm": [],
         "unscaled_rate_12_norm": [],
-        "cone-stable": []
+        "cone-stable": [],
     }
 
     for i_t, t in enumerate(loads):
-
-        uD.interpolate(lambda x: _local_notch_asymptotic(
-            x,
-            ω=np.deg2rad(_omega / 2.),
-            t=t,
-            par=parameters["material"]
-        ))
+        uD.interpolate(
+            lambda x: _local_notch_asymptotic(
+                x, ω=np.deg2rad(_omega / 2.0), t=t, par=parameters["material"]
+            )
+        )
 
         # update the lower bound
-        alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+        alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
-    
+
         ColorPrint.print_pass(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
 
-        ColorPrint.print_bold(f"   Solving first order: AM*Hybrid   ")
-        ColorPrint.print_bold(f"===================-=============")
+        ColorPrint.print_bold("   Solving first order: AM*Hybrid   ")
+        ColorPrint.print_bold("===================-=============")
 
         hybrid.solve(alpha_lb)
 
-
         # compute the rate
-        alpha.vector.copy(alphadot.vector)
-        alphadot.vector.axpy(-1, alpha_lb.vector)
-        alphadot.vector.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
+        alpha.x.petsc_vec.copy(alphadot.x.petsc_vec)
+        alphadot.x.petsc_vec.axpy(-1, alpha_lb.x.petsc_vec)
+        alphadot.x.petsc_vec.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
         urate_12_norm = hybrid.unscaled_rate_norm(alpha)
 
-        ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
-        is_stable = bifurcation.solve(alpha_lb)
+        bifurcation.solve(alpha_lb)
         is_elastic = bifurcation.is_elastic()
         inertia = bifurcation.get_inertia()
 
-        ColorPrint.print_bold(f"   Solving second order: Cone Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
-        
+        ColorPrint.print_bold("   Solving second order: Cone Pb.    ")
+        ColorPrint.print_bold("===================-=================")
+
         stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum)
-        
+
         logging.critical(f"State is elastic: {is_elastic}")
         logging.critical(f"State's inertia: {inertia}")
 
@@ -366,13 +346,13 @@ def pacman_cone(resolution=2, slug='pacman'):
         history_data["load"].append(t)
         history_data["fracture_energy"].append(fracture_energy)
         history_data["elastic_energy"].append(elastic_energy)
-        history_data["total_energy"].append(elastic_energy+fracture_energy)
+        history_data["total_energy"].append(elastic_energy + fracture_energy)
         history_data["solver_data"].append(hybrid.data)
         history_data["solver_HY_data"].append(hybrid.newton_data)
         history_data["solver_KS_data"].append(cone.data)
         history_data["eigs"].append(bifurcation.data["eigs"])
         history_data["F"].append(0)
-        history_data["alphadot_norm"].append(alphadot.vector.norm())
+        history_data["alphadot_norm"].append(alphadot.x.petsc_vec.norm())
         history_data["rate_12_norm"].append(rate_12_norm)
         history_data["unscaled_rate_12_norm"].append(urate_12_norm)
         history_data["cone-stable"].append(stable)
@@ -382,7 +362,9 @@ def pacman_cone(resolution=2, slug='pacman'):
 
         # Save solution
 
-        with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+        with XDMFFile(
+            comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+        ) as file:
             file.write_function(u, t)
             file.write_function(alpha, t)
             file.write_function(alphadot, t)
@@ -393,15 +375,15 @@ def pacman_cone(resolution=2, slug='pacman'):
             a_file.close()
 
         # Viz
-        if not 'SINGULARITY_CONTAINER' in os.environ:
-            from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
+        if "SINGULARITY_CONTAINER" not in os.environ:
+            from utils.plots import plot_AMit_load, plot_energies
 
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
                 plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
                 # plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
 
-            ColorPrint.print_bold(f"   Written timely data.    ")
+            ColorPrint.print_bold("   Written timely data.    ")
             print()
             print()
             print()
@@ -409,7 +391,6 @@ def pacman_cone(resolution=2, slug='pacman'):
 
             xvfb.start_xvfb(wait=0.05)
             pyvista.OFF_SCREEN = True
-
 
             plotter = pyvista.Plotter(
                 title="Pacman test",
@@ -428,7 +409,7 @@ def pacman_cone(resolution=2, slug='pacman'):
         #     shape=(1, 2),
         # )
 
-    _timings = list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+    list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     performance = {
         "N": [],
@@ -442,16 +423,22 @@ def pacman_cone(resolution=2, slug='pacman'):
     }
 
     performance["N"].append(MPI.COMM_WORLD.size)
-    performance["dofs"].append(sum([V.dofmap.bs * V.dofmap.index_map.size_global for V in [V_u, V_alpha]]))
+    performance["dofs"].append(
+        sum([V.dofmap.bs * V.dofmap.index_map.size_global for V in [V_u, V_alpha]])
+    )
     performance["1stOrder-AM"].append(timing("~First Order: AltMin solver"))
     performance["1stOrder-Hyb"].append(timing("~First Order: Hybrid solver"))
-    performance["1stOrder-AM-Damage"].append(timing("~First Order: AltMin-Damage solver"))
-    performance["1stOrder-AM-Elastic"].append(timing("~First Order: AltMin-Elastic solver"))
+    performance["1stOrder-AM-Damage"].append(
+        timing("~First Order: AltMin-Damage solver")
+    )
+    performance["1stOrder-AM-Elastic"].append(
+        timing("~First Order: AltMin-Elastic solver")
+    )
     performance["2ndOrder-Uniqueness"].append(timing("~Second Order: Bifurcation"))
 
     try:
         performance["2ndOrder-Stability"].append(timing("~Second Order: Cone Solver"))
-    except Exception as e:
+    except Exception:
         performance["2ndOrder-Stability"].append(np.nan)
 
     if comm.rank == 0:
@@ -461,19 +448,18 @@ def pacman_cone(resolution=2, slug='pacman'):
 
     return history_data, signature, prefix, performance
 
+
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Process evolution.')
-    parser.add_argument('-r', type=int, default=3,
-                        help='resolution: ell to h ratio')
+    parser = argparse.ArgumentParser(description="Process evolution.")
+    parser.add_argument("-r", type=int, default=3, help="resolution: ell to h ratio")
     args = parser.parse_args()
-    
+
     ColorPrint.print_info(f"Resolution: {args.r}")
-    
-    history_data, signature, prefix, timings = pacman_cone(resolution = args.r)
+
+    history_data, signature, prefix, timings = pacman_cone(resolution=args.r)
     ColorPrint.print_bold(f"   signature {signature}    ")
 
     df = pd.DataFrame(history_data)
-    print(df.drop(['solver_data', 'solver_HY_data', 'solver_KS_data'], axis=1))
-
+    print(df.drop(["solver_data", "solver_HY_data", "solver_KS_data"], axis=1))

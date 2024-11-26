@@ -1,16 +1,21 @@
-import pickle
 import logging
-from mpi4py import MPI
-from dolfinx.io import XDMFFile
+import os
+import pickle
+import sys
+
+import basix.ufl
+
+import dolfinx
 import numpy as np
 import ufl
-import dolfinx
-from irrevolutions.utils import _logger
+from dolfinx.io import XDMFFile
+from mpi4py import MPI
 from test_cone_project import _cone_project_restricted
-from . import test_binarydataio as bio
+
 import irrevolutions.solvers.restriction as restriction
-import os
-import sys
+from irrevolutions.utils import _logger
+
+from . import test_binarydataio as bio
 
 sys.path.append("../")
 
@@ -41,7 +46,6 @@ def load_minimal_constraints(filename, spaces):
 
 
 def test_spa():
-
     def iterate(x, xold, errors):
         """
         Perform convergence check and handle exceptions (NonConvergenceException).
@@ -80,7 +84,7 @@ def test_spa():
 
         xAx_r = xk.dot(_Axr)
 
-        _logger.debug(f"xk view in update at iteration")
+        _logger.debug("xk view in update at iteration")
 
         _lmbda_t = xAx_r / xk.dot(xk)
         _y.waxpy(-_lmbda_t, xk, _Axr)
@@ -160,12 +164,12 @@ def test_spa():
     ) as file:
         mesh = file.read_mesh(name="mesh")
 
-    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
-    u = dolfinx.fem.Function(V_u, name="Displacement")
+    V_u = dolfinx.fem.functionspace(mesh, element_u)
+    V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
+    # u = dolfinx.fem.Function(V_u, name="Displacement")
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
     ufl.Measure("dx", alpha.function_space.mesh)
 
@@ -211,7 +215,7 @@ def test_spa():
         f"lambda_0 = {lmbda_t:.4e}, residual norm = {y.norm(): .4e}, error = {errors[-1]: .4e}"
     )
 
-    assert np.isclose(lmbda_t, -0.044659195907104675, atol=1e-4) == True
+    assert np.isclose(lmbda_t, -0.044659195907104675, atol=1e-4)
 
 
 if __name__ == "__main__":

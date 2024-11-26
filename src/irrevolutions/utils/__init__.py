@@ -1,6 +1,11 @@
+from dolfinx.io import XDMFFile
+from slepc4py import __version__ as slepc_version
+from petsc4py import __version__ as petsc_version
+from dolfinx import __version__ as dolfinx_version
 import json
 import logging
 import os
+import pickle
 import subprocess
 import sys
 from typing import List
@@ -12,9 +17,68 @@ import yaml
 from dolfinx.fem import assemble_scalar, form
 from mpi4py import MPI
 from petsc4py import PETSc
-import pickle
+import basix.ufl
 
 comm = MPI.COMM_WORLD
+
+error_codes = {
+    "PETSC_SUCCESS": 0,
+    "PETSC_ERR_BOOLEAN_MACRO_FAILURE": 1,
+    "PETSC_ERR_MIN_VALUE": 54,
+    "PETSC_ERR_MEM": 55,
+    "PETSC_ERR_SUP": 56,
+    "PETSC_ERR_SUP_SYS": 57,
+    "PETSC_ERR_ORDER": 58,
+    "PETSC_ERR_SIG": 59,
+    "PETSC_ERR_FP": 72,
+    "PETSC_ERR_COR": 74,
+    "PETSC_ERR_LIB": 76,
+    "PETSC_ERR_PLIB": 77,
+    "PETSC_ERR_MEMC": 78,
+    "PETSC_ERR_CONV_FAILED": 82,
+    "PETSC_ERR_USER": 83,
+    "PETSC_ERR_SYS": 88,
+    "PETSC_ERR_POINTER": 70,
+    "PETSC_ERR_MPI_LIB_INCOMP": 87,
+    "PETSC_ERR_ARG_SIZ": 60,
+    "PETSC_ERR_ARG_IDN": 61,
+    "PETSC_ERR_ARG_WRONG": 62,
+    "PETSC_ERR_ARG_CORRUPT": 64,
+    "PETSC_ERR_ARG_OUTOFRANGE": 63,
+    "PETSC_ERR_ARG_BADPTR": 68,
+    "PETSC_ERR_ARG_NOTSAMETYPE": 69,
+    "PETSC_ERR_ARG_NOTSAMECOMM": 80,
+    "PETSC_ERR_ARG_WRONGSTATE": 73,
+    "PETSC_ERR_ARG_TYPENOTSET": 89,
+    "PETSC_ERR_ARG_INCOMP": 75,
+    "PETSC_ERR_ARG_NULL": 85,
+    "PETSC_ERR_ARG_UNKNOWN_TYPE": 86,
+    "PETSC_ERR_FILE_OPEN": 65,
+    "PETSC_ERR_FILE_READ": 66,
+    "PETSC_ERR_FILE_WRITE": 67,
+    "PETSC_ERR_FILE_UNEXPECTED": 79,
+    "PETSC_ERR_MAT_LU_ZRPVT": 71,
+    "PETSC_ERR_MAT_CH_ZRPVT": 81,
+    "PETSC_ERR_INT_OVERFLOW": 84,
+    "PETSC_ERR_FLOP_COUNT": 90,
+    "PETSC_ERR_NOT_CONVERGED": 91,
+    "PETSC_ERR_MISSING_FACTOR": 92,
+    "PETSC_ERR_OPT_OVERWRITE": 93,
+    "PETSC_ERR_WRONG_MPI_SIZE": 94,
+    "PETSC_ERR_USER_INPUT": 95,
+    "PETSC_ERR_GPU_RESOURCE": 96,
+    "PETSC_ERR_GPU": 97,
+    "PETSC_ERR_MPI": 98,
+    "PETSC_ERR_RETURN": 99,
+    "PETSC_ERR_MEM_LEAK": 100,
+    "PETSC_ERR_MAX_VALUE": 101,
+    "PETSC_ERR_MIN_SIGNED_BOUND_DO_NOT_USE": "INT_MIN",
+    "PETSC_ERR_MAX_SIGNED_BOUND_DO_NOT_USE": "INT_MAX",
+}
+
+
+# Reverse the dictionary to create an inverse mapping
+translatePETScERROR = {v: k for k, v in error_codes.items()}
 
 class ColorPrint:
     """
@@ -70,9 +134,11 @@ class ColorPrint:
             sys.stdout.write("\x1b[1;37m" + message.strip() + "\x1b[0m" + end)
             sys.stdout.flush()
 
+
 def setup_logger_mpi(root_priority: int = logging.INFO):
     import dolfinx
     from mpi4py import MPI
+
     class MPIFormatter(logging.Formatter):
         def format(self, record):
             record.rank = MPI.COMM_WORLD.Get_rank()
@@ -81,7 +147,7 @@ def setup_logger_mpi(root_priority: int = logging.INFO):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    size = comm.Get_size()
+    comm.Get_size()
 
     # Desired log level for the root process (rank 0)
     root_process_log_level = logging.INFO  # Adjust as needed
@@ -93,33 +159,35 @@ def setup_logger_mpi(root_priority: int = logging.INFO):
     logger.propagate = False
     # StreamHandler to log messages to the console
     console_handler = logging.StreamHandler()
-    file_handler = logging.FileHandler('evolution.log')
+    file_handler = logging.FileHandler("evolution.log")
 
     # formatter = logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] - %(message)s')
-    formatter = MPIFormatter('%(asctime)s  [Rank %(rank)d, Size %(size)d]  - %(name)s - [%(levelname)s] - %(message)s')
+    formatter = MPIFormatter(
+        "%(asctime)s  [Rank %(rank)d, Size %(size)d]  - %(name)s - [%(levelname)s] - %(message)s"
+    )
 
     file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
-    
+
     # file_handler.setLevel(logging.INFO)
     file_handler.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
     console_handler.setLevel(root_process_log_level if rank == 0 else logging.CRITICAL)
 
-
     # Disable propagation to root logger for both handlers
     console_handler.propagate = False
     file_handler.propagate = False
-    
-    
+
     # logger.addHandler(console_handler)
     logger.addHandler(file_handler)
 
     # Log messages, and only the root process will log.
     logger.info("The root process spawning an evolution computation (rank 0)")
     logger.info(
-    f"DOLFINx version: {dolfinx.__version__} based on GIT commit: {dolfinx.git_commit_hash} of https://github.com/FEniCS/dolfinx/")
+        f"DOLFINx version: {dolfinx.__version__} based on GIT commit: {dolfinx.git_commit_hash} of https://github.com/FEniCS/dolfinx/"
+    )
 
     return logger
+
 
 _logger = setup_logger_mpi()
 
@@ -149,20 +217,34 @@ def get_branch_details():
         return branch_name, commit_hash
 
     except Exception as e:
-        print(f"Failed to retrieve branch name and commit hash from GitHub Actions environment: {e}")
+        print(
+            f"Failed to retrieve branch name and commit hash from GitHub Actions environment: {e}"
+        )
         branch_name = None
         commit_hash = None
 
     # If GitHub Actions environment variables are not available, try to get branch name and commit hash locally
     try:
         # Get the current Git branch
-        branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.PIPE).strip().decode("utf-8")
-        commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
+        branch = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.PIPE
+            )
+            .strip()
+            .decode("utf-8")
+        )
+        commit_hash = (
+            subprocess.check_output(["git", "rev-parse", "HEAD"])
+            .strip()
+            .decode("utf-8")
+        )
         return branch, commit_hash
-    
+
     except Exception as e:
         print(f"Failed to retrieve branch name and commit hash locally: {e}")
-        return 'unknown', 'unknown'
+        return "unknown", "unknown"
+
+
 # Get the current branch
 
 branch, commit_hash = get_branch_details()
@@ -174,9 +256,6 @@ code_info = {
     "commit_hash": commit_hash,
 }
 
-from dolfinx import __version__ as dolfinx_version
-from petsc4py import __version__ as petsc_version
-from slepc4py import __version__ as slepc_version
 
 library_info = {
     "dolfinx_version": dolfinx_version,
@@ -189,6 +268,7 @@ simulation_info = {
     **code_info,
 }
 
+
 def norm_L2(u):
     """
     Returns the L2 norm of the function u
@@ -196,9 +276,9 @@ def norm_L2(u):
     comm = u.function_space.mesh.comm
     dx = ufl.Measure("dx", u.function_space.mesh)
     norm_form = form(ufl.inner(u, u) * dx)
-    norm = np.sqrt(comm.allreduce(
-        assemble_scalar(norm_form), op=mpi4py.MPI.SUM))
+    norm = np.sqrt(comm.allreduce(assemble_scalar(norm_form), op=mpi4py.MPI.SUM))
     return norm
+
 
 def norm_H1(u):
     """
@@ -206,11 +286,10 @@ def norm_H1(u):
     """
     comm = u.function_space.mesh.comm
     dx = ufl.Measure("dx", u.function_space.mesh)
-    norm_form = form(
-        (ufl.inner(u, u) + ufl.inner(ufl.grad(u), ufl.grad(u))) * dx)
-    norm = np.sqrt(comm.allreduce(
-        assemble_scalar(norm_form), op=mpi4py.MPI.SUM))
+    norm_form = form((ufl.inner(u, u) + ufl.inner(ufl.grad(u), ufl.grad(u))) * dx)
+    norm = np.sqrt(comm.allreduce(assemble_scalar(norm_form), op=mpi4py.MPI.SUM))
     return norm
+
 
 def seminorm_H1(u):
     """
@@ -219,21 +298,23 @@ def seminorm_H1(u):
     comm = u.function_space.mesh.comm
     dx = ufl.Measure("dx", u.function_space.mesh)
     seminorm = form((ufl.inner(ufl.grad(u), ufl.grad(u))) * dx)
-    seminorm = np.sqrt(comm.allreduce(
-        assemble_scalar(seminorm), op=mpi4py.MPI.SUM))
+    seminorm = np.sqrt(comm.allreduce(assemble_scalar(seminorm), op=mpi4py.MPI.SUM))
     return seminorm
+
 
 def set_vector_to_constant(x, value):
     with x.localForm() as local:
         local.set(value)
     x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
+
 def table_timing_data():
     import pandas as pd
     from dolfinx.common import timing
 
     timing_data = []
-    tasks = ["~First Order: AltMin solver",
+    tasks = [
+        "~First Order: AltMin solver",
         "~First Order: AltMin-Damage solver",
         "~First Order: AltMin-Elastic solver",
         "~First Order: Hybrid solver",
@@ -241,15 +322,18 @@ def table_timing_data():
         "~Second Order: Cone Project",
         "~Second Order: Stability",
         "~Postprocessing and Vis",
-        "~Computation Experiment"
-        ]
+        "~Computation Experiment",
+    ]
 
     for task in tasks:
         timing_data.append(timing(task))
-    
-    df = pd.DataFrame(timing_data, columns=["reps", "wall tot", "usr", "sys"], index=tasks)
+
+    df = pd.DataFrame(
+        timing_data, columns=["reps", "wall tot", "usr", "sys"], index=tasks
+    )
 
     return df
+
 
 def find_offending_columns_lengths(data):
     lengths = {}
@@ -257,10 +341,10 @@ def find_offending_columns_lengths(data):
         try:
             lengths[key] = len(value)
         except TypeError:
-            lengths[key] = 'Non-iterable'
+            lengths[key] = "Non-iterable"
     return lengths
 
-from dolfinx.io import XDMFFile
+
 
 
 class ResultsStorage:
@@ -285,12 +369,17 @@ class ResultsStorage:
         alpha = state["alpha"]
 
         if self.comm.rank == 0:
-            with open(f"{self.prefix}/parameters.yaml", 'w') as file:
+            with open(f"{self.prefix}/parameters.yaml", "w") as file:
                 yaml.dump(parameters, file)
 
-        with XDMFFile(self.comm, f"{self.prefix}/simulation_results.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+        with XDMFFile(
+            self.comm,
+            f"{self.prefix}/simulation_results.xdmf",
+            "w",
+            encoding=XDMFFile.Encoding.HDF5,
+        ) as file:
             # for t, data in history_data.items():
-                # file.write_scalar(data, t)
+            # file.write_scalar(data, t)
             file.write_mesh(u.function_space.mesh)
 
             file.write_function(u, t)
@@ -300,7 +389,9 @@ class ResultsStorage:
             with open(f"{self.prefix}/time_data.json", "w") as file:
                 json.dump(history_data, file)
 
+
 # Visualization functions/classes
+
 
 class Visualization:
     """
@@ -334,6 +425,7 @@ class Visualization:
             json.dump(data.to_json(), a_file)
             a_file.close()
 
+
 history_data = {
     "load": [],
     "elastic_energy": [],
@@ -348,38 +440,34 @@ history_data = {
     "inertia": [],
 }
 
-def _write_history_data(equilibrium, 
-bifurcation, 
-stability, 
-history_data, 
-t, 
-inertia, 
-stable, 
-energies: List,
-light=True):
-    
+
+def _write_history_data(
+    equilibrium,
+    bifurcation,
+    stability,
+    history_data,
+    t,
+    inertia,
+    stable,
+    energies: List,
+):
     elastic_energy = energies[0]
     fracture_energy = energies[1]
     unique = True if inertia[0] == 0 and inertia[1] == 0 else False
 
-    if not light:
-        history_data["cone_data"].append(stability.data)
-
-    if light:
-        history_data.pop('cone_data', None)
-    
     history_data["load"].append(t)
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
-    history_data["total_energy"].append(elastic_energy+fracture_energy)
+    history_data["total_energy"].append(elastic_energy + fracture_energy)
     history_data["equilibrium_data"].append(equilibrium.data)
     history_data["inertia"].append(inertia)
     history_data["unique"].append(unique)
     history_data["stable"].append(stable)
     history_data["eigs_ball"].append(bifurcation.data["eigs"])
+    history_data["cone_data"].append(stability.data)
     history_data["eigs_cone"].append(stability.solution["lambda_t"])
 
-    return 
+    return
 
 
 def indicator_function(v):
@@ -387,12 +475,11 @@ def indicator_function(v):
 
     # Create the indicator function
     w = dolfinx.fem.Function(v.function_space)
-    with w.vector.localForm() as w_loc, v.vector.localForm() as v_loc:
-        w_loc[:] = np.where(v_loc[:] > 0, 1., 0.)
+    with w.x.petsc_vec.localForm() as w_loc, v.x.petsc_vec.localForm() as v_loc:
+        w_loc[:] = np.where(v_loc[:] > 0, 1.0, 0.0)
 
-    w.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT,
-        mode=PETSc.ScatterMode.FORWARD)
-    
+    w.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+
     return w
 
 
@@ -404,7 +491,7 @@ def save_binary_data(filename, data):
             item.view(viewer)
     elif isinstance(data, PETSc.Mat):
         data.view(viewer)
-    elif isinstance(data, PEtest_binarydataioTSc.Vec):
+    elif isinstance(data, PETSc.Vec):
         data.view(viewer)
     else:
         raise ValueError("Unsupported data type for saving")
@@ -504,7 +591,7 @@ def save_minimal_constraints(obj, filename):
 
 def load_minimal_constraints(filename):
     import irrevolutions.solvers.restriction as restriction
-    
+
     with open(filename, "rb") as file:
         minimal_constraints = pickle.load(file)
 
@@ -517,22 +604,21 @@ def load_minimal_constraints(filename):
     return reconstructed_obj
 
 
-
-
 def sample_data(N, positive=True):
+    import random
+
     import dolfinx
     from dolfinx.cpp.la.petsc import get_local_vectors, scatter_local_vectors
-    import random
-    
+
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, N - 1)
     comm = MPI.COMM_WORLD
     comm.Get_rank()
 
-    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+    V_u = dolfinx.fem.functionspace(mesh, element_u)
+    V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
     u = dolfinx.fem.Function(V_u, name="Displacement")
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
     dx = ufl.Measure("dx", alpha.function_space.mesh)
@@ -570,4 +656,3 @@ def sample_data(N, positive=True):
     v.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     return F, v
-

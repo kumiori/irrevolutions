@@ -3,7 +3,6 @@ import numpy as np
 
 
 def plot_energies(history_data, title="Evolution", file=None):
-
     fig, ax1 = matplotlib.pyplot.subplots()
 
     if title is not None:
@@ -48,7 +47,6 @@ def plot_energies(history_data, title="Evolution", file=None):
 
 
 def plot_AMit_load(history_data, title="AM max it - Load", file=None):
-
     fig, ax1 = matplotlib.pyplot.subplots()
 
     if title is not None:
@@ -113,7 +111,6 @@ def plot_force_displacement(history_data, title="Stress - load", file=None):
 def plot_residual_AMit(
     history_data, load_check, criterion, title="Residual - AM it", file=None
 ):
-
     fig, ax1 = matplotlib.pyplot.subplots()
 
     if title is not None:
@@ -147,7 +144,6 @@ def plot_residual_AMit(
 
 
 def plot_energy_AMit(history_data, load_check, title="Total energy - AM it", file=None):
-
     fig, ax1 = matplotlib.pyplot.subplots()
 
     if title is not None:

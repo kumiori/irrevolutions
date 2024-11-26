@@ -3,6 +3,8 @@ import json
 import logging
 import os
 import sys
+import basix.ufl
+
 from pathlib import Path
 
 import dolfinx
@@ -14,17 +16,10 @@ import petsc4py
 import pyvista
 import ufl
 import yaml
-from dolfinx.fem import (
-    Constant,
-    Function,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
 from dolfinx.common import list_timings
-from dolfinx.fem.petsc import assemble_vector, set_bc
+from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
+                         form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem.petsc import assemble_vector
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -33,20 +28,9 @@ from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import vec_to_functions
-from irrevolutions.utils import (
-    ColorPrint,
-    _logger,
-    _write_history_data,
-    history_data,
-    norm_H1,
-    norm_L2,
-)
-from irrevolutions.utils.plots import (
-    plot_AMit_load,
-    plot_energies,
-    plot_force_displacement,
-)
-
+from irrevolutions.utils import (ColorPrint, _logger, _write_history_data,
+                                 history_data, norm_H1, norm_L2)
+from irrevolutions.utils.plots import plot_AMit_load, plot_energies
 #
 from irrevolutions.utils.viz import plot_profile
 
@@ -62,7 +46,6 @@ load: displacement hard-t
 
 
 class _AlternateMinimisation1D:
-
     def __init__(
         self,
         total_energy,
@@ -109,7 +92,6 @@ class _AlternateMinimisation1D:
         )
 
     def solve(self, outdir=None):
-
         alpha_diff = dolfinx.fem.Function(self.alpha.function_space)
 
         self.data = {
@@ -138,9 +120,9 @@ class _AlternateMinimisation1D:
                 (solver_alpha_it, solver_alpha_reason) = self.damage.solve()
 
             # Define error function
-            self.alpha.vector.copy(alpha_diff.vector)
-            alpha_diff.vector.axpy(-1, self.alpha_old.vector)
-            alpha_diff.vector.ghostUpdate(
+            self.alpha.x.petsc_vec.copy(alpha_diff.x.petsc_vec)
+            alpha_diff.x.petsc_vec.axpy(-1, self.alpha_old.x.petsc_vec)
+            alpha_diff.x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
@@ -153,7 +135,7 @@ class _AlternateMinimisation1D:
                 np.array([comm.allreduce(Fvi.norm(), op=MPI.SUM) for Fvi in Fv]).sum()
             )
 
-            error_alpha_max = alpha_diff.vector.max()[1]
+            error_alpha_max = alpha_diff.x.petsc_vec.max()[1]
             total_energy_int = comm.allreduce(
                 assemble_scalar(form(self.total_energy)), op=MPI.SUM
             )
@@ -161,28 +143,28 @@ class _AlternateMinimisation1D:
             residual_F.ghostUpdate(
                 addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
             )
-            set_bc(residual_F, self.elasticity.bcs, self.u.vector)
+            set_bc(residual_F, self.elasticity.bcs, self.u.x.petsc_vec)
             error_residual_F = ufl.sqrt(residual_F.dot(residual_F))
 
-            self.alpha.vector.copy(self.alpha_old.vector)
-            self.alpha_old.vector.ghostUpdate(
+            self.alpha.x.petsc_vec.copy(self.alpha_old.x.petsc_vec)
+            self.alpha_old.x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
 
             logging.critical(
-                f"AM - Iteration: {iteration:3d}, res F Error: {error_residual_F:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+                f"AM - Iteration: {iteration:3d}, res F Error: {error_residual_F:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
             )
 
             logging.critical(
-                f"AM - Iteration: {iteration:3d}, H1 Error: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+                f"AM - Iteration: {iteration:3d}, H1 Error: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
             )
 
             logging.critical(
-                f"AM - Iteration: {iteration:3d}, L2 Error: {error_alpha_L2:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+                f"AM - Iteration: {iteration:3d}, L2 Error: {error_alpha_L2:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
             )
 
             logging.critical(
-                f"AM - Iteration: {iteration:3d}, Linfty Error: {error_alpha_max:3.4e}, alpha_max: {self.alpha.vector.max()[1]:3.4e}"
+                f"AM - Iteration: {iteration:3d}, Linfty Error: {error_alpha_max:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
             )
 
             self.data["iteration"].append(iteration)
@@ -265,12 +247,12 @@ def run_computation(parameters, storage=None):
         file.write_mesh(mesh)
 
     # Functional Setting
-    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+    V_u = dolfinx.fem.functionspace(mesh, element_u)
+    V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
 
     u = dolfinx.fem.Function(V_u, name="Displacement")
     u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
@@ -289,7 +271,7 @@ def run_computation(parameters, storage=None):
     alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
 
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
     # Useful references
     Lx = parameters.get("geometry").get("Lx")
@@ -323,7 +305,7 @@ def run_computation(parameters, storage=None):
     u_.interpolate(lambda x: np.ones_like(x[0]))
 
     for f in [zero_u, u_, alpha_lb, alpha_ub]:
-        f.vector.ghostUpdate(
+        f.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -453,13 +435,13 @@ def run_computation(parameters, storage=None):
 
     for i_t, t in enumerate(loads):
         u_.interpolate(lambda x: t * np.ones_like(x[0]))
-        u_.vector.ghostUpdate(
+        u_.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
         # update the lower bound
-        alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+        alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -486,9 +468,8 @@ def run_computation(parameters, storage=None):
 
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
-        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+        with dolfinx.common.Timer("~Postprocessing and Vis"):
             if comm.Get_size() == 1:
-
                 if bifurcation._spectrum:
                     vec_to_functions(bifurcation._spectrum[0]["xk"], [v, β])
 
@@ -507,7 +488,7 @@ def run_computation(parameters, storage=None):
                         points,
                         plotter,
                         subplot=(1, 2),
-                        lineproperties={"c": "k", "label": f"$\\beta$"},
+                        lineproperties={"c": "k", "label": "$\\beta$"},
                         subplotnumber=1,
                     )
                     ax = _plt.gca()
@@ -534,7 +515,7 @@ def run_computation(parameters, storage=None):
                         points,
                         plotter,
                         subplot=(1, 2),
-                        lineproperties={"c": "k", "label": f"$\\beta$"},
+                        lineproperties={"c": "k", "label": "$\\beta$"},
                         subplotnumber=2,
                         ax=ax,
                     )
@@ -691,8 +672,6 @@ def load_parameters(file_path, ndofs, model="at1"):
 
 
 def test_1d():
-    import argparse
-
     from mpi4py import MPI
 
     # parser = argparse.ArgumentParser(description="Process evolution.")
@@ -702,13 +681,15 @@ def test_1d():
     parameters, signature = load_parameters(
         os.path.join(os.path.dirname(__file__), "parameters.yml"), ndofs=_N
     )
-    pretty_parameters = json.dumps(parameters, indent=2)
+    json.dumps(parameters, indent=2)
     # print(pretty_parameters)
     # _storage = f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{args.N}/{signature}"
-    _storage = f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{_N}/{signature}"
+    _storage = (
+        f"output/one-dimensional-bar/MPI-{MPI.COMM_WORLD.Get_size()}/{_N}/{signature}"
+    )
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment"):
         history_data, stability_data, state = run_computation(parameters, _storage)
 
     from irrevolutions.utils import ResultsStorage, Visualization
@@ -726,16 +707,22 @@ def test_1d():
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 
     from irrevolutions.utils import table_timing_data
+
     _timings = table_timing_data()
 
     visualization.save_table(_timings, "timing_data")
     _neg_eigen_ball = [d[0] for d in pd.DataFrame(history_data).inertia.values]
     _stability = pd.DataFrame(history_data).stable.values
     _uniqueness = pd.DataFrame(history_data).unique.values
-    
+
     np.testing.assert_array_equal(_neg_eigen_ball, [0, 0, 0, 1, 2])
-    np.testing.assert_array_equal(_stability, np.array([True, True, True, False, False]))
-    np.testing.assert_array_equal(_uniqueness, np.array([True, True, True, False, False]))
- 
+    np.testing.assert_array_equal(
+        _stability, np.array([True, True, True, False, False])
+    )
+    np.testing.assert_array_equal(
+        _uniqueness, np.array([True, True, True, False, False])
+    )
+
+
 if __name__ == "__main__":
     test_1d()

@@ -1,20 +1,24 @@
-from irrevolutions.utils import _logger, ColorPrint, indicator_function
-from irrevolutions.utils import eigenspace as eig
-from irrevolutions.utils.viz import get_datapoints
-from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
-from dolfinx.fem import form, assemble_scalar
-from pathlib import Path
-import json
 import argparse
+import json
 import logging
-from mpi4py import MPI
-from petsc4py import PETSc
-import yaml
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
+import sys
+from pathlib import Path
+import basix.ufl
+
+import dolfinx
 import numpy as np
 import ufl
-import dolfinx
-import sys
+import yaml
+from dolfinx.fem import (assemble_scalar, dirichletbc, form,
+                         locate_dofs_geometrical)
+from mpi4py import MPI
+from petsc4py import PETSc
+
+from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.utils import ColorPrint, _logger
+from irrevolutions.utils import eigenspace as eig
+from irrevolutions.utils import indicator_function
+from irrevolutions.utils.viz import get_datapoints
 
 sys.path.append("../")
 sys.path.append("../playground/nb")
@@ -27,7 +31,6 @@ _logger.setLevel(logging.CRITICAL)
 
 
 def rayleigh_ratio_reduced(β, parameters):
-
     dx = ufl.Measure("dx", β.function_space.mesh)
     a, b, c = (
         parameters["model"]["a"],
@@ -108,11 +111,11 @@ def rayleigh(parameters, storage=None):
         else 1
     )
 
-    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
 
-    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
-    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+    V_u = dolfinx.fem.functionspace(mesh, element_u)
+    V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
     u = dolfinx.fem.Function(V_u, name="Displacement")
 
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
@@ -125,12 +128,12 @@ def rayleigh(parameters, storage=None):
 
     for zero in [zero_u, zero_alpha]:
         zero.interpolate(lambda x: np.zeros_like(x[0]))
-        zero.vector.ghostUpdate(
+        zero.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
     one_alpha.interpolate(lambda x: np.zeros_like(x[0]))
-    one_alpha.vector.ghostUpdate(
+    one_alpha.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
@@ -141,8 +144,8 @@ def rayleigh(parameters, storage=None):
 
     G = 1 / 2 * (a * alpha.dx(0) ** 2 + b * (u.dx(0) - c * alpha) ** 2) * dx
 
-    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 1))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 1))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 1))
@@ -156,8 +159,8 @@ def rayleigh(parameters, storage=None):
     bcs = {"bcs_u": bcs_u, "bcs_alpha": []}
 
     # Perturbations
-    β = dolfinx.fem.Function(V_alpha, name="DamagePerturbation")
-    v = dolfinx.fem.Function(V_u, name="DisplacementPerturbation")
+    dolfinx.fem.Function(V_alpha, name="DamagePerturbation")
+    dolfinx.fem.Function(V_u, name="DisplacementPerturbation")
 
     # Pack state
     state = {"u": u, "alpha": alpha}
@@ -188,7 +191,7 @@ def rayleigh(parameters, storage=None):
 
     bifurcation.solve(zero_alpha)
     bifurcation.get_inertia()
-    stable = stability.solve(zero_alpha, eig0=bifurcation.spectrum, inertia=(1, 0, 10))
+    stability.solve(zero_alpha, eig0=bifurcation.spectrum[0]["xk"], inertia=(1, 0, 10))
     # (size of the) support of the cone-eigenfunction - if any.
     #
 
@@ -328,7 +331,6 @@ def load_parameters(file_path, ndofs, model="rayleigh"):
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(description="Process evolution.")
     parser.add_argument("-N", help="The number of dofs.", type=int, default=50)
     parser.add_argument(
@@ -350,5 +352,5 @@ if __name__ == "__main__":
         _storage = f"output/rayleigh-benchmark-parametric/MPI-{MPI.COMM_WORLD.Get_size()}/{signature[0:6]}"
         ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-        with dolfinx.common.Timer(f"~Random Computation Experiment") as timer:
+        with dolfinx.common.Timer("~Random Computation Experiment") as timer:
             history_data, stability_data, state = rayleigh(parameters, _storage)

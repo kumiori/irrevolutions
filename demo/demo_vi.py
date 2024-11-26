@@ -1,30 +1,22 @@
-from dolfinx.fem.assemble import assemble_scalar
 import logging
-import numpy as np
+import os
+import sys
+from pathlib import Path
 
 import dolfinx
-import dolfinx.plot
 import dolfinx.io
-from dolfinx.fem import (
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-)
 import dolfinx.mesh
-from dolfinx.mesh import CellType
-import ufl
-
-from mpi4py import MPI
-import petsc4py
-import sys
-import yaml
-import os
-from pathlib import Path
-import pyvista
-from pyvista.utilities import xvfb
-
 import dolfinx.plot
+import numpy as np
+import petsc4py
+import pyvista
+import ufl
+import yaml
+from dolfinx.fem import Function, FunctionSpace, dirichletbc
+from dolfinx.fem.assemble import assemble_scalar
+from dolfinx.mesh import CellType
+from mpi4py import MPI
+from pyvista.utilities import xvfb
 
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.utils.viz import plot_profile, plot_scalar
@@ -48,11 +40,11 @@ mesh = dolfinx.mesh.create_rectangle(
 V = FunctionSpace(mesh, ("CG", 1))
 
 zero = Function(V)
-with zero.vector.localForm() as loc:
+with zero.x.petsc_vec.localForm() as loc:
     loc.set(0.0)
 
 one = Function(V)
-with one.vector.localForm() as loc:
+with one.x.petsc_vec.localForm() as loc:
     loc.set(1.0)
 
 
@@ -102,7 +94,7 @@ def monitor(snes, its, fgnorm):
 
 
 solver_snes.setMonitor(monitor)
-solver_snes.solve(None, u.vector)
+solver_snes.solve(None, u.x.petsc_vec)
 # solver_snes.view()
 
 prefix = os.path.join("output", "test-vi")

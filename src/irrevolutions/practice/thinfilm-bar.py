@@ -1,84 +1,58 @@
 #!/usr/bin/env python3
-import pdb
-import pandas as pd
-import numpy as np
-from sympy import derive_by_array
-import yaml
-import json
-from pathlib import Path
-import sys
-import os
-import matplotlib.pyplot as plt
-
-from dolfinx.fem import locate_dofs_geometrical, dirichletbc
-from dolfinx.mesh import CellType
-import dolfinx.mesh
-from dolfinx.fem import (
-    Constant,
-    Function,
-    FunctionSpace,
-    assemble_scalar,
-    dirichletbc,
-    form,
-    locate_dofs_geometrical,
-    set_bc,
-)
-
-import pyvista
-from pyvista.utilities import xvfb
-# 
-from mpi4py import MPI
-import petsc4py
-from petsc4py import PETSc
-import dolfinx
-import dolfinx.plot
-from dolfinx import log
-import ufl
-from dolfinx.mesh import locate_entities_boundary, CellType, create_rectangle
-from dolfinx.fem import locate_dofs_topological
-
-from dolfinx.fem.petsc import (
-    set_bc,
-    )
-from dolfinx.io import XDMFFile, gmshio
-import logging
-from dolfinx.common import Timer, list_timings, TimingType
-
-sys.path.append("../")
-from models import BrittleMembraneOverElasticFoundation as ThinFilm
-from algorithms.am import AlternateMinimisation, HybridSolver
-from algorithms.so import BifurcationSolver, StabilitySolver
-from meshes.primitives import mesh_bar_gmshapi
-from irrevolutions.utils import ColorPrint
-from utils.plots import plot_energies
-from irrevolutions.utils import norm_H1, norm_L2
-# from meshes.pacman import mesh_pacman
-from utils.viz import plot_mesh, plot_vector, plot_scalar, plot_profile
-from utils.lib import _local_notch_asymptotic
-from utils.plots import plot_energies, plot_AMit_load, plot_force_displacement
-from irrevolutions.utils import table_timing_data
+from irrevolutions.utils import ColorPrint, setup_logger_mpi, table_timing_data
+from utils.viz import plot_profile, plot_scalar, plot_vector
+from utils.plots import plot_AMit_load, plot_energies, plot_force_displacement
 from utils.parametric import parameters_vs_elle
 from solvers.function import vec_to_functions
+from models import BrittleMembraneOverElasticFoundation as ThinFilm
+from meshes.primitives import mesh_bar_gmshapi
+from default import ResultsStorage, Visualization
+from algorithms.so import BifurcationSolver, StabilitySolver
+from algorithms.am import HybridSolver
+import json
+import logging
+import os
+import sys
+from pathlib import Path
+
+import dolfinx
+import dolfinx.mesh
+import dolfinx.plot
+import numpy as np
+import pandas as pd
+import pyvista
+import ufl
+import yaml
+from dolfinx.common import list_timings
+from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
+                         dirichletbc, form, locate_dofs_geometrical, set_bc)
+from dolfinx.io import XDMFFile, gmshio
+#
+from mpi4py import MPI
+from petsc4py import PETSc
+from pyvista.utilities import xvfb
+import basix.ufl
+
+sys.path.append("../")
+# from meshes.pacman import mesh_pacman
 
 # logging.basicConfig(level=logging.DEBUG)
 
-from irrevolutions.utils import setup_logger_mpi
-
-
-from default import ResultsStorage, Visualization
 
 # ------------------------------------------------------------------
 class ConvergenceError(Exception):
     """Error raised when a solver fails to converge"""
 
+
 def _make_reasons(reasons):
     return dict(
-        [(getattr(reasons, r), r)
-         for r in dir(reasons) if not r.startswith("_")]
+        [(getattr(reasons, r), r) for r in dir(reasons) if not r.startswith("_")]
     )
+
 
 SNESReasons = _make_reasons(PETSc.SNES.ConvergedReason())
 KSPReasons = _make_reasons(PETSc.KSP.ConvergedReason())
+
 
 def check_snes_convergence(snes):
     r = snes.getConvergedReason()
@@ -129,24 +103,25 @@ def main(parameters, storage=None):
     Ly = parameters["geometry"]["Ly"]
 
     tdim = parameters["geometry"]["geometric_dimension"]
-    lc = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]    
+    lc = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]
     geom_type = parameters["geometry"]["geom_type"]
-    _nameExp = 'thinfilm-' + parameters["geometry"]["geom_type"]
+    _nameExp = "thinfilm-" + parameters["geometry"]["geom_type"]
 
     import hashlib
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     outdir = os.path.join(os.path.dirname(__file__), "output")
     if storage is None:
         prefix = os.path.join(outdir, "thinfilm-bar", signature)
     else:
         prefix = storage
-    
+
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
     if comm.rank == 0:
-        with open(f"{prefix}/signature.md5", 'w') as f:
+        with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
 
     # generate mesh
@@ -157,16 +132,16 @@ def main(parameters, storage=None):
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
     # functional space
-    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
     V_u = FunctionSpace(mesh, element_u)
 
-    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
     V_alpha = FunctionSpace(mesh, element_alpha)
 
     u = Function(V_u, name="Displacement")
     zero_u = Function(V_u, name="Boundary Displacement")
     alpha = Function(V_alpha, name="Damage")
-    zero_alpha = Function(V_alpha, name="Damage Boundary Field")
+    Function(V_alpha, name="Damage Boundary Field")
     alphadot = dolfinx.fem.Function(V_alpha, name="Damage_rate")
 
     state = {"u": u, "alpha": alpha}
@@ -174,26 +149,23 @@ def main(parameters, storage=None):
     # Perturbation
     β = Function(V_alpha, name="DamagePerturbation")
     v = Function(V_u, name="DisplacementPerturbation")
-    perturbation = {"v": v, "beta": β}
-    
-    z = [u, alpha]
+
+    [u, alpha]
     # need upper/lower bound for the damage field
     alpha_lb = Function(V_alpha, name="Lower bound")
     alpha_ub = Function(V_alpha, name="Upper bound")
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ds = ufl.Measure("ds", domain=mesh)
+    ufl.Measure("ds", domain=mesh)
 
-    dofs_u_left = locate_dofs_geometrical(
-        V_u, lambda x: np.isclose(x[0], 0.0))
-    dofs_u_right = locate_dofs_geometrical(
-        V_u, lambda x: np.isclose(x[0], Lx))
+    dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
+    dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
 
     zero_u = Function(V_u)
     u_ = Function(V_u, name="Boundary Displacement")
 
-    zero_alpha = Function(V_alpha)
+    Function(V_alpha)
 
     bc_u_left = dirichletbc(zero_u, dofs_u_left)
     bc_u_right = dirichletbc(u_, dofs_u_right)
@@ -202,20 +174,18 @@ def main(parameters, storage=None):
     # boundary conditions
     bcs_u = []
     bcs_alpha = []
-    set_bc(alpha_ub.vector, bcs_alpha)
-    alpha_ub.vector.ghostUpdate(
+    set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+    alpha_ub.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
 
-
     # loading
-    tau = Constant(mesh, np.array(0., dtype=PETSc.ScalarType))
-    eps_0 = tau * ufl.as_tensor([[1., 0], [0, 0]])
+    tau = Constant(mesh, np.array(0.0, dtype=PETSc.ScalarType))
+    eps_0 = tau * ufl.as_tensor([[1.0, 0], [0, 0]])
 
     load_par = parameters["loading"]
-    loads = np.linspace(load_par["min"],
-                        load_par["max"], load_par["steps"])
+    loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
     # energy (model)
     model = ThinFilm(parameters["model"], eps_0=eps_0)
     f = Constant(mesh, np.array([0, 0], dtype=PETSc.ScalarType))
@@ -239,8 +209,7 @@ def main(parameters, storage=None):
     )
 
     stability = StabilitySolver(
-        total_energy, state, bcs,
-        cone_parameters=parameters.get("stability")
+        total_energy, state, bcs, cone_parameters=parameters.get("stability")
     )
     history_data = {
         "load": [],
@@ -257,74 +226,80 @@ def main(parameters, storage=None):
         "alphadot_norm": [],
         "rate_12_norm": [],
         "unscaled_rate_12_norm": [],
-        "cone-stable": []
+        "cone-stable": [],
     }
     # timestepping
 
-    with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
+    with XDMFFile(
+        comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5
+    ) as file:
         file.write_mesh(mesh)
 
     for i_t, t in enumerate(loads):
         tau.value = t
 
-
         # update the lower bound
-        alpha.vector.copy(alpha_lb.vector)
-        alpha_lb.vector.ghostUpdate(
+        alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
+        alpha_lb.x.petsc_vec.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-
-        ColorPrint.print_bold(f"   Solving first order: AM   ")
-        ColorPrint.print_bold(f"===================-=========")
+        ColorPrint.print_bold("   Solving first order: AM   ")
+        ColorPrint.print_bold("===================-=========")
 
         logger.critical(f"{i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
-        ColorPrint.print_bold(f"   Solving first order: Hybrid   ")
-        ColorPrint.print_bold(f"===================-=============")
+        ColorPrint.print_bold("   Solving first order: Hybrid   ")
+        ColorPrint.print_bold("===================-=============")
 
         logger.info(f"-- {i_t}/{len(loads)}: Solving for t = {t:3.2f} --")
-        
+
         equilibrium.solve(alpha_lb)
-        
+
         fracture_energy = comm.allreduce(
-            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.damage_energy_density(state) * dx)),
+            dolfinx.fem.assemble_scalar(
+                dolfinx.fem.form(model.damage_energy_density(state) * dx)
+            ),
             op=MPI.SUM,
         )
         elastic_energy = comm.allreduce(
-            dolfinx.fem.assemble_scalar(dolfinx.fem.form(model.elastic_energy_density(state) * dx)),
+            dolfinx.fem.assemble_scalar(
+                dolfinx.fem.form(model.elastic_energy_density(state) * dx)
+            ),
             op=MPI.SUM,
         )
 
         # compute rate
-        alpha.vector.copy(alphadot.vector)
-        alphadot.vector.axpy(-1, alpha_lb.vector)
-        alphadot.vector.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
+        alpha.x.petsc_vec.copy(alphadot.x.petsc_vec)
+        alphadot.x.petsc_vec.axpy(-1, alpha_lb.x.petsc_vec)
+        alphadot.x.petsc_vec.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        )
 
         rate_12_norm = equilibrium.scaled_rate_norm(alphadot, parameters)
         rate_12_norm_unscaled = equilibrium.unscaled_rate_norm(alphadot)
 
-        ColorPrint.print_bold(f"   Solving second order: Rate Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Rate Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
-        is_stable = bifurcation.solve(alpha_lb)
-        is_elastic = bifurcation.is_elastic()
+        bifurcation.solve(alpha_lb)
+        bifurcation.is_elastic()
         inertia = bifurcation.get_inertia()
 
-        ColorPrint.print_bold(f"   Solving second order: Stability Pb.    ")
-        ColorPrint.print_bold(f"===================-=================")
+        ColorPrint.print_bold("   Solving second order: Stability Pb.    ")
+        ColorPrint.print_bold("===================-=================")
 
-        stable = stability.my_solve(alpha_lb, eig0=bifurcation._spectrum, inertia = inertia)
+        stable = stability.my_solve(
+            alpha_lb, eig0=bifurcation._spectrum, inertia=inertia
+        )
 
         if bifurcation._spectrum:
-            vec_to_functions(bifurcation._spectrum[0]['xk'], [v, β])
-            
+            vec_to_functions(bifurcation._spectrum[0]["xk"], [v, β])
+
             tol = 1e-3
             xs = np.linspace(0 + tol, Lx - tol, 101)
             points = np.zeros((3, 101))
             points[0] = xs
-            
+
             plotter = pyvista.Plotter(
                 title="Perturbation profile",
                 window_size=[800, 600],
@@ -335,18 +310,14 @@ def main(parameters, storage=None):
                 points,
                 plotter,
                 subplot=(0, 0),
-                lineproperties={
-                    "c": "k",
-                    "label": f"$\\beta$"
-                },
+                lineproperties={"c": "k", "label": "$\\beta$"},
             )
-            ax = _plt.gca()
+            _plt.gca()
             _plt.legend()
             _plt.fill_between(data[0], data[1].reshape(len(data[1])))
             _plt.title("Perurbation")
             _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
             _plt.close()
-
 
             plotter = pyvista.Plotter(
                 title="Cone-Perturbation profile",
@@ -355,25 +326,21 @@ def main(parameters, storage=None):
             )
 
             _plt, data = plot_profile(
-                stability.perturbation['beta'],
+                stability.perturbation["beta"],
                 points,
                 plotter,
                 subplot=(0, 0),
-                lineproperties={
-                    "c": "k",
-                    "label": f"$\\beta$"
-                },
+                lineproperties={"c": "k", "label": "$\\beta$"},
             )
-            ax = _plt.gca()
+            _plt.gca()
             _plt.legend()
             _plt.fill_between(data[0], data[1].reshape(len(data[1])))
             _plt.title("Perurbation from the Cone")
             _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
             _plt.close()
 
-            
         # if stability.perturbation:
-            # pass
+        # pass
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
@@ -391,16 +358,15 @@ def main(parameters, storage=None):
         )
         _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
 
-
         history_data["load"].append(t)
         history_data["fracture_energy"].append(fracture_energy)
         history_data["elastic_energy"].append(elastic_energy)
-        history_data["total_energy"].append(elastic_energy+fracture_energy)
+        history_data["total_energy"].append(elastic_energy + fracture_energy)
         history_data["solver_data"].append(equilibrium.data)
         history_data["eigs"].append(bifurcation.data["eigs"])
         history_data["F"].append(stress)
         history_data["cone_data"].append(stability.data)
-        history_data["alphadot_norm"].append(alphadot.vector.norm())
+        history_data["alphadot_norm"].append(alphadot.x.petsc_vec.norm())
         history_data["rate_12_norm"].append(rate_12_norm)
         history_data["unscaled_rate_12_norm"].append(rate_12_norm_unscaled)
         history_data["cone-stable"].append(stable)
@@ -408,22 +374,23 @@ def main(parameters, storage=None):
         history_data["uniqueness"].append(_unique)
         history_data["inertia"].append(inertia)
 
-    # postprocessing
-        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+        # postprocessing
+        with dolfinx.common.Timer("~Postprocessing and Vis"):
             if comm.rank == 0:
                 plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
                 plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
                 plot_force_displacement(
-                    history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
+                    history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
+                )
 
-
-        with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
+        with XDMFFile(
+            comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
+        ) as file:
             file.write_function(u, t)
             file.write_function(alpha, t)
 
     # postprocessing
-    with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
-        
+    with dolfinx.common.Timer("~Postprocessing and Vis"):
         if comm.Get_rank == 1:
             xvfb.start_xvfb(wait=0.05)
             pyvista.OFF_SCREEN = True
@@ -436,7 +403,6 @@ def main(parameters, storage=None):
             _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
             _plt = plot_vector(u, plotter, subplot=(0, 1))
             _plt.screenshot(f"{prefix}/traction-state.png")
-
 
     return history_data, state
 
@@ -459,7 +425,7 @@ def load_parameters(file_path):
     parameters["stability"]["cone"]["cone_max_it"] = 400000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-    parameters["stability"]["cone"]["scaling"] = 1.e-5
+    parameters["stability"]["cone"]["scaling"] = 1.0e-5
 
     parameters["geometry"]["Lx"] = 5
     parameters["geometry"]["Ly"] = 5e-1
@@ -467,8 +433,8 @@ def load_parameters(file_path):
     # parameters["model"]["model_type"] = '1D'
     # parameters["model"]["w1"] = 1
     parameters["model"]["nu"] = 0
-    parameters["model"]["ell_e"] = .2
-    parameters["model"]["ell"] = parameters["model"]["ell_e"]/3
+    parameters["model"]["ell_e"] = 0.2
+    parameters["model"]["ell"] = parameters["model"]["ell_e"] / 3
     # parameters["model"]["ell"] = .05
     # parameters["model"]["k_res"] = 0.
     parameters["loading"]["min"] = 0.99
@@ -485,24 +451,30 @@ def load_parameters(file_path):
     # _nameExp = parameters["geometry"]["geom_type"]
     # ell_ = parameters["model"]["ell"]
 
-    signature = hashlib.md5(str(parameters).encode('utf-8')).hexdigest()
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     return parameters, signature
 
 
 if __name__ == "__main__":
     import argparse
+
     base_parameters, base_signature = load_parameters("../data/thinfilm/parameters.yml")
     # _storage = f"output/thinfilm-bar/{signature}"
-    parser = argparse.ArgumentParser(description='Process evolution.')
-    
-    parser.add_argument('--ell_e', type=float, default=.3,
-                        help='internal elastic length')
+    parser = argparse.ArgumentParser(description="Process evolution.")
+
+    parser.add_argument(
+        "--ell_e", type=float, default=0.3, help="internal elastic length"
+    )
     args = parser.parse_args()
 
     if "--ell_e" in sys.argv:
-        parameters, signature = parameters_vs_elle(parameters=base_parameters, elle=np.float(args.ell_e))
-        _storage = f"output/parametric/thinfilm-bar/vs_ell_e/{base_signature}/{signature}"
+        parameters, signature = parameters_vs_elle(
+            parameters= base_parameters, elle=np.float(args.ell_e)
+        )
+        _storage = (
+            f"output/parametric/thinfilm-bar/vs_ell_e/{base_signature}/{signature}"
+        )
 
     else:
         parameters, signature = base_parameters, base_signature
@@ -513,13 +485,13 @@ if __name__ == "__main__":
     print(pretty_parameters)
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
-    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
+    with dolfinx.common.Timer("~Computation Experiment") as timer:
         history_data, state = main(parameters, _storage)
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
-    
+
     df = pd.DataFrame(history_data)
-    
-    print(df.drop(['solver_data', 'cone_data'], axis=1))
+
+    print(df.drop(["solver_data", "cone_data"], axis=1))
     ColorPrint.print_bold(f"===================-{signature}-=================")
     ColorPrint.print_bold(f"===================-{_storage}-=================")
 
