@@ -1,4 +1,5 @@
 from dolfinx.fem.function import Function
+import dolfinx
 import os
 
 import ufl
@@ -252,27 +253,47 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
         return ufl.as_tensor(sigma)
 
 
-
-
 class VariableThickness:
-    # accept the class as argument
     def __init__(self, model):
         self.model = model
 
-    # accept the class's __init__ method arguments
-    def __call__(self, thickness: Function, model_parameters={}, eps_0=ufl.Identity(2)):
-        # replace energy densities with newdisplay
-        self.model.elastic_energy_density = (
-            thickness * self.model.elastic_energy_density
-        )
-        self.model.elastic_foundation_density = (
-            thickness * self.model.elastic_foundation_density
-        )
-        self.model.damage_dissipation_density = (
-            thickness * self.model.damage_dissipation_density
-        )
+    def __call__(
+        self,
+        thickness: Function,
+        model_parameters={},
+        eps_0=ufl.Identity(2),
+    ):
+        # Wrap energy density functions
+        def wrap_with_thickness(original_function):
+            """
+            Wrapper to multiply the result of the original function by the thickness.
+            """
 
-        # return the instance of the class
+            def wrapped(*args, **kwargs):
+                # Call the original function
+                original_result = original_function(*args, **kwargs)
+                # Multiply the result by the thickness
+                return thickness * original_result
+
+            return wrapped
+
+        # Wrap and replace the energy density functions
+        if callable(self.model.elastic_energy_density):
+            self.model.elastic_energy_density = wrap_with_thickness(
+                self.model.elastic_energy_density
+            )
+
+        # if callable(self.model.elastic_foundation_density):
+        #     self.model.elastic_foundation_density = wrap_with_thickness(
+        #         self.model.elastic_foundation_density
+        #     )
+
+        if callable(self.model.damage_dissipation_density):
+            self.model.damage_dissipation_density = wrap_with_thickness(
+                self.model.damage_dissipation_density
+            )
+
+        # Return the instance of the decorated class
         obj = self.model(thickness, model_parameters, eps_0)
         return obj
 
