@@ -11,8 +11,7 @@ from petsc4py import PETSc
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import functions_to_vec
 from irrevolutions.solvers.snesblockproblem import SNESBlockProblem
-from irrevolutions.utils import (ColorPrint, norm_H1, norm_L2,
-                                 set_vector_to_constant)
+from irrevolutions.utils import ColorPrint, norm_H1, norm_L2, set_vector_to_constant
 from dolfinx.fem.petsc import assemble_vector, set_bc
 
 comm = MPI.COMM_WORLD
@@ -20,14 +19,15 @@ comm = MPI.COMM_WORLD
 # Set up basic logging
 logging.basicConfig()
 
+
 class AlternateMinimisation:
     """
     First order Alternate Minimisation solver for elasticity and damage fields.
 
-    The solver seeks equilibia (critical states for the total energy) of a system 
+    The solver seeks equilibia (critical states for the total energy) of a system
     by alternating between solving for the elasticity and the damage field in an iterative process,
     exploiting the separate convexity of the total energy.
-    
+
     Remark: check the assumptions.
 
     Parameters:
@@ -38,7 +38,7 @@ class AlternateMinimisation:
         Dictionary containing the current state of the system with keys 'u' (displacement)
         and 'alpha' (damage).
     bcs : dict
-        Dictionary of boundary conditions with keys 'bcs_u' for displacement and 'bcs_alpha' 
+        Dictionary of boundary conditions with keys 'bcs_u' for displacement and 'bcs_alpha'
         for damage.
     solver_parameters : dict, optional
         Dictionary of solver parameters, default is an empty dictionary.
@@ -109,16 +109,24 @@ class AlternateMinimisation:
         Parameters:
         ----------
         outdir : str, optional
-            Output directory for saving intermediate results. If provided, the mesh 
+            Output directory for saving intermediate results. If provided, the mesh
             and functions will be written to an XDMF file.
         """
 
         alpha_diff = dolfinx.fem.Function(self.alpha.function_space)
         self.data = {
-            "iteration": [], "error_alpha_L2": [], "error_alpha_H1": [], "F_norm": [],
-            "error_alpha_max": [], "error_residual_F": [], "error_residual_u": [],
-            "solver_alpha_reason": [], "solver_alpha_it": [], "solver_u_reason": [],
-            "solver_u_it": [], "total_energy": []
+            "iteration": [],
+            "error_alpha_L2": [],
+            "error_alpha_H1": [],
+            "F_norm": [],
+            "error_alpha_max": [],
+            "error_residual_F": [],
+            "error_residual_u": [],
+            "solver_alpha_reason": [],
+            "solver_alpha_it": [],
+            "solver_u_reason": [],
+            "solver_u_it": [],
+            "total_energy": [],
         }
 
         # Write the initial mesh
@@ -131,11 +139,13 @@ class AlternateMinimisation:
             ) as file:
                 file.write_mesh(self.u.function_space.mesh)
 
-        for iteration in range(1, self.solver_parameters.get("damage_elasticity").get("max_it")):
+        for iteration in range(
+            1, self.solver_parameters.get("damage_elasticity").get("max_it")
+        ):
             # Elasticity solver step
             with dolfinx.common.Timer("~First Order: AltMin-Elastic solver"):
                 (solver_u_it, solver_u_reason) = self.elasticity.solve()
-            
+
             # Damage solver step
             with dolfinx.common.Timer("~First Order: AltMin-Damage solver"):
                 (solver_alpha_it, solver_alpha_reason) = self.damage.solve()
@@ -151,10 +161,14 @@ class AlternateMinimisation:
             error_alpha_L2 = norm_L2(alpha_diff)
 
             Fv = [assemble_vector(form(F)) for F in self.F]
-            Fnorm = np.sqrt(np.array([comm.allreduce(Fvi.norm(), op=MPI.SUM) for Fvi in Fv]).sum())
+            Fnorm = np.sqrt(
+                np.array([comm.allreduce(Fvi.norm(), op=MPI.SUM) for Fvi in Fv]).sum()
+            )
 
             error_alpha_max = alpha_diff.x.petsc_vec.max()[1]
-            total_energy_int = comm.allreduce(assemble_scalar(form(self.total_energy)), op=MPI.SUM)
+            total_energy_int = comm.allreduce(
+                assemble_scalar(form(self.total_energy)), op=MPI.SUM
+            )
 
             residual_u = assemble_vector(self.elasticity.F_form)
             residual_u.ghostUpdate(
@@ -198,42 +212,60 @@ class AlternateMinimisation:
                 self.monitor(self)
 
             # Convergence criteria
-            if self.solver_parameters.get("damage_elasticity").get("criterion") == "residual_u":
-                logging.debug(f"AM - Iteration: {iteration:3d}, Error: ||Du E||_L2 {error_residual_u:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}")
-                if error_residual_u <= self.solver_parameters.get("damage_elasticity").get("alpha_rtol"):
+            if (
+                self.solver_parameters.get("damage_elasticity").get("criterion")
+                == "residual_u"
+            ):
+                logging.debug(
+                    f"AM - Iteration: {iteration:3d}, Error: ||Du E||_L2 {error_residual_u:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
+                )
+                if error_residual_u <= self.solver_parameters.get(
+                    "damage_elasticity"
+                ).get("alpha_rtol"):
                     error = error_residual_u
                     break
 
-            if self.solver_parameters.get("damage_elasticity").get("criterion") == "alpha_H1":
-                logging.debug(f"AM - Iteration: {iteration:3d}, Error ||Δα_i||_H1: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}")
-                if error_alpha_H1 <= self.solver_parameters.get("damage_elasticity").get("alpha_rtol"):
+            if (
+                self.solver_parameters.get("damage_elasticity").get("criterion")
+                == "alpha_H1"
+            ):
+                logging.info(
+                    f"AM - Iteration: {iteration:3d}, Error ||Δα_i||_H1: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
+                )
+                if error_alpha_H1 <= self.solver_parameters.get(
+                    "damage_elasticity"
+                ).get("alpha_rtol"):
                     error = error_alpha_H1
                     break
         else:
-            raise RuntimeError(f"Could not converge after {iteration:3d} iterations, error {error_alpha_H1:3.4e}")
+            raise RuntimeError(
+                f"Could not converge after {iteration:3d} iterations, error {error_alpha_H1:3.4e}"
+            )
 
         _crit = self.solver_parameters.get("damage_elasticity").get("criterion")
-        ColorPrint.print_info(f"ALTMIN - Iterations: {iteration:3d}, Error: {error:3.4e}, {_crit}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}")
+        ColorPrint.print_info(
+            f"ALTMIN - Iterations: {iteration:3d}, Error: {error:3.4e}, {_crit}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
+        )
 
 
 class HybridSolver(AlternateMinimisation):
     """
     Hybrid (AltMin+Newton) solver for fracture problems.
 
-    This solver combines alternating minimization for elasticity and damage 
-    fields with a Newton method to improve convergence and performance. 
-    It ensures that the total energy of the system is minimized efficiently, 
+    This solver combines alternating minimization for elasticity and damage
+    fields with a Newton method to improve convergence and performance.
+    It ensures that the total energy of the system is minimized efficiently,
     using a combination of the two methods.
     First Order Hybrid (AlternateMinimisation + Newton) solver for fracture problems.
     Combines alternating minimisation to convergence with a coarse tolerance,
     to a Newton step on the full nonlinear functional, for sharp convergence.
-    
+
     Parameters
     ----------
     total_energy : ufl.Form
         The total energy functional for the system.
     state : dict
-        Dictionary containing the state of the system, 
+        Dictionary containing the state of the system,
         including 'u' (displacement) and 'alpha' (damage) fields.
     bcs : dict
         Boundary conditions dictionary containing 'bcs_u' for displacement and 'bcs_alpha' for damage.
@@ -363,7 +395,9 @@ class HybridSolver(AlternateMinimisation):
         with ub.getNestSubVecs()[0].localForm() as u_sub:
             u_sub.set(PETSc.PINFINITY)
 
-        with lb.getNestSubVecs()[1].localForm() as alpha_sub, alpha_lb.x.petsc_vec.localForm() as alpha_lb_loc:
+        with lb.getNestSubVecs()[
+            1
+        ].localForm() as alpha_sub, alpha_lb.x.petsc_vec.localForm() as alpha_lb_loc:
             alpha_lb_loc.copy(result=alpha_sub)
 
         with ub.getNestSubVecs()[1].localForm() as alpha_sub:
@@ -391,8 +425,10 @@ class HybridSolver(AlternateMinimisation):
         _form = dolfinx.fem.form(
             (
                 ufl.inner(alpha, alpha)
-                + parameters["model"]["ell"] ** 2.0 * ufl.inner(ufl.grad(alpha), ufl.grad(alpha))
-            ) * dx
+                + parameters["model"]["ell"] ** 2.0
+                * ufl.inner(ufl.grad(alpha), ufl.grad(alpha))
+            )
+            * dx
         )
         return np.sqrt(comm.allreduce(assemble_scalar(_form), op=MPI.SUM))
 
