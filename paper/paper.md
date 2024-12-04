@@ -33,7 +33,7 @@ bibliography: paper.bib
 
 # Summary
 
-We study irreversible evolutionary processes with a general energetic notion of stability. With this contribution, we release three nonlinear variational solvers as modular components (based on FEniCSx/dolfinx) that address three mathematical optimisation problems. They are general enough to apply, in principle, to evolutionary systems with instabilities, jumps, and emergence of patterns. Systems with these qualities are commonplace in diverse arenas spanning from quantum to continuum mechanics, economy, social sciences, and ecology. Our motivation proceeds from fracture mechanics, with the ultimate goal of deploying a transparent numerical platform for scientific validation and prediction of large scale natural fracture phenomena. Our solvers are used to compute _one_ solution to a problem encoded in a system of two inequalities: one (pointwise almost-everywhere) constraint of irreversibility and one global energy statement.
+We study irreversible evolutionary processes with a general energetic notion of stability. With this contribution, we release three nonlinear variational solvers as modular components (based on FEniCSx/dolfinx) that address three mathematical optimisation problems. They are general enough to apply, in principle, to evolutionary systems with instabilities, jumps, and emergence of patterns. Systems with these qualities are commonplace in diverse arenas ranging from quantum to continuum mechanics, economy, social sciences, and ecology. Our motivation proceeds from fracture mechanics, with the ultimate goal of deploying a transparent numerical platform for scientific validation and prediction of large scale natural fracture phenomena. Our solvers are used to compute _one_ solution to a problem encoded in a system of two inequalities: one (pointwise almost-everywhere) constraint of irreversibility and one global energy statement.
 
 # Statement of need
 
@@ -43,7 +43,7 @@ To fill this gap, our nonlinear solvers offer a flexible toolkit for advanced st
 
 # **Functionality**
 
-We attack the following abstract problem which encodes a selection principle:
+We address the following abstract problem, which encodes a selection principle:
 
 $$
 P(0):\text{ Given } T >0, \text{ find an } \text{ irreversible-constrained evolution } y_t
@@ -56,9 +56,9 @@ $$
 
 $$\text{[Unilateral Stability]} \qquad E(y_t) \leq E(y_t + z), \quad \forall z \in V_0 \times K^+_0\qquad [1]$$
 
-Above, $T$ defines a horizon of events. The system is represented by its total energy $E$ and $X_t$ is the time-dependent space of admissible states. A generic element of $X_t$ contains a macroscopic field that can be externally driven (or controlled, e.g. via boundary conditions) and an internal field (akin to an internal degree of order). In the applications of fracture, the kinematic variable is a vector-valued displacement $u(x)$ and the degree of order $\alpha(x)$ controls the softening of the material. Irreversibility applies to the internal variable, hence an <abbr >irreversible-constrained</abbr> evolution is a mapping parametrised by $t$ such that $\alpha_t(x)$ is non-decreasing with respect to $t$. The kinematic variable is subject to bilateral variations belonging to a linear subset of a Sobolev vector space $V_0$, whereas the test space for the internal order parameter $K^+_0$ only contains positive fields owing to the irreversibility constraint. The main difficulties are to correctly enforce unilateral constraints and to account for the changing nature of the space of variations.
+Above, $T$ defines a horizon of events. The system is represented by its total energy $E$ and $X_t$ is the time-dependent space of admissible states. A generic element of $X_t$ contains a macroscopic field that can be externally driven (or controlled, e.g., via boundary conditions) and an internal field (akin to an internal degree of order). In the applications of fracture, the kinematic variable is a vector-valued displacement $u(x)$ and the degree of order $\alpha(x)$ controls the softening of the material. Irreversibility applies to the internal variable, hence an <abbr >irreversible-constrained</abbr> evolution is a mapping parametrised by $t$ such that $\alpha_t(x)$ is non-decreasing with respect to $t$. The kinematic variable is subject to bilateral variations belonging to a linear subset of a Sobolev vector space $V_0$, whereas the test space for the internal order parameter $K^+_0$ only contains positive fields owing to the irreversibility constraint. The main difficulties are to correctly enforce unilateral constraints and to account for the changing nature of the space of variations.
 
-`HybridSolver` (1) `BifurcationSolver,` (2) and `StabilitySolver` (3) address the solution of [1] in three stages:
+`HybridSolver` (1), `BifurcationSolver` (2), and `StabilitySolver` (3) address the solution of [1] in three stages:
 
 1. A constrained variational inequality; that is first order necessary conditions for unilateral equilibrium.
 
@@ -70,7 +70,7 @@ These numerical tools can be used to study general evolutionary problems formula
 
 ## Software
 
-Our solvers are written in `Python` and are built on `DOLFINx`, an expressive and performant parallel distributed computing environment for solving partial differential equations using the finite element method [@dolfinx2023preprint]. It enables us wrapping high-level functional mathematical constructs with full flexibility and control of the underlying linear algebra backend. We use PETSc [@petsc-user-ref], petsc4py [@dalcinpazklercosimo2011], SLEPc.EPS [@hernandez:2005-slepc], and dolfiny [@Habera:aa] for parallel scalability.
+Our solvers are written in `Python` and are built on `DOLFINx`, an expressive and performant parallel distributed computing environment for solving partial differential equations using the finite element method [@dolfinx2023preprint]. It enables us to wrap high-level functional mathematical constructs with full flexibility and control of the underlying linear algebra backend. We use PETSc [@petsc-user-ref], petsc4py [@dalcinpazklercosimo2011], SLEPc.EPS [@hernandez:2005-slepc], and dolfiny [@Habera:aa] for parallel scalability.
 
 Our solver's API receives an abstract energy functional, a user-friendly description of the state of the system as a dictionary (u, alpha), where the first element is associated to the reversible field and the second to the irreversible component, the associated constraints on the latter, and the solver's parameters (see an example in the [Addendum](https://doi.org/10.5281/zenodo.14222736)). Solvers can be instantiated calling
 
@@ -80,7 +80,7 @@ solver = {Hybrid,Bifurcation,Stability}Solver(
       state,          # A dictionary of fields describing the system
       bcs,            # A list of boundary conditions
       [bounds],       # A list of bounds (lower and upper) for the order parameter
-      parameters     # A dictionary of numerical parameters
+      parameters      # A dictionary of numerical parameters
       )
 ```
 
@@ -90,7 +90,7 @@ where `[bounds]=[lower, upper]` are required for the `HybridSolver`. Calling `so
 
 `BifurcationSolver` is a variational eigenvalue solver which uses SLEPc.EPS to explore the lower part of the spectrum of the Hessian of the energy, automatically computed performing two directional derivatives. Constraints are accounted for by projecting the full Hessian onto the subspace of inactive constraints [@jorge-nocedal:1999-numerical]. The relevance of this approach is typical of systems with threshold laws. Thus, the `solve` method returns a boolean value indicating whether the restricted Hessian is positive definite. Internally, the solver stores the lower part of the operators' spectrum as an array.
 
-`StabilitySolver` solves a constrained variational eigenvalue inequality in a convex cone, to check whether the (restricted) nonlinear Hessian operator is positive therein. Starting from an initial guess $z_0^*$, it iteratively computes (eigenvalue, eigenvector) pairs $(\lambda_k, z_k)$ converging to a limit $(\lambda^*, z^*)$ (as $k\to \infty$), by implementing a simple projection and scaling algorithm [@moreau:1962-decomposition], [@pinto-da-costa:2010-cone-constrained].
+`StabilitySolver` solves a constrained variational eigenvalue inequality in a convex cone, to check whether the (restricted) nonlinear Hessian operator is positive therein. Starting from an initial guess $z_0^*$, it iteratively computes (eigenvalue, eigenvector) pairs $(\lambda_k, z_k)$ converging to a limit $(\lambda^*, z^*)$ (as $k\to \infty$), by implementing a simple projection and scaling algorithm [@moreau:1962-decomposition; @pinto-da-costa:2010-cone-constrained].
 The positivity of $\lambda^*$ (the smallest eigenvalue) allows to conclude on the stability of the current state (or lack thereof), hence effectively solving P(0). Notice that, if the current state is unstable ($\lambda^*<0$), the minimal eigenmode indicates the direction of energy decrease.
 
 We dedicate a separate contribution to illustrate how the three solvers are algorithmically combined to solve problem P(0) in the case of fracture. \autoref{fig:convergence} illustrates the numerical convergence properties of the `StabilitySolver` in a 1d verification test.
