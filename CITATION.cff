@@ -2,23 +2,23 @@
 # Visit https://bit.ly/cffinit to generate yours today!
 
 cff-version: 1.2.0
-title: Variational Solvers for Irreversible Evolutionary Systems
-message: >-
+title: "Variational Solvers for Irreversible Evolutionary Systems"
+message: >
   Three solvers for irreversible evolutionary processes with
   a general energetic notion of stability.
 type: software
 authors:
-  - given-names: Andrés A
-    family-names: León Baldelli
-    email: leon.baldelli@cnrs.fr
-    affiliation: '∂’Alembert Institute, CNRS, Sorbonne Universités'
-    orcid: 'https://orcid.org/0000-0002-3019-602X'
-- family-names: Cesana
-  given-names: Pierluigi
-  orcid: "https://orcid.org/0000-0002-0304-9382"
-repository-code: 'https://github.com/kumiori/irrevolutions/'
-url: 'https://irreversible-variational-solvers.readthedocs.io/'
-abstract: >-
+  - given-names: "Andrés A"
+    family-names: "León Baldelli"
+    email: "leon.baldelli@cnrs.fr"
+    affiliation: "∂’Alembert Institute, CNRS, Sorbonne Universités"
+    orcid: "https://orcid.org/0000-0002-3019-602X"
+  - given-names: "Pierluigi"
+    family-names: "Cesana"
+    orcid: "https://orcid.org/0000-0002-0304-9382"
+repository-code: "https://github.com/kumiori/irrevolutions/"
+url: "https://irreversible-variational-solvers.readthedocs.io/"
+abstract: >
   To study irreversible evolutionary processes with a
   general energetic notion of stability, three nonlinear
   variational solvers are modular components that address
@@ -29,35 +29,36 @@ abstract: >-
   economy, social sciences, and ecology. Our motivation
   proceeds from fracture mechanics, with the ultimate goal
   of deploying a transparent numerical platform for
-  scientific validation and prediction of large scale
-  natural fracture phenomena. 
+  scientific validation and prediction of large-scale
+  natural fracture phenomena.
 keywords:
   - stability
   - bifurcation
   - irreversibility
   - singular perturbations
   - fracture
-license: GPL-3.0
-doi: 10.5281/zenodo.14187154
-message: If you use this software, please cite our article in the
+license: "GPL-3.0"
+doi: "10.5281/zenodo.14187154"
+message: >
+  If you use this software, please cite our article in the
   Journal of Open Source Software.
 preferred-citation:
   authors:
-  - family-names: León Baldelli
-    given-names: Andrés A
-    orcid: "https://orcid.org/0000-0002-3019-602X"
-  - family-names: Cesana
-    given-names: Pierluigi
-    orcid: "https://orcid.org/0000-0002-0304-9382"
-  date-published: 2024-12-05
-  doi: 10.21105/joss.06897
-  issn: 2475-9066
-  issue: 104
-  journal: Journal of Open Source Software
+    - given-names: "Andrés A"
+      family-names: "León Baldelli"
+      orcid: "https://orcid.org/0000-0002-3019-602X"
+    - given-names: "Pierluigi"
+      family-names: "Cesana"
+      orcid: "https://orcid.org/0000-0002-0304-9382"
+  date-published: "2024-12-05"
+  doi: "10.21105/joss.06897"
+  issn: "2475-9066"
+  issue: "104"
+  journal: "Journal of Open Source Software"
   publisher:
-    name: Open Journals
-  start: 6897
-  title: Variational Solvers for Irreversible Evolutionary Systems
+    name: "Open Journals"
+  start: "6897"
+  title: "Variational Solvers for Irreversible Evolutionary Systems"
   type: article
   url: "https://joss.theoj.org/papers/10.21105/joss.06897"
-  volume: 9
+  volume: "9"
