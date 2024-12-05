@@ -1,7 +1,7 @@
 # Crack Propagation in Brittle Materials
 
 ## 2024
-
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.06897/status.svg)](https://doi.org/10.21105/joss.06897)
 [![Run Tests in Docker Container](https://github.com/kumiori/irrevolutions/actions/workflows/workflow.yaml/badge.svg)](https://github.com/kumiori/irrevolutions/actions/workflows/workflow.yaml)
 [![Test Conda Installation](https://github.com/kumiori/irrevolutions/actions/workflows/conda.yml/badge.svg)](https://github.com/kumiori/irrevolutions/actions/workflows/conda.yml)
 [![Test Ubuntu Installation](https://github.com/kumiori/irrevolutions/actions/workflows/ubuntu.yml/badge.svg)](https://github.com/kumiori/irrevolutions/actions/workflows/ubuntu.yml)
