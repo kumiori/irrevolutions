@@ -24,13 +24,22 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
-                         dirichletbc, form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    FunctionSpace,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.io import XDMFFile, gmshio
+
 #
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.utilities import xvfb
+from pyvista.plotting.utilities import xvfb
 import basix.ufl
 
 sys.path.append("../")
@@ -132,7 +141,9 @@ def main(parameters, storage=None):
     mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
     # functional space
-    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
+    element_u = basix.ufl.element(
+        "Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,)
+    )
     V_u = FunctionSpace(mesh, element_u)
 
     element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
@@ -470,7 +481,7 @@ if __name__ == "__main__":
 
     if "--ell_e" in sys.argv:
         parameters, signature = parameters_vs_elle(
-            parameters= base_parameters, elle=np.float(args.ell_e)
+            parameters=base_parameters, elle=np.float(args.ell_e)
         )
         _storage = (
             f"output/parametric/thinfilm-bar/vs_ell_e/{base_signature}/{signature}"

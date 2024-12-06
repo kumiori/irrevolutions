@@ -23,14 +23,23 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings, timing
-from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
-                         dirichletbc, form, locate_dofs_topological, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    FunctionSpace,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_topological,
+    set_bc,
+)
 from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
+
 #
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.utilities import xvfb
+from pyvista.plotting.utilities import xvfb
 import basix.ufl
 
 sys.path.append("../")

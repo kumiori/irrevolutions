@@ -24,28 +24,35 @@ from dolfinx.fem import (
     dirichletbc,
     form,
     locate_dofs_geometrical,
+    set_bc,
 )
+from dolfinx.fem.petsc import assemble_vector, set_bc
 from dolfinx.io import XDMFFile
-from mpi4py import MPI
-from petsc4py import PETSc
-from pyvista.plotting.utilities import xvfb
-import basix.ufl
-
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.solvers import SNESSolver
+from irrevolutions.solvers.function import vec_to_functions
+from irrevolutions.algorithms.am import AlternateMinimisation1D as am1d
 from irrevolutions.utils import (
     ColorPrint,
+    ResultsStorage,
     Visualization,
     _logger,
     _write_history_data,
     history_data,
+    norm_H1,
+    norm_L2,
 )
 from irrevolutions.utils.plots import (
     plot_AMit_load,
     plot_energies,
     plot_force_displacement,
 )
-from irrevolutions.utils.viz import plot_profile, plot_scalar
+from irrevolutions.utils.viz import plot_mesh, plot_profile, plot_scalar, plot_vector
+from mpi4py import MPI
+from petsc4py import PETSc
+from pyvista.plotting.utilities import xvfb
+from irrevolutions.utils.viz import _plot_bif_spectrum_profiles
 
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
@@ -138,7 +145,7 @@ def run_computation(parameters, storage=None):
     outdir = os.path.join(os.path.dirname(__file__), "output")
 
     if storage is None:
-        prefix = os.path.join(outdir, "thin-film-at2")
+        prefix = os.path.join(outdir, f"thin-film-at2")
     else:
         prefix = storage
 
@@ -160,20 +167,20 @@ def run_computation(parameters, storage=None):
         file.write_mesh(mesh)
 
     # Functional Setting
-    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
-    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+    element_u = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+    element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
 
-    V_u = dolfinx.fem.functionspace(mesh, element_u)
-    V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
+    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
+    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
 
     u = dolfinx.fem.Function(V_u, name="Displacement")
-    dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
+    u_ = dolfinx.fem.Function(V_u, name="BoundaryDisplacement")
 
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 
     # Perturbations
-    Function(V_alpha, name="DamagePerturbation")
-    Function(V_u, name="DisplacementPerturbation")
+    β = Function(V_alpha, name="DamagePerturbation")
+    v = Function(V_u, name="DisplacementPerturbation")
 
     # Pack state
     state = {"u": u, "alpha": alpha}
@@ -183,19 +190,18 @@ def run_computation(parameters, storage=None):
     alpha_lb = dolfinx.fem.Function(V_alpha, name="LowerBoundDamage")
 
     dx = ufl.Measure("dx", domain=mesh)
-    ufl.Measure("ds", domain=mesh)
+    ds = ufl.Measure("ds", domain=mesh)
 
     # Useful references
     Lx = parameters.get("geometry").get("Lx")
 
     # Define the state
-    u = Function(V_u, name="Unknown")
     u_zero = Function(V_u, name="InelasticDisplacement")
     zero_u = Function(V_u, name="BoundaryUnknown")
 
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    ufl.Measure("ds", domain=mesh)
+    ds = ufl.Measure("ds", domain=mesh)
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -206,8 +212,8 @@ def run_computation(parameters, storage=None):
     eps_t = dolfinx.fem.Constant(mesh, np.array(1.0, dtype=PETSc.ScalarType))
     u_zero.interpolate(lambda x: eps_t / 2.0 * (2 * x[0] - Lx))
 
-    for f in [zero_u, u_zero, alpha_lb, alpha_ub]:
-        f.x.petsc_vec.ghostUpdate(
+    for f in [u, zero_u, u_zero, alpha_lb, alpha_ub]:
+        f.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
@@ -245,23 +251,40 @@ def run_computation(parameters, storage=None):
 
     logging.basicConfig(level=logging.INFO)
 
+    fields_data = {
+        "time_steps": [],
+        "mesh": [],
+        "point_values": {
+            "equilibrium_u": [],
+            "equilibrium_α": [],
+            "bifurcation_v": [],
+            "bifurcation_β": [],
+            "stability_v": [],
+            "stability_β": [],
+        },
+        "global_values": {
+            "bifurcation_λ": [],
+            "stability_λ": [],
+        },
+    }
+    POSTPROCESS = False
+
     for i_t, t in enumerate(loads):
         eps_t.value = t
 
         u_zero.interpolate(lambda x: eps_t / 2.0 * (2 * x[0] - Lx))
-        u_zero.x.petsc_vec.ghostUpdate(
+        u_zero.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
         # update the lower bound
-        alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
-        alpha_lb.x.petsc_vec.ghostUpdate(
+        alpha.vector.copy(alpha_lb.vector)
+        alpha_lb.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
         _logger.critical(f"-- Solving for t = {t:3.2f} --")
         hybrid.solve(alpha_lb)
-
         is_unique = bifurcation.solve(alpha_lb)
         is_elastic = not bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
@@ -278,71 +301,8 @@ def run_computation(parameters, storage=None):
 
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
-        with dolfinx.common.Timer("~Postprocessing and Vis"):
-            if comm.rank == 0:
-                plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
-                plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-                plot_force_displacement(
-                    history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
-                )
-
-            xvfb.start_xvfb(wait=0.05)
-            pyvista.OFF_SCREEN = True
-
-            plotter = pyvista.Plotter(
-                title="Thin film",
-                window_size=[1600, 600],
-                shape=(1, 2),
-            )
-            _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-            _plt = plot_scalar(u, plotter, subplot=(0, 1))
-            _plt.screenshot(f"{prefix}/thinfilm-state.png")
-
-            plotter = pyvista.Plotter(
-                title="Test Profile",
-                window_size=[800, 600],
-                shape=(1, 1),
-            )
-
-            tol = 1e-3
-            xs = np.linspace(0 + tol, parameters["geometry"]["Lx"] - tol, 101)
-            points = np.zeros((3, 101))
-            points[0] = xs
-
-            _plt, data = plot_profile(
-                alpha,
-                points,
-                plotter,
-                lineproperties={
-                    "c": "k",
-                    "label": f"$\\alpha$ with $\ell$ = {parameters['model']['ell']:.2f}",
-                },
-            )
-            ax = _plt.gca()
-            _plt.legend()
-            _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-            _plt.title("Damage profile")
-            ax.set_ylim(-0.1, 1.1)
-
-            _plt, data = plot_profile(
-                u_zero,
-                points,
-                plotter,
-                fig=_plt,
-                ax=ax,
-                lineproperties={"c": "r", "label": "$u_0$"},
-            )
-
-            _plt, data = plot_profile(
-                u,
-                points,
-                plotter,
-                fig=_plt,
-                ax=ax,
-                lineproperties={"c": "g", "label": "$u$"},
-            )
-
-            _plt.savefig(f"{prefix}/damage_profile-{i_t}.png")
+        with dolfinx.common.Timer(f"~Postprocessing and Vis") as timer:
+            # if not POSTPROCESS: continue
 
             fracture_energy = comm.allreduce(
                 assemble_scalar(form(damage_energy_density(state) * dx)),
@@ -400,14 +360,13 @@ def load_parameters(file_path, ndofs, model="at2"):
 
     parameters["model"]["model_dimension"] = 1
     parameters["model"]["model_type"] = "1D"
-
     parameters["geometry"]["geom_type"] = "thinfilm"
     # Get mesh parameters
 
     if model == "at2":
-        parameters["loading"]["min"] = 0.0
-        parameters["loading"]["max"] = 3.0
-        parameters["loading"]["steps"] = 30
+        parameters["loading"]["min"] = 1.5
+        parameters["loading"]["max"] = 3.5
+        parameters["loading"]["steps"] = 100
 
     parameters["geometry"]["geom_type"] = "1d-bar"
     parameters["geometry"]["mesh_size_factor"] = 4
@@ -423,7 +382,10 @@ def load_parameters(file_path, ndofs, model="at2"):
     parameters["model"]["ell"] = 0.158114
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["kappa"] = (0.34) ** (-2)
+    parameters["model"]["kappa"] = (0.34) ** (-2) / 2
+
+    parameters["solvers"]["newton"]["snes_atol"] = 1.0e-12
+    parameters["solvers"]["newton"]["snes_rtol"] = 1.0e-12
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
@@ -442,10 +404,11 @@ if __name__ == "__main__":
     )
 
     # Run computation
-    _storage = f"output/thinfilm-1d/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
+    _storage = f"output/thinfilm-1d/MPI-{MPI.COMM_WORLD.Get_size()}/{signature[0:6]}"
     visualization = Visualization(_storage)
+    ColorPrint.print_bold(f"===================- {_storage} -=================")
 
-    with dolfinx.common.Timer("~Computation Experiment") as timer:
+    with dolfinx.common.Timer(f"~Computation Experiment") as timer:
         history_data, stability_data, state = run_computation(parameters, _storage)
 
     from irrevolutions.utils import table_timing_data

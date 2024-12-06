@@ -1,0 +1,127 @@
+# === Loading === #
+loading:
+    min: 0
+    max: 1.001
+    steps: 10
+
+#  === Geometry === #
+geometry:
+    geometric_dimension: 2
+    geom_type: "circle"
+    R: 1.
+    lc: 0.02
+    mesh_size_factor: 3
+
+#  === Material === #
+model:
+    E: 1.
+    sigma_D0: 1.
+    ell: 0.1
+    model_dimension: 1
+    model_type: "2D"
+    kappa: 10.
+    # could be "2D"/ "3D" / "plane_stress" / "plane_strain"
+# === Solver === #
+solvers:
+    elasticity:
+        prefix: elasticity
+        snes:
+            snes_type: newtontr
+            snes_stol: 1e-8
+            snes_atol: 1e-8
+            snes_rtol: 1e-8
+            snes_max_it: 200
+            # snes_divergence_tolerance: -1.0
+            snes_monitor: ""
+            ksp_type: preonly
+            pc_type: lu
+            pc_factor_mat_solver_type: mumps
+
+    # Damage solver parameters
+    damage:
+        type: SNES
+        prefix: damage
+        snes:
+            # Options in the case of SNES solver
+            snes_type: vinewtonrsls
+            snes_linesearch_type: basic
+            ksp_type: preonly
+            pc_type: lu
+            pc_factor_mat_solver_type: mumps
+            snes_atol: 1.0e-8
+            snes_rtol: 1.0e-8
+            # snes_stol: 0.0
+            snes_max_it: 50
+            # snes_divergence_tolerance: -1.0
+            snes_monitor: ""
+        tao:
+            # Options in the case of TAO solver
+            tao_type: tron
+            tao_gpcg_maxpgits: 50
+            tao_max_it: 100
+            tao_steptol: 1.0e-7
+            tao_gatol: 1.0e-8
+            tao_grtol: 1.0e-8
+            tao_gttol: 1.0e-8
+            tao_catol: 0.
+            tao_crtol: 0.
+            tao_ls_ftol: 1e-5
+            tao_ls_gtol: 1e-5
+            tao_ls_rtol: 1e-5
+            ksp_rtol: 1e-6
+            tao_ls_stepmin: 1e-8
+            tao_ls_stepmax: 1e6
+            pc_type: lu
+            tao_monitor: ""
+
+    # Damage Elasticity Solver parameters
+    damage_elasticity:
+        max_it: 200
+        alpha_rtol: 1.0e-4
+        criterion: "alpha_H1"
+    
+    newton:
+        snes_type: "vinewtonrsls"
+        snes_linesearch_type: "basic"
+        snes_rtol: 1.0e-8
+        snes_atol: 1.0e-8
+        snes_max_it: 30
+        snes_monitor: ""
+        linesearch_damping: 0.5
+
+stability:
+    order: 3
+    maxmodes: 10
+    checkstability: "True"
+    continuation: "False"
+    cont_rtol: 1.0e-10
+    inactiveset_gatol: 1.e-6
+    inactiveset_pwtol: 1.e-6
+    is_elastic_tol: 1.e-6
+
+    inertia:
+        # MUMPS
+        ksp_type: "preonly"
+        pc_type: "cholesky"
+        pc_factor_mat_solver_type: "mumps"
+        mat_mumps_icntl_24: 1
+        mat_mumps_icntl_13: 1
+
+    eigen:
+        eps_type: "krylovschur"
+        # eps_type: "lanczos"
+        # eps_monitor: ""
+        eps_tol: 1.e-5
+        eig_rtol: 1.e-8
+        eps_max_it: 100
+
+    cone:
+        cone_atol: 1.0e-06
+        cone_max_it: 3000
+        cone_rtol: 1.0e-06
+        maxmodes: 3
+        scaling: 1.e-5
+    
+    linesearch:
+        order: 4
+        method: 'min'

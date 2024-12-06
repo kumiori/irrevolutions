@@ -363,8 +363,7 @@ def traction_with_parameters(parameters, slug=""):
         )
 
     import pyvista
-    from pyvista.utilities import xvfb
-    from utils.viz import plot_scalar, plot_vector
+    from pyvista.plotting.utilities import xvfb    from utils.viz import plot_scalar, plot_vector
 
     #
     xvfb.start_xvfb(wait=0.05)

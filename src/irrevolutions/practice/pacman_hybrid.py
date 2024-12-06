@@ -22,12 +22,18 @@ import dolfinx.plot
 import matplotlib.pyplot as plt
 import pyvista
 import yaml
-from dolfinx.fem import (Function, FunctionSpace, dirichletbc,
-                         locate_dofs_topological, set_bc)
+from dolfinx.fem import (
+    Function,
+    FunctionSpace,
+    dirichletbc,
+    locate_dofs_topological,
+    set_bc,
+)
 from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
-from pyvista.utilities import xvfb
+from pyvista.plotting.utilities import xvfb
 import basix.ufl
+
 sys.path.append("../")
 
 
