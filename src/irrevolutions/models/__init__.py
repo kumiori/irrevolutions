@@ -188,6 +188,126 @@ class DamageElasticityModel(ElasticityModel):
         return energy
 
 
+class DeviatoricSplit(DamageElasticityModel):
+    """Lancioni and Royer-Carfagni, 2009
+
+    Args:
+        DamageElasticityModel (...): ...
+    """
+
+    def __init__(self, model_parameters={}):
+        super().__init__(model_parameters)
+
+    def elastic_energy_density_strain(self, eps, alpha):
+        """
+        Returns the elastic energy density from the strain and the damage.
+        """
+        # Parameters
+        # lmbda = self.lmbda
+        mu = self.mu
+        dim = eps.ufl_shape[0]
+        kappa = self.lmbda + 2 * self.mu / dim  # Bulk modulus
+
+        # Deviatoric part of the strain
+        # eps_dev = eps - 1 / dim * ufl.tr(eps) * ufl.Identity(dim)
+        eps_dev = ufl.dev(eps)
+
+        # energy_density = 1./2. * (
+        #     self.a(alpha)
+        #     * (2 * mu * ufl.inner(eps_dev, eps_dev) + lmbda * ufl.tr(eps) ** 2)
+        # )
+
+        energy_density = (
+            1.0 / 2.0 * kappa * ufl.tr(eps) ** 2  # Volumetric part
+            + self.a(alpha) * mu * ufl.inner(eps_dev, eps_dev)  # Deviatoric part
+        )
+        return energy_density
+
+
+class VolumetricDeviatoricSplit(DamageElasticityModel):
+    """Amor et al., 2009"""
+
+    def __init__(self, model_parameters={}):
+        super().__init__(model_parameters)
+
+    def positive_negative_trace(self, eps):
+        """
+        Compute the positive and negative parts of the trace of the strain tensor.
+        """
+        tr_eps = ufl.tr(eps)
+        tr_plus = ufl.max_value(tr_eps, 0)
+        tr_minus = ufl.min_value(tr_eps, 0)
+        return tr_plus, tr_minus
+
+    def elastic_energy_density_strain(self, eps, alpha):
+        """
+        Returns the elastic energy density from the strain and the damage.
+        """
+        # Parameters
+        lmbda = self.lmbda
+        mu = self.mu
+        dim = eps.ufl_shape[0]
+        kappa = lmbda + 2 / dim * mu
+
+        # Deviatoric part of the strain
+        eps_dev = ufl.dev(eps)
+        eps_vol = ufl.tr(eps) * ufl.Identity(dim) / dim
+
+        tr_minus, tr_plus = self.positive_negative_trace(eps_vol)
+        # energy_density = (
+        #     self.a(alpha)
+        #     * 1.0
+        #     / 2.0
+        #     * (2 * mu * ufl.inner(eps_dev, eps_dev) + lmbda * ufl.tr(eps_dev) ** 2)
+        # )
+        energy_density = (
+            1.0 / 2.0 * kappa * tr_minus** 2  # Negative volumetric part
+            + self.a(alpha)
+            * (
+                1.0 / 2.0 * kappa * tr_plus**2 + mu * ufl.inner(eps_dev, eps_dev)
+            )  # Positive volumetric + deviatoric
+        )
+        return energy_density
+
+
+class GeometricNonlinearElasticityModel(DamageElasticityModel):
+    """Neo-Hookean model for geometrically nonlinear elasticity
+
+    Args:
+        DamageElasticityModel (_type_): _description_
+
+    Returns:
+        _type_: _description_
+
+    Yields:
+        _type_: _description_
+    """
+
+    def strain_energy_density(self, u):
+        """
+        Compute the strain energy density for a given displacement field u.
+
+        Parameters:
+            u (ufl.Expr): Displacement field.
+
+        Returns:
+            ufl.Expr: Strain energy density.
+        """
+        mu = self.mu
+        Id = ufl.Identity(self.dim)  # Identity tensor
+        F = Id + ufl.grad(u)  # Deformation gradient
+        C = F.T * F  # Right Cauchy-Green tensor
+        # Invariants
+        J = ufl.det(F)  # Determinant of F
+        Ic = ufl.tr(C)
+        # Neo-Hookean strain energy density
+        W = (mu / 2) * (ufl.inner(F, F) - 3 - 2 * ufl.ln(J))
+
+        # psi = (mu / 2) * (Ic - 3) - mu * ln(J) + (lmbda / 2) * (ln(J)) ** 2
+
+        return W
+
+
 class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
     """
     Base class for thin film elasticity coupled with damage.
@@ -250,7 +370,7 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
                 # compute the average value for the field sigma
                 sigma[i, j] = assemble_scalar(form(_sigma[i, j] * dx))
 
-        return ufl.as_tensor(sigma)
+        return _sigma, ufl.as_tensor(sigma)
 
 
 class VariableThickness:
