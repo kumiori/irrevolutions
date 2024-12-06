@@ -72,7 +72,7 @@ These numerical tools can be used to study general evolutionary problems formula
 
 Our solvers are written in `Python` and are built on `DOLFINx`, an expressive and performant parallel distributed computing environment for solving partial differential equations using the finite element method [@dolfinx2023preprint]. It enables us to wrap high-level functional mathematical constructs with full flexibility and control of the underlying linear algebra backend. We use PETSc [@petsc-user-ref], petsc4py [@dalcinpazklercosimo2011], SLEPc.EPS [@hernandez:2005-slepc], and dolfiny [@Habera:aa] for parallel scalability.
 
-Our solver's API receives an abstract energy functional, a user-friendly description of the state of the system as a dictionary (u, alpha), where the first element is associated to the reversible field and the second to the irreversible component, the associated constraints on the latter, and the solver's parameters (see an example in the [Addendum](https://doi.org/10.5281/zenodo.14222736)). Solvers can be instantiated calling
+Our solver's API receives an abstract energy functional, a user-friendly description of the state of the system as a dictionary `{"u": u, "alpha": alpha}`, where the first element is associated to the reversible field and the second to the irreversible component, the associated constraints on the latter, and the solver's parameters (see an example in the [Addendum](https://doi.org/10.5281/zenodo.14222736)). Solvers can be instantiated calling
 
 ```
 solver = {Hybrid,Bifurcation,Stability}Solver(
