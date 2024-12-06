@@ -25,11 +25,16 @@ affiliations:
       index: 1
     - name: Institute of Mathematics for Industry, Kyushu University, 744 Motooka, Nishi-ku, Fukuoka, 819-0395, Japan.
       index: 2
-date: 1 August 2024
+date: 5 December 2024
 bibliography: paper.bib
 geometry: 'left=1.9cm,right=1.9cm,top=1.9cm,bottom=1.9cm'
 output: pdf_document
 ---
+
+Authors: Andrés A León Baldelli[^1], Pierluigi Cesana[^2]
+
+[^1]: $\partial$'Alembert Institute, CNRS, Sorbonne Universités, Place Jussieu 75252 Paris Cedex 05, France
+[^2]: Institute of Mathematics for Industry, Kyushu University, 744 Motooka, Nishi-ku, Fukuoka, 819-0395, Japan
 
 ## Verification
 
