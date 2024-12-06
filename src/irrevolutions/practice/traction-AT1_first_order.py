@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from utils.viz import plot_scalar, plot_vector
-from pyvista.plotting.utilities import xvfbimport pyvista
+from pyvista.plotting.utilities import xvfb
+import pyvista
 from utils.plots import plot_AMit_load, plot_force_displacement
 import hashlib
 from irrevolutions.utils import ColorPrint
@@ -24,8 +25,16 @@ import petsc4py
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
-                         dirichletbc, form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    FunctionSpace,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -103,7 +112,6 @@ gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, _lc, tdim)
 mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
 
-
 signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
 if comm.rank == 0:
@@ -160,7 +168,9 @@ alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
 alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
 for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
-    f.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    f.x.petsc_vec.ghostUpdate(
+        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    )
 
 bc_u_left = dirichletbc(np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
@@ -245,7 +255,9 @@ history_data = {
 for i_t, t in enumerate(loads):
     # for i_t, t in enumerate([0., .99, 1.0, 1.01]):
     u_.interpolate(lambda x: (t * np.ones_like(x[0]), np.zeros_like(x[1])))
-    u_.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    u_.x.petsc_vec.ghostUpdate(
+        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    )
 
     # update the lower bound
     alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)
@@ -360,8 +372,6 @@ if comm.rank == 0:
     plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
     plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
     plot_force_displacement(history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf")
-
-
 
 
 #

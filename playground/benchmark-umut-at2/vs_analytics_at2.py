@@ -17,19 +17,34 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
-                         form, locate_dofs_geometrical)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+)
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.plotting.utilities import xvfbimport basix.ufl
+from pyvista.plotting.utilities import xvfb
+import basix.ufl
 
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.utils import (ColorPrint, Visualization, _logger,
-                                 _write_history_data, history_data)
-from irrevolutions.utils.plots import (plot_AMit_load, plot_energies,
-                                       plot_force_displacement)
+from irrevolutions.utils import (
+    ColorPrint,
+    Visualization,
+    _logger,
+    _write_history_data,
+    history_data,
+)
+from irrevolutions.utils.plots import (
+    plot_AMit_load,
+    plot_energies,
+    plot_force_displacement,
+)
 from irrevolutions.utils.viz import plot_profile, plot_scalar
 
 petsc4py.init(sys.argv)

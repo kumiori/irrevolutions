@@ -18,12 +18,21 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, functionspace, assemble_scalar,
-                         dirichletbc, form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    functionspace,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.plotting.utilities import xvfbimport basix.ufl
+from pyvista.plotting.utilities import xvfb
+import basix.ufl
 
 from irrevolutions.algorithms.am import AlternateMinimisation, HybridSolver
 from irrevolutions.algorithms.ls import LineSearch
@@ -31,8 +40,7 @@ from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import DamageElasticityModel as Brittle
 from irrevolutions.solvers.function import vec_to_functions
-from irrevolutions.utils import (ColorPrint, _write_history_data, history_data,
-                                 norm_H1)
+from irrevolutions.utils import ColorPrint, _write_history_data, history_data, norm_H1
 from irrevolutions.utils.plots import plot_energies
 from irrevolutions.utils.viz import plot_profile, plot_scalar, plot_vector
 
@@ -87,7 +95,9 @@ def test_linsearch():
         file.write_mesh(mesh)
 
     # Function spaces
-    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
+    element_u = basix.ufl.element(
+        "Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,)
+    )
     V_u = functionspace(mesh, element_u)
 
     element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
@@ -355,7 +365,9 @@ def test_linsearch():
         logging.critical(f"alpha vector norm: {alpha.x.petsc_vec.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.x.petsc_vec.norm()}")
         logging.critical(f"alphadot norm: {alphadot.x.petsc_vec.norm()}")
-        logging.critical(f"vector norms [u, alpha]: {[zi.x.petsc_vec.norm() for zi in z]}")
+        logging.critical(
+            f"vector norms [u, alpha]: {[zi.x.petsc_vec.norm() for zi in z]}"
+        )
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
         logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
