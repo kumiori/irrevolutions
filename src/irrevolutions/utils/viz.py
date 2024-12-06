@@ -2,7 +2,8 @@ import scipy
 from dolfinx.plot import vtk_mesh as compute_topology
 import matplotlib.tri as tri
 import matplotlib.pyplot as plt
-from pyvista.plotting.utilities import xvfbimport pyvista
+from pyvista.plotting.utilities import xvfb
+import pyvista
 from mpi4py import MPI
 import logging
 import sys
@@ -23,6 +24,7 @@ comm = MPI.COMM_WORLD
 
 # Start Xvfb for PyVista (for offscreen rendering)
 # xvfb.start_xvfb(wait=0.05)
+
 
 def plot_vector(u, plotter, subplot=None, scale=1.0):
     """
@@ -64,6 +66,7 @@ def plot_vector(u, plotter, subplot=None, scale=1.0):
     plotter.set_background("white")
     return plotter
 
+
 def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     """
     Plots a scalar field using PyVista.
@@ -98,7 +101,17 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     plotter.set_background("white")
     return plotter
 
-def plot_profile(u, points, plotter, subplot=None, lineproperties={}, fig=None, ax=None, subplotnumber=1):
+
+def plot_profile(
+    u,
+    points,
+    plotter,
+    subplot=None,
+    lineproperties={},
+    fig=None,
+    ax=None,
+    subplotnumber=1,
+):
     """
     Plots a profile of the solution at given points.
 
@@ -131,6 +144,7 @@ def plot_profile(u, points, plotter, subplot=None, lineproperties={}, fig=None, 
     plt.legend()
     return plt, (points_on_proc[:, 0], u_values)
 
+
 def plot_mesh(mesh, ax=None):
     """
     Plots the mesh using Matplotlib.
@@ -150,6 +164,7 @@ def plot_mesh(mesh, ax=None):
     tria = tri.Triangulation(points[:, 0], points[:, 1], cells)
     ax.triplot(tria, color="k")
     return ax
+
 
 def get_datapoints(u, points):
     """
@@ -181,6 +196,7 @@ def get_datapoints(u, points):
     u_values = u.eval(points_on_proc, cells)
 
     return points_on_proc, u_values
+
 
 def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
     """
@@ -248,6 +264,7 @@ def plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t):
         _plt.close()
 
     return plotter
+
 
 def plot_matrix(M):
     """
