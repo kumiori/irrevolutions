@@ -2,7 +2,8 @@
 from irrevolutions.utils import ColorPrint
 from utils.viz import plot_scalar, plot_vector
 from utils.plots import plot_energies, plot_force_displacement
-from pyvista.plotting.utilities import xvfbfrom models import DamageElasticityModel as Brittle
+from pyvista.plotting.utilities import xvfb
+from models import DamageElasticityModel as Brittle
 from meshes.primitives import mesh_bar_gmshapi
 from algorithms.so import BifurcationSolver, StabilitySolver
 from algorithms.am import AlternateMinimisation, HybridSolver
@@ -22,16 +23,22 @@ import petsc4py
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
-                         dirichletbc, form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    FunctionSpace,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.io import gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
 import basix.ufl
 
 sys.path.append("../")
-
-
 
 
 class BrittleAT2(Brittle):
@@ -172,7 +179,9 @@ def main(parameters, model="at2", storage=None):
     # with XDMFFile(comm, f"{prefix}/{_nameExp}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
     #     file.write_mesh(mesh)
 
-    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
+    element_u = basix.ufl.element(
+        "Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,)
+    )
     V_u = FunctionSpace(mesh, element_u)
 
     element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
@@ -567,9 +576,11 @@ def param_vs_dry(base_parameters, base_signature):
 if __name__ == "__main__":
     import argparse
 
-    from utils.parametric import (parameters_vs_ell,
-                                  parameters_vs_n_refinement,
-                                  parameters_vs_SPA_scaling)
+    from utils.parametric import (
+        parameters_vs_ell,
+        parameters_vs_n_refinement,
+        parameters_vs_SPA_scaling,
+    )
 
     admissible_models = {"at1", "at2", "thinfilm"}
 

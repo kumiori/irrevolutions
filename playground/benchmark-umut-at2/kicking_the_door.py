@@ -17,8 +17,15 @@ import pyvista
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, assemble_scalar, dirichletbc,
-                         form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.fem.petsc import assemble_vector, set_bc
 from dolfinx.io import XDMFFile
 from irrevolutions.algorithms.am import HybridSolver
@@ -27,13 +34,22 @@ from irrevolutions.algorithms.ls import LineSearch
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.test.test_1d import _AlternateMinimisation1D as am1d
-from irrevolutions.utils import (ColorPrint, ResultsStorage, Visualization,
-                                 _logger, _write_history_data, history_data,
-                                 norm_H1, norm_L2)
-from irrevolutions.utils.plots import (plot_AMit_load, plot_energies,
-                                       plot_force_displacement)
-from irrevolutions.utils.viz import (plot_mesh, plot_profile, plot_scalar,
-                                     plot_vector)
+from irrevolutions.utils import (
+    ColorPrint,
+    ResultsStorage,
+    Visualization,
+    _logger,
+    _write_history_data,
+    history_data,
+    norm_H1,
+    norm_L2,
+)
+from irrevolutions.utils.plots import (
+    plot_AMit_load,
+    plot_energies,
+    plot_force_displacement,
+)
+from irrevolutions.utils.viz import plot_mesh, plot_profile, plot_scalar, plot_vector
 
 from .vs_analytics_at2 import elastic_energy_density, damage_energy_density
 
@@ -53,8 +69,8 @@ size = comm.Get_size()
 
 model_rank = 0
 
-def test_linsearch(parameters, storage):
 
+def test_linsearch(parameters, storage):
     comm = MPI.COMM_WORLD
 
     model_rank = 0
@@ -92,8 +108,7 @@ def test_linsearch(parameters, storage):
         file.write_mesh(mesh)
 
     # Function spaces
-    element_u = ufl.VectorElement(
-        "Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
+    element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
     V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
 
     element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
@@ -120,10 +135,8 @@ def test_linsearch(parameters, storage):
     dx = ufl.Measure("dx", domain=mesh)
     ds = ufl.Measure("ds", domain=mesh)
 
-    dofs_alpha_left = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], 0.0))
-    dofs_alpha_right = locate_dofs_geometrical(
-        V_alpha, lambda x: np.isclose(x[0], Lx))
+    dofs_alpha_left = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], 0.0))
+    dofs_alpha_right = locate_dofs_geometrical(V_alpha, lambda x: np.isclose(x[0], Lx))
 
     dofs_u_left = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], 0.0))
     dofs_u_right = locate_dofs_geometrical(V_u, lambda x: np.isclose(x[0], Lx))
@@ -135,16 +148,15 @@ def test_linsearch(parameters, storage):
     alpha_lb.interpolate(lambda x: np.zeros_like(x[0]))
     alpha_ub.interpolate(lambda x: np.ones_like(x[0]))
 
-    eps_t = dolfinx.fem.Constant(mesh, np.array(1., dtype=PETSc.ScalarType))
-    u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
-    
+    eps_t = dolfinx.fem.Constant(mesh, np.array(1.0, dtype=PETSc.ScalarType))
+    u_zero.interpolate(lambda x: eps_t / 2.0 * (2 * x[0] - Lx))
+
     for f in [zero_u, zero_alpha, u_, alpha_lb, alpha_ub]:
         f.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-    bc_u_left = dirichletbc(
-        np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
+    bc_u_left = dirichletbc(np.array([0, 0], dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
     bc_u_right = dirichletbc(u_, dofs_u_right)
     bcs_u = [bc_u_left, bc_u_right]
@@ -167,7 +179,9 @@ def test_linsearch(parameters, storage):
     bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
     # Define the model
 
-    total_energy = (elastic_energy_density(state, u_zero) + damage_energy_density(state)) * dx
+    total_energy = (
+        elastic_energy_density(state, u_zero) + damage_energy_density(state)
+    ) * dx
 
     equilibrium = HybridSolver(
         total_energy,
@@ -178,8 +192,7 @@ def test_linsearch(parameters, storage):
     )
 
     bifurcation = BifurcationSolver(
-        total_energy, state, bcs, bifurcation_parameters=parameters.get(
-            "stability")
+        total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
     )
 
     stability = StabilitySolver(
@@ -191,17 +204,16 @@ def test_linsearch(parameters, storage):
         state,
         linesearch_parameters=parameters.get("stability").get("linesearch"),
     )
-    
+
     load_par = parameters["loading"]
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
     history_data.update({"F": []})
 
     for i_t, t in enumerate(loads):
-
         eps_t.value = t
-        
-        u_zero.interpolate(lambda x: eps_t/2. * (2*x[0] - Lx))
+
+        u_zero.interpolate(lambda x: eps_t / 2.0 * (2 * x[0] - Lx))
         u_zero.vector.ghostUpdate(
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
@@ -244,14 +256,12 @@ def test_linsearch(parameters, storage):
             else None
         )
 
-        stable = stability.solve(
-            alpha_lb,
-            eig0=z0,
-            inertia=inertia)
+        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
         if not stable:
             import pyvista
             from pyvista.plotting.utilities import xvfb
+
             vec_to_functions(stability.solution["xt"], [v, β])
             perturbation = {"v": v, "beta": β}
 
@@ -269,13 +279,7 @@ def test_linsearch(parameters, storage):
             x_plot = np.linspace(interval[0], interval[1], order + 1)
             fig, axes = plt.subplots(1, 1)
             plt.scatter(x_plot, energies_1d)
-            plt.scatter(
-                h_opt,
-                0,
-                c="k",
-                s=40,
-                marker="|",
-                label=f"$h^*={h_opt:.2f}$")
+            plt.scatter(h_opt, 0, c="k", s=40, marker="|", label=f"$h^*={h_opt:.2f}$")
             plt.scatter(h_opt, p(h_opt), c="k", s=40, alpha=0.5)
             xs = np.linspace(interval[0], interval[1], 30)
             axes.plot(xs, p(xs), label="Energy slice along perturbation")
@@ -369,11 +373,9 @@ def test_linsearch(parameters, storage):
         logging.critical(f"alpha vector norm: {alpha.vector.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.vector.norm()}")
         logging.critical(f"alphadot norm: {alphadot.vector.norm()}")
-        logging.critical(
-            f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
+        logging.critical(f"vector norms [u, alpha]: {[zi.vector.norm() for zi in z]}")
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
-        logging.critical(
-            f"unscaled scaled rate state_12 norm: {urate_12_norm}")
+        logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(model.damage_energy_density(state) * dx)),
@@ -426,7 +428,6 @@ def test_linsearch(parameters, storage):
     print(df.drop(["equilibrium_data", "cone_data"], axis=1))
 
     # Viz
-    from pyvista.plotting.utilities import xvfb    import pyvista
     from utils.viz import plot_scalar, plot_vector
 
     #
@@ -491,13 +492,9 @@ def load_parameters(file_path):
 
 if __name__ == "__main__":
     parameters, signature = load_parameters("parameters.yaml")
-    ColorPrint.print_bold(
-        f"===================- {signature} -=================")
+    ColorPrint.print_bold(f"===================- {signature} -=================")
     _storage = f"output/linesearch/{signature}"
-    ColorPrint.print_bold(
-        f"===================- {_storage} -=================")
+    ColorPrint.print_bold(f"===================- {_storage} -=================")
     test_linsearch(parameters, _storage)
-    ColorPrint.print_bold(
-        f"===================- {signature} -=================")
-    ColorPrint.print_bold(
-        f"===================- {_storage} -=================")
+    ColorPrint.print_bold(f"===================- {signature} -=================")
+    ColorPrint.print_bold(f"===================- {_storage} -=================")

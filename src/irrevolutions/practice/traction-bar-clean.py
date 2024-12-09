@@ -3,7 +3,8 @@ from irrevolutions.utils import ColorPrint, _logger, simulation_info
 from utils.viz import plot_profile, plot_scalar, plot_vector
 from utils.plots import plot_AMit_load, plot_energies, plot_force_displacement
 from solvers.function import vec_to_functions
-from pyvista.plotting.utilities import xvfbfrom models import DamageElasticityModel as Brittle
+from pyvista.plotting.utilities import xvfb
+from models import DamageElasticityModel as Brittle
 from meshes.primitives import mesh_bar_gmshapi
 from algorithms.so import BifurcationSolver, StabilitySolver
 from algorithms.am import AlternateMinimisation, HybridSolver
@@ -22,16 +23,22 @@ import pandas as pd
 import petsc4py
 import ufl
 import yaml
-from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
-                         dirichletbc, form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    FunctionSpace,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
 import basix.ufl
 
 sys.path.append("../")
-
-
 
 
 class BrittleAT2(Brittle):
@@ -165,7 +172,9 @@ def main(parameters, model="at2", storage=None):
     ) as file:
         file.write_mesh(mesh)
 
-    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
+    element_u = basix.ufl.element(
+        "Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,)
+    )
     V_u = FunctionSpace(mesh, element_u)
 
     element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
@@ -315,7 +324,9 @@ def main(parameters, model="at2", storage=None):
         logging.critical(f"alpha vector norm: {alpha.x.petsc_vec.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.x.petsc_vec.norm()}")
         logging.critical(f"alphadot norm: {alphadot.x.petsc_vec.norm()}")
-        logging.critical(f"vector norms [u, alpha]: {[zi.x.petsc_vec.norm() for zi in z]}")
+        logging.critical(
+            f"vector norms [u, alpha]: {[zi.x.petsc_vec.norm() for zi in z]}"
+        )
 
         rate_12_norm = hybrid.scaled_rate_norm(alpha, parameters)
         urate_12_norm = hybrid.unscaled_rate_norm(alpha)

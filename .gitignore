@@ -54,3 +54,7 @@ src/irrevolutions/test/output/*
 **egg-info**
 .venv/**
 TODO/**
+.clean_env/**
+**env/**
+dist/**
+wheelhouse/**

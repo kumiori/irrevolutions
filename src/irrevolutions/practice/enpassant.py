@@ -11,7 +11,8 @@ To change the data, change the geometry files according to presentation
 """
 
 from utils.viz import plot_mesh, plot_scalar, plot_vector
-from pyvista.plotting.utilities import xvfbfrom petsc4py import PETSc
+from pyvista.plotting.utilities import xvfb
+from petsc4py import PETSc
 from models import DamageElasticityModel as Brittle
 from meshes import primitives
 from dolfinx.fem import assemble_scalar, dirichletbc, locate_dofs_geometrical
@@ -27,6 +28,7 @@ import dolfinx
 import logging
 import sys
 import basix.ufl
+
 sys.path.append("../")
 
 logging.basicConfig()
@@ -258,7 +260,9 @@ for i_t, t in enumerate(loads):
     # update boundary conditions
 
     u_.interpolate(lambda x: (np.zeros_like(x[0]), t * np.ones_like(x[1])))
-    u_.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    u_.x.petsc_vec.ghostUpdate(
+        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    )
 
     # update lower bound for damage
     alpha.x.petsc_vec.copy(alpha_lb.x.petsc_vec)

@@ -19,13 +19,22 @@ import petsc4py
 import ufl
 import yaml
 from dolfinx.common import list_timings
-from dolfinx.fem import (Constant, Function, FunctionSpace, assemble_scalar,
-                         dirichletbc, form, locate_dofs_geometrical, set_bc)
+from dolfinx.fem import (
+    Constant,
+    Function,
+    FunctionSpace,
+    assemble_scalar,
+    dirichletbc,
+    form,
+    locate_dofs_geometrical,
+    set_bc,
+)
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
-from irrevolutions.utils.parametric import (parameters_vs_ell, parameters_vs_SPA_scaling)
+from irrevolutions.utils.parametric import parameters_vs_ell, parameters_vs_SPA_scaling
 import basix.ufl
+
 sys.path.append("../")
 
 logging.getLogger().setLevel(logging.ERROR)
@@ -107,7 +116,9 @@ def traction_with_parameters(parameters, slug=""):
 
     # Functional Setting
 
-    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
+    element_u = basix.ufl.element(
+        "Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,)
+    )
     V_u = FunctionSpace(mesh, element_u)
 
     element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
@@ -276,7 +287,9 @@ def traction_with_parameters(parameters, slug=""):
         logging.critical(f"alpha vector norm: {alpha.x.petsc_vec.norm()}")
         logging.critical(f"alpha lb norm: {alpha_lb.x.petsc_vec.norm()}")
         logging.critical(f"alphadot norm: {alphadot.x.petsc_vec.norm()}")
-        logging.critical(f"vector norms [u, alpha]: {[zi.x.petsc_vec.norm() for zi in z]}")
+        logging.critical(
+            f"vector norms [u, alpha]: {[zi.x.petsc_vec.norm() for zi in z]}"
+        )
         logging.critical(f"scaled rate state_12 norm: {rate_12_norm}")
         logging.critical(f"unscaled scaled rate state_12 norm: {urate_12_norm}")
 
@@ -352,8 +365,7 @@ def traction_with_parameters(parameters, slug=""):
 
     # Viz
 
-    from utils.plots import (plot_AMit_load, plot_energies,
-                             plot_force_displacement)
+    from utils.plots import plot_AMit_load, plot_energies, plot_force_displacement
 
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
@@ -363,7 +375,8 @@ def traction_with_parameters(parameters, slug=""):
         )
 
     import pyvista
-    from pyvista.plotting.utilities import xvfb    from utils.viz import plot_scalar, plot_vector
+    from pyvista.plotting.utilities import xvfb
+    from utils.viz import plot_scalar, plot_vector
 
     #
     xvfb.start_xvfb(wait=0.05)

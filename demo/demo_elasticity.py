@@ -26,6 +26,8 @@ import basix.ufl
 
 logging.basicConfig(level=logging.INFO)
 
+import importlib.resources as pkg_resources  # Python 3.7+ for accessing package files
+import copy
 
 # ///////////
 
@@ -38,7 +40,11 @@ comm = MPI.COMM_WORLD
 # Mesh on node model_rank and then distribute
 model_rank = 0
 
-with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
+
+# with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
+# with pkg_resources.path("irrevolutions.models", "default_parameters.yml") as path:
+# with open(path, "r") as f:
+with open(os.path.join(os.path.dirname(__file__), "../test", "parameters.yml")) as f:
     parameters = yaml.load(f, Loader=yaml.FullLoader)
 
 # Get mesh parameters
@@ -57,10 +63,11 @@ gmsh_model, tdim = mesh_bar_gmshapi(geom_type, Lx, Ly, lc, tdim)
 mesh, mts, fts = gmshio.model_to_mesh(gmsh_model, comm, model_rank, tdim)
 
 outdir = os.path.join(os.path.dirname(__file__), "output")
-if comm.rank == 0:
-    Path(outdir).mkdir(parents=True, exist_ok=True)
-
 prefix = os.path.join(outdir, "elasticity")
+
+if comm.rank == 0:
+    Path(prefix).mkdir(parents=True, exist_ok=True)
+
 
 with XDMFFile(comm, f"{prefix}.xdmf", "w", encoding=XDMFFile.Encoding.HDF5) as file:
     file.write_mesh(mesh)

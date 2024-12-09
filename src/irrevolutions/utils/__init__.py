@@ -80,6 +80,7 @@ error_codes = {
 # Reverse the dictionary to create an inverse mapping
 translatePETScERROR = {v: k for k, v in error_codes.items()}
 
+
 class ColorPrint:
     """
     Colored printing functions for strings that use universal ANSI escape
@@ -308,22 +309,23 @@ def set_vector_to_constant(x, value):
     x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
 
-def table_timing_data():
+def table_timing_data(tasks=None):
     import pandas as pd
     from dolfinx.common import timing
 
     timing_data = []
-    tasks = [
-        "~First Order: AltMin solver",
-        "~First Order: AltMin-Damage solver",
-        "~First Order: AltMin-Elastic solver",
-        "~First Order: Hybrid solver",
-        "~Second Order: Bifurcation",
-        "~Second Order: Cone Project",
-        "~Second Order: Stability",
-        "~Postprocessing and Vis",
-        "~Computation Experiment",
-    ]
+    if tasks is None:
+        tasks = [
+            "~First Order: AltMin solver",
+            "~First Order: AltMin-Damage solver",
+            "~First Order: AltMin-Elastic solver",
+            "~First Order: Hybrid solver",
+            "~Second Order: Bifurcation",
+            "~Second Order: Cone Project",
+            "~Second Order: Stability",
+            "~Postprocessing and Vis",
+            "~Computation Experiment",
+        ]
 
     for task in tasks:
         timing_data.append(timing(task))
@@ -343,8 +345,6 @@ def find_offending_columns_lengths(data):
         except TypeError:
             lengths[key] = "Non-iterable"
     return lengths
-
-
 
 
 class ResultsStorage:
@@ -478,7 +478,9 @@ def indicator_function(v):
     with w.x.petsc_vec.localForm() as w_loc, v.x.petsc_vec.localForm() as v_loc:
         w_loc[:] = np.where(v_loc[:] > 0, 1.0, 0.0)
 
-    w.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    w.x.petsc_vec.ghostUpdate(
+        addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+    )
 
     return w
 
