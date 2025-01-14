@@ -1,11 +1,18 @@
 from mpi4py import MPI
 import sys
 import petsc4py
+
 petsc4py.init(sys.argv)
 from petsc4py import PETSc
 
-from dolfinx.fem.petsc import (apply_lifting, assemble_matrix, assemble_vector,
-                               create_matrix, create_vector, set_bc)
+from dolfinx.fem.petsc import (
+    apply_lifting,
+    assemble_matrix,
+    assemble_vector,
+    create_matrix,
+    create_vector,
+    set_bc,
+)
 from dolfinx.cpp.log import LogLevel, log
 
 import dolfinx
@@ -18,6 +25,7 @@ import ufl
 # pdb.set_trace()
 
 comm = MPI.COMM_WORLD
+
 
 class SNESSolver:
     """

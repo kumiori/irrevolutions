@@ -38,4 +38,4 @@ irrevolutions = "irrevolutions:main"
 
 # Optional include files like configuration, license, etc.
 [tool.setuptools.package-data]
-irrevolutions = ["models/default_parameters.yml"]
+irrevolutions = ["models/default_parameters.yml", "test/parameters.yml"]
