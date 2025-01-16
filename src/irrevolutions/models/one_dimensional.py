@@ -9,11 +9,12 @@ class Brittle1D:
     computations in 1D.
     """
 
-    def __init__(self, parameters):
+    def __init__(self, parameters, eps_0=1):
         """
         Initialize model parameters.
         """
         self.parameters = parameters
+        self.eps_0 = eps_0
 
     def a(self, alpha):
         """
@@ -40,7 +41,7 @@ class Brittle1D:
         """
         alpha = state["alpha"]
         u = state["u"]
-        u_x = self.grad_1d(u)
+        u_x = self.grad_1d(u) - self.eps_0
         _mu = self.parameters["model"]["E"]
 
         return _mu / 2.0 * self.a(alpha) * u_x**2
