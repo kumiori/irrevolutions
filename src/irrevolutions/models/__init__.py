@@ -233,7 +233,7 @@ class BrittleMembraneOverElasticFoundation(DamageElasticityModel):
             eps, alpha
         ) + self.elastic_foundation_density(u)
 
-    def stress(self, strain, alpha):
+    def stress_average(self, strain, alpha):
         from dolfinx.fem import assemble_scalar, form
         from numpy import ndarray
 
