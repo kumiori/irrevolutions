@@ -26,7 +26,7 @@ comm = MPI.COMM_WORLD
 # xvfb.start_xvfb(wait=0.05)
 
 
-def plot_vector(u, plotter, subplot=None, scale=1.0):
+def plot_vector(u, plotter, subplot=None, scale=1.0, lineproperties={}):
     """
     Plots a vector field using PyVista with glyph representation.
 
@@ -58,13 +58,13 @@ def plot_vector(u, plotter, subplot=None, scale=1.0):
     grid["vectors"] = values
     grid.set_active_vectors("vectors")
     glyphs = grid.glyph(orient="vectors", factor=scale)
-    plotter.add_mesh(glyphs)
+    plotter.add_mesh(glyphs, **lineproperties)
     plotter.add_mesh(
         grid, show_edges=True, color="black", style="wireframe", opacity=0.3
     )
     plotter.view_xy()
     plotter.set_background("white")
-    return plotter
+    return plotter, grid
 
 
 def plot_scalar(u, plotter, subplot=None, lineproperties={}):
@@ -99,7 +99,7 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     plotter.add_mesh(grid, **lineproperties)
     plotter.view_xy()
     plotter.set_background("white")
-    return plotter
+    return plotter, grid
 
 
 def plot_profile(

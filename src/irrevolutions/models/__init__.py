@@ -288,9 +288,9 @@ class VariableThickness:
         #         self.model.elastic_foundation_density
         #     )
 
-        if callable(self.model.damage_dissipation_density):
-            self.model.damage_dissipation_density = wrap_with_thickness(
-                self.model.damage_dissipation_density
+        if callable(self.model.damage_energy_density):
+            self.model.damage_energy_density = wrap_with_thickness(
+                self.model.damage_energy_density
             )
 
         # Return the instance of the decorated class
