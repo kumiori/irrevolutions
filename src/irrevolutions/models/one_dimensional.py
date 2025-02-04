@@ -26,14 +26,14 @@ class Brittle1D:
         """
         Homogeneous damage energy function.
         """
-        n = self.parameters["model"]["at_number"]
+        n = self.parameters["at_number"]
         return alpha**n
 
     def grad_1d(self, u):
         """
         Gradient computation in 1D.
         """
-        return ufl.grad(u)[0]
+        return ufl.grad(u)
 
     def elastic_energy_density(self, state):
         """
@@ -42,7 +42,7 @@ class Brittle1D:
         alpha = state["alpha"]
         u = state["u"]
         u_x = self.grad_1d(u) - self.eps_0
-        _mu = self.parameters["model"]["E"]
+        _mu = self.parameters["E"]
 
         return _mu / 2.0 * self.a(alpha) * u_x**2
 
@@ -50,8 +50,8 @@ class Brittle1D:
         """
         Damage energy density for the 1D state.
         """
-        _w1 = self.parameters["model"]["w1"]
-        _ell = self.parameters["model"]["ell"]
+        _w1 = self.parameters["w1"]
+        _ell = self.parameters["ell"]
 
         alpha = state["alpha"]
         grad_alpha = self.grad_1d(alpha)
@@ -66,7 +66,7 @@ class Brittle1D:
         u = state["u"]
         u_x = self.grad_1d(u)
 
-        return self.parameters["model"]["E"] * self.a(alpha) * u_x
+        return self.parameters["E"] * self.a(alpha) * u_x
 
 
 class FilmModel1D(Brittle1D):
@@ -82,8 +82,8 @@ class FilmModel1D(Brittle1D):
         alpha = state["alpha"]
         u = state["u"]
         u_x = self.grad_1d(u)
-        _mu = self.parameters["model"]["E"]
-        _kappa = self.parameters["model"].get("kappa", 1.0)
+        _mu = self.parameters["E"]
+        _kappa = self.parameters.get("kappa", 1.0)
 
         energy_density = _mu / 2.0 * self.a(alpha) * u_x**2
 
