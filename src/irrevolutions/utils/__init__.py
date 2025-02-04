@@ -136,7 +136,9 @@ class ColorPrint:
             sys.stdout.flush()
 
 
-def setup_logger_mpi(root_priority: int = logging.INFO):
+def setup_logger_mpi(
+    root_priority: int = logging.INFO, filename: str = "evolution.log"
+):
     import dolfinx
     from mpi4py import MPI
 
@@ -160,7 +162,7 @@ def setup_logger_mpi(root_priority: int = logging.INFO):
     logger.propagate = False
     # StreamHandler to log messages to the console
     console_handler = logging.StreamHandler()
-    file_handler = logging.FileHandler("evolution.log")
+    file_handler = logging.FileHandler(filename)
 
     # formatter = logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] - %(message)s')
     formatter = MPIFormatter(
