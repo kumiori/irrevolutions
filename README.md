@@ -44,7 +44,7 @@ More specifically, you can install `dolfinx` using one of the following methods:
 - Using conda
 
 ```bash
-conda create -n fenicsx-env -c conda-forge fenics-dolfinx=0.7.2 mpich pyvista sympy pandas pyyaml
+conda create -n fenicsx-env -c conda-forge fenics-dolfinx=0.9 mpich pyvista sympy pandas pyyaml
 conda activate fenicsx-env
 ```
 
