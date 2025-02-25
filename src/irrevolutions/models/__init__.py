@@ -203,19 +203,12 @@ class DeviatoricSplit(DamageElasticityModel):
         Returns the elastic energy density from the strain and the damage.
         """
         # Parameters
-        # lmbda = self.lmbda
         mu = self.mu
         dim = eps.ufl_shape[0]
         kappa = self.lmbda + 2 * self.mu / dim  # Bulk modulus
 
         # Deviatoric part of the strain
-        # eps_dev = eps - 1 / dim * ufl.tr(eps) * ufl.Identity(dim)
         eps_dev = ufl.dev(eps)
-
-        # energy_density = 1./2. * (
-        #     self.a(alpha)
-        #     * (2 * mu * ufl.inner(eps_dev, eps_dev) + lmbda * ufl.tr(eps) ** 2)
-        # )
 
         energy_density = (
             1.0 / 2.0 * kappa * ufl.tr(eps) ** 2  # Volumetric part
@@ -224,7 +217,7 @@ class DeviatoricSplit(DamageElasticityModel):
         return energy_density
 
 
-class VolumetricDeviatoricSplit(DamageElasticityModel):
+class PositiveNegativeSplit(DamageElasticityModel):
     """Amor et al., 2009"""
 
     def __init__(self, model_parameters={}):
@@ -254,12 +247,7 @@ class VolumetricDeviatoricSplit(DamageElasticityModel):
         eps_vol = ufl.tr(eps) * ufl.Identity(dim) / dim
 
         tr_minus, tr_plus = self.positive_negative_trace(eps_vol)
-        # energy_density = (
-        #     self.a(alpha)
-        #     * 1.0
-        #     / 2.0
-        #     * (2 * mu * ufl.inner(eps_dev, eps_dev) + lmbda * ufl.tr(eps_dev) ** 2)
-        # )
+
         energy_density = (
             1.0 / 2.0 * kappa * tr_minus** 2  # Negative volumetric part
             + self.a(alpha)
