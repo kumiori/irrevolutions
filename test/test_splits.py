@@ -27,12 +27,15 @@ def setup_mesh():
 
 @pytest.fixture
 def load_default_parameters():
-    """Load default model parameters from a YAML file."""
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    yaml_file = os.path.join(dir_path, "default_parameters.yml")
-    with open(yaml_file, "r") as f:
-        default_parameters = yaml.load(f, Loader=yaml.FullLoader)
-    return default_parameters["model"]
+    # """Load default model parameters from a YAML file."""
+    # dir_path = os.path.dirname(os.path.realpath(__file__))
+    # yaml_file = os.path.join(dir_path, "default_parameters.yml")
+    # with open(yaml_file, "r") as f:
+    #     default_parameters = yaml.load(f, Loader=yaml.FullLoader)
+    # return default_parameters["model"]
+    from irrevolutions.models import default_model_parameters
+
+    return default_model_parameters
 
 
 def test_deviatoric_split_zero_strain(setup_mesh, load_default_parameters):
