@@ -175,7 +175,7 @@ def create_disk_with_hole(comm=MPI.COMM_WORLD, geom_parameters=None):
         print("Mesh created and saved as 'disc_with_hole.msh'")
 
         # Finalize gmsh
-        gmsh.finalize()
+        # gmsh.finalize()
 
         tdim = 2
 
