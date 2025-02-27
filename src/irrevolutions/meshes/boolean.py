@@ -92,3 +92,91 @@ def mesh_moonslice_gmshapi(
             gmsh.write(msh_file)
 
     return gmsh.model if comm.rank == 0 else None, tdim
+
+
+def create_disk_with_hole(comm=MPI.COMM_WORLD, geom_parameters=None):
+    """
+    Creates a 2D disk with an optional central hole using Gmsh.
+
+    Args:
+        comm (MPI.Comm): MPI communicator.
+        geom_parameters (dict): Dictionary containing geometric parameters:
+            - 'R_outer': Outer disk radius.
+            - 'R_inner': Inner hole radius (set to 0 for no hole).
+            - 'lc': Mesh element size.
+            - 'a': Half-width of the refined symmetric region (default 7 * lc).
+
+    Returns:
+        None (Gmsh model is created and can be meshed/exported).
+    """
+    if geom_parameters is None:
+        geom_parameters = {
+            "R_outer": 1.0,  # Outer disk radius
+            "R_inner": 0.0,  # Inner hole radius (0 means no hole)
+            "lc": 0.05,  # Mesh element size
+            "a": None,  # Half-width of the refined region (-a < x < a)
+        }
+
+    R_outer = geom_parameters["R_outer"]
+    R_inner = geom_parameters["R_inner"]
+    lc = geom_parameters["lc"]
+    a = geom_parameters["a"] if geom_parameters["a"] is not None else 7 * lc
+
+    if comm.rank == 0:
+        import warnings
+        import gmsh
+
+        warnings.filterwarnings("ignore")
+
+        # Initialize gmsh
+        gmsh.initialize()
+        gmsh.model.add("DiskWithHole")
+
+        # Create outer circle (disk boundary)
+        outer_circle = gmsh.model.occ.addDisk(0.0, 0.0, 0.0, R_outer, R_outer, tag=1)
+
+        # Create inner hole if R_inner > 0
+        if R_inner > 0:
+            inner_hole = gmsh.model.occ.addDisk(0.0, 0.0, 0.0, R_inner, R_inner, tag=2)
+            cut_entities, _ = gmsh.model.occ.cut([(2, outer_circle)], [(2, inner_hole)])
+            surface_tag = cut_entities[0][1]  # Extract tag from result
+        else:
+            gmsh.model.occ.synchronize()
+            surface_tag = outer_circle
+
+        # Synchronize before meshing
+        gmsh.model.occ.synchronize()
+
+        # Define physical groups
+        gmsh.model.addPhysicalGroup(2, [surface_tag], tag=1)
+        gmsh.model.setPhysicalName(2, 1, "DiskDomain")
+
+        # Mesh settings
+        gmsh.model.mesh.setSize(gmsh.model.getEntities(0), lc)
+
+        refinement_field = gmsh.model.mesh.field.add("Box")
+        gmsh.model.mesh.field.setNumber(
+            refinement_field, "VIn", lc / 3
+        )  # Finer mesh inside
+        gmsh.model.mesh.field.setNumber(
+            refinement_field, "VOut", lc
+        )  # Coarser mesh outside
+        gmsh.model.mesh.field.setNumber(refinement_field, "XMin", -a)
+        gmsh.model.mesh.field.setNumber(refinement_field, "XMax", a)
+        gmsh.model.mesh.field.setNumber(refinement_field, "YMin", -R_outer)
+        gmsh.model.mesh.field.setNumber(refinement_field, "YMax", R_outer)
+        gmsh.model.mesh.field.setAsBackgroundMesh(refinement_field)
+
+        gmsh.model.mesh.generate(2)
+
+        # Save mesh to file
+        gmsh.write("disc_with_hole.msh")
+
+        print("Mesh created and saved as 'disc_with_hole.msh'")
+
+        # Finalize gmsh
+        gmsh.finalize()
+
+        tdim = 2
+
+    return gmsh.model if comm.rank == 0 else None, tdim
