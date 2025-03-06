@@ -513,9 +513,6 @@ class HybridSolver(AlternateMinimisation):
         self.data.update(self.newton_data)
 
 
-# new class for contact problems based on alternate minimisation
-
-
 class ContactAlternateMinimisation(AlternateMinimisation):
     """
     Extension of AlternateMinimisation that includes contact constraints.
