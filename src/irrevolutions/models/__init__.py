@@ -169,6 +169,7 @@ class DamageElasticityModel(ElasticityModel):
         """
         # Get the material parameters
         self.E
+        # w1 = params["material"]["sigma_D0"] ** 2 / E0
         w1 = self.w1
         ell = self.ell
         # Get the damage
