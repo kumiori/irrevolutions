@@ -302,7 +302,7 @@ def test_linsearch():
                 plt.scatter(x_plot, energies_1d)
                 axes.plot(xs, p(xs), label=f"Energy slice order {order}")
                 plt.scatter(
-                    h_opt, 0, s=60, label=f"$h^*-{ order }={h_opt:.2f}$", alpha=0.5
+                    h_opt, 0, s=60, label=f"$h^*-{order}={h_opt:.2f}$", alpha=0.5
                 )
                 plt.scatter(h_opt, p(h_opt), c="k", s=40, alpha=0.5)
 
@@ -356,7 +356,7 @@ def test_linsearch():
             logging.critical(f"norm state pre: {norm_state_pre}")
             logging.critical(f"norm state post: {norm_state_post}")
             logging.critical(
-                f"relative norm difference: {(norm_state_post-norm_state_pre) / norm_state_pre}"
+                f"relative norm difference: {(norm_state_post - norm_state_pre) / norm_state_pre}"
             )
 
         ColorPrint.print_bold(f"State is elastic: {is_elastic}")
@@ -429,8 +429,8 @@ def test_linsearch():
             window_size=[1600, 600],
             shape=(1, 2),
         )
-        _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-        _plt = plot_vector(u, plotter, subplot=(0, 1))
+        _plt, grid = plot_scalar(alpha, plotter, subplot=(0, 0))
+        _plt, grid = plot_vector(u, plotter, subplot=(0, 1))
         _plt.screenshot(f"{prefix}/traction-state.png")
 
     if comm.rank == 0:

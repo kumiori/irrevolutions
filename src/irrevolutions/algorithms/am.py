@@ -395,9 +395,10 @@ class HybridSolver(AlternateMinimisation):
         with ub.getNestSubVecs()[0].localForm() as u_sub:
             u_sub.set(PETSc.PINFINITY)
 
-        with lb.getNestSubVecs()[
-            1
-        ].localForm() as alpha_sub, alpha_lb.x.petsc_vec.localForm() as alpha_lb_loc:
+        with (
+            lb.getNestSubVecs()[1].localForm() as alpha_sub,
+            alpha_lb.x.petsc_vec.localForm() as alpha_lb_loc,
+        ):
             alpha_lb_loc.copy(result=alpha_sub)
 
         with ub.getNestSubVecs()[1].localForm() as alpha_sub:
@@ -510,3 +511,38 @@ class HybridSolver(AlternateMinimisation):
         self.newton_data["residual_Frxnorm"].append(self.getReducedNorm())
 
         self.data.update(self.newton_data)
+
+
+# new class for contact problems based on alternate minimisation
+
+
+class ContactAlternateMinimisation(AlternateMinimisation):
+    """
+    Extension of AlternateMinimisation that includes contact constraints.
+    Handles both irreversibility of damage and unilateral contact constraints.
+    """
+
+    def __init__(
+        self,
+        total_energy,
+        state,
+        bcs,
+        solver_parameters={},
+        bounds_u=(dolfinx.fem.function.Function, dolfinx.fem.function.Function),
+        bounds_alpha=(dolfinx.fem.function.Function, dolfinx.fem.function.Function),
+        monitor=None,
+    ):
+        super().__init__(
+            total_energy, state, bcs, solver_parameters, bounds_alpha, monitor
+        )
+        V_u = self.u.function_space
+        energy_u = ufl.derivative(self.total_energy, self.u, ufl.TestFunction(V_u))
+        # SNESSolver for elasticity and damage
+        self.elasticity = SNESSolver(
+            energy_u,
+            self.u,
+            bcs.get("bcs_u"),
+            bounds=(bounds_u[0], bounds_u[1]),
+            petsc_options=self.solver_parameters.get("contact").get("snes"),
+            prefix=self.solver_parameters.get("contact").get("prefix"),
+        )

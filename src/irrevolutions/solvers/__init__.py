@@ -155,13 +155,6 @@ class SNESSolver:
 
         try:
             self.solver.solve(None, self.u.x.petsc_vec)
-            # print(
-            #    f"{self.prefix} SNES solver converged in",
-            #    self.solver.getIterationNumber(),
-            #    "iterations",
-            #    "with converged reason",
-            #    self.solver.getConvergedReason(),
-            # )
             self.u.x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )

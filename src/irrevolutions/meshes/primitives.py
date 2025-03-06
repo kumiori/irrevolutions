@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from mpi4py import MPI
+import gmsh
+import numpy as np
 
 
 def mesh_ep_gmshapi(
@@ -355,6 +357,87 @@ def mesh_circle_gmshapi(name, R, lc, tdim, order=1, msh_file=None, comm=MPI.COMM
         if msh_file is not None:
             gmsh.write(msh_file)
 
+    return gmsh.model if comm.rank == 0 else None, tdim
+
+
+def create_arc_ring_mesh(
+    parameters, tdim=2, msh_file="arc_ring.msh", comm=MPI.COMM_WORLD
+):
+    """
+    Create a 2D arc-shaped ring (annular sector) using Gmsh.
+
+    Args:
+        inner_radius (float): Inner radius of the arc.
+        outer_radius (float): Outer radius of the arc.
+        angle (float): Arc angle in degrees (e.g., 90 for a quarter ring).
+        lc (float): Mesh characteristic length.
+
+    Returns:
+        Dolfinx mesh object.
+    """
+    gmsh.initialize()
+    gmsh.model.add("ArcRing")
+
+    angle = parameters.get("angle", 180)
+    inner_radius = parameters.get("R_inner", 0.3)
+    outer_radius = parameters.get("R_outer", 1.0)
+    lc = parameters.get("lc", 0.1)
+
+    # Convert angle to radians
+    theta = np.radians(angle)
+
+    # Create arc points
+    _p0 = gmsh.model.occ.addPoint(0, 0, 0, lc)
+    p0 = gmsh.model.occ.addPoint(inner_radius, 0, 0, lc)
+    p1 = gmsh.model.occ.addPoint(outer_radius, 0, 0, lc)
+    p2 = gmsh.model.occ.addPoint(
+        inner_radius * np.cos(theta), inner_radius * np.sin(theta), 0, lc
+    )
+    p3 = gmsh.model.occ.addPoint(
+        outer_radius * np.cos(theta), outer_radius * np.sin(theta), 0, lc
+    )
+    tdim = 2  # 2D mesh
+    # Create arcs
+    arc_inner = gmsh.model.occ.addCircleArc(p0, _p0, p2)
+    arc_outer = gmsh.model.occ.addCircleArc(p1, _p0, p3)
+    line1 = gmsh.model.occ.addLine(p0, p1)
+    line2 = gmsh.model.occ.addLine(p2, p3)
+
+    # Create loop & surface
+    loop = gmsh.model.occ.addCurveLoop([arc_inner, line2, -arc_outer, -line1])
+    surface = gmsh.model.occ.addPlaneSurface([loop])
+    # Synchronize & generate mesh
+    gmsh.model.occ.synchronize()
+    model = gmsh.model
+    surface_entities = [model[1] for model in model.getEntities(tdim)]
+
+    domain = model.addPhysicalGroup(tdim, [surface], name="Domain")
+    model.setPhysicalName(tdim, domain, "Surface")
+
+    outer_boundary = gmsh.model.getBoundary([(2, surface)], oriented=False)
+    fixed_edges = []
+    for edge in outer_boundary:
+        edge_id = edge[1]
+        com = gmsh.model.occ.getCenterOfMass(1, edge_id)
+        if np.isclose(com[1], 0.0, atol=1e-6):  # Select the bottom edge
+            fixed_edges.append(edge_id)
+
+    # **Define physical group for the bottom boundary**
+    fixed_tag = gmsh.model.addPhysicalGroup(1, fixed_edges, name="Fixed_Boundary")
+    gmsh.model.setPhysicalName(1, fixed_tag, "Fixed_Boundary")
+
+    # top_tag = gmsh.model.addPhysicalGroup(1, arc_outer, name="Contact_Boundary")
+    # gmsh.model.setPhysicalName(1, top_tag, "Contact_Boundary")
+    contact_tag = gmsh.model.addPhysicalGroup(tdim - 1, [arc_outer], tag=60)
+    gmsh.model.setPhysicalName(1, contact_tag, "Contact_Boundary")
+
+    gmsh.model.mesh.generate(tdim)
+
+    # Optional: Write msh file
+    if msh_file is not None:
+        gmsh.write(msh_file)
+
+    # return dolfinx.io.gmshio.read_from_msh(msh_file, MPI.COMM_WORLD, 0, gdim=2)
     return gmsh.model if comm.rank == 0 else None, tdim
 
 
