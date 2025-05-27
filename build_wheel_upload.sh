@@ -10,7 +10,8 @@ rm -rf $WHEEL_DIR $DIST_DIR
 mkdir $WHEEL_DIR
 
 # Install required tools
-pip install setuptools wheel cibuildwheel
+pip install setuptools wheel
+#  cibuildwheel
 
 # Build the package
 python setup.py bdist_wheel
@@ -22,3 +23,4 @@ pip download -r requirements.txt --platform manylinux2014_x86_64 --dest wheelhou
 #  --python-version 3.9
 # Transfer to the cluster
 scp -r $WHEEL_DIR $DIST_DIR/*.whl leonbala@irene-fr.ccc.cea.fr:/ccc/work/cont003/gen14282/leonbala/wheels
+# scp $DIST_DIR/*.whl leonbala@irene-fr.ccc.cea.fr:/ccc/work/cont003/gen14282/leonbala/wheels
