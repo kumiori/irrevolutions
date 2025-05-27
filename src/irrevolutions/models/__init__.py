@@ -99,7 +99,7 @@ class DamageElasticityModel(ElasticityModel):
             - k_res: fully damaged stiffness modulation
         """
         # Initialize the elastic parameters
-        super().__init__(model_parameters)
+        super().__init__(model_parameters=model_parameters)
         if model_parameters:
             self.model_parameters.update(model_parameters)
 
@@ -197,7 +197,7 @@ class DeviatoricSplit(DamageElasticityModel):
     """
 
     def __init__(self, model_parameters={}):
-        super().__init__(model_parameters)
+        super().__init__(model_parameters=model_parameters)
 
     def elastic_energy_density_strain(self, eps, alpha):
         """
@@ -222,7 +222,7 @@ class PositiveNegativeSplit(DamageElasticityModel):
     """Amor et al., 2009"""
 
     def __init__(self, model_parameters={}):
-        super().__init__(model_parameters)
+        super().__init__(model_parameters=model_parameters)
 
     def positive_negative_trace(self, eps):
         """
@@ -259,7 +259,7 @@ class PositiveNegativeSplit(DamageElasticityModel):
         return energy_density
 
 
-class GeometricNonlinearElasticityModel(DamageElasticityModel):
+class NeoHookeanElasticityModel(DamageElasticityModel):
     """Neo-Hookean model for geometrically nonlinear elasticity
 
     Args:
