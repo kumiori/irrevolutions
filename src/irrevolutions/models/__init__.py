@@ -259,7 +259,7 @@ class PositiveNegativeSplit(DamageElasticityModel):
         return energy_density
 
 
-class GeometricNonlinearElasticityModel(DamageElasticityModel):
+class NeoHookeanElasticityModel(DamageElasticityModel):
     """Neo-Hookean model for geometrically nonlinear elasticity
 
     Args:
