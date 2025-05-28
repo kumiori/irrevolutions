@@ -192,7 +192,7 @@ def setup_logger_mpi(
     return logger
 
 
-_logger = setup_logger_mpi()
+# _logger = setup_logger_mpi()
 
 
 # Get the current Git branch
