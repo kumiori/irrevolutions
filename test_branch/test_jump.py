@@ -37,3 +37,15 @@ if __name__ == "__main__":
 
     state = {"u": u, "alpha": alpha}
     perturbation = {"v": u, "beta": beta}
+
+    bcs = []  # no boundary conditions
+    jump_parameters = {"tau": 1e-2, "max_steps": 100, "rtol": 1e-8, "verbose": True}
+
+    flow = JumpSolver(energy_form, state, bcs, jump_parameters)
+    state = flow.solve(perturbation, h=0.1)
+
+    print(
+        "Final alpha min/max:",
+        state["alpha"].x.array.min(),
+        state["alpha"].x.array.max(),
+    )

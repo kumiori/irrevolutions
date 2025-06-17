@@ -34,27 +34,48 @@ class JumpSolver:
 
         # self.beta = self.perturbation["beta"]
 
-    def solve(self):
+    def solve(self, perturbation: dict = None, h: float = 0.0):
+        beta = perturbation.get("beta", None)
+
+        if beta is None:
+            raise ValueError("Perturbation 'beta' must be provided.")
+        if not isinstance(beta, fem.Function):
+            raise TypeError("Perturbation 'beta' must be a dolfinx.fem.Function.")
+        if beta.function_space != self.V_alpha:
+            raise ValueError(
+                "Perturbation 'beta' must be defined on the same function space as 'alpha'."
+            )
+
+        if h > 0.0:
+            alpha_array = self.alpha.x.array
+            beta_array = beta.x.array
+            self.alpha.x.array[:] = alpha_array + h * beta_array
+            self.alpha.x.scatter_forward()
+
         t = 0.0
         for i in range(self.max_steps):
             self.alpha_old.x.array[:] = self.alpha.x.array[:]
 
             # Residual and directional derivative (Jacobian)
             E = self.energy_form(u=self.state["u"], alpha=self.alpha)
-            dE_alpha = fem.form(ufl.derivative(E, self.alpha, self.beta))
+            # dE_alpha = fem.form(ufl.derivative(E, self.alpha, self.beta))
 
+            dE_alpha = fem.petsc.assemble_vector(
+                fem.form(ufl.derivative(E, self.alpha, ufl.TestFunction(self.V_alpha)))
+            )
+
+            # Project gradient onto the dual cone (positive part only)
+            # drive alpha increase only where gradient is negative
+            grad_proj = dE_alpha.copy()
+            grad_proj.array[:] = np.minimum(grad_proj.array, 0.0)
             # Gradient descent step
-            with self.alpha.vector.localForm() as alpha_local:
-                alpha_local.axpy(-self.tau, fem.petsc.assemble_vector(dE_alpha))
+            with (
+                self.alpha.x.petsc_vec.localForm() as alpha_local,
+                grad_proj.localForm() as grad_proj_local,
+            ):
+                alpha_local.axpy(-self.tau, grad_proj_local)
 
             self.alpha.x.scatter_forward()
-
-            # Project alpha back onto admissible set (irreversibility: alpha increases)
-            with (
-                self.alpha.vector.localForm() as a,
-                self.alpha_old.vector.localForm() as a_old,
-            ):
-                a.setArray(np.maximum(a.array, a_old.array))
 
             # Check convergence
             diff = fem.assemble_scalar(
