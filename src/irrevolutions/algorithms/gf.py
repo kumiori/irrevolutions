@@ -6,15 +6,26 @@ from dolfinx.fem import Function
 
 
 class JumpSolver:
-    def __init__(self, energy_form, state, bcs, cone_parameters):
+    def __init__(
+        self, energy_form: ufl.form.Form, state: dict, bcs: list, parameters: dict
+    ):
+        """
+        Initialize the gradient flow solver.
+
+        Args:
+            energy (ufl.form.Form): The energy functional.
+            state (dict): Dictionary containing state variables 'u' and 'alpha'.
+            bcs (list): List of boundary conditions.
+            parameters (dict): Parameters for the solver.
+        """
         self.energy_form = energy_form
         self.state = state  # e.g. dict with keys "u" and "alpha"
         # self.perturbation = perturbation  # dict with keys "v", "beta"
         self.bcs = bcs
-        self.tau = cone_parameters.get("tau", 1e-2)
-        self.max_steps = cone_parameters.get("max_steps", 200)
-        self.rtol = cone_parameters.get("rtol", 1e-6)
-        self.verbose = cone_parameters.get("verbose", False)
+        self.tau = parameters.get("tau", 1e-2)
+        self.max_steps = parameters.get("max_steps", 200)
+        self.rtol = parameters.get("rtol", 1e-6)
+        self.verbose = parameters.get("verbose", False)
 
         self.V_alpha = self.state["alpha"].function_space
         self.alpha = fem.Function(self.V_alpha, name="alpha_jump")
@@ -30,11 +41,11 @@ class JumpSolver:
 
             # Residual and directional derivative (Jacobian)
             E = self.energy_form(u=self.state["u"], alpha=self.alpha)
-            dE_dalpha = fem.form(ufl.derivative(E, self.alpha, self.beta))
+            dE_alpha = fem.form(ufl.derivative(E, self.alpha, self.beta))
 
             # Gradient descent step
             with self.alpha.vector.localForm() as alpha_local:
-                alpha_local.axpy(-self.tau, fem.petsc.assemble_vector(dE_dalpha))
+                alpha_local.axpy(-self.tau, fem.petsc.assemble_vector(dE_alpha))
 
             self.alpha.x.scatter_forward()
 
