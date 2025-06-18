@@ -23,12 +23,17 @@ from pathlib import Path
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
 from irrevolutions.utils.viz import plot_scalar, plot_vector
+import logging
 
 import os
 
 from copy import deepcopy
 
 from dolfinx.fem.petsc import LinearProblem
+from irrevolutions.utils import setup_logger_mpi
+
+
+logger = setup_logger_mpi(logging.INFO)
 
 if __name__ == "__main__":
     outdir = os.path.join(os.path.dirname(__file__), "output")
@@ -36,7 +41,7 @@ if __name__ == "__main__":
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
-    mesh = create_unit_square(MPI.COMM_WORLD, 10, 10)
+    mesh = create_unit_square(MPI.COMM_WORLD, 3, 3)
     x = ufl.SpatialCoordinate(mesh)
     h = 1e-2  # projection step size
 
@@ -52,17 +57,33 @@ if __name__ == "__main__":
     grad_proj_fn = Function(V_alpha, name="projected_gradient")
     f_expr = ufl.sin(2 * 3 * ufl.pi * x[0]) * ufl.sin(2 * 3 * ufl.pi * x[1])
 
-    alpha.x.array[:] = 0.1  # initial value
+    with alpha.x.petsc_vec.localForm() as alpha_local:
+        alpha_local.set(0.1)
+    alpha.x.scatter_forward()
+
     alpha.x.petsc_vec.copy(result=alpha_0.x.petsc_vec)
+    alpha_0.x.scatter_forward()
+
+    alpha_sum = alpha.x.petsc_vec.sum()
+    alpha_sum_global = comm.allreduce(alpha_sum, op=MPI.SUM)
+    if comm.rank == 0:
+        logger.critical(f"Total alpha sum: {alpha_sum_global}")
 
     beta = Function(V_alpha, name="beta")
     # sin_expr = ufl.sin(2 * ufl.pi * x[0]) * ufl.sin(2 * ufl.pi * x[1])
     sin_expr = ufl.sin(2 * ufl.pi * x[1])
     beta_expr = fem.Expression(sin_expr, V_alpha.element.interpolation_points())
     beta.interpolate(beta_expr)
-    beta.x.petsc_vec.array[:] = np.maximum(beta.x.petsc_vec.array, 0.0)
+
+    with beta.x.petsc_vec.localForm() as beta_local:
+        np.maximum(beta_local.array, 0.0, out=beta_local.array)
+    beta.x.scatter_forward()
+
     # normalise beta
-    beta.x.petsc_vec.array[:] /= np.linalg.norm(beta.x.petsc_vec.array, ord=2)
+    norm = beta.x.petsc_vec.norm(PETSc.NormType.NORM_2)
+    beta.x.petsc_vec.scale(1.0 / norm)
+
+    beta.x.scatter_forward()
 
     # Simple energy functional: just a penalty on alpha
     def energy_function(u, alpha):
@@ -71,7 +92,15 @@ if __name__ == "__main__":
 
     # perturb alpha by beta and assemble the energy gradient
     alpha.x.petsc_vec.copy(result=alpha_h.x.petsc_vec)
-    alpha_h.x.petsc_vec.axpy(h, beta.x.petsc_vec)
+
+    with (
+        alpha_h.x.petsc_vec.localForm() as alpha_h_local,
+        beta.x.petsc_vec.localForm() as beta_local,
+    ):
+        # Apply perturbation to alpha
+        # alpha_h = alpha + h * beta
+        alpha_h_local.axpy(h, beta_local)
+
     alpha_h.x.scatter_forward()
 
     dE_alpha = fem.petsc.assemble_vector(
@@ -82,7 +111,11 @@ if __name__ == "__main__":
         )
     )
     grad_proj = dE_alpha.copy()
-    grad_proj.array[:] = np.minimum(-grad_proj.array, 0.0)
+
+    with grad_proj.localForm() as grad_local:
+        np.minimum(-grad_local.array, 0.0, out=grad_local.array)
+    grad_proj.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+
     grad_proj.copy(result=grad_proj_fn.x.petsc_vec)
     grad_proj_fn.x.scatter_forward()
     # Projected gradient
@@ -95,11 +128,10 @@ if __name__ == "__main__":
     flow = JumpSolver(energy_function, state, bcs, jump_parameters)
     state = flow.solve(perturbation, h=0.01)
 
-    print(
-        "Final alpha min/max:",
-        state["alpha"].x.array.min(),
-        state["alpha"].x.array.max(),
-    )
+    alpha_min = state["alpha"].x.petsc_vec.min()[1]
+    alpha_max = state["alpha"].x.petsc_vec.max()[1]
+    if comm.rank == 0:
+        print(f"Final alpha min/max: {alpha_min} {alpha_max}")
 
     if comm.Get_size() == 1:
         # xvfb.start_xvfb(wait=0.05)
@@ -136,4 +168,3 @@ if __name__ == "__main__":
         plotter.add_mesh(zero_plane, color="gray", style="wireframe", opacity=0.6)
 
         plotter.screenshot(f"{prefix}/alpha.png")
-        __import__("pdb").set_trace()

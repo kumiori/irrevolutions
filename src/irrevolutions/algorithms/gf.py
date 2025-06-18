@@ -3,6 +3,12 @@ from petsc4py import PETSc
 import ufl
 import numpy as np
 from dolfinx.fem import Function
+from dolfinx.common import Timer
+from irrevolutions.utils import setup_logger_mpi
+import logging
+from mpi4py import MPI
+
+logger = setup_logger_mpi(logging.INFO)
 
 
 class JumpSolver:
@@ -18,9 +24,10 @@ class JumpSolver:
             bcs (list): List of boundary conditions.
             parameters (dict): Parameters for the solver.
         """
+        self.comm = state["u"].function_space.mesh.comm
+
         self.energy_form = energy_form
         self.state = state  # e.g. dict with keys "u" and "alpha"
-        # self.perturbation = perturbation  # dict with keys "v", "beta"
         self.bcs = bcs
         self.tau = parameters.get("tau", 1e-2)
         self.max_steps = parameters.get("max_steps", 200)
@@ -28,97 +35,130 @@ class JumpSolver:
         self.verbose = parameters.get("verbose", True)
 
         self.V_alpha = self.state["alpha"].function_space
-        # self.alpha = fem.Function(self.V_alpha, name="alpha_jump")
-        # self.alpha.x.array[:] = self.state["alpha"].x.array[:]
 
         self.alpha = self.state["alpha"]  # pointer to evolving field
         self.u = self.state["u"]
 
         self.alpha_old = fem.Function(self.V_alpha)
-        self.alpha.x.petsc_vec.copy(result=self.alpha_old.x.petsc_vec)
+
         self.alpha.x.scatter_forward()
-        # self.beta = self.perturbation["beta"]
+        self.alpha.x.petsc_vec.copy(result=self.alpha_old.x.petsc_vec)
 
     def solve(self, perturbation: dict = None, h: float = 0.0):
-        beta = perturbation.get("beta", None)
+        alpha_local_sum = self.comm.allreduce(self.alpha.x.array[:].sum(), op=MPI.SUM)
+        logger.critical(f"Total alpha sum before loop: {alpha_local_sum}")
 
-        if beta is None:
-            raise ValueError("Perturbation 'beta' must be provided.")
-        if not isinstance(beta, fem.Function):
-            raise TypeError("Perturbation 'beta' must be a dolfinx.fem.Function.")
-        if beta.function_space != self.V_alpha:
-            raise ValueError(
-                "Perturbation 'beta' must be defined on the same function space as 'alpha'."
-            )
+        with Timer("~Jump Solver"):
+            beta = perturbation.get("beta", None)
 
-        if h > 0.0:
-            alpha_array = self.alpha.x.array
-            beta_array = beta.x.array
-            self.alpha.x.array[:] = alpha_array + h * beta_array
-            self.alpha.x.scatter_forward()
-
-        for i in range(self.max_steps):
-            self.alpha.x.petsc_vec.copy(result=self.alpha_old.x.petsc_vec)
-            self.alpha.x.scatter_forward()
-
-            # Residual and directional derivative (Jacobian)
-            energy = self.energy_form(u=self.u, alpha=self.alpha)
-            # energy = self.energy_form
-            # dE_alpha = fem.form(ufl.derivative(E, self.alpha, self.beta))
-
-            dE_alpha = fem.petsc.assemble_vector(
-                fem.form(
-                    ufl.derivative(energy, self.alpha, ufl.TestFunction(self.V_alpha))
+            if beta is None:
+                raise ValueError("Perturbation 'beta' must be provided.")
+            if not isinstance(beta, fem.Function):
+                raise TypeError("Perturbation 'beta' must be a dolfinx.fem.Function.")
+            if beta.function_space != self.V_alpha:
+                raise ValueError(
+                    "Perturbation 'beta' must be defined on the same function space as 'alpha'."
                 )
-            )
-            # Project gradient onto the dual cone (positive part only)
-            # drive alpha increase only where gradient is negative
 
-            grad_proj = dE_alpha.copy()
-            grad_proj.array[:] = np.minimum(grad_proj.array, 0.0)
+            if h > 0.0:
+                with (
+                    self.alpha.x.petsc_vec.localForm() as alpha_local,
+                    beta.x.petsc_vec.localForm() as beta_local,
+                ):
+                    # Apply perturbation to alpha
+                    alpha_local.axpy(h, beta_local)
 
-            if self.verbose:
-                print(f"Step {i}: ||grad_proj||_2 = {grad_proj.norm(2):.4e}")
+                self.alpha.x.scatter_forward()
 
-            # Gradient descent step
-            with (
-                self.alpha.x.petsc_vec.localForm() as alpha_local,
-                grad_proj.localForm() as grad_proj_local,
-            ):
-                alpha_local.axpy(-self.tau, grad_proj_local)
+            for i in range(self.max_steps):
+                self.alpha.x.scatter_forward()
+                self.alpha.x.petsc_vec.copy(result=self.alpha_old.x.petsc_vec)
+
+                # Residual and directional derivative (Jacobian)
+                energy = self.energy_form(u=self.u, alpha=self.alpha)
+
+                dE_alpha = fem.petsc.assemble_vector(
+                    fem.form(
+                        ufl.derivative(
+                            energy, self.alpha, ufl.TestFunction(self.V_alpha)
+                        )
+                    )
+                )
+
+                # Project gradient onto the dual cone (positive part only)
+                # drive alpha increase only where gradient is negative
+
+                grad_proj = dE_alpha.copy()
+                zero_vec = grad_proj.copy()
+                zero_vec.set(0.0)
+
+                with (
+                    grad_proj.localForm() as grad_proj_local,
+                    zero_vec.localForm() as zero_vec_local,
+                ):
+                    grad_proj_local.pointwiseMin(grad_proj_local, zero_vec_local)
+
+                grad_proj.ghostUpdate(
+                    addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+                )
+                if self.verbose:
+                    print(f"Step {i}: ||grad_proj||_2 = {grad_proj.norm(2):.4e}")
+
+                # Gradient descent step
+                with (
+                    self.alpha.x.petsc_vec.localForm() as alpha_local,
+                    grad_proj.localForm() as grad_proj_local,
+                    self.alpha_old.x.petsc_vec.localForm() as alpha_old_local,
+                ):
+                    alpha_local.axpy(-self.tau, grad_proj_local)
+
+                    if self.verbose:
+                        print(
+                            f"Step {i}: alpha_local size = {alpha_local.size}, grad_proj_local size = {grad_proj_local.size}"
+                        )
+                        print(
+                            f"Step {i}: alpha_local array = {alpha_local.array[:5]}, grad_proj_local array = {grad_proj_local.array[:5]}"
+                        )
+                        print(
+                            f"Step {i}: Updated alpha_local array = {alpha_local.array[:5]}"
+                        )
+                        print(
+                            f"Differences of local arrays: {alpha_local.array - alpha_old_local.array}"
+                        )
+
+                        # Global (MPI-wide) diagnostics
+                        grad_proj_norm = grad_proj.norm(PETSc.NormType.NORM_2)
+                        grad_proj_max = grad_proj.max()[1]  # Returns (index, value)
+                        grad_proj_min = grad_proj.min()[1]  # Returns (index, value)
+
+                        # if self.comm.rank == 0:
+                        print(
+                            f"{self.comm.rank}: Step {i}: ||grad_proj||_2 = {grad_proj_norm:.4e}"
+                        )
+                        print(
+                            f"{self.comm.rank}: Step {i}: max(grad_proj) = {grad_proj_max:.4e}"
+                        )
+                        print(
+                            f"{self.comm.rank}: Step {i}: min(grad_proj) = {grad_proj_min:.4e}"
+                        )
+
+                # Scatter the updated alpha to all processes
+                self.alpha.x.petsc_vec.ghostUpdate(
+                    addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+                )
+                # self.alpha.x.scatter_forward()
+
+                # Check convergence
+                diff_vec = self.alpha.x.petsc_vec.copy()
+                diff_vec.axpy(-1.0, self.alpha_old.x.petsc_vec)
+                diff = diff_vec.norm(PETSc.NormType.NORM_2) ** 2
 
                 if self.verbose:
-                    print(
-                        f"Step {i}: alpha_local size = {alpha_local.size}, grad_proj_local size = {grad_proj_local.size}"
-                    )
-                    print(
-                        f"Step {i}: alpha_local array = {alpha_local.array[:10]}, grad_proj_local array = {grad_proj_local.array[:10]}"
-                    )
-                    print(
-                        f"Step {i}: Updated alpha_local array = {alpha_local.array[:10]}"
-                    )
-                    print(
-                        f"Differences of local arrays: {alpha_local.array[:10] - self.alpha_old.x.petsc_vec.array[:10]}"
-                    )
-            # Scatter the updated alpha to all processes
-            self.alpha.x.scatter_forward()
+                    print(f"Step {i}: ||alpha - alpha_old||^2 = {diff:.4e}")
 
-            # Check convergence
-            diff = fem.assemble_scalar(
-                fem.form(
-                    ufl.inner(self.alpha - self.alpha_old, self.alpha - self.alpha_old)
-                    * ufl.dx
-                )
-            )
-            if self.verbose:
-                print(f"Step {i}: ||alpha - alpha_old||^2 = {diff:.4e}")
+                if diff < self.rtol:
+                    if self.verbose:
+                        print("Converged.")
+                    break
 
-            if diff < self.rtol:
-                if self.verbose:
-                    print("Converged.")
-                break
-
-        # Update state
-        # self.state["alpha"].x.array[:] = self.alpha.x.array[:]
-        # self.state["alpha"].x.scatter_forward()
         return self.state
