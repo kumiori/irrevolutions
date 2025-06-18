@@ -25,13 +25,18 @@ class JumpSolver:
         self.tau = parameters.get("tau", 1e-2)
         self.max_steps = parameters.get("max_steps", 200)
         self.rtol = parameters.get("rtol", 1e-6)
-        self.verbose = parameters.get("verbose", False)
+        self.verbose = parameters.get("verbose", True)
 
         self.V_alpha = self.state["alpha"].function_space
-        self.alpha = fem.Function(self.V_alpha, name="alpha_jump")
-        self.alpha.x.array[:] = self.state["alpha"].x.array[:]
-        self.alpha_old = fem.Function(self.V_alpha)
+        # self.alpha = fem.Function(self.V_alpha, name="alpha_jump")
+        # self.alpha.x.array[:] = self.state["alpha"].x.array[:]
 
+        self.alpha = self.state["alpha"]  # pointer to evolving field
+        self.u = self.state["u"]
+
+        self.alpha_old = fem.Function(self.V_alpha)
+        self.alpha.x.petsc_vec.copy(result=self.alpha_old.x.petsc_vec)
+        self.alpha.x.scatter_forward()
         # self.beta = self.perturbation["beta"]
 
     def solve(self, perturbation: dict = None, h: float = 0.0):
@@ -52,22 +57,29 @@ class JumpSolver:
             self.alpha.x.array[:] = alpha_array + h * beta_array
             self.alpha.x.scatter_forward()
 
-        t = 0.0
         for i in range(self.max_steps):
-            self.alpha_old.x.array[:] = self.alpha.x.array[:]
+            self.alpha.x.petsc_vec.copy(result=self.alpha_old.x.petsc_vec)
+            self.alpha.x.scatter_forward()
 
             # Residual and directional derivative (Jacobian)
-            E = self.energy_form(u=self.state["u"], alpha=self.alpha)
+            energy = self.energy_form(u=self.u, alpha=self.alpha)
+            # energy = self.energy_form
             # dE_alpha = fem.form(ufl.derivative(E, self.alpha, self.beta))
 
             dE_alpha = fem.petsc.assemble_vector(
-                fem.form(ufl.derivative(E, self.alpha, ufl.TestFunction(self.V_alpha)))
+                fem.form(
+                    ufl.derivative(energy, self.alpha, ufl.TestFunction(self.V_alpha))
+                )
             )
-
             # Project gradient onto the dual cone (positive part only)
             # drive alpha increase only where gradient is negative
+
             grad_proj = dE_alpha.copy()
             grad_proj.array[:] = np.minimum(grad_proj.array, 0.0)
+
+            if self.verbose:
+                print(f"Step {i}: ||grad_proj||_2 = {grad_proj.norm(2):.4e}")
+
             # Gradient descent step
             with (
                 self.alpha.x.petsc_vec.localForm() as alpha_local,
@@ -75,6 +87,20 @@ class JumpSolver:
             ):
                 alpha_local.axpy(-self.tau, grad_proj_local)
 
+                if self.verbose:
+                    print(
+                        f"Step {i}: alpha_local size = {alpha_local.size}, grad_proj_local size = {grad_proj_local.size}"
+                    )
+                    print(
+                        f"Step {i}: alpha_local array = {alpha_local.array[:10]}, grad_proj_local array = {grad_proj_local.array[:10]}"
+                    )
+                    print(
+                        f"Step {i}: Updated alpha_local array = {alpha_local.array[:10]}"
+                    )
+                    print(
+                        f"Differences of local arrays: {alpha_local.array[:10] - self.alpha_old.x.petsc_vec.array[:10]}"
+                    )
+            # Scatter the updated alpha to all processes
             self.alpha.x.scatter_forward()
 
             # Check convergence
@@ -93,6 +119,6 @@ class JumpSolver:
                 break
 
         # Update state
-        self.state["alpha"].x.array[:] = self.alpha.x.array[:]
-        self.state["alpha"].x.scatter_forward()
+        # self.state["alpha"].x.array[:] = self.alpha.x.array[:]
+        # self.state["alpha"].x.scatter_forward()
         return self.state

@@ -162,9 +162,14 @@ def setup_logger_mpi(
     logger.propagate = False
     # StreamHandler to log messages to the console
     console_handler = logging.StreamHandler()
-    file_handler = logging.FileHandler(filename)
 
-    # formatter = logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] - %(message)s')
+    logdir = os.environ.get("LOGDIR", ".")
+    if not os.path.exists(logdir) and rank == 0:
+        # Create the log directory if it does not exist
+        os.makedirs(logdir, exist_ok=True)
+
+    file_handler = logging.FileHandler(os.path.join(logdir, filename))
+
     formatter = MPIFormatter(
         "%(asctime)s  [Rank %(rank)d, Size %(size)d]  - %(name)s - [%(levelname)s] - %(message)s"
     )
@@ -192,7 +197,7 @@ def setup_logger_mpi(
     return logger
 
 
-# _logger = setup_logger_mpi()
+_logger = setup_logger_mpi()
 
 
 # Get the current Git branch
@@ -401,7 +406,15 @@ class Visualization:
     """
 
     def __init__(self, prefix):
+        self.comm = MPI.COMM_WORLD
+        self.rank = self.comm.Get_rank()
         self.prefix = prefix
+
+        if self.rank == 0:
+            os.makedirs(self.prefix, exist_ok=True)
+
+        # Broadcast to ensure directory is available for all ranks
+        self.comm.Barrier()
 
     def visualise_results(self, df, drop=[]):
         """

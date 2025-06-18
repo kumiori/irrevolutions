@@ -67,7 +67,7 @@ def plot_vector(u, plotter, subplot=None, scale=1.0, lineproperties={}):
     return plotter, grid
 
 
-def plot_scalar(u, plotter, subplot=None, lineproperties={}):
+def plot_scalar(u, plotter, scalars_name="u", subplot=None, lineproperties={}):
     """
     Plots a scalar field using PyVista.
 
@@ -82,6 +82,9 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     """
     if subplot:
         plotter.subplot(subplot[0], subplot[1])
+    else:
+        plotter.subplot(0, 0)
+
     V = u.function_space
     mesh = V.mesh
     ret = compute_topology(mesh, mesh.topology.dim)
@@ -90,12 +93,12 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     else:
         topology, cell_types, _ = ret
     grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
-    plotter.subplot(0, 0)
     values = u.x.petsc_vec.array.real.reshape(
         V.dofmap.index_map.size_local, V.dofmap.index_map_bs
     )
-    grid.point_data["u"] = values
-    grid.set_active_scalars("u")
+    grid.point_data[scalars_name] = values
+    grid.set_active_scalars(scalars_name)
+
     plotter.add_mesh(grid, **lineproperties)
     plotter.view_xy()
     plotter.set_background("white")
