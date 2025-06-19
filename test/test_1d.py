@@ -462,7 +462,7 @@ def run_computation(parameters, storage=None):
             addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
         )
 
-        _logger.critical(f"-- Solving for t = {t:3.2f} --")
+        logger.critical(f"-- Solving for t = {t:3.2f} --")
 
         equilibrium.solve()
         hybrid.solve(alpha_lb)
