@@ -19,6 +19,8 @@ from mpi4py import MPI
 from petsc4py import PETSc
 import basix.ufl
 
+from dolfinx.fem import Function, functionspace
+
 comm = MPI.COMM_WORLD
 
 error_codes = {
@@ -673,3 +675,54 @@ def sample_data(N, positive=True):
     v.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     return F, v
+
+
+def create_function_spaces_nd(mesh, dim):
+    """
+    Create function spaces for displacement and scalar fields in an arbitrary dimension.
+
+    Parameters:
+    - mesh: The mesh object for the domain.
+    - dim: The spatial dimension of the problem (e.g., 1, 2, or 3).
+
+    Returns:
+    - V_u: Function space for vector fields (displacement).
+    - V_alpha: Function space for scalar fields (e.g., damage or pressure).
+    """
+    # Define the vector element for displacement (dim components)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(dim,))
+    # Define the scalar element for damage or other scalar fields
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+
+    # Create function spaces
+    V_u = functionspace(mesh, element_u)
+    V_alpha = functionspace(mesh, element_alpha)
+
+    return V_u, V_alpha
+
+
+# def create_function_spaces_1d(mesh):
+#     element_u = FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+#     element_alpha = FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+#     V_u = functionspace(mesh, element_u)
+#     V_alpha = functionspace(mesh, element_alpha)
+#     return V_u, V_alpha
+
+
+# def create_function_spaces_2d(mesh):
+#     element_u = VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
+#     element_alpha = FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+#     V_u = functionspace(mesh, element_u)
+#     V_alpha = functionspace(mesh, element_alpha)
+#     return V_u, V_alpha
+
+
+def initialize_functions(V_u, V_alpha):
+    u = Function(V_u, name="Displacement")
+    u_ = Function(V_u, name="BoundaryDisplacement")
+    alpha = Function(V_alpha, name="Damage")
+    beta = Function(V_alpha, name="DamagePerturbation")
+    v = Function(V_u, name="DisplacementPerturbation")
+    state = {"u": u, "alpha": alpha}
+
+    return u, u_, alpha, beta, v, state

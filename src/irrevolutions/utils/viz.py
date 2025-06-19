@@ -145,7 +145,7 @@ def plot_profile(
     else:
         plt.plot(points_on_proc[:, 0], u_values, **lineproperties)
     plt.legend()
-    return plt, (points_on_proc[:, 0], u_values)
+    return fig, (points_on_proc[:, 0], u_values)
 
 
 def plot_mesh(mesh, ax=None):
