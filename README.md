@@ -68,19 +68,19 @@ For detailed instructions, see https://github.com/FEniCS/dolfinx/blob/main/READM
 For an ARM-based machine:
 
 ```bash
-docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:stable
+docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:0.9
 ```
 
 For an AMD64 machine:
 
 ```bash
-docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:stable-amd64
+docker run --rm -ti -v "$(pwd)":/home/numerix -w /home/numerix kumiori3/numerix:amd-0.9
 ```
 
-For a windows box:
+For a windows box within an AMD64 machine:
 
 ```bash
-docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix:stable-amd64
+docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix:amd-0.9
 ```
 
 Clone this repository:

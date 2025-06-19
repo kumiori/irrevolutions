@@ -15,7 +15,7 @@ from slepc4py import SLEPc
 import irrevolutions.solvers.restriction as restriction
 import irrevolutions.solvers.slepcblockproblem as eigenblockproblem
 from irrevolutions.solvers.function import functions_to_vec, vec_to_functions
-from irrevolutions.utils import ColorPrint, norm_L2
+from irrevolutions.utils import ColorPrint, norm_L2, setup_logger_mpi
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,6 +24,8 @@ comm = MPI.COMM_WORLD
 
 rank = comm.Get_rank()
 size = comm.Get_size()
+
+logger = setup_logger_mpi(logging.INFO)
 
 
 class NonConvergenceException(Exception):
