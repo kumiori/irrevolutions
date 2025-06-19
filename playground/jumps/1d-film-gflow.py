@@ -194,9 +194,8 @@ def run_computation(parameters, storage=None):
         except StopIteration:
             break
 
-        # i_t = iterator.i
-        # t = iterator.current_time
         t = loads[i_t - 1]
+
         # Perform your time step with t
         eps_t.value = t
         u_zero.interpolate(lambda x: eps_t / 2.0 * (2 * x[0] - Lx))
@@ -239,6 +238,7 @@ def run_computation(parameters, storage=None):
         if not stable:
             iterator.pause_time()
             logger.info(f"Time paused at {t:.2f}")
+            __import__("pdb").set_trace()
 
             vec_to_functions(stability.solution["xt"], [v, β])
             perturbation = {"v": v, "beta": β}
