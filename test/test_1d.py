@@ -44,6 +44,7 @@ from irrevolutions.utils import (
     setup_logger_mpi,
 )
 from irrevolutions.utils.plots import plot_AMit_load, plot_energies
+import matplotlib.pyplot as plt
 
 #
 from irrevolutions.utils.viz import plot_profile
@@ -517,9 +518,9 @@ def run_computation(parameters, storage=None):
                         data_bifurcation[0],
                         data_bifurcation[1].reshape(len(data_bifurcation[1])),
                     )
-                    fig.title("Perurbation in Vector Space")
+                    fig.gca().set_title("Perurbation in Vector Space")
                     fig.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
-                    fig.close()
+                    plt.close()
 
                     # plotter = pyvista.Plotter(
                     #     title="Cone-Perturbation profile",
@@ -547,14 +548,14 @@ def run_computation(parameters, storage=None):
                     ax.set_yticks([0, 1])
                     ax.set_ylabel("$\\beta$")
                     fig.legend()
-                    fig.fill_between(
+                    fig.gca().fill_between(
                         data_stability[0],
                         data_stability[1].reshape(len(data_stability[1])),
                     )
-                    fig.title("Perurbation in the Cone")
+                    fig.gca().set_title("Perurbation in the Cone")
                     # fig.screenshot(f"{prefix}/perturbations-{i_t}.png")
                     fig.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
-                    fig.close()
+                    plt.close()
 
                     len(data_stability[0])
 
