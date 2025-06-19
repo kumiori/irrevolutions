@@ -500,7 +500,7 @@ def run_computation(parameters, storage=None):
                         window_size=[800, 600],
                         shape=(1, 2),
                     )
-                    _plt, data_bifurcation = plot_profile(
+                    fig, data_bifurcation = plot_profile(
                         β,
                         points,
                         plotter,
@@ -508,18 +508,18 @@ def run_computation(parameters, storage=None):
                         lineproperties={"c": "k", "label": "$\\beta$"},
                         subplotnumber=1,
                     )
-                    ax = _plt.gca()
+                    ax = fig.gca()
                     ax.set_xlabel("x")
                     ax.set_yticks([-1, 0, 1])
                     ax.set_ylabel("$\\beta$")
-                    _plt.legend()
-                    _plt.fill_between(
+                    fig.legend()
+                    fig.gca().fill_between(
                         data_bifurcation[0],
                         data_bifurcation[1].reshape(len(data_bifurcation[1])),
                     )
-                    _plt.title("Perurbation in Vector Space")
-                    _plt.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
-                    _plt.close()
+                    fig.title("Perurbation in Vector Space")
+                    fig.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
+                    fig.close()
 
                     # plotter = pyvista.Plotter(
                     #     title="Cone-Perturbation profile",
@@ -527,7 +527,7 @@ def run_computation(parameters, storage=None):
                     #     shape=(1, 1),
                     # )
 
-                    _plt, data_stability = plot_profile(
+                    fig, data_stability = plot_profile(
                         stability.perturbation["β"],
                         points,
                         plotter,
@@ -542,19 +542,19 @@ def run_computation(parameters, storage=None):
                     # plotter.y_tick_locations = np.arange(-5, 6, 1)  # Set
                     # Y-axis tick locations
 
-                    ax = _plt.gca()
+                    ax = fig.gca()
                     ax.set_xlabel("x")
                     ax.set_yticks([0, 1])
                     ax.set_ylabel("$\\beta$")
-                    _plt.legend()
-                    _plt.fill_between(
+                    fig.legend()
+                    fig.fill_between(
                         data_stability[0],
                         data_stability[1].reshape(len(data_stability[1])),
                     )
-                    _plt.title("Perurbation in the Cone")
-                    # _plt.screenshot(f"{prefix}/perturbations-{i_t}.png")
-                    _plt.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
-                    _plt.close()
+                    fig.title("Perurbation in the Cone")
+                    # fig.screenshot(f"{prefix}/perturbations-{i_t}.png")
+                    fig.savefig(f"{prefix}/perturbation-profile-cone-{i_t}.png")
+                    fig.close()
 
                     len(data_stability[0])
 
