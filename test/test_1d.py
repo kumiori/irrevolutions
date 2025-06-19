@@ -37,11 +37,11 @@ from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.utils import (
     ColorPrint,
-    _logger,
     _write_history_data,
     history_data,
     norm_H1,
     norm_L2,
+    setup_logger_mpi,
 )
 from irrevolutions.utils.plots import plot_AMit_load, plot_energies
 
@@ -57,6 +57,9 @@ load: displacement hard-t
 
 
 # logging.getLogger().setLevel(logging.INFO)
+
+
+logger = setup_logger_mpi(logging.INFO)
 
 
 class _AlternateMinimisation1D:

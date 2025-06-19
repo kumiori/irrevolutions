@@ -15,7 +15,7 @@ from slepc4py import SLEPc
 import irrevolutions.solvers.restriction as restriction
 import irrevolutions.solvers.slepcblockproblem as eigenblockproblem
 from irrevolutions.solvers.function import functions_to_vec, vec_to_functions
-from irrevolutions.utils import ColorPrint, _logger, norm_L2
+from irrevolutions.utils import ColorPrint, norm_L2, setup_logger_mpi
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,6 +24,8 @@ comm = MPI.COMM_WORLD
 
 rank = comm.Get_rank()
 size = comm.Get_size()
+
+logger = setup_logger_mpi(logging.INFO)
 
 
 class NonConvergenceException(Exception):
@@ -163,9 +165,10 @@ class SecondOrderSolver:
         with F.localForm() as f_local:
             idx_grad_local = np.where(np.isclose(f_local[:], 0.0, atol=gtol))[0]
 
-        with self.state[
-            1
-        ].x.petsc_vec.localForm() as a_local, a_old.x.petsc_vec.localForm() as a_old_local:
+        with (
+            self.state[1].x.petsc_vec.localForm() as a_local,
+            a_old.x.petsc_vec.localForm() as a_old_local,
+        ):
             idx_ub_local = np.where(np.isclose(a_local[:], 1.0, rtol=pwtol))[0]
             idx_lb_local = np.where(np.isclose(a_local[:], a_old_local[:], rtol=pwtol))[
                 0
@@ -186,8 +189,8 @@ class SecondOrderSolver:
 
         restricted = len(dofs_alpha_inactive)
 
-        _logger.debug(
-            f"rank {comm.rank}) Restricted to (local) {restricted}/{localSize} nodes, {float(restricted/localSize):.1%} (local)",
+        logger.debug(
+            f"rank {comm.rank}) Restricted to (local) {restricted}/{localSize} nodes, {float(restricted / localSize):.1%} (local)",
         )
 
         return restricted_dofs
@@ -432,12 +435,12 @@ class SecondOrderSolver:
         critical = self._is_critical(self.alpha_old)
         _emoji = "💥" if critical else "🌪"
 
-        _logger.info(
-            f"rank {comm.rank}) Current state is damage-critical? {critical } {_emoji } "
+        logger.info(
+            f"rank {comm.rank}) Current state is damage-critical? {critical} {_emoji} "
         )
         _emoji = "non-trivial 🍦 (solid)" if critical else "trivial 🌂 (empty)"
         if critical:
-            _logger.info(f"rank {comm.rank})         => The cone is {_emoji}")
+            logger.info(f"rank {comm.rank})         => The cone is {_emoji}")
 
     def setup_constraints(self, alpha_old: dolfinx.fem.function.Function):
         """Set up constraints and return them."""
@@ -510,7 +513,10 @@ class SecondOrderSolver:
         _u = self.normalise_eigenmode(_u, mode="functional")
 
         for u, component in zip(ur, [v_n, β_n]):
-            with u.x.petsc_vec.localForm() as u_loc, component.x.petsc_vec.localForm() as c_loc:
+            with (
+                u.x.petsc_vec.localForm() as u_loc,
+                component.x.petsc_vec.localForm() as c_loc,
+            ):
                 u_loc.copy(result=c_loc)
             component.x.petsc_vec.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
@@ -740,13 +746,13 @@ class StabilitySolver(SecondOrderSolver):
         self.solution = {"lambda_t": np.nan, "xt": None, "yt": None}
 
         if not self._is_critical(alpha_old):
-            _logger.info(
+            logger.info(
                 "the current state is damage-subcritical (hence elastic), the state is thus stable"
             )
             return True
 
         elif not eig0 and inertia[0] == 0 and inertia[1] == 0:
-            _logger.info(
+            logger.info(
                 "the current state is damage-critical and the evolution path is unique, the state is thus *Stable"
             )
             return True
@@ -762,7 +768,7 @@ class StabilitySolver(SecondOrderSolver):
             x0.copy(result=_x).normalize()
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
-            _logger.debug(f"initial guess x0: {x0.array}")
+            logger.debug(f"initial guess x0: {x0.array}")
             self.x0 = x0.copy()
 
         errors = []
@@ -851,7 +857,7 @@ class StabilitySolver(SecondOrderSolver):
 
         xAx_r = xk.dot(_Axr)
 
-        _logger.debug(f"xk view in update at iteration {self.iterations}")
+        logger.debug(f"xk view in update at iteration {self.iterations}")
 
         _lmbda_t = xAx_r / xk.dot(xk)
         y.waxpy(-_lmbda_t, xk, _Axr)
@@ -866,13 +872,13 @@ class StabilitySolver(SecondOrderSolver):
 
         xk.axpy(-s, y)
 
-        _logger.debug(f"xk view before cone-project at iteration {self.iterations}")
+        logger.debug(f"xk view before cone-project at iteration {self.iterations}")
         _cone_restricted = self._cone_project_restricted(xk)
 
-        _logger.debug(f"xk view after cone-project at iteration {self.iterations}")
+        logger.debug(f"xk view after cone-project at iteration {self.iterations}")
         _cone_restricted.normalize()
 
-        # _logger.info(f"Cone project update: normalisation {n2}")
+        # logger.info(f"Cone project update: normalisation {n2}")
 
         return _cone_restricted
 
@@ -1002,7 +1008,7 @@ class StabilitySolver(SecondOrderSolver):
 
         if self.iterations == _maxit:
             _reason = -1
-            _logger.critical("Reached maxit without convergence")
+            logger.critical("Reached maxit without convergence")
             raise NonConvergenceException(
                 f"SPA solver did not converge to atol {_atol} or rtol {_rtol} within maxit={_maxit} iterations."
             )
@@ -1021,11 +1027,11 @@ class StabilitySolver(SecondOrderSolver):
         self._aerrors.append(self._aerror)
 
         if not self.iterations % 10000:
-            _logger.critical(
+            logger.critical(
                 f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}, res = {self._residual_norm}"
             )
             if self.iterations > 0:
-                _logger.critical(
+                logger.critical(
                     f"     [i={self.iterations}] lambda_k = {self.data['lambda_k'].pop():.2e}, atol = {_atol}, res = {self._residual_norm}"
                 )
 
@@ -1047,7 +1053,7 @@ class StabilitySolver(SecondOrderSolver):
         if len(met_criteria) >= 1:
             _reason = met_criteria
             _reason_str = [self._reasons[str(r)] for r in _reason]
-            _logger.critical(
+            logger.critical(
                 f"     [i={self.iterations}] met criteria: {met_criteria}, reason(s) {_reason_str}"
             )
         # elif len(met_criteria) == 1:
@@ -1080,7 +1086,7 @@ class StabilitySolver(SecondOrderSolver):
         _sub = _x.getSubVector(_is)
 
         if not self.iterations:
-            _logger.critical(
+            logger.critical(
                 f"ITER {self.iterations} rank {rank} is in the cone: {(_sub.array >= 0).all()}"
             )
 
@@ -1123,23 +1129,23 @@ class StabilitySolver(SecondOrderSolver):
 
             self._extend_vector(v, _x)
 
-            # _logger.critical(f"rank {rank} viewing _x")
+            # logger.critical(f"rank {rank} viewing _x")
             # _x.view()
 
             with _x.localForm() as x_local:
                 _dofs = self.constraints.bglobal_dofs_vec[1]
                 x_local.array[_dofs] = np.maximum(x_local.array[_dofs], 0)
 
-                _logger.debug(f"Local dofs: {_dofs}")
-                _logger.debug("x_local")
-                _logger.debug("x_local truncated")
+                logger.debug(f"Local dofs: {_dofs}")
+                logger.debug("x_local")
+                logger.debug("x_local truncated")
 
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             x_u, x_alpha = get_local_vectors(_x, maps)
 
-            # _logger.info(f"Cone Project: Local data of the subvector x_u: {x_u}")
-            # _logger.info(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
+            # logger.info(f"Cone Project: Local data of the subvector x_u: {x_u}")
+            # logger.info(f"Cone Project: Local data of the subvector x_alpha: {x_alpha}")
 
             x = self.constraints.restrict_vector(_x)
             # __import__('pdb').set_trace()
@@ -1165,14 +1171,12 @@ class StabilitySolver(SecondOrderSolver):
         # self.data["lambda_0"] = lmbda_t
         self.solution = {"lambda_t": lmbda_t, "xt": xt, "yt": yt}
         self.perturbation = perturbation
-        _logger.info(
-            f"Convergence of SPA algorithm within {self.iterations} iterations"
-        )
-        _logger.info(f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(xt)}")
+        logger.info(f"Convergence of SPA algorithm within {self.iterations} iterations")
+        logger.info(f"Restricted Eigen _xk is in cone 🍦 ? {self._isin_cone(xt)}")
 
-        _logger.critical(f"Restricted Eigenvalue {lmbda_t:.4e}")
-        _logger.info(f"Restricted Eigenvalue is positive {lmbda_t > 0}")
-        _logger.info(f"Restricted Error {self.error:.4e}")
+        logger.critical(f"Restricted Eigenvalue {lmbda_t:.4e}")
+        logger.info(f"Restricted Eigenvalue is positive {lmbda_t > 0}")
+        logger.info(f"Restricted Error {self.error:.4e}")
 
     def log(self, logger=logger):
         # for key, value in self.data.items():
@@ -1215,14 +1219,12 @@ class StabilitySolver(SecondOrderSolver):
                     path.join(out_dir, "Ar_hessian.mat"), self.Ar_matrix
                 )
             else:
-                _logger.warning(
-                    "Warning: A_matrix is not available. Skipping its save."
-                )
+                logger.warning("Warning: A_matrix is not available. Skipping its save.")
 
             if hasattr(self, "x0") and self.x0 is not None:
                 bio.save_binary_data(path.join(out_dir, "x0.vec"), self.x0)
             else:
-                _logger.warning(
+                logger.warning(
                     "Warning: x0_vector is not available. Skipping its save."
                 )
 
@@ -1231,11 +1233,11 @@ class StabilitySolver(SecondOrderSolver):
                     self.constraints, path.join(out_dir, "constraints.pkl")
                 )
             else:
-                _logger.warning(
+                logger.warning(
                     "Warning: x0_vector is not available. Skipping its save."
                 )
 
             # Save minimal constraints
 
         except Exception as e:
-            _logger.error(f"Error during data save: {str(e)}")
+            logger.error(f"Error during data save: {str(e)}")
