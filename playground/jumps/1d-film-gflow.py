@@ -33,6 +33,8 @@ from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.algorithms.ls import StabilityStepper, LineSearch
 from irrevolutions.algorithms.gf import JumpSolver
 
+# import irrevolutions.utils.postprocess as pp
+import crunchy.plots as cp
 from irrevolutions.models.one_dimensional import FilmModel1D as ThinFilm
 
 from irrevolutions.solvers.function import vec_to_functions
@@ -187,12 +189,14 @@ def run_computation(parameters, storage=None):
 
     while True:
         try:
-            t = next(iterator)
+            i_t = next(iterator)
             # next increments the self index
         except StopIteration:
             break
 
-        i_t = iterator.i
+        # i_t = iterator.i
+        # t = iterator.current_time
+        t = loads[i_t - 1]
         # Perform your time step with t
         eps_t.value = t
         u_zero.interpolate(lambda x: eps_t / 2.0 * (2 * x[0] - Lx))
@@ -206,7 +210,7 @@ def run_computation(parameters, storage=None):
         )
 
         # Log current load
-        _logger.critical(f"-- Solving for t = {t:3.2f} --")
+        logger.critical(f"-- Solving for t = {t:3.2f} --")
         with dolfinx.common.Timer(f"~First Order: Equilibrium") as timer:
             equilibrium.solve(alpha_lb)
 
@@ -222,7 +226,7 @@ def run_computation(parameters, storage=None):
 
         stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
-        _logger.info(f"Stability of state at load {t:.2f}: {stable}")
+        logger.info(f"Stability of state at load {t:.2f}: {stable}")
         ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         ColorPrint.print_bold(f"State's stable: {stable}")
@@ -234,7 +238,8 @@ def run_computation(parameters, storage=None):
 
         if not stable:
             iterator.pause_time()
-            _logger.info(f"Time paused at {t:.2f}")
+            logger.info(f"Time paused at {t:.2f}")
+
             vec_to_functions(stability.solution["xt"], [v, β])
             perturbation = {"v": v, "beta": β}
             interval = linesearch.get_unilateral_interval(state, perturbation)
@@ -246,11 +251,11 @@ def run_computation(parameters, storage=None):
             arclength.append((t, h_opt))
 
             with dolfinx.common.Timer(f"~Visualisation") as timer:
-                _logger.critical(f" *> State is unstable: {not stable}")
-                _logger.critical(f"line search interval is {interval}")
-                _logger.critical(f"perturbation energies: {energies_1d}")
-                _logger.critical(f"hopt: {h_opt}")
-                _logger.critical(f"lambda_t: {stability.solution['lambda_t']}")
+                logger.critical(f" *> State is unstable: {not stable}")
+                logger.critical(f"line search interval is {interval}")
+                logger.critical(f"perturbation energies: {energies_1d}")
+                logger.critical(f"hopt: {h_opt}")
+                logger.critical(f"lambda_t: {stability.solution['lambda_t']}")
 
                 h_steps = np.linspace(interval[0], interval[1], order + 1)
                 fig, axes = plt.subplots(1, 1)
@@ -285,20 +290,17 @@ def run_computation(parameters, storage=None):
                     shape=(1, 1),
                 )
 
-                plot, data = plot_profile(
-                    # β,
+                fig, data = plot_profile(
                     perturbation["beta"],
-                    # stability.perturbation['β'],
                     points,
                     plotter,
                     lineproperties={"c": "k", "label": f"$\\beta$"},
                 )
-                plot.gca()
-                plot.legend()
-                plot.fill_between(data[0], data[1].reshape(len(data[1])))
-                plot.title("Perurbation")
-                plot.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
-                plot.close()
+                fig.legend()
+                fig.gca().fill_between(data[0], data[1].reshape(len(data[1])))
+                fig.gca().set_title("Perturbation")
+                fig.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
+                plt.close()
 
             linesearch.perturb(state, perturbation, h_opt)
             fracture_energy, elastic_energy = postprocess(
@@ -315,7 +317,6 @@ def run_computation(parameters, storage=None):
                 i_t,
                 model=model,
             )
-
         else:
             # If stable, postprocess and dump
             fracture_energy, elastic_energy = postprocess(
@@ -347,7 +348,7 @@ def run_computation(parameters, storage=None):
                 elastic_energy,
             )
 
-    _logger.info(f"Arclengths: {arclength}")
+    logger.info(f"Arclengths: {arclength}")
 
     print(pd.DataFrame(history_data).drop(columns=["equilibrium_data"]))
     return history_data, stability.data, state
@@ -366,7 +367,7 @@ def dump_output(
     fracture_energy,
     elastic_energy,
 ):
-    _logger.info(f"Dumping output at {t:.2f}")
+    logger.info(f"Dumping output at {t:.2f}")
 
     with dolfinx.common.Timer(f"~Output and Storage") as timer:
         with XDMFFile(
@@ -439,7 +440,7 @@ def postprocess(
         points = np.zeros((3, 101))
         points[0] = xs
 
-        _plt, data = plot_profile(
+        fig, data = plot_profile(
             state["alpha"],
             points,
             plotter,
@@ -448,13 +449,13 @@ def postprocess(
                 "label": f"$\\alpha$ with $\\ell$ = {parameters['model']['ell']:.2f}",
             },
         )
-        ax = _plt.gca()
-
-        _plt, data = plot_profile(
+        ax = fig.gca()
+        ax.set_ylim(0, 1)
+        fig, data = plot_profile(
             state["u"],
             points,
             plotter,
-            fig=_plt,
+            fig=fig,
             ax=ax,
             lineproperties={
                 "c": "g",
@@ -463,26 +464,26 @@ def postprocess(
             },
         )
 
-        _plt, data = plot_profile(
+        fig, data = plot_profile(
             u_zero,
             points,
             plotter,
-            fig=_plt,
+            fig=fig,
             ax=ax,
             lineproperties={"c": "r", "lw": 3, "label": "$u_0$"},
         )
-        _plt.legend()
-        _plt.title("Solution state")
+        fig.legend()
+        fig.gca().set_title("Solution state")
         # ax.set_ylim(-2.1, 2.1)
         ax.axhline(0, color="k", lw=0.5)
-        _plt.savefig(f"{prefix}/state_profile-{i_t}.png")
+        fig.savefig(f"{prefix}/state_profile-{i_t}.png")
 
         if bifurcation._spectrum:
             fig_bif, ax = matplotlib.pyplot.subplots()
 
             vec_to_functions(bifurcation._spectrum[0]["xk"], [v, β])
 
-            _plt, data = plot_profile(
+            fig, data = plot_profile(
                 β,
                 points,
                 plotter,
@@ -493,8 +494,8 @@ def postprocess(
                     "label": f"$\\beta, \\lambda = {bifurcation._spectrum[0]['lambda']:.0e}$",
                 },
             )
-            _plt.legend()
-            # _plt.fill_between(data[0], data[1].reshape(len(data[1])))
+            fig.legend()
+            # fig.fill_between(data[0], data[1].reshape(len(data[1])))
 
             if hasattr(stability, "perturbation"):
                 if stability.perturbation["λ"] < 0:
@@ -504,11 +505,11 @@ def postprocess(
                     _colour = "b"
                     _style = ":"
 
-                _plt, data = plot_profile(
+                fig, data = plot_profile(
                     stability.perturbation["β"],
                     points,
                     plotter,
-                    fig=_plt,
+                    fig=fig,
                     ax=ax,
                     lineproperties={
                         "c": _colour,
@@ -518,12 +519,20 @@ def postprocess(
                     },
                 )
 
-                _plt.legend()
-                # _plt.fill_between(data[0], data[1].reshape(len(data[1])))
-                _plt.title("Perturbation profiles")
+                fig.legend()
+                # fig.fill_between(data[0], data[1].reshape(len(data[1])))
+                fig.gca().set_title("Perturbation profiles")
                 # ax.set_ylim(-2.1, 2.1)
                 ax.axhline(0, color="k", lw=0.5)
                 fig_bif.savefig(f"{prefix}/second_order_profiles-{i_t}.png")
+        try:
+            fig, ax = cp.plot_spectrum(history_data)
+            ax.set_ylim(-0.01, 0.1)
+            ax.set_xlim(parameters["loading"]["min"], parameters["loading"]["max"])
+            fig.savefig(f"{prefix}/spectrum.png")
+            plt.close(fig)
+        except Exception as e:
+            logger.error(f"Error plotting spectrum: {e}")
 
     return fracture_energy, elastic_energy
 
@@ -546,7 +555,7 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["model"]["model_dimension"] = 1
     parameters["model"]["model_type"] = "1D"
 
-    L = 2
+    L = 1
 
     if model == "at2":
         parameters["model"]["at_number"] = 2
@@ -555,27 +564,32 @@ def load_parameters(file_path, ndofs, model="at1"):
         parameters["loading"]["steps"] = 30
     else:
         parameters["model"]["at_number"] = 1
-        parameters["loading"]["min"] = 0.9
-        parameters["loading"]["max"] = 1.3
+        parameters["loading"]["min"] = 0.99
+        parameters["loading"]["max"] = 1.5
         parameters["loading"]["steps"] = 30
 
     parameters["geometry"]["geom_type"] = "1d-film"
-    parameters["geometry"]["mesh_size_factor"] = 5
+    parameters["geometry"]["Lx"] = L
+    parameters["geometry"]["mesh_size_factor"] = 3
 
-    parameters["stability"]["cone"]["cone_max_it"] = 400000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-6
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-    parameters["stability"]["cone"]["scaling"] = 1e-4
+    parameters["stability"]["maxmodes"] = 3
+
+    parameters["stability"]["eigen"]["shift"] = 1e-2
+
+    parameters["stability"]["cone"]["cone_max_it"] = 1000000
+    parameters["stability"]["cone"]["cone_atol"] = 1e-8
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-8
+    parameters["stability"]["cone"]["scaling"] = 1e-2
 
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = 0.05 / L
+    parameters["model"]["ell"] = 0.1 / L
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["kappa"] = (0.2 / L) ** (-2)
+    parameters["model"]["kappa"] = (0.5 / L) ** (-2)
 
     parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-5
-    parameters["solvers"]["newton"]["snes_atol"] = 1e-12
-    parameters["solvers"]["newton"]["snes_rtol"] = 1e-12
+    parameters["solvers"]["newton"]["snes_atol"] = 1e-8
+    parameters["solvers"]["newton"]["snes_rtol"] = 1e-8
 
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
