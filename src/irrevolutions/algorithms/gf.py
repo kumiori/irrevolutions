@@ -75,16 +75,16 @@ class JumpSolver:
                 self.alpha.x.petsc_vec.copy(result=self.alpha_old.x.petsc_vec)
 
                 # Residual and directional derivative (Jacobian)
-                energy = self.energy_form(u=self.u, alpha=self.alpha)
+                # energy = self.energy_form(u=self.u, alpha=self.alpha)
+                energy = self.energy_form
 
                 dE_alpha = fem.petsc.assemble_vector(
                     fem.form(
-                        ufl.derivative(
+                        -ufl.derivative(
                             energy, self.alpha, ufl.TestFunction(self.V_alpha)
                         )
                     )
                 )
-
                 # Project gradient onto the dual cone (positive part only)
                 # drive alpha increase only where gradient is negative
 
@@ -103,6 +103,7 @@ class JumpSolver:
                 )
                 if self.verbose:
                     print(f"Step {i}: ||grad_proj||_2 = {grad_proj.norm(2):.4e}")
+                    print(f"Step {i}: grad_proj[:5] = {grad_proj.array[:5]}")
 
                 # Gradient descent step
                 with (
@@ -143,10 +144,10 @@ class JumpSolver:
                         )
 
                 # Scatter the updated alpha to all processes
-                self.alpha.x.petsc_vec.ghostUpdate(
-                    addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-                )
-                # self.alpha.x.scatter_forward()
+                # self.alpha.x.petsc_vec.ghostUpdate(
+                #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+                # )
+                self.alpha.x.scatter_forward()
 
                 # Check convergence
                 diff_vec = self.alpha.x.petsc_vec.copy()

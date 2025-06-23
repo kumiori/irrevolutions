@@ -41,7 +41,7 @@ if __name__ == "__main__":
     if comm.rank == 0:
         Path(prefix).mkdir(parents=True, exist_ok=True)
 
-    mesh = create_unit_square(MPI.COMM_WORLD, 3, 3)
+    mesh = create_unit_square(MPI.COMM_WORLD, 10, 10)
     x = ufl.SpatialCoordinate(mesh)
     h = 1e-2  # projection step size
 
@@ -86,9 +86,11 @@ if __name__ == "__main__":
     beta.x.scatter_forward()
 
     # Simple energy functional: just a penalty on alpha
-    def energy_function(u, alpha):
+    def energy_function():
         # return -ufl.inner(alpha, alpha) * ufl.dx
         return f_expr * alpha * ufl.dx
+
+    total_energy = f_expr * alpha * ufl.dx
 
     # perturb alpha by beta and assemble the energy gradient
     alpha.x.petsc_vec.copy(result=alpha_h.x.petsc_vec)
@@ -104,11 +106,7 @@ if __name__ == "__main__":
     alpha_h.x.scatter_forward()
 
     dE_alpha = fem.petsc.assemble_vector(
-        fem.form(
-            ufl.derivative(
-                energy_function(u, alpha_h), alpha_h, ufl.TestFunction(V_alpha)
-            )
-        )
+        fem.form(ufl.derivative(total_energy, alpha_h, ufl.TestFunction(V_alpha)))
     )
     grad_proj = dE_alpha.copy()
 
@@ -125,7 +123,7 @@ if __name__ == "__main__":
     bcs = []  # no boundary conditions
     jump_parameters = {"tau": 1e-1, "max_steps": 100, "rtol": 1e-6, "verbose": True}
 
-    flow = JumpSolver(energy_function, state, bcs, jump_parameters)
+    flow = JumpSolver(total_energy, state, bcs, jump_parameters)
     state = flow.solve(perturbation, h=0.01)
 
     alpha_min = state["alpha"].x.petsc_vec.min()[1]

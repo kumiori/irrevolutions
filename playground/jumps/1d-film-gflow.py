@@ -87,6 +87,8 @@ def run_computation(parameters, storage=None):
     N = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]
     logger.info(f"Mesh size: {N}")
 
+    jump_parameters = {"tau": 1e-1, "max_steps": 100, "rtol": 1e-6, "verbose": True}
+
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, int(1 / N))
     outdir = os.path.join(os.path.dirname(__file__), "output")
 
@@ -185,6 +187,7 @@ def run_computation(parameters, storage=None):
         linesearch_parameters=parameters.get("stability").get("linesearch"),
     )
 
+    flow = JumpSolver(total_energy, state, bcs, parameters=jump_parameters)
     arclength = []
 
     while True:
@@ -238,7 +241,6 @@ def run_computation(parameters, storage=None):
         if not stable:
             iterator.pause_time()
             logger.info(f"Time paused at {t:.2f}")
-            __import__("pdb").set_trace()
 
             vec_to_functions(stability.solution["xt"], [v, β])
             perturbation = {"v": v, "beta": β}
@@ -248,7 +250,14 @@ def run_computation(parameters, storage=None):
             h_opt, energies_1d, p, _ = linesearch.search(
                 state, perturbation, interval, m=order
             )
-            arclength.append((t, h_opt))
+
+            # pick a \bar h
+            # arclength.append((t, h_opt))
+            # perturb
+            # linesearch.perturb(state, perturbation, h_opt)
+            # compute gradient flow
+
+            state = flow.solve(perturbation, h=0.01)
 
             with dolfinx.common.Timer(f"~Visualisation") as timer:
                 logger.critical(f" *> State is unstable: {not stable}")
@@ -302,7 +311,6 @@ def run_computation(parameters, storage=None):
                 fig.savefig(f"{prefix}/perturbation-profile-{i_t}.png")
                 plt.close()
 
-            linesearch.perturb(state, perturbation, h_opt)
             fracture_energy, elastic_energy = postprocess(
                 parameters,
                 _nameExp,
@@ -585,7 +593,7 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["model"]["ell"] = 0.1 / L
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["kappa"] = (0.5 / L) ** (-2)
+    parameters["model"]["kappa"] = (1 / L) ** (-2)
 
     parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-5
     parameters["solvers"]["newton"]["snes_atol"] = 1e-8
