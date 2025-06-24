@@ -29,7 +29,7 @@ class JumpSolver:
         self.comm = state["u"].function_space.mesh.comm
 
         self.energy_form = energy_form
-        self.state = state  # e.g. dict with keys "u" and "alpha"
+        self.state = state  # dict with keys "u" and "alpha"
         self.bcs = bcs
         self.tau = parameters.get("tau", 1e-2)
         self.max_steps = parameters.get("max_steps", 200)
@@ -38,13 +38,16 @@ class JumpSolver:
 
         self.V_alpha = self.state["alpha"].function_space
 
-        self.alpha = self.state["alpha"]  # pointer to evolving field
+        self.alpha = self.state["alpha"]  # pointer to quasistatically-evolving field
         self.u = self.state["u"]
 
-        self.alpha_old = fem.Function(self.V_alpha)
+        # self.alpha_old = fem.Function(self.V_alpha)
 
-        self.alpha.x.scatter_forward()
-        self.alpha.x.petsc_vec.copy(result=self.alpha_old.x.petsc_vec)
+        # self.alpha.x.scatter_forward()
+        # self.alpha.x.petsc_vec.copy(result=self.alpha_old.x.petsc_vec)
+        self.alpha_old = self.alpha.copy()
+        self.alpha_old.name = "Damage_old"
+
         self.parameters = parameters
         self.jump_data = {
             "iterations": [],
@@ -68,8 +71,10 @@ class JumpSolver:
 
     def solve(self, perturbation: dict = None, h: float = 0.0):
         alpha_local_sum = self.comm.allreduce(self.alpha.x.array[:].sum(), op=MPI.SUM)
-        logger.info(f"Total alpha sum before loop: {alpha_local_sum}")
-        self.jump_counter += 1
+        logger.info(f"Total alpha sum before gradient flow: {alpha_local_sum}")
+        logging.info(
+            f"Damage field norm before jump: {self.alpha.x.petsc_vec.norm(PETSc.NormType.NORM_2):.4e}"
+        )
         logger.info(f"Jump counter: {self.jump_counter}")
 
         # Create copies of alpha and u for the jth-jump
@@ -77,8 +82,8 @@ class JumpSolver:
         alpha_j = self.alpha.copy()
         u_j = self.u.copy()
 
-        alpha_j.name = f"alpha_jump_{self.jump_counter}"
-        u_j.name = f"u_jump_{self.jump_counter}"
+        alpha_j.name = f"Damage_jump_{self.jump_counter:03}"
+        u_j.name = f"Displacement_jump_{self.jump_counter:03}"
 
         with Timer("~Jump Solver"):
             beta = perturbation.get("beta", None)
@@ -94,19 +99,23 @@ class JumpSolver:
 
             if h > 0.0:
                 with (
-                    self.alpha.x.petsc_vec.localForm() as alpha_local,
+                    alpha_j.x.petsc_vec.localForm() as alpha_local,
                     beta.x.petsc_vec.localForm() as beta_local,
                 ):
                     # Apply perturbation to alpha
+                    # axpy = alpha_local + h * beta_local
                     alpha_local.axpy(h, beta_local)
 
-                self.alpha.x.scatter_forward()
-
+                alpha_j.x.scatter_forward()
+            else:
+                raise ValueError(
+                    "Perturbation step 'h' must be greater than 0.0 to apply the perturbation."
+                )
             dissipation = 0.0
 
             for i in range(self.max_steps):
-                self.alpha.x.scatter_forward()
-                self.alpha.x.petsc_vec.copy(result=self.alpha_old.x.petsc_vec)
+                alpha_j.x.scatter_forward()
+                alpha_j.x.petsc_vec.copy(result=self.alpha_old.x.petsc_vec)
 
                 # Residual and directional derivative (Jacobian)
                 # energy = self.energy_form(u=self.u, alpha=self.alpha)
@@ -114,9 +123,7 @@ class JumpSolver:
 
                 dE_alpha = fem.petsc.assemble_vector(
                     fem.form(
-                        -ufl.derivative(
-                            energy, self.alpha, ufl.TestFunction(self.V_alpha)
-                        )
+                        -ufl.derivative(energy, alpha_j, ufl.TestFunction(self.V_alpha))
                     )
                 )
                 # Project gradient onto the dual cone (positive part only)
@@ -141,11 +148,19 @@ class JumpSolver:
 
                 # Gradient descent step
                 with (
-                    self.alpha.x.petsc_vec.localForm() as alpha_local,
+                    alpha_j.x.petsc_vec.localForm() as alpha_local,
                     grad_proj.localForm() as grad_proj_local,
                     self.alpha_old.x.petsc_vec.localForm() as alpha_old_local,
                 ):
                     alpha_local.axpy(-self.tau, grad_proj_local)
+
+                alpha_j.x.scatter_forward()
+
+                if self.bcs["bcs_alpha"]:
+                    for bc in self.bcs["bcs_alpha"]:
+                        bc.set(alpha_j.x.array)
+
+                    alpha_j.x.scatter_forward()
 
                     if self.verbose:
                         print(
@@ -181,15 +196,14 @@ class JumpSolver:
                 # self.alpha.x.petsc_vec.ghostUpdate(
                 #     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
                 # )
-                self.alpha.x.scatter_forward()
 
                 # Check convergence
-                diff_vec = self.alpha.x.petsc_vec.copy()
+                diff_vec = alpha_j.x.petsc_vec.copy()
                 diff_vec.axpy(-1.0, self.alpha_old.x.petsc_vec)
                 diff = diff_vec.norm(PETSc.NormType.NORM_2) ** 2
 
                 if self.verbose:
-                    print(f"Step {i}: ||alpha - alpha_old||^2 = {diff:.4e}")
+                    logger.info(f"Step {i}: ||alpha_j(s) - alpha_old||^2 = {diff:.4e}")
 
                 norm_grad_proj = grad_proj.norm(PETSc.NormType.NORM_2)
                 norm_diff = diff_vec.norm(PETSc.NormType.NORM_2)
@@ -208,20 +222,19 @@ class JumpSolver:
                 if diff < self.rtol:
                     self.jump_data["converged"] = True
                     self.jump_data["dissipated_energy"] = dissipation
+                    self.jump_counter += 1
+
+                    alpha_j.x.petsc_vec.copy(result=self.alpha.x.petsc_vec)
 
                     if self.verbose:
-                        print("Converged.")
+                        logger.critical(f"Jump {self.jump_counter} converged.")
                     break
 
         return self.state
 
     def save_state(self, state, s=None):
-        # u = self.state["u"]
-        # alpha = self.state["alpha"]
         u = state["u"]
         alpha = state["alpha"]
-
-        __import__("pdb").set_trace()
 
         with XDMFFile(self.comm, self.fname, "a") as file:
             # file.write_mesh(self.u.function_space.mesh)
