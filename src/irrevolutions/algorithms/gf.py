@@ -45,7 +45,7 @@ class JumpSolver:
 
         self.alpha.x.scatter_forward()
         self.alpha.x.petsc_vec.copy(result=self.alpha_old.x.petsc_vec)
-
+        self.parameters = parameters
         self.jump_data = {
             "iterations": [],
             "grad_norms": [],
@@ -55,6 +55,7 @@ class JumpSolver:
             "converged": False,
         }
         self.outdir = parameters.get("outdir", None)
+        self.jump_counter = 0
 
         if parameters.get("save_state", False):
             if self.outdir is None:
@@ -67,7 +68,17 @@ class JumpSolver:
 
     def solve(self, perturbation: dict = None, h: float = 0.0):
         alpha_local_sum = self.comm.allreduce(self.alpha.x.array[:].sum(), op=MPI.SUM)
-        logger.critical(f"Total alpha sum before loop: {alpha_local_sum}")
+        logger.info(f"Total alpha sum before loop: {alpha_local_sum}")
+        self.jump_counter += 1
+        logger.info(f"Jump counter: {self.jump_counter}")
+
+        # Create copies of alpha and u for the jth-jump
+
+        alpha_j = self.alpha.copy()
+        u_j = self.u.copy()
+
+        alpha_j.name = f"alpha_jump_{self.jump_counter}"
+        u_j.name = f"u_jump_{self.jump_counter}"
 
         with Timer("~Jump Solver"):
             beta = perturbation.get("beta", None)
@@ -192,7 +203,7 @@ class JumpSolver:
                 self.jump_data["dissipation"].append(dissipation_increment)
 
                 if self.parameters.get("save_state", False):
-                    self.save_state(time=self.tau * i)
+                    self.save_state(state={"u": u_j, "alpha": alpha_j}, s=self.tau * i)
 
                 if diff < self.rtol:
                     self.jump_data["converged"] = True
@@ -204,13 +215,17 @@ class JumpSolver:
 
         return self.state
 
-    def save_state(self, step=None):
-        u = self.state["u"]
-        alpha = self.state["alpha"]
+    def save_state(self, state, s=None):
+        # u = self.state["u"]
+        # alpha = self.state["alpha"]
+        u = state["u"]
+        alpha = state["alpha"]
+
         __import__("pdb").set_trace()
+
         with XDMFFile(self.comm, self.fname, "a") as file:
             # file.write_mesh(self.u.function_space.mesh)
             if u is not None:
-                file.write_function(u, f"u_jump_{step}")
+                file.write_function(u, s)
             if alpha is not None:
-                file.write_function(alpha, f"alpha_jump_{step}")
+                file.write_function(alpha, s)
