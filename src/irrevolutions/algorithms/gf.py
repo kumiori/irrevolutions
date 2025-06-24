@@ -123,7 +123,9 @@ class JumpSolver:
 
                 dE_alpha = fem.petsc.assemble_vector(
                     fem.form(
-                        -ufl.derivative(energy, alpha_j, ufl.TestFunction(self.V_alpha))
+                        -ufl.derivative(
+                            energy, self.alpha, ufl.TestFunction(self.V_alpha)
+                        )
                     )
                 )
                 # Project gradient onto the dual cone (positive part only)
@@ -142,6 +144,7 @@ class JumpSolver:
                 grad_proj.ghostUpdate(
                     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
                 )
+                __import__("pdb").set_trace()
                 if self.verbose:
                     print(f"Step {i}: ||grad_proj||_2 = {grad_proj.norm(2):.4e}")
                     print(f"Step {i}: grad_proj[:5] = {grad_proj.array[:5]}")
