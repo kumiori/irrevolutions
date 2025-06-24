@@ -18,13 +18,27 @@ class JumpSolver:
         self, energy_form: ufl.form.Form, state: dict, bcs: list, parameters: dict
     ):
         """
-        Initialize the gradient flow solver.
+        Initialize the JumpSolver for performing a constrained gradient-flow “jump.”
 
-        Args:
-            energy (ufl.form.Form): The energy functional.
-            state (dict): Dictionary containing state variables 'u' and 'alpha'.
-            bcs (list): List of boundary conditions.
-            parameters (dict): Parameters for the solver.
+        Parameters
+        ----------
+        energy_form : ufl.form.Form
+            A UFL form defining the total potential energy E(·) whose gradient w.r.t.
+            the internal field drives the flow.
+        state : dict
+            Dictionary of Functions and auxiliary data:
+            - state["alpha"]: the damage/internal‐variable Function to evolve
+            - state["alpha_old"]: a copy used for convergence checks
+            - optionally state["u"], etc.
+        bcs : list of dolfinx.fem.DirichletBC
+            Boundary conditions to enforce on the evolving field at each step.
+        parameters : dict
+            Algorithmic parameters, e.g.:
+            - "tau": pseudo-time step Δτ
+            - "maxit": maximum number of flow iterations
+            - "tol": convergence tolerance
+            - "outdir": optional directory for XDMF output
+            - etc.
         """
         self.comm = state["u"].function_space.mesh.comm
 
@@ -70,6 +84,24 @@ class JumpSolver:
                 file.write_mesh(self.u.function_space.mesh)
 
     def solve(self, perturbation: dict = None, h: float = 0.0):
+        """
+        Perform one jump by running the projected gradient descent on the damage field.
+
+        Parameters
+        ----------
+        perturbation : dict, >0 pointwise
+            A map (e.g. {"u", Function, "alpha": Function}) providing an initial perturbation
+            to bias the first step.
+            TODO: If None, uses the negative part of the computed gradient.
+        h : float, >0
+            Scaling factor for the perturbation in the first iterate (default: 0.0).
+
+        Returns
+        -------
+        dolfinx.Function
+            The updated damage/internal-variable Function after convergence or reaching
+            the maximum iterations.
+        """
         alpha_local_sum = self.comm.allreduce(self.alpha.x.array[:].sum(), op=MPI.SUM)
         logger.info(f"Total alpha sum before gradient flow: {alpha_local_sum}")
         logging.info(
@@ -233,9 +265,25 @@ class JumpSolver:
                         logger.critical(f"Jump {self.jump_counter} converged.")
                     break
 
-        return self.state
+        return dissipation
 
     def save_state(self, state, s=None):
+        """
+        Record or write out the current state during the jump iteration.
+
+        Parameters
+        ----------
+        state : dict
+            The same dictionary passed into __init__, with updated Function values.
+        s : float or None, optional
+            The pseudo‐time or iteration index at which this snapshot is taken. Used as
+            the time tag if writing to XDMF. If None, uses the internal iteration counter.
+
+        Notes
+        -----
+        - Uses renamed `state["alpha"]` to include the current jump index,
+          writes XDMF fields if enabled.
+        """
         u = state["u"]
         alpha = state["alpha"]
 
@@ -245,3 +293,25 @@ class JumpSolver:
                 file.write_function(u, s)
             if alpha is not None:
                 file.write_function(alpha, s)
+
+    def log(self, logger=logger):
+        """
+        Log the current state of the jump solver.
+
+        Parameters
+        ----------
+        logger : logging.Logger, optional
+            The logger to use for logging. If None, uses the default logger.
+        """
+        if logger is None:
+            logger = logging.getLogger(__name__)
+
+        logger.info(f"Jump {self.jump_counter}:")
+        logger.info(f"  Converged: {self.jump_data['converged']}")
+        logger.info(f"  Dissipation: {self.jump_data['dissipation'][-1]:.4e}")
+        logger.info(f"  Gradient Norm: {self.jump_data['grad_norms'][-1]:.4e}")
+        logger.info(f"  Alpha Diff: {self.jump_data['alpha_diffs'][-1]:.4e}")
+        logger.info(
+            f"  Total Dissipated Energy: {self.jump_data['dissipated_energy']:.4e}"
+        )
+        logger.info(f"  Total Iterations: {len(self.jump_data['iterations'])}")
