@@ -7,6 +7,8 @@ from dolfinx.common import Timer
 from irrevolutions.utils import setup_logger_mpi
 import logging
 from mpi4py import MPI
+from dolfinx.io import XDMFFile
+from pathlib import Path
 
 logger = setup_logger_mpi(logging.INFO)
 
@@ -44,6 +46,25 @@ class JumpSolver:
         self.alpha.x.scatter_forward()
         self.alpha.x.petsc_vec.copy(result=self.alpha_old.x.petsc_vec)
 
+        self.jump_data = {
+            "iterations": [],
+            "grad_norms": [],
+            "alpha_diffs": [],
+            "dissipation": [],
+            "dissipated_energy": 0.0,
+            "converged": False,
+        }
+        self.outdir = parameters.get("outdir", None)
+
+        if parameters.get("save_state", False):
+            if self.outdir is None:
+                raise ValueError("Output directory must be specified for saving state.")
+            Path(self.outdir).mkdir(parents=True, exist_ok=True)
+            self.fname = f"{self.outdir}/jumps.xdmf"
+
+            with XDMFFile(self.comm, self.fname, "w") as file:
+                file.write_mesh(self.u.function_space.mesh)
+
     def solve(self, perturbation: dict = None, h: float = 0.0):
         alpha_local_sum = self.comm.allreduce(self.alpha.x.array[:].sum(), op=MPI.SUM)
         logger.critical(f"Total alpha sum before loop: {alpha_local_sum}")
@@ -69,6 +90,8 @@ class JumpSolver:
                     alpha_local.axpy(h, beta_local)
 
                 self.alpha.x.scatter_forward()
+
+            dissipation = 0.0
 
             for i in range(self.max_steps):
                 self.alpha.x.scatter_forward()
@@ -157,9 +180,37 @@ class JumpSolver:
                 if self.verbose:
                     print(f"Step {i}: ||alpha - alpha_old||^2 = {diff:.4e}")
 
+                norm_grad_proj = grad_proj.norm(PETSc.NormType.NORM_2)
+                norm_diff = diff_vec.norm(PETSc.NormType.NORM_2)
+
+                dissipation_increment = norm_grad_proj**2 * self.tau
+                dissipation += dissipation_increment
+
+                self.jump_data["iterations"].append(i)
+                self.jump_data["grad_norms"].append(norm_grad_proj)
+                self.jump_data["alpha_diffs"].append(norm_diff)
+                self.jump_data["dissipation"].append(dissipation_increment)
+
+                if self.parameters.get("save_state", False):
+                    self.save_state(time=self.tau * i)
+
                 if diff < self.rtol:
+                    self.jump_data["converged"] = True
+                    self.jump_data["dissipated_energy"] = dissipation
+
                     if self.verbose:
                         print("Converged.")
                     break
 
         return self.state
+
+    def save_state(self, step=None):
+        u = self.state["u"]
+        alpha = self.state["alpha"]
+        __import__("pdb").set_trace()
+        with XDMFFile(self.comm, self.fname, "a") as file:
+            # file.write_mesh(self.u.function_space.mesh)
+            if u is not None:
+                file.write_function(u, f"u_jump_{step}")
+            if alpha is not None:
+                file.write_function(alpha, f"alpha_jump_{step}")
