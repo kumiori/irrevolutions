@@ -87,7 +87,14 @@ def run_computation(parameters, storage=None):
     N = parameters["model"]["ell"] / parameters["geometry"]["mesh_size_factor"]
     logger.info(f"Mesh size: {N}")
 
-    jump_parameters = {"tau": 1e-1, "max_steps": 100, "rtol": 1e-6, "verbose": True}
+    jump_parameters = {
+        "tau": 1e-1,
+        "max_steps": 100,
+        "rtol": 1e-6,
+        "verbose": True,
+        "save_state": True,
+        "outdir": storage,
+    }
 
     mesh = dolfinx.mesh.create_unit_interval(MPI.COMM_WORLD, int(1 / N))
     outdir = os.path.join(os.path.dirname(__file__), "output")
@@ -217,7 +224,7 @@ def run_computation(parameters, storage=None):
             equilibrium.solve(alpha_lb)
 
         is_unique = bifurcation.solve(alpha_lb)
-        is_elastic = not bifurcation._is_critical(alpha_lb)
+        # is_elastic = not bifurcation._is_critical(alpha_lb)
         inertia = bifurcation.get_inertia()
 
         z0 = (
@@ -256,8 +263,8 @@ def run_computation(parameters, storage=None):
             # perturb
             # linesearch.perturb(state, perturbation, h_opt)
             # compute gradient flow
-
-            state = flow.solve(perturbation, h=0.01)
+            dissipation = flow.solve(perturbation, h=0.01)
+            flow.log()
 
             with dolfinx.common.Timer(f"~Visualisation") as timer:
                 logger.critical(f" *> State is unstable: {not stable}")
