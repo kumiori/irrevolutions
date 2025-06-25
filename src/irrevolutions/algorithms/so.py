@@ -428,7 +428,6 @@ class SecondOrderSolver:
 
             # Sort eigenmodes by eigenvalues
             # unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
-
             # Re-solve if not enough negative modes are captured
             if getattr(self, "_need_refinement", False):
                 __import__("pdb").set_trace()
@@ -543,17 +542,18 @@ class SecondOrderSolver:
             actual_zero = sum(1 for eig in spectrum if -rtol < eig["lambda"] < rtol)
             # TODO: check against the zero modes too
             if actual_neg < predicted_neg:
+                __import__("pdb").set_trace()
                 logger.warning(
                     f"Inertia mismatch: predicted {predicted_neg} negative modes, "
                     f"but only {actual_neg} found. Consider tuning eigen solver."
                 )
                 self._need_refinement = True
-            elif actual_zero < self._inertia_guess[1]:
-                logger.warning(
-                    f"Inertia mismatch: predicted {self._inertia_guess[1]} zero modes, "
-                    f"but only {actual_zero} found. Consider tuning eigen solver."
-                )
-                self._need_refinement = True
+            # elif actual_zero < self._inertia_guess[1]:
+            #     logger.warning(
+            #         f"Inertia mismatch: predicted {self._inertia_guess[1]} zero modes, "
+            #         f"but only {actual_zero} found. Consider tuning eigen solver."
+            #     )
+            #     self._need_refinement = True
             else:
                 self._need_refinement = False
 

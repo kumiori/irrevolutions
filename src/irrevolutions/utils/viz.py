@@ -136,8 +136,13 @@ def plot_profile(
     if fig is None:
         fig = plt.figure()
 
+    # if subplot:
+    #     plt.subplot(subplot[0], subplot[1], subplotnumber)
+    # __import__("pdb").set_trace()
     if subplot:
-        plt.subplot(subplot[0], subplot[1], subplotnumber)
+        plotter.subplot(subplot[0], subplot[1])
+    else:
+        plotter.subplot(0, 0)
 
     if ax is not None:
         ax.plot(points_on_proc[:, 0], u_values, **lineproperties)
