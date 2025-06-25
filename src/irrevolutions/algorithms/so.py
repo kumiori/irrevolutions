@@ -205,14 +205,26 @@ class SecondOrderSolver:
         Returns:
             eigen: Updated eigenvalue problem instance.
         """
+        strategy = self.parameters["eigen"].get("strategy", "shift-invert")
+
         eigen.eps.setType(SLEPc.EPS.Type.KRYLOVSCHUR)
         eigen.eps.setProblemType(SLEPc.EPS.ProblemType.HEP)
-
-        eigen.eps.setWhichEigenpairs(eigen.eps.Which.TARGET_REAL)
-
         st = eigen.eps.getST()
         st.setType("sinvert")
-        st.setShift(self.parameters["eigen"]["shift"])
+
+        if strategy == "shift-invert":
+            st.setShift(self.parameters["eigen"]["shift"])
+            eigen.eps.setWhichEigenpairs(eigen.eps.Which.TARGET_REAL)
+            # eigen.eps.setTarget(self.parameters["eigen"]["target"])
+            # eigen.eps.setType(SLEPc.EPS.Type.ARNOLDI)
+        elif strategy == "interval":
+            eigen.eps.setWhichEigenpairs(eigen.eps.Which.TARGET_REAL)
+            eigen.eps.setInterval(*self.parameters["eigen"]["interval"])
+        elif strategy == "hybrid":
+            # raise notimplemented
+            raise NotImplementedError("Hybrid strategy not implemented")
+        else:
+            raise ValueError(f"Unknown eigen strategy: {strategy}")
 
         eigen.eps.setTolerances(
             self.parameters["eigen"]["eig_rtol"], self.parameters["eigen"]["eps_max_it"]
@@ -265,7 +277,6 @@ class SecondOrderSolver:
         dolfinx.fem.petsc.assemble_matrix_block(_H, H_form, self.bcs)
         _H.assemble()
         rH = constraints.restrict_matrix(_H)
-        # constraints.restrict_matrix(_H).copy(rH)
 
         pc.setOperators(rH)
 
