@@ -379,12 +379,13 @@ class SecondOrderSolver:
             eigen: Eigenvalue problem instance.
         """
 
-    def solve(self, alpha_old: dolfinx.fem.function.Function):
+    def solve(self, alpha_old: dolfinx.fem.function.Function, inertia=None):
         """
         Solve the stability analysis problem.
 
         Args:
             alpha_old: Old state vector.
+            inertia: Inertia matrix for fine-tuning.
 
         Returns:
             bool: True if stable, False otherwise.
@@ -406,6 +407,16 @@ class SecondOrderSolver:
             # Set up constraints
             constraints = self.setup_constraints(alpha_old)
             self.inertia_setup(constraints)
+
+            if inertia is not None:
+                self._inertia_guess = inertia
+                # tweak maxmodes or shift to capture unstable block
+                if self.parameters["eigen"]["strategy"] == "shift-invert":
+                    neg, zero, pos = inertia
+                    self.parameters["maxmodes"] = max(5, 2 * neg)
+                    # self.parameters["eigen"][
+                    #     "shift"
+                    # ] = -1e-2  # Example: shift near expected unstable direction
 
             # Set up and solve the eigenvalue problem
             eigen = self.setup_eigenvalue_problem(constraints)
@@ -496,6 +507,20 @@ class SecondOrderSolver:
                     "beta": beta_n,
                 }
             )
+        # Now verify against inertia prediction
+        if self._inertia_guess is not None:
+            __import__("pdb").set_trace()
+            predicted_neg = self._inertia_guess[0]
+            actual_neg = sum(1 for eig in spectrum if eig["lambda"] < -1e-10)
+
+            if actual_neg < predicted_neg:
+                logger.warning(
+                    f"Inertia mismatch: predicted {predicted_neg} negative modes, "
+                    f"but only {actual_neg} found. Consider tuning eigen solver."
+                )
+                self._need_refinement = True
+            else:
+                self._need_refinement = False
 
         return spectrum
 
