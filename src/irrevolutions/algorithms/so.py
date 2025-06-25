@@ -427,13 +427,41 @@ class SecondOrderSolver:
             spectrum = self.process_eigenmodes(eigen)
 
             # Sort eigenmodes by eigenvalues
-            spectrum.sort(key=lambda item: item.get("lambda"))
             # unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
+
+            # Re-solve if not enough negative modes are captured
+            if getattr(self, "_need_refinement", False):
+                __import__("pdb").set_trace()
+                MAX_RETRIES = self.parameters["eigen"].get("max_retries", 3)
+                retry_count = 0
+
+                logger.info("Re-solving eigenproblem with refined settings...")
+                while retry_count < MAX_RETRIES:
+                    logger.info(f"Retry {retry_count + 1}/{MAX_RETRIES}")
+                    self.refine_eigen_solver_strategy()
+
+                    eigen = self.setup_eigenvalue_problem(constraints)
+                    eigen.solve()
+                    spectrum = self.process_eigenmodes(eigen)
+                    retry_count += 1
 
             # Store the results
             stable = self.store_results(eigen, spectrum)
 
         return stable
+
+    def refine_eigen_solver_strategy(self):
+        if self.parameters["eigen"]["strategy"] == "shift-invert":
+            # Reduce shift to better catch low eigenvalues
+            self.parameters["eigen"]["shift"] *= 0.5
+            # self.parameters["maxmodes"] += 5
+            logger.debug("Reducing spectral shift and not increasing maxmodes.")
+        elif self.parameters["eigen"]["strategy"] == "interval":
+            # Shrink interval or move left
+            a, b = self.parameters["eigen"]["interval"]
+            self.parameters["eigen"]["interval"] = (a - 0.01, b)
+            self.parameters["maxmodes"] += 5
+            logger.debug("Shifting spectral interval leftward and increasing maxmodes.")
 
     def _is_critical(self, alpha_old):
         """
@@ -509,18 +537,27 @@ class SecondOrderSolver:
             )
         # Now verify against inertia prediction
         if self._inertia_guess is not None:
-            __import__("pdb").set_trace()
+            rtol = self.parameters["eigen"]["eig_rtol"]
             predicted_neg = self._inertia_guess[0]
-            actual_neg = sum(1 for eig in spectrum if eig["lambda"] < -1e-10)
-
+            actual_neg = sum(1 for eig in spectrum if eig["lambda"] < 0.0)
+            actual_zero = sum(1 for eig in spectrum if -rtol < eig["lambda"] < rtol)
+            # TODO: check against the zero modes too
             if actual_neg < predicted_neg:
                 logger.warning(
                     f"Inertia mismatch: predicted {predicted_neg} negative modes, "
                     f"but only {actual_neg} found. Consider tuning eigen solver."
                 )
                 self._need_refinement = True
+            elif actual_zero < self._inertia_guess[1]:
+                logger.warning(
+                    f"Inertia mismatch: predicted {self._inertia_guess[1]} zero modes, "
+                    f"but only {actual_zero} found. Consider tuning eigen solver."
+                )
+                self._need_refinement = True
             else:
                 self._need_refinement = False
+
+        spectrum.sort(key=lambda item: item.get("lambda"))
 
         return spectrum
 
