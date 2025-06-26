@@ -286,20 +286,20 @@ def run_computation(parameters, storage=None):
             model=model,
         )
 
-        if stable:
-            dump_output(
-                _nameExp,
-                prefix,
-                history_data,
-                u,
-                alpha,
-                equilibrium,
-                bifurcation,
-                stability,
-                t,
-                fracture_energy,
-                elastic_energy,
-            )
+        # if stable:
+        #     dump_output(
+        #         _nameExp,
+        #         prefix,
+        #         history_data,
+        #         u,
+        #         alpha,
+        #         equilibrium,
+        #         bifurcation,
+        #         stability,
+        #         t,
+        #         fracture_energy,
+        #         elastic_energy,
+        #     )
 
     logger.info(f"Arclengths: {arclength}")
 
@@ -667,7 +667,7 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["stability"]["cone"]["scaling"] = 1e-3
 
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = 0.2 / L
+    parameters["model"]["ell"] = 0.05 / L
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
     parameters["model"]["kappa"] = (1 / L) ** (-2)
