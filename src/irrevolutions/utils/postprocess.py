@@ -1,4 +1,5 @@
 import hashlib
+
 # import xmltodict
 # import pickle
 import json
@@ -8,6 +9,7 @@ import os.path
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
+
 # import pandas
 import pandas as pd
 import yaml
@@ -218,9 +220,9 @@ def plot_sigmaeps(params, dataf, tc):
 
 
 def plot_energy(params, dataf, tc):
-    E0 = params["material"]["E"]
-    w1 = params["material"]["sigma_D0"] ** 2 / E0
-    ell = params["material"]["ell"]
+    E0 = params["model"]["E"]
+    w1 = params["model"]["sigma_D0"] ** 2 / E0
+    ell = params["model"]["ell"]
     fig = plt.figure()
     Lx = params["geometry"]["Lx"]
     Ly = params["geometry"]["Ly"]
@@ -409,13 +411,11 @@ def load_cont(prefix):
 
 
 def format_params(params):
-    return (
-        "$$\\ell = {:.2f}, \\nu = {:.1f}, \\sigma_c = {:.1f}, " "E = {:.1f}$$".format(
-            params["material"]["ell"],
-            params["material"]["nu"],
-            params["material"]["sigma_D0"],
-            params["material"]["E"],
-        )
+    return "$$\\ell = {:.2f}, \\nu = {:.1f}, \\sigma_c = {:.1f}, E = {:.1f}$$".format(
+        params["material"]["ell"],
+        params["material"]["nu"],
+        params["material"]["sigma_D0"],
+        params["material"]["E"],
     )
 
 

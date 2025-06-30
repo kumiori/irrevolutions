@@ -286,20 +286,22 @@ def run_computation(parameters, storage=None):
             model=model,
         )
 
+        with dolfinx.common.Timer(f"~Output and Storage") as timer:
+            dump_output(
+                _nameExp,
+                prefix,
+                history_data,
+                u,
+                alpha,
+                equilibrium,
+                bifurcation,
+                stability,
+                t,
+                fracture_energy,
+                elastic_energy,
+            )
+
         # if stable:
-        #     dump_output(
-        #         _nameExp,
-        #         prefix,
-        #         history_data,
-        #         u,
-        #         alpha,
-        #         equilibrium,
-        #         bifurcation,
-        #         stability,
-        #         t,
-        #         fracture_energy,
-        #         elastic_energy,
-        #     )
 
     logger.info(f"Arclengths: {arclength}")
 
