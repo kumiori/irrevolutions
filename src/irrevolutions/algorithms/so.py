@@ -205,26 +205,14 @@ class SecondOrderSolver:
         Returns:
             eigen: Updated eigenvalue problem instance.
         """
-        strategy = self.parameters["eigen"].get("strategy", "shift-invert")
-
         eigen.eps.setType(SLEPc.EPS.Type.KRYLOVSCHUR)
         eigen.eps.setProblemType(SLEPc.EPS.ProblemType.HEP)
+
+        eigen.eps.setWhichEigenpairs(eigen.eps.Which.TARGET_REAL)
+
         st = eigen.eps.getST()
         st.setType("sinvert")
-
-        if strategy == "shift-invert":
-            st.setShift(self.parameters["eigen"]["shift"])
-            eigen.eps.setWhichEigenpairs(eigen.eps.Which.TARGET_REAL)
-            # eigen.eps.setTarget(self.parameters["eigen"]["target"])
-            # eigen.eps.setType(SLEPc.EPS.Type.ARNOLDI)
-        elif strategy == "interval":
-            eigen.eps.setWhichEigenpairs(eigen.eps.Which.TARGET_REAL)
-            eigen.eps.setInterval(*self.parameters["eigen"]["interval"])
-        elif strategy == "hybrid":
-            # raise notimplemented
-            raise NotImplementedError("Hybrid strategy not implemented")
-        else:
-            raise ValueError(f"Unknown eigen strategy: {strategy}")
+        st.setShift(self.parameters["eigen"]["shift"])
 
         eigen.eps.setTolerances(
             self.parameters["eigen"]["eig_rtol"], self.parameters["eigen"]["eps_max_it"]
@@ -277,6 +265,7 @@ class SecondOrderSolver:
         dolfinx.fem.petsc.assemble_matrix_block(_H, H_form, self.bcs)
         _H.assemble()
         rH = constraints.restrict_matrix(_H)
+        # constraints.restrict_matrix(_H).copy(rH)
 
         pc.setOperators(rH)
 
@@ -379,13 +368,12 @@ class SecondOrderSolver:
             eigen: Eigenvalue problem instance.
         """
 
-    def solve(self, alpha_old: dolfinx.fem.function.Function, inertia=None):
+    def solve(self, alpha_old: dolfinx.fem.function.Function):
         """
         Solve the stability analysis problem.
 
         Args:
             alpha_old: Old state vector.
-            inertia: Inertia matrix for fine-tuning.
 
         Returns:
             bool: True if stable, False otherwise.
@@ -408,16 +396,6 @@ class SecondOrderSolver:
             constraints = self.setup_constraints(alpha_old)
             self.inertia_setup(constraints)
 
-            if inertia is not None:
-                self._inertia_guess = inertia
-                # tweak maxmodes or shift to capture unstable block
-                if self.parameters["eigen"]["strategy"] == "shift-invert":
-                    neg, zero, pos = inertia
-                    self.parameters["maxmodes"] = max(5, 2 * neg)
-                    # self.parameters["eigen"][
-                    #     "shift"
-                    # ] = -1e-2  # Example: shift near expected unstable direction
-
             # Set up and solve the eigenvalue problem
             eigen = self.setup_eigenvalue_problem(constraints)
             eigen.solve()
@@ -427,40 +405,13 @@ class SecondOrderSolver:
             spectrum = self.process_eigenmodes(eigen)
 
             # Sort eigenmodes by eigenvalues
+            spectrum.sort(key=lambda item: item.get("lambda"))
             # unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
-            # Re-solve if not enough negative modes are captured
-            if getattr(self, "_need_refinement", False):
-                __import__("pdb").set_trace()
-                MAX_RETRIES = self.parameters["eigen"].get("max_retries", 3)
-                retry_count = 0
-
-                logger.info("Re-solving eigenproblem with refined settings...")
-                while retry_count < MAX_RETRIES:
-                    logger.info(f"Retry {retry_count + 1}/{MAX_RETRIES}")
-                    self.refine_eigen_solver_strategy()
-
-                    eigen = self.setup_eigenvalue_problem(constraints)
-                    eigen.solve()
-                    spectrum = self.process_eigenmodes(eigen)
-                    retry_count += 1
 
             # Store the results
             stable = self.store_results(eigen, spectrum)
 
         return stable
-
-    def refine_eigen_solver_strategy(self):
-        if self.parameters["eigen"]["strategy"] == "shift-invert":
-            # Reduce shift to better catch low eigenvalues
-            self.parameters["eigen"]["shift"] *= 0.5
-            # self.parameters["maxmodes"] += 5
-            logger.debug("Reducing spectral shift and not increasing maxmodes.")
-        elif self.parameters["eigen"]["strategy"] == "interval":
-            # Shrink interval or move left
-            a, b = self.parameters["eigen"]["interval"]
-            self.parameters["eigen"]["interval"] = (a - 0.01, b)
-            self.parameters["maxmodes"] += 5
-            logger.debug("Shifting spectral interval leftward and increasing maxmodes.")
 
     def _is_critical(self, alpha_old):
         """
@@ -534,30 +485,6 @@ class SecondOrderSolver:
                     "beta": beta_n,
                 }
             )
-        # Now verify against inertia prediction
-        if self._inertia_guess is not None:
-            rtol = self.parameters["eigen"]["eig_rtol"]
-            predicted_neg = self._inertia_guess[0]
-            actual_neg = sum(1 for eig in spectrum if eig["lambda"] < 0.0)
-            actual_zero = sum(1 for eig in spectrum if -rtol < eig["lambda"] < rtol)
-            # TODO: check against the zero modes too
-            if actual_neg < predicted_neg:
-                __import__("pdb").set_trace()
-                logger.warning(
-                    f"Inertia mismatch: predicted {predicted_neg} negative modes, "
-                    f"but only {actual_neg} found. Consider tuning eigen solver."
-                )
-                self._need_refinement = True
-            # elif actual_zero < self._inertia_guess[1]:
-            #     logger.warning(
-            #         f"Inertia mismatch: predicted {self._inertia_guess[1]} zero modes, "
-            #         f"but only {actual_zero} found. Consider tuning eigen solver."
-            #     )
-            #     self._need_refinement = True
-            else:
-                self._need_refinement = False
-
-        spectrum.sort(key=lambda item: item.get("lambda"))
 
         return spectrum
 
@@ -817,27 +744,73 @@ class StabilitySolver(SecondOrderSolver):
             "y_norm_L2": [],
         }
         self.solution = {"lambda_t": np.nan, "xt": None, "yt": None}
+        stab_mode = self.parameters.get("mode", "conditional")
 
-        if not self._is_critical(alpha_old):
-            logger.info(
-                "the current state is damage-subcritical (hence elastic), the state is thus stable"
-            )
-            return True
+        if stab_mode == "always":
+            logger.info("Forcing full second-order stability analysis (mode='always')")
+            _perform_stability_analysis = self._is_critical(alpha_old)
 
-        elif not eig0 and inertia[0] == 0 and inertia[1] == 0:
-            logger.info(
-                "the current state is damage-critical and the evolution path is unique, the state is thus *Stable"
-            )
-            return True
+        elif stab_mode == "only_if_damaging":
+            if self._is_damaging(alpha_old):
+                logger.info(
+                    "Damage evolving — forcing stability analysis (mode='only_if_damaging')"
+                )
+                _perform_stability_analysis = True
+            else:
+                logger.info(
+                    "State not damaging — skipping stability analysis (mode='only_if_damaging')"
+                )
+                return True
+
+        elif stab_mode == "conditional":
+            if not self._is_critical(alpha_old):
+                logger.info(
+                    "Elastic state (subcritical) — skipping stability analysis (mode='conditional')"
+                )
+                return True
+            elif not eig0 and inertia[0] == 0 and inertia[1] == 0:
+                logger.info(
+                    "State critical, but no bifurcations — skipping second-order analysis (mode='conditional')"
+                )
+                return True
+            else:
+                logger.info(
+                    "Potential bifurcation — proceeding with stability analysis (mode='conditional')"
+                )
+                _perform_stability_analysis = True
+
         else:
-            # assert len(eig0) > 0
-            # assert that there is at least one negative or zero eigenvalue
-            assert inertia[0] > 0 or inertia[1] > 0
+            raise ValueError(f"Unknown stability preference mode: {stab_mode}")
 
+        # __import__("pdb").set_trace()
+        # # if False:
+        # #     logging.info("Skipping trivial stability check")
+        # if not self._is_critical(alpha_old):
+        #     logger.info(
+        #         "the current state is damage-subcritical (hence elastic), the state is thus stable"
+        #     )
+        #     return True
+
+        # elif not eig0 and inertia[0] == 0 and inertia[1] == 0:
+        #     logger.info(
+        #         "the current state is damage-critical and the evolution path is unique, the state is thus *Stable"
+        #     )
+        #     return True
+        # else:
+        #     # assert len(eig0) > 0
+        #     # assert that there is at least one negative or zero eigenvalue
+        #     assert inertia[0] > 0 or inertia[1] > 0
+
+        if not _perform_stability_analysis:
+            logger.info(
+                "Skipping stability analysis, either because current state is damage subcritical or the evolution path is unique"
+            )
+            return True
+
+        if _perform_stability_analysis:
             _x, _y, _Ax, self._xold = self.initialize_full_vectors()
-
             # x0 = eig0[0].get("xk")
-            x0 = eig0
+            x0 = eig0 if eig0 else _x.copy()
             x0.copy(result=_x).normalize()
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
@@ -971,7 +944,7 @@ class StabilitySolver(SecondOrderSolver):
             # no eigenvalues in the vector space and positive spectrum
             # the state is stable
             self.stable = True
-            return self.stable
+            # return self.stable
 
         self._aerrors = []
         self._rerrors = []
@@ -1101,11 +1074,11 @@ class StabilitySolver(SecondOrderSolver):
 
         if not self.iterations % 10000:
             logger.critical(
-                f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}, res = {self._residual_norm}"
+                f"     [i={self.iterations}] error_x_L2 = {error_x_L2:.4e}, atol = {_atol}, res = {self._residual_norm:.3e}"
             )
             if self.iterations > 0:
                 logger.critical(
-                    f"     [i={self.iterations}] lambda_k = {self.data['lambda_k'].pop():.2e}, atol = {_atol}, res = {self._residual_norm}"
+                    f"     [i={self.iterations}] lambda_k = {self.data['lambda_k'].pop():.2e}, atol = {_atol}, res = {self._residual_norm:.3e}"
                 )
 
         # self.data["iterations"].append(self.iterations)
