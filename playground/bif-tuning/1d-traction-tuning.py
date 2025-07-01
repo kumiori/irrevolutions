@@ -37,6 +37,7 @@ from irrevolutions.algorithms.ls import StabilityStepper, LineSearch
 import crunchy.plots as cp
 from irrevolutions.models.one_dimensional import FilmModel1D as ThinFilm
 
+
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.algorithms.am import AlternateMinimisation1D as AlternateMinimisation
 from irrevolutions.utils import (
@@ -73,6 +74,100 @@ logging.basicConfig(level=logging.INFO)
 logger = setup_logger_mpi(logging.INFO)
 # Mesh on node model_rank and then distribute
 model_rank = 0
+
+
+def compute_coefficients_from_state(state, model, parameters, tol_hom=1e-6):
+    """
+    Compute coefficients a, b, c for the Rayleigh quotient based on a homogeneous state.
+
+    Parameters
+    ----------
+    state : dict
+        Dictionary containing FEM functions: {'u': Function, 'alpha': Function}
+    parameters : dict
+        Dictionary containing 'model' and 'geometry' parameters, including:
+        E, ell, mu(alpha), mu'(alpha), mu''(alpha), w''(alpha)
+    tol_hom : float
+        Tolerance to detect homogeneity via H1 seminorm of alpha
+
+    Returns
+    -------
+    dict with keys 'a', 'b', 'c'
+    """
+
+    u = state["u"]
+    alpha = state["alpha"]
+
+    mesh = alpha.function_space.mesh
+    dx = ufl.Measure("dx", domain=mesh)
+    L = parameters["geometry"]["Lx"]
+    ell = parameters["model"]["ell"]
+
+    # Check homogeneity of alpha (via H1 seminorm)
+    alpha_dx = ufl.grad(alpha)
+    seminorm_form = form(ufl.inner(alpha_dx, alpha_dx) * dx)
+    seminorm = assemble_scalar(seminorm_form)
+    if seminorm > tol_hom:
+        raise ValueError(f"Damage field is not homogeneous: H1 seminorm = {seminorm}")
+
+    # Average strain and damage
+    # u_avg = assemble_scalar(form(u[0] * dx)) / L
+    u_vals = u.x.array
+    # Compute effective strain
+    strain = (np.max(u_vals) - np.min(u_vals)) / L
+    alpha_avg = assemble_scalar(form(alpha * dx)) / L
+
+    E = model.parameters["E"]
+
+    # Symbolic variable
+    alpha_sym = ufl.variable(alpha_avg)
+
+    mu_expr = E * model.a(alpha_sym)
+    mu_prime = ufl.diff(mu_expr, alpha_sym)
+    mu_dd = ufl.diff(mu_prime, alpha_sym)
+
+    w_expr = model.w(alpha_sym)
+    w_prime = ufl.diff(w_expr, alpha_sym)
+    w_dd = ufl.diff(w_prime, alpha_sym)
+
+    # Evaluate
+    mu_val = float(mu_expr)
+    mu_prime_val = float(mu_prime)
+    mu_dd_val = float(mu_dd)
+    w_val = float(w_expr)
+    w_prime_val = float(w_prime)
+    w_dd_val = float(w_dd)
+    # Compute denominator N
+    N = 0.5 * mu_dd(alpha_avg) * strain**2 + w_dd(alpha_avg)
+
+    a_val = ell**2 / N
+    b_val = mu_val / N
+    c_val = -mu_prime_val / mu_val * strain
+
+    return {"a": a_val, "b": b_val, "c": c_val}
+
+
+def rayleigh_ratio(z, state):
+    (v, β) = z
+    dx = ufl.Measure("dx", v.function_space.mesh)
+
+    u = state["u"]
+    alpha = state["alpha"]
+
+    coeffs = compute_coefficients_from_state(
+        {"u": u, "alpha": alpha}, parameters, tol_hom=1e-6
+    ).values()
+    a, b, c = coeffs.values()
+
+    numerator = (
+        a * ufl.inner(β.dx(0), β.dx(0))
+        + b * ufl.inner(v.dx(0) - c * β, v.dx(0) - c * β)
+    ) * dx
+    denominator = ufl.inner(β, β) * dx
+
+    R = assemble_scalar(form(numerator)) / assemble_scalar(form(denominator))
+
+    return R
 
 
 def run_computation(parameters, storage=None):
@@ -230,21 +325,20 @@ def run_computation(parameters, storage=None):
         constraints = bifurcation.setup_constraints(alpha_lb)
         bifurcation.inertia_setup(constraints)
         inertia = bifurcation.get_inertia()
-        # bifurcation.log()
         logger.info(f"State inertia: {inertia}")
 
         is_unique = bifurcation.solve(alpha_lb, inertia=inertia)
         # is_elastic = not bifurcation._is_critical(alpha_lb)
 
-        # z0 = (
-        #     bifurcation._spectrum[0]["xk"]
-        #     if bifurcation._spectrum and "xk" in bifurcation._spectrum[0]
-        #     else None
-        # )
+        z0 = (
+            bifurcation._spectrum[0]["xk"]
+            if bifurcation._spectrum and "xk" in bifurcation._spectrum[0]
+            else None
+        )
 
-        # stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
+        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
-        stable = True
+        # stable = True
 
         logger.info(f"Stability of state at load {t:.2f}: {stable}")
         ColorPrint.print_bold(f"Evolution is unique: {is_unique}")
@@ -269,6 +363,20 @@ def run_computation(parameters, storage=None):
         #         state, perturbation, interval, m=order
         #     )
 
+        # add coefficients to history data and log Rayleigh quotients
+
+        compute_coefficients_from_state(state, model, parameters)
+
+        R_ball = rayleigh_ratio(
+            (bifurcation.perturbation["v"], bifurcation.perturbation["β"], state)
+        )
+        R_cone = rayleigh_ratio(
+            (stability.perturbation["v"], stability.perturbation["β"], state)
+        )
+
+        logging.info(f"Rayleigh quotients: R_ball={R_ball:.4f}, R_cone={R_cone:.4f}")
+        history_data.append({"R_ball": R_ball, "R_cone": R_cone})
+        __import__("pdb").set_trace()
         plot_bifurcation_spectrum(bifurcation.spectrum, Lx, i_t, prefix, inertia)
 
         fracture_energy, elastic_energy = postprocess(
@@ -307,47 +415,6 @@ def run_computation(parameters, storage=None):
 
     print(pd.DataFrame(history_data).drop(columns=["equilibrium_data"]))
     return history_data, stability.data, state
-
-
-def _plot_dirty(
-    Lx,
-    prefix,
-    stability,
-    i_t,
-    stable,
-    perturbation,
-    interval,
-    order,
-    h_opt,
-    energies_1d,
-    p,
-):
-    with dolfinx.common.Timer(f"~Visualisation") as timer:
-        logger.critical(f" *> State is unstable: {not stable}")
-        logger.critical(f"line search interval is {interval}")
-        logger.critical(f"perturbation energies: {energies_1d}")
-        # logger.critical(f"hopt: {h_opt}")
-        # logger.critical(f"lambda_t: {stability.solution['lambda_t']}")
-
-        # h_steps = np.linspace(interval[0], interval[1], order + 1)
-        # fig, axes = plt.subplots(1, 1)
-        # plt.scatter(h_steps, energies_1d)
-        # plt.scatter(h_opt, 0, c="k", s=40, marker="|", label=f"$h^*={h_opt:.2f}$")
-        # plt.scatter(h_opt, p(h_opt), c="k", s=40, alpha=0.5)
-        # xs = np.linspace(interval[0], interval[1], 30)
-        # axes.plot(xs, p(xs), label="Energy slice along perturbation")
-        # axes.set_xlabel("h")
-        # axes.set_ylabel("$E_h - E_0$")
-        # axes.set_title(f"Polynomial Interpolation - order {order}")
-        # axes.legend()
-        # axes.spines["top"].set_visible(False)
-        # axes.spines["right"].set_visible(False)
-        # axes.spines["left"].set_visible(False)
-        # axes.spines["bottom"].set_visible(False)
-        # axes.set_yticks([0])
-        # axes.axhline(0, c="k")
-        # fig.savefig(f"{prefix}/energy_interpolation-order-{order}.png")
-        # plt.close()
 
 
 def dump_output(
@@ -653,8 +720,8 @@ def load_parameters(file_path, ndofs, model="at1"):
     else:
         parameters["model"]["at_number"] = 1
         parameters["loading"]["min"] = 0.99
-        parameters["loading"]["max"] = 1.05
-        parameters["loading"]["steps"] = 10
+        parameters["loading"]["max"] = 1.3
+        parameters["loading"]["steps"] = 100
 
     parameters["geometry"]["geom_type"] = "1d-traction"
     parameters["geometry"]["Lx"] = L
@@ -664,12 +731,13 @@ def load_parameters(file_path, ndofs, model="at1"):
     parameters["stability"]["eigen"]["shift"] = -1e-2
 
     parameters["stability"]["cone"]["cone_max_it"] = 1000000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-8
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-8
-    parameters["stability"]["cone"]["scaling"] = 1e-3
+    parameters["stability"]["cone"]["cone_atol"] = 1e-6
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
+    parameters["stability"]["cone"]["scaling"] = 1e-4
+    parameters["stability"]["mode"] = "always"
 
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = 0.05 / L
+    parameters["model"]["ell"] = 0.3 / L
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
     parameters["model"]["kappa"] = (1 / L) ** (-2)
