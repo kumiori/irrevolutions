@@ -35,8 +35,10 @@ from irrevolutions.algorithms.ls import StabilityStepper, LineSearch
 
 # import irrevolutions.utils.postprocess as pp
 import crunchy.plots as cp
-from irrevolutions.models.one_dimensional import FilmModel1D as ThinFilm
+from irrevolutions.models.one_dimensional import Brittle1D as Bar
+# from irrevolutions.models.one_dimensional import FilmModel1D as ThinFilm
 
+from irrevolutions.utils import indicator_function
 
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.algorithms.am import AlternateMinimisation1D as AlternateMinimisation
@@ -74,6 +76,107 @@ logging.basicConfig(level=logging.INFO)
 logger = setup_logger_mpi(logging.INFO)
 # Mesh on node model_rank and then distribute
 model_rank = 0
+mode_shapes_data = {
+    "time_steps": [],
+    "mesh": [],
+    "point_values": {},
+    "global_values": {
+        "R_vector": [],
+        "R_cone": [],
+        "D_theory": [],
+        "D_support": [],
+        "load": [],
+    },
+}
+
+
+def save_mode_shapes_to_npz(
+    load,
+    timestep,
+    state,
+    bifurcation,
+    stability,
+    parameters,
+    model,
+    points,
+    D_theory,
+    D_support,
+    num_modes=1,
+    prefix="output",
+):
+    # Extract spatial points
+    data_stability = get_datapoints(stability.perturbation["β"], points)
+    mode_shapes_data["point_values"]["x_values"] = data_stability[0]
+
+    # Compute Rayleigh ratios
+    _R_vector = rayleigh_ratio(
+        (bifurcation.perturbation["v"], bifurcation.perturbation["β"]), state, model
+    )
+    _R_cone = rayleigh_ratio(
+        (stability.perturbation["v"], stability.perturbation["β"]), state, model
+    )
+
+    for mode in range(1, num_modes + 1):
+        bifurcation_values_mode_β = get_datapoints(
+            bifurcation.perturbation["β"], points
+        )[1].flatten()
+        bifurcation_values_mode_v = get_datapoints(
+            bifurcation.perturbation["v"], points
+        )[1].flatten()
+        stability_values_mode_β = get_datapoints(stability.perturbation["β"], points)[
+            1
+        ].flatten()
+        stability_values_mode_v = get_datapoints(stability.perturbation["v"], points)[
+            1
+        ].flatten()
+        # stability_residual_w = get_datapoints(stability.residual["w"], points)[
+        #     1
+        # ].flatten()
+        # stability_residual_ζ = get_datapoints(stability.residual["ζ"], points)[
+        #     1
+        # ].flatten()
+
+        mode_key = f"mode_{mode}"
+
+        if mode_key not in mode_shapes_data["point_values"]:
+            mode_shapes_data["point_values"][mode_key] = []
+
+        mode_shapes_data["point_values"][mode_key].append(
+            {
+                "bifurcation_β": bifurcation_values_mode_β,
+                "bifurcation_v": bifurcation_values_mode_v,
+                "stability_β": stability_values_mode_β,
+                "stability_v": stability_values_mode_v,
+            }
+        )
+        # "stability_residual_w": stability_residual_w,
+        # "stability_residual_ζ": stability_residual_ζ,
+        # }
+
+    # Global metadata
+    mode_shapes_data["time_steps"].append(timestep)
+
+    if "global_values" not in mode_shapes_data:
+        mode_shapes_data["global_values"] = {
+            "R_vector": [],
+            "R_cone": [],
+            "D_theory": [],
+            "D_support": [],
+            "load": [],
+        }
+
+    mode_shapes_data["global_values"]["R_vector"].append(_R_vector)
+    mode_shapes_data["global_values"]["R_cone"].append(_R_cone)
+    mode_shapes_data["global_values"]["D_theory"].append(D_theory)
+    mode_shapes_data["global_values"]["D_support"].append(D_support)
+    mode_shapes_data["global_values"]["load"].append(load)
+
+    mode_shapes_data["mesh"] = get_datapoints(stability.perturbation["β"], points)[0][
+        :, 0
+    ]
+    # Save
+    np.savez(f"{prefix}/mode_shapes_data.npz", **mode_shapes_data)
+    print(f"Saved mode shape data to {prefix}/mode_shapes_data.npz")
 
 
 def compute_coefficients_from_state(state, model, parameters, tol_hom=1e-6):
@@ -147,27 +250,43 @@ def compute_coefficients_from_state(state, model, parameters, tol_hom=1e-6):
     return {"a": a_val, "b": b_val, "c": c_val}
 
 
-def rayleigh_ratio(z, state):
+def rayleigh_ratio(
+    z,
+    state,
+    model,
+):
     (v, β) = z
     dx = ufl.Measure("dx", v.function_space.mesh)
 
     u = state["u"]
     alpha = state["alpha"]
 
-    coeffs = compute_coefficients_from_state(
-        {"u": u, "alpha": alpha}, parameters, tol_hom=1e-6
+    a, b, c = compute_coefficients_from_state(
+        {"u": u, "alpha": alpha}, model, parameters, tol_hom=1e-6
     ).values()
-    a, b, c = coeffs.values()
-
     numerator = (
         a * ufl.inner(β.dx(0), β.dx(0))
-        + b * ufl.inner(v.dx(0) - c * β, v.dx(0) - c * β)
+        + b * ufl.inner(v.dx(0)[0] - c * β, v.dx(0)[0] - c * β)
     ) * dx
     denominator = ufl.inner(β, β) * dx
+    _den = assemble_scalar(form(denominator))
 
-    R = assemble_scalar(form(numerator)) / assemble_scalar(form(denominator))
+    if _den == 0:
+        logging.critical(
+            "Denominator in Rayleigh quotient is zero, cannot compute ratio."
+        )
+        return np.nan, (a, b, c)
 
-    return R
+    R = assemble_scalar(form(numerator)) / _den
+
+    return R, (a, b, c)
+
+
+def parallel_assemble_scalar(ufl_form):
+    compiled_form = dolfinx.fem.form(ufl_form)
+    comm = compiled_form.mesh.comm
+    local_scalar = dolfinx.fem.assemble_scalar(compiled_form)
+    return comm.allreduce(local_scalar, op=MPI.SUM)
 
 
 def run_computation(parameters, storage=None):
@@ -254,7 +373,7 @@ def run_computation(parameters, storage=None):
     )
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
-    model = ThinFilm(parameters["model"])
+    # model = ThinFilm(parameters["model"])
 
     total_energy = (
         model.elastic_energy_density(state, u_zero) + model.damage_energy_density(state)
@@ -287,7 +406,7 @@ def run_computation(parameters, storage=None):
     )
 
     arclength = []
-
+    history_data["Rayleigh"] = []
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     if MPI.COMM_WORLD.rank == 0:
@@ -367,16 +486,51 @@ def run_computation(parameters, storage=None):
 
         compute_coefficients_from_state(state, model, parameters)
 
-        R_ball = rayleigh_ratio(
-            (bifurcation.perturbation["v"], bifurcation.perturbation["β"], state)
-        )
-        R_cone = rayleigh_ratio(
-            (stability.perturbation["v"], stability.perturbation["β"], state)
+        R_ball, (a, b, c) = rayleigh_ratio(
+            (bifurcation.perturbation["v"], bifurcation.perturbation["β"]), state, model
         )
 
+        if stability.solution["xt"] is None:
+            logging.warning(
+                "Stability perturbation is None, skipping Rayleigh ratio for cone."
+            )
+            R_cone = np.nan
+            _support = np.nan
+            D_support = np.nan
+
+        else:
+            tol = 1e-3
+            xs = np.linspace(0 + tol, 1 - tol, 101)
+            points = np.zeros((3, 101))
+            points[0] = xs
+
+            _support = indicator_function(stability.perturbation["β"])
+            D_support = parallel_assemble_scalar(_support * dx)
+            R_cone, (a, b, c) = rayleigh_ratio(
+                (stability.perturbation["v"], stability.perturbation["β"]), state, model
+            )
+
+            D_theory = (np.pi**2 * a / (b * c**2)) ** (1 / 3)
+            save_mode_shapes_to_npz(
+                t,
+                i_t,
+                state,
+                bifurcation,
+                stability,
+                parameters,
+                model,
+                points=points,
+                D_theory=D_theory,
+                D_support=D_support,
+                num_modes=1,
+                prefix=prefix,
+            )
+
         logging.info(f"Rayleigh quotients: R_ball={R_ball:.4f}, R_cone={R_cone:.4f}")
-        history_data.append({"R_ball": R_ball, "R_cone": R_cone})
-        __import__("pdb").set_trace()
+        # history_data["Rayleigh"].append(
+        # )
+        rayleigh = {"R_ball": R_ball, "R_cone": R_cone, "a": a, "b": b, "c": c}
+
         plot_bifurcation_spectrum(bifurcation.spectrum, Lx, i_t, prefix, inertia)
 
         fracture_energy, elastic_energy = postprocess(
@@ -404,6 +558,7 @@ def run_computation(parameters, storage=None):
                 equilibrium,
                 bifurcation,
                 stability,
+                rayleigh,
                 t,
                 fracture_energy,
                 elastic_energy,
@@ -426,6 +581,7 @@ def dump_output(
     equilibrium,
     bifurcation,
     stability,
+    rayleigh,
     t,
     fracture_energy,
     elastic_energy,
@@ -439,11 +595,6 @@ def dump_output(
             file.write_function(u, t)
             file.write_function(alpha, t)
 
-        if comm.rank == 0:
-            a_file = open(f"{prefix}/time_data.json", "w")
-            json.dump(history_data, a_file)
-            a_file.close()
-
         _write_history_data(
             equilibrium=equilibrium,
             bifurcation=bifurcation,
@@ -454,6 +605,12 @@ def dump_output(
             stable=np.nan,
             energies=[elastic_energy, fracture_energy],
         )
+        history_data["Rayleigh"].append(rayleigh)
+
+        if comm.rank == 0:
+            a_file = open(f"{prefix}/time_data.json", "w")
+            json.dump(history_data, a_file)
+            a_file.close()
 
 
 from matplotlib.cm import get_cmap
@@ -595,43 +752,43 @@ def postprocess(
         points = np.zeros((3, 101))
         points[0] = xs
 
-        fig, data = plot_profile(
-            state["alpha"],
-            points,
-            plotter,
-            lineproperties={
-                "c": "k",
-                "label": f"$\\alpha$ with $\\ell$ = {parameters['model']['ell']:.2f}",
-            },
-        )
-        ax = fig.gca()
-        ax.set_ylim(0, 1)
-        fig, data = plot_profile(
-            state["u"],
-            points,
-            plotter,
-            fig=fig,
-            ax=ax,
-            lineproperties={
-                "c": "g",
-                "label": "$u$",
-                "marker": "o",
-            },
-        )
+        # fig, data = plot_profile(
+        #     state["alpha"],
+        #     points,
+        #     plotter,
+        #     lineproperties={
+        #         "c": "k",
+        #         "label": f"$\\alpha$ with $\\ell$ = {parameters['model']['ell']:.2f}",
+        #     },
+        # )
+        # ax = fig.gca()
+        # ax.set_ylim(0, 1)
+        # fig, data = plot_profile(
+        #     state["u"],
+        #     points,
+        #     plotter,
+        #     fig=fig,
+        #     ax=ax,
+        #     lineproperties={
+        #         "c": "g",
+        #         "label": "$u$",
+        #         "marker": "o",
+        #     },
+        # )
 
-        fig, data = plot_profile(
-            u_zero,
-            points,
-            plotter,
-            fig=fig,
-            ax=ax,
-            lineproperties={"c": "r", "lw": 3, "label": "$u_0$"},
-        )
-        fig.legend()
-        fig.gca().set_title("Solution state")
-        # ax.set_ylim(-2.1, 2.1)
-        ax.axhline(0, color="k", lw=0.5)
-        fig.savefig(f"{prefix}/state_profile-{i_t}.png")
+        # fig, data = plot_profile(
+        #     u_zero,
+        #     points,
+        #     plotter,
+        #     fig=fig,
+        #     ax=ax,
+        #     lineproperties={"c": "r", "lw": 3, "label": "$u_0$"},
+        # )
+        # fig.legend()
+        # fig.gca().set_title("Solution state")
+        # # ax.set_ylim(-2.1, 2.1)
+        # ax.axhline(0, color="k", lw=0.5)
+        # fig.savefig(f"{prefix}/state_profile-{i_t}.png")
 
         if bifurcation._spectrum:
             fig_bif, ax = matplotlib.pyplot.subplots()
@@ -720,20 +877,21 @@ def load_parameters(file_path, ndofs, model="at1"):
     else:
         parameters["model"]["at_number"] = 1
         parameters["loading"]["min"] = 0.99
-        parameters["loading"]["max"] = 1.3
-        parameters["loading"]["steps"] = 100
+        parameters["loading"]["max"] = 3
+        parameters["loading"]["steps"] = 30
 
     parameters["geometry"]["geom_type"] = "1d-traction"
     parameters["geometry"]["Lx"] = L
     # parameters["geometry"]["mesh_size_factor"] = 10
 
     parameters["stability"]["maxmodes"] = 3
-    parameters["stability"]["eigen"]["shift"] = -1e-2
+    parameters["stability"]["eigen"]["shift"] = -5e-1
+    parameters["stability"]["eigen"]["eps_tol"] = 1e-8
 
     parameters["stability"]["cone"]["cone_max_it"] = 1000000
     parameters["stability"]["cone"]["cone_atol"] = 1e-6
     parameters["stability"]["cone"]["cone_rtol"] = 1e-6
-    parameters["stability"]["cone"]["scaling"] = 1e-4
+    parameters["stability"]["cone"]["scaling"] = 1e-3
     parameters["stability"]["mode"] = "always"
 
     parameters["model"]["w1"] = 1
@@ -773,6 +931,7 @@ if __name__ == "__main__":
 
     # Run computation
     storage = f"output/{signature[0:6]}"
+    storage = f"output/last"
     visualization = Visualization(storage)
 
     with dolfinx.common.Timer(f"~Computation Experiment") as timer:
