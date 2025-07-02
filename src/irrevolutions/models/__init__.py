@@ -188,6 +188,63 @@ class DamageElasticityModel(ElasticityModel):
         energy = self.elastic_energy_density(state) + self.damage_energy_density(state)
         return energy
 
+    def s(self, state):
+        """
+        Compute the compliance from the state.
+        """
+        alpha = state["alpha"]
+        return 1 / self.a(alpha)
+
+    def _a_prime(self, alpha):
+        return ufl.diff(self.a(alpha), alpha)
+
+    def _a_dd(self, alpha):
+        return ufl.diff(self._a_prime(alpha), alpha)
+
+    def _w_prime(self, alpha):
+        return ufl.diff(self.w(alpha), alpha)
+
+    def _w_dd(self, alpha):
+        return ufl.diff(self._w_prime(alpha), alpha)
+
+    def rayleigh_coeffs(self, state, perturbation):
+        """
+        Compute the Rayleigh coefficients for the given state and perturbation.
+        """
+        u = state["u"]
+        alpha = state["alpha"]
+
+        mesh = alpha.function_space.mesh
+        dx = ufl.Measure("dx", domain=mesh)
+        tol_hom = 1e-6
+
+        alpha_grad = ufl.grad(alpha)
+        seminorm_form = dolfinx.fem.form(ufl.inner(alpha_grad, alpha_grad) * dx)
+        seminorm = dolfinx.fem.assemble_scalar(seminorm_form)
+        if seminorm > tol_hom:
+            raise ValueError(
+                f"Damage field is not homogeneous: H1 seminorm = {seminorm}"
+            )
+
+        a_val = 0
+        b_val = 0
+        c_val = 0
+
+        rayleigh_coeffs = {"a": a_val, "b": b_val, "c": c_val}
+
+        return rayleigh_coeffs
+
+    def rayleigh_ratio(self, state, perturbation):
+        """
+        Compute the Rayleigh terms for the given state and perturbation.
+        """
+        # Get the elastic energy density
+        elastic_energy = self.elastic_energy_density(state)
+        # Compute the Rayleigh terms
+        rayleigh_terms = ufl.inner(elastic_energy, perturbation)
+
+        return rayleigh_terms
+
 
 class DeviatoricSplit(DamageElasticityModel):
     """Lancioni and Royer-Carfagni, 2009
