@@ -137,7 +137,7 @@ Each file should have at least the "copyright" line and a pointer to where the f
     along with `irrevolution`.  If not, see <https://www.gnu.org/licenses/>.
 
 ### Further information
-
+Documentation: https://irreversible-variational-solvers.readthedocs.io/en/latest/autoapi/irrevolutions/utils/index.html
 ## Star History
 
 <a href="https://star-history.com/#kumiori/irrevolutions&Date">
