@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from dataclasses import asdict
 import json
 import logging
 import os
@@ -24,23 +25,27 @@ from dolfinx.fem import (
     dirichletbc,
     form,
     locate_dofs_geometrical,
-    set_bc,
 )
-from dolfinx.fem.petsc import assemble_vector
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
 from petsc4py import PETSc
 
-from irrevolutions.algorithms.am import HybridSolver
+from irrevolutions.algorithms.am import AlternateMinimisation1D, HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
-from irrevolutions.solvers import SNESSolver
+from irrevolutions.contracts import (
+    EquilibriumResult,
+    ExperimentSetup,
+    History,
+    Manifest,
+    StepRecord,
+    get_bounds_pair,
+    legacy_bcs_from_contract,
+    make_field_bounds,
+    normalise_bcs,
+)
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.utils import (
     ColorPrint,
-    _write_history_data,
-    history_data,
-    norm_H1,
-    norm_L2,
     setup_logger_mpi,
 )
 from irrevolutions.utils.plots import plot_AMit_load, plot_energies
@@ -62,169 +67,19 @@ load: displacement hard-t
 logger = setup_logger_mpi(logging.INFO)
 
 
-class _AlternateMinimisation1D:
-    def __init__(
-        self,
-        total_energy,
-        state,
-        bcs,
-        solver_parameters={},
-        bounds=(dolfinx.fem.function.Function, dolfinx.fem.function.Function),
-    ):
-        self.state = state
-        self.alpha = state["alpha"]
-        self.alpha_old = dolfinx.fem.function.Function(self.alpha.function_space)
-        self.u = state["u"]
-        self.alpha_lb = bounds[0]
-        self.alpha_ub = bounds[1]
-        self.total_energy = total_energy
-        self.solver_parameters = solver_parameters
-
-        V_u = state["u"].function_space
-        V_alpha = state["alpha"].function_space
-
-        energy_u = ufl.derivative(self.total_energy, self.u, ufl.TestFunction(V_u))
-        energy_alpha = ufl.derivative(
-            self.total_energy, self.alpha, ufl.TestFunction(V_alpha)
-        )
-
-        self.F = [energy_u, energy_alpha]
-
-        self.elasticity = SNESSolver(
-            energy_u,
-            self.u,
-            bcs.get("bcs_u"),
-            bounds=None,
-            petsc_options=self.solver_parameters.get("elasticity").get("snes"),
-            prefix=self.solver_parameters.get("elasticity").get("prefix"),
-        )
-
-        self.damage = SNESSolver(
-            energy_alpha,
-            self.alpha,
-            bcs.get("bcs_alpha"),
-            bounds=(self.alpha_lb, self.alpha_ub),
-            petsc_options=self.solver_parameters.get("damage").get("snes"),
-            prefix=self.solver_parameters.get("damage").get("prefix"),
-        )
-
-    def solve(self, outdir=None):
-        alpha_diff = dolfinx.fem.Function(self.alpha.function_space)
-
-        self.data = {
-            "iteration": [],
-            "error_alpha_L2": [],
-            "error_alpha_H1": [],
-            "F_norm": [],
-            "error_alpha_max": [],
-            "error_residual_F": [],
-            "solver_alpha_reason": [],
-            "solver_alpha_it": [],
-            "solver_u_reason": [],
-            "solver_u_it": [],
-            "total_energy": [],
-        }
-        for iteration in range(
-            self.solver_parameters.get("damage_elasticity").get("max_it")
-        ):
-            with dolfinx.common.Timer(
-                "~First Order: Alternate Minimization : Elastic solver"
-            ):
-                (solver_u_it, solver_u_reason) = self.elasticity.solve()
-            with dolfinx.common.Timer(
-                "~First Order: Alternate Minimization : Damage solver"
-            ):
-                (solver_alpha_it, solver_alpha_reason) = self.damage.solve()
-
-            # Define error function
-            self.alpha.x.petsc_vec.copy(alpha_diff.x.petsc_vec)
-            alpha_diff.x.petsc_vec.axpy(-1, self.alpha_old.x.petsc_vec)
-            alpha_diff.x.petsc_vec.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
-
-            error_alpha_H1 = norm_H1(alpha_diff)
-            error_alpha_L2 = norm_L2(alpha_diff)
-
-            Fv = [assemble_vector(form(F)) for F in self.F]
-
-            Fnorm = np.sqrt(
-                np.array([comm.allreduce(Fvi.norm(), op=MPI.SUM) for Fvi in Fv]).sum()
-            )
-
-            error_alpha_max = alpha_diff.x.petsc_vec.max()[1]
-            total_energy_int = comm.allreduce(
-                assemble_scalar(form(self.total_energy)), op=MPI.SUM
-            )
-            residual_F = assemble_vector(self.elasticity.F_form)
-            residual_F.ghostUpdate(
-                addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
-            )
-            with residual_F.localForm() as residual_local:
-                for bc in self.elasticity.bcs:
-                    bc.set(residual_local.array_w, self.u.x.array, -1.0)
-            error_residual_F = ufl.sqrt(residual_F.dot(residual_F))
-
-            self.alpha.x.petsc_vec.copy(self.alpha_old.x.petsc_vec)
-            self.alpha_old.x.petsc_vec.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
-
-            logging.critical(
-                f"AM - Iteration: {iteration:3d}, res F Error: {error_residual_F:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
-            )
-
-            logging.critical(
-                f"AM - Iteration: {iteration:3d}, H1 Error: {error_alpha_H1:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
-            )
-
-            logging.critical(
-                f"AM - Iteration: {iteration:3d}, L2 Error: {error_alpha_L2:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
-            )
-
-            logging.critical(
-                f"AM - Iteration: {iteration:3d}, Linfty Error: {error_alpha_max:3.4e}, alpha_max: {self.alpha.x.petsc_vec.max()[1]:3.4e}"
-            )
-
-            self.data["iteration"].append(iteration)
-            self.data["error_alpha_L2"].append(error_alpha_L2)
-            self.data["error_alpha_H1"].append(error_alpha_H1)
-            self.data["F_norm"].append(Fnorm)
-            self.data["error_alpha_max"].append(error_alpha_max)
-            self.data["error_residual_F"].append(error_residual_F)
-            self.data["solver_alpha_it"].append(solver_alpha_it)
-            self.data["solver_alpha_reason"].append(solver_alpha_reason)
-            self.data["solver_u_reason"].append(solver_u_reason)
-            self.data["solver_u_it"].append(solver_u_it)
-            self.data["total_energy"].append(total_energy_int)
-
-            if (
-                self.solver_parameters.get("damage_elasticity").get("criterion")
-                == "residual_u"
-            ):
-                if error_residual_F <= self.solver_parameters.get(
-                    "damage_elasticity"
-                ).get("alpha_rtol"):
-                    break
-            if (
-                self.solver_parameters.get("damage_elasticity").get("criterion")
-                == "alpha_H1"
-            ):
-                if error_alpha_H1 <= self.solver_parameters.get(
-                    "damage_elasticity"
-                ).get("alpha_rtol"):
-                    break
-        else:
-            raise RuntimeError(
-                f"Could not converge after {iteration:3d} iterations, error {error_alpha_H1:3.4e}"
-            )
-
-
 petsc4py.init(sys.argv)
 comm = MPI.COMM_WORLD
 
 # Mesh on node model_rank and then distribute
 model_rank = 0
+
+
+def _float_or_none(value):
+    if value is None:
+        return None
+    if np.isscalar(value) and np.isnan(value):
+        return None
+    return float(value)
 
 
 def run_computation(parameters, storage=None):
@@ -335,7 +190,20 @@ def run_computation(parameters, storage=None):
 
     bcs_alpha = []
 
-    bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
+    bcs = normalise_bcs(
+        {
+            "u": {
+                "dirichlet": bcs_u,
+                "loading": {
+                    "type": "displacement_control",
+                    "parameter": None,
+                    "component": 0,
+                    "region": "right",
+                },
+            },
+            "alpha": {"dirichlet": bcs_alpha, "loading": None},
+        }
+    )
     # Define the model
 
     # Material behaviour
@@ -419,24 +287,49 @@ def run_computation(parameters, storage=None):
 
     loads = [0.0, 0.5, 0.99, 1.01, 1.3]
 
-    equilibrium = _AlternateMinimisation1D(
-        total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
+    bounds = {"alpha": make_field_bounds(alpha_lb, alpha_ub)}
+    setup = ExperimentSetup(
+        state=state,
+        bcs=bcs,
+        bounds=bounds,
+        parameters=parameters,
+        energy=total_energy,
+        mesh=mesh,
+        spaces={"u": V_u, "alpha": V_alpha},
+        metadata={"geom_type": _nameExp},
+    )
+    solver_bcs = legacy_bcs_from_contract(setup.bcs)
+    alpha_bounds = get_bounds_pair(setup.bounds, "alpha")
+    history = History()
+
+    equilibrium = AlternateMinimisation1D(
+        setup.energy,
+        setup.state,
+        solver_bcs,
+        parameters.get("solvers"),
+        bounds=alpha_bounds,
     )
 
     hybrid = HybridSolver(
-        total_energy,
-        state,
-        bcs,
-        bounds=(alpha_lb, alpha_ub),
+        setup.energy,
+        setup.state,
+        solver_bcs,
+        bounds=alpha_bounds,
         solver_parameters=parameters.get("solvers"),
     )
 
     bifurcation = BifurcationSolver(
-        total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
+        setup.energy,
+        setup.state,
+        solver_bcs,
+        bifurcation_parameters=parameters.get("stability"),
     )
 
     stability = StabilitySolver(
-        total_energy, state, bcs, cone_parameters=parameters.get("stability")
+        setup.energy,
+        setup.state,
+        solver_bcs,
+        cone_parameters=parameters.get("stability"),
     )
 
     mode_shapes_data = {
@@ -595,26 +488,72 @@ def run_computation(parameters, storage=None):
         np.savez(f"{prefix}/mode_shapes_data.npz", **mode_shapes_data)
 
         fracture_energy = comm.allreduce(
-            assemble_scalar(form(damage_energy_density(state) * dx)),
+            assemble_scalar(form(damage_energy_density(setup.state) * dx)),
             op=MPI.SUM,
         )
         elastic_energy = comm.allreduce(
-            assemble_scalar(form(elastic_energy_density(state) * dx)),
+            assemble_scalar(form(elastic_energy_density(setup.state) * dx)),
             op=MPI.SUM,
         )
         # _F = assemble_scalar(form(stress(state)))
 
         ColorPrint.print_bold(stability.solution["lambda_t"])
 
-        _write_history_data(
-            equilibrium,
-            bifurcation,
-            stability,
-            history_data,
-            t,
-            inertia,
-            stable,
-            [fracture_energy, elastic_energy],
+        equilibrium_result = EquilibriumResult(
+            step=i_t,
+            load=float(t),
+            time=float(t),
+            state=setup.state,
+            bounds=setup.bounds,
+            converged=True,
+            solver_name="alternate_minimisation_1d",
+            iterations=(
+                equilibrium.data["iteration"][-1]
+                if equilibrium.data["iteration"]
+                else None
+            ),
+            residual_norm=(
+                float(equilibrium.data["error_residual_F"][-1])
+                if equilibrium.data["error_residual_F"]
+                else None
+            ),
+            total_energy=elastic_energy + fracture_energy,
+            diagnostics={"inertia": inertia},
+        )
+        lambda_bif_min = (
+            min(float(np.real(value)) for value in bifurcation.data.get("eigs", []))
+            if bifurcation.data.get("eigs")
+            else None
+        )
+        lambda_stab_min = _float_or_none(stability.solution.get("lambda_t"))
+
+        history.append(
+            StepRecord(
+                step=equilibrium_result.step,
+                load=equilibrium_result.load,
+                time=equilibrium_result.time,
+                elastic_energy=elastic_energy,
+                fracture_energy=fracture_energy,
+                total_energy=equilibrium_result.total_energy,
+                solver_converged=equilibrium_result.converged,
+                n_iterations=equilibrium_result.iterations,
+                inertia=inertia,
+                stability_attempted=True,
+                stability_converged=stable is not None,
+                stable=stable,
+                lambda_stab_min=lambda_stab_min,
+                bifurcation_attempted=True,
+                bifurcation_converged=True,
+                unique=bool(is_unique),
+                lambda_bif_min=lambda_bif_min,
+                extra={
+                    "solver_data": equilibrium.data,
+                    "equilibrium_data": equilibrium.data,
+                    "cone_data": stability.data,
+                    "eigs_ball": bifurcation.data.get("eigs", []),
+                    "eigs_cone": stability.solution.get("lambda_t"),
+                },
+            )
         )
 
         # history_data["F"].append(_F)
@@ -626,10 +565,12 @@ def run_computation(parameters, storage=None):
             file.write_function(alpha, t)
 
         if comm.rank == 0:
+            history_data = history.to_columns()
             a_file = open(f"{prefix}/time_data.json", "w")
-            json.dump(history_data, a_file)
+            json.dump(history_data, a_file, default=str)
             a_file.close()
 
+    history_data = history.to_columns()
     df = pd.DataFrame(history_data)
     print(df)
 
@@ -640,7 +581,7 @@ def run_computation(parameters, storage=None):
         #     history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
         # )
 
-    return history_data, stability.data, state
+    return history_data, stability.data, setup.state
 
 
 def load_parameters(file_path, ndofs, model="at1"):
@@ -718,8 +659,21 @@ def test_1d():
 
     from irrevolutions.utils import ResultsStorage, Visualization
 
+    manifest = Manifest(
+        parameters=parameters,
+        run_id=signature,
+        solver_options={
+            "solvers": parameters.get("solvers"),
+            "stability": parameters.get("stability"),
+        },
+        mesh={"tdim": 1},
+        spaces={"u": "CG1", "alpha": "CG1"},
+    )
     storage = ResultsStorage(MPI.COMM_WORLD, _storage)
     storage.store_results(parameters, history_data, state)
+    if MPI.COMM_WORLD.rank == 0:
+        with open(f"{_storage}/manifest.json", "w") as file:
+            json.dump(asdict(manifest), file)
     visualization = Visualization(_storage)
     # visualization.visualise_results(pd.DataFrame(history_data), drop = ["solver_data", "cone_data"])
     visualization.save_table(pd.DataFrame(history_data), "history_data")
