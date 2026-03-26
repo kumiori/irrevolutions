@@ -492,7 +492,7 @@ def discrete_atk(arg_N=2):
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         ColorPrint.print_bold(f"State is stable: {is_stable}")
 
-        stable = cone.my_solve(alpha_lb)
+        stable = cone.solve(alpha_lb, inertia=(0, 0, 0))
 
         # indptr, indices, data = cone.eigen.rA.getValuesCSR()
         # _rA = scipy.sparse.csr_matrix((data, indices, indptr), shape=self.eigen.rA.sizes[0])

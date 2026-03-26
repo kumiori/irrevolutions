@@ -19,6 +19,8 @@ from mpi4py import MPI
 from petsc4py import PETSc
 import basix.ufl
 
+from dolfinx.fem import Function, functionspace
+
 comm = MPI.COMM_WORLD
 
 error_codes = {
@@ -162,9 +164,14 @@ def setup_logger_mpi(
     logger.propagate = False
     # StreamHandler to log messages to the console
     console_handler = logging.StreamHandler()
-    file_handler = logging.FileHandler(filename)
 
-    # formatter = logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] - %(message)s')
+    logdir = os.environ.get("LOGDIR", ".")
+    if not os.path.exists(logdir) and rank == 0:
+        # Create the log directory if it does not exist
+        os.makedirs(logdir, exist_ok=True)
+
+    file_handler = logging.FileHandler(os.path.join(logdir, filename))
+
     formatter = MPIFormatter(
         "%(asctime)s  [Rank %(rank)d, Size %(size)d]  - %(name)s - [%(levelname)s] - %(message)s"
     )
@@ -192,7 +199,7 @@ def setup_logger_mpi(
     return logger
 
 
-# _logger = setup_logger_mpi()
+_logger = setup_logger_mpi()
 
 
 # Get the current Git branch
@@ -314,6 +321,7 @@ def set_vector_to_constant(x, value):
 def table_timing_data(tasks=None):
     import pandas as pd
     from dolfinx.common import timing
+    import numpy as np
 
     timing_data = []
     if tasks is None:
@@ -330,7 +338,11 @@ def table_timing_data(tasks=None):
         ]
 
     for task in tasks:
-        timing_data.append(timing(task))
+        try:
+            timing_data.append(timing(task))
+        except RuntimeError:
+            # Some scripts only exercise a subset of the registered timers.
+            timing_data.append((0, np.nan, np.nan, np.nan))
 
     df = pd.DataFrame(
         timing_data, columns=["reps", "wall tot", "usr", "sys"], index=tasks
@@ -401,7 +413,15 @@ class Visualization:
     """
 
     def __init__(self, prefix):
+        self.comm = MPI.COMM_WORLD
+        self.rank = self.comm.Get_rank()
         self.prefix = prefix
+
+        if self.rank == 0:
+            os.makedirs(self.prefix, exist_ok=True)
+
+        # Broadcast to ensure directory is available for all ranks
+        self.comm.Barrier()
 
     def visualise_results(self, df, drop=[]):
         """
@@ -433,7 +453,8 @@ history_data = {
     "elastic_energy": [],
     "fracture_energy": [],
     "total_energy": [],
-    "equilibrium_data": [],
+    # "equilibrium_data": [],
+    # "bifurcation_data": [],
     "cone_data": [],
     "eigs_ball": [],
     "eigs_cone": [],
@@ -461,7 +482,8 @@ def _write_history_data(
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
     history_data["total_energy"].append(elastic_energy + fracture_energy)
-    history_data["equilibrium_data"].append(equilibrium.data)
+    # history_data["equilibrium_data"].append(equilibrium.data)
+    # history_data["bifurcation_data"].append(bifurcation.data)
     history_data["inertia"].append(inertia)
     history_data["unique"].append(unique)
     history_data["stable"].append(stable)
@@ -660,3 +682,54 @@ def sample_data(N, positive=True):
     v.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     return F, v
+
+
+def create_function_spaces_nd(mesh, dim):
+    """
+    Create function spaces for displacement and scalar fields in an arbitrary dimension.
+
+    Parameters:
+    - mesh: The mesh object for the domain.
+    - dim: The spatial dimension of the problem (e.g., 1, 2, or 3).
+
+    Returns:
+    - V_u: Function space for vector fields (displacement).
+    - V_alpha: Function space for scalar fields (e.g., damage or pressure).
+    """
+    # Define the vector element for displacement (dim components)
+    element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(dim,))
+    # Define the scalar element for damage or other scalar fields
+    element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
+
+    # Create function spaces
+    V_u = functionspace(mesh, element_u)
+    V_alpha = functionspace(mesh, element_alpha)
+
+    return V_u, V_alpha
+
+
+# def create_function_spaces_1d(mesh):
+#     element_u = FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+#     element_alpha = FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+#     V_u = functionspace(mesh, element_u)
+#     V_alpha = functionspace(mesh, element_alpha)
+#     return V_u, V_alpha
+
+
+# def create_function_spaces_2d(mesh):
+#     element_u = VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=2)
+#     element_alpha = FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
+#     V_u = functionspace(mesh, element_u)
+#     V_alpha = functionspace(mesh, element_alpha)
+#     return V_u, V_alpha
+
+
+def initialize_functions(V_u, V_alpha):
+    u = Function(V_u, name="Displacement")
+    u_ = Function(V_u, name="BoundaryDisplacement")
+    alpha = Function(V_alpha, name="Damage")
+    beta = Function(V_alpha, name="DamagePerturbation")
+    v = Function(V_u, name="DisplacementPerturbation")
+    state = {"u": u, "alpha": alpha}
+
+    return u, u_, alpha, beta, v, state

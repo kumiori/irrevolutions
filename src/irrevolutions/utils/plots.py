@@ -59,8 +59,12 @@ def plot_AMit_load(history_data, title="AM max it - Load", file=None):
 
     t = np.array(history_data["load"])
     it = np.zeros_like(t)
+    equilibrium_data = history_data.get("equilibrium_data", history_data.get("solver_data"))
     for i, load in enumerate(t):
-        it[i] = np.array(history_data["equilibrium_data"][i]["iteration"][-1])
+        if not equilibrium_data or not equilibrium_data[i].get("iteration"):
+            it[i] = np.nan
+        else:
+            it[i] = np.array(equilibrium_data[i]["iteration"][-1])
 
     # stress-strain curve
     ax1.plot(

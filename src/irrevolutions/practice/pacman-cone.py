@@ -26,7 +26,7 @@ from dolfinx.common import list_timings, timing
 from dolfinx.fem import (
     Constant,
     Function,
-    FunctionSpace,
+    functionspace,
     assemble_scalar,
     dirichletbc,
     form,
@@ -171,10 +171,10 @@ def pacman_cone(resolution=2, slug="pacman"):
 
     # Function spaces
     element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
-    V_u = FunctionSpace(mesh, element_u)
+    V_u = functionspace(mesh, element_u)
 
     element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
-    V_alpha = FunctionSpace(mesh, element_alpha)
+    V_alpha = functionspace(mesh, element_alpha)
 
     # Define the state
     u = Function(V_u, name="Displacement")
@@ -335,7 +335,11 @@ def pacman_cone(resolution=2, slug="pacman"):
         ColorPrint.print_bold("   Solving second order: Cone Pb.    ")
         ColorPrint.print_bold("===================-=================")
 
-        stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum)
+        stable = cone.solve(
+            alpha_lb,
+            eig0=(bifurcation._spectrum[0]["xk"] if bifurcation._spectrum else None),
+            inertia=inertia,
+        )
 
         logging.critical(f"State is elastic: {is_elastic}")
         logging.critical(f"State's inertia: {inertia}")

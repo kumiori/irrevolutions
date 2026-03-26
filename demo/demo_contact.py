@@ -33,7 +33,12 @@ from irrevolutions.algorithms.am import ContactAlternateMinimisation
 from irrevolutions.meshes.primitives import create_arc_ring_mesh
 from irrevolutions.models import DamageElasticityModel as Brittle
 from irrevolutions.utils.plots import plot_energies, plot_force_displacement
-from irrevolutions.utils.viz import plot_scalar, plot_vector
+from irrevolutions.utils.viz import (
+    plot_scalar,
+    plot_vector,
+    safe_screenshot,
+    setup_pyvista_offscreen,
+)
 import basix.ufl
 
 logging.basicConfig(level=logging.INFO)
@@ -304,17 +309,16 @@ print(df)
 
 #
 if comm.Get_size() == 1:
-    # xvfb.start_xvfb(wait=0.05)
-    pyvista.OFF_SCREEN = True
+    setup_pyvista_offscreen()
 
     plotter = pyvista.Plotter(
         title="Displacement",
         window_size=[1600, 600],
         shape=(1, 2),
     )
-    _plt, grid = plot_scalar(alpha, plotter, subplot=(0, 0))
-    _plt, grid = plot_vector(u, plotter, subplot=(0, 1))
-    _plt.screenshot(f"{prefix}/contact-state.png")
+    plotter, _ = plot_scalar(alpha, plotter, subplot=(0, 0))
+    plotter, _ = plot_vector(u, plotter, subplot=(0, 1))
+    safe_screenshot(plotter, f"{prefix}/contact-state.png")
 
 
 if comm.rank == 0:

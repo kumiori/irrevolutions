@@ -92,7 +92,7 @@ if __name__ == "__main__":
         "~Computation Experiment",
     ]
 
-    _timings = table_timing_data()
+    _timings = table_timing_data(tasks)
     visualization.save_table(_timings, "timing_data")
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
 

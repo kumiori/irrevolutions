@@ -1,6 +1,7 @@
 # Crack Propagation in Brittle Materials
 
 ## 2024
+
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.06897/status.svg)](https://doi.org/10.21105/joss.06897)
 [![Run Tests in Docker Container](https://github.com/kumiori/irrevolutions/actions/workflows/workflow.yaml/badge.svg)](https://github.com/kumiori/irrevolutions/actions/workflows/workflow.yaml)
 [![Test Conda Installation](https://github.com/kumiori/irrevolutions/actions/workflows/conda.yml/badge.svg)](https://github.com/kumiori/irrevolutions/actions/workflows/conda.yml)
@@ -11,6 +12,14 @@
 **Irreversible Evolution of Damage**
 
 Let $y=(\alpha, u)$ be an admissible state of a brittle system where $\alpha: \Omega \mapsto [0, 1]$ is a smooth damage field which identifies cracks (where $\alpha =1$) and $u$ is a displacement field. Provided a material model (an energy functional) $E_\ell$, given a time horizon $T$, let's find a map $t \in [0, T]\mapsto y_t$ such that: damage is non-decreasing and the observed state $y_t$ is energy-minimal, among admissible variations.
+
+## How can I play straight away?
+
+This repository has an approximately clean social contract:
+
+`demo/`: stable, representative, readable
+`practice/`: serious experiments worth keeping alive
+`playground/`: tuning, prototyping, branch-specific exploration
 
 ## How to contribute
 

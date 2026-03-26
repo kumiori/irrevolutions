@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "irrevolutions"
-version = "0.1.0"
+version = "2024.0.1"
 description = "A Python package for solving nonlinear and nonconvex evolutionary problems using a general energetic notion of stability and dolfinx."
 authors = [
     {name = "Andrés A León Baldelli", email = "leon.baldelli@cnrs.fr"}
@@ -32,9 +32,6 @@ repository = "https://github.com/kumiori3/irrevolutions"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["irrevolutions*"]
-
-[project.scripts]
-irrevolutions = "irrevolutions:main"
 
 # Optional include files like configuration, license, etc.
 [tool.setuptools.package-data]

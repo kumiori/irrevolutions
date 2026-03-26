@@ -17,11 +17,10 @@ from dolfinx import log
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.plotting.utilities import xvfb
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import ElasticityModel
 from irrevolutions.solvers import SNESSolver as ElasticitySolver
-from irrevolutions.utils.viz import plot_vector
+from irrevolutions.utils.viz import plot_vector, safe_screenshot, setup_pyvista_offscreen
 import basix.ufl
 
 logging.basicConfig(level=logging.INFO)
@@ -168,8 +167,7 @@ for i_t, t in enumerate(loads):
         json.dump(history_data, a_file)
         a_file.close()
 
-xvfb.start_xvfb(wait=0.05)
-pyvista.OFF_SCREEN = True
+setup_pyvista_offscreen()
 
 plotter = pyvista.Plotter(
     title="Displacement",
@@ -178,5 +176,7 @@ plotter = pyvista.Plotter(
 )
 
 # _plt = plot_scalar(u_.sub(0), plotter, subplot=(0, 0))
-_plt = plot_vector(u, plotter, subplot=(0, 1))
-_plt.screenshot(os.path.join(prefix, f"elasticity_displacement_MPI{comm.size}.png"))
+plotter, _ = plot_vector(u, plotter, subplot=(0, 1))
+safe_screenshot(
+    plotter, os.path.join(prefix, f"elasticity_displacement_MPI{comm.size}.png")
+)

@@ -31,7 +31,6 @@ from dolfinx.fem import (
 from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.plotting.utilities import xvfb
 import basix.ufl
 
 from irrevolutions.algorithms.am import AlternateMinimisation, HybridSolver
@@ -42,7 +41,13 @@ from irrevolutions.models import DamageElasticityModel as Brittle
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.utils import ColorPrint, _write_history_data, history_data, norm_H1
 from irrevolutions.utils.plots import plot_energies
-from irrevolutions.utils.viz import plot_profile, plot_scalar, plot_vector
+from irrevolutions.utils.viz import (
+    plot_profile,
+    plot_scalar,
+    plot_vector,
+    safe_screenshot,
+    setup_pyvista_offscreen,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -155,7 +160,8 @@ def test_linsearch():
     ]
     bcs_alpha = []
 
-    set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+    for bc in bcs_alpha:
+        bc.set(alpha_ub.x.array)
     alpha_ub.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
@@ -414,13 +420,12 @@ def test_linsearch():
         print()
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
     df = pd.DataFrame(history_data)
-    print(df.drop(["equilibrium_data", "cone_data"], axis=1))
+    print(df.drop(["equilibrium_data", "cone_data"], axis=1, errors="ignore"))
 
     # Viz
 
     #
-    xvfb.start_xvfb(wait=0.05)
-    pyvista.OFF_SCREEN = True
+    setup_pyvista_offscreen()
 
     # if size == 1:
     if comm.rank == 0:
@@ -429,9 +434,9 @@ def test_linsearch():
             window_size=[1600, 600],
             shape=(1, 2),
         )
-        _plt, grid = plot_scalar(alpha, plotter, subplot=(0, 0))
-        _plt, grid = plot_vector(u, plotter, subplot=(0, 1))
-        _plt.screenshot(f"{prefix}/traction-state.png")
+        plotter, _ = plot_scalar(alpha, plotter, subplot=(0, 0))
+        plotter, _ = plot_vector(u, plotter, subplot=(0, 1))
+        safe_screenshot(plotter, f"{prefix}/traction-state.png")
 
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")

@@ -27,7 +27,7 @@ from dolfinx.common import list_timings
 from dolfinx.fem import (
     Constant,
     Function,
-    FunctionSpace,
+    functionspace,
     assemble_scalar,
     dirichletbc,
     form,
@@ -144,10 +144,10 @@ def main(parameters, storage=None):
     element_u = basix.ufl.element(
         "Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,)
     )
-    V_u = FunctionSpace(mesh, element_u)
+    V_u = functionspace(mesh, element_u)
 
     element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
-    V_alpha = FunctionSpace(mesh, element_alpha)
+    V_alpha = functionspace(mesh, element_alpha)
 
     u = Function(V_u, name="Displacement")
     zero_u = Function(V_u, name="Boundary Displacement")
@@ -299,8 +299,10 @@ def main(parameters, storage=None):
         ColorPrint.print_bold("   Solving second order: Stability Pb.    ")
         ColorPrint.print_bold("===================-=================")
 
-        stable = stability.my_solve(
-            alpha_lb, eig0=bifurcation._spectrum, inertia=inertia
+        stable = stability.solve(
+            alpha_lb,
+            eig0=(bifurcation._spectrum[0]["xk"] if bifurcation._spectrum else None),
+            inertia=inertia,
         )
 
         if bifurcation._spectrum:

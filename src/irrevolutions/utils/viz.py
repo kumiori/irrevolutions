@@ -1,14 +1,16 @@
-import scipy
-from dolfinx.plot import vtk_mesh as compute_topology
-import matplotlib.tri as tri
-import matplotlib.pyplot as plt
-from pyvista.plotting.utilities import xvfb
-import pyvista
-from mpi4py import MPI
 import logging
+import os
 import sys
 from datetime import date
+
+import matplotlib.pyplot as plt
+import matplotlib.tri as tri
 import numpy as np
+import pyvista
+import scipy
+from dolfinx.plot import vtk_mesh as compute_topology
+from mpi4py import MPI
+from pyvista.plotting.utilities import xvfb
 
 # Set current date
 today = date.today()
@@ -24,6 +26,34 @@ comm = MPI.COMM_WORLD
 
 # Start Xvfb for PyVista (for offscreen rendering)
 # xvfb.start_xvfb(wait=0.05)
+
+
+class PlotterResult(tuple):
+    def __new__(cls, plotter, grid):
+        return super().__new__(cls, (plotter, grid))
+
+    def __getattr__(self, name):
+        return getattr(self[0], name)
+
+    def screenshot(self, filename, *args, **kwargs):
+        return safe_screenshot(self[0], filename, *args, **kwargs)
+
+
+def setup_pyvista_offscreen(wait=0.05):
+    os.environ.setdefault("XDG_RUNTIME_DIR", "/tmp")
+    pyvista.OFF_SCREEN = True
+    try:
+        xvfb.start_xvfb(wait=wait)
+    except Exception as exc:
+        logging.warning("Could not start Xvfb for PyVista: %s", exc)
+
+
+def safe_screenshot(plotter, filename):
+    try:
+        return plotter.screenshot(filename)
+    except Exception as exc:
+        logging.warning("Could not save screenshot %s: %s", filename, exc)
+        return None
 
 
 def plot_vector(u, plotter, subplot=None, scale=1.0, lineproperties={}):
@@ -64,10 +94,10 @@ def plot_vector(u, plotter, subplot=None, scale=1.0, lineproperties={}):
     )
     plotter.view_xy()
     plotter.set_background("white")
-    return plotter, grid
+    return PlotterResult(plotter, grid)
 
 
-def plot_scalar(u, plotter, subplot=None, lineproperties={}):
+def plot_scalar(u, plotter, scalars_name="u", subplot=None, lineproperties={}):
     """
     Plots a scalar field using PyVista.
 
@@ -82,6 +112,9 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     """
     if subplot:
         plotter.subplot(subplot[0], subplot[1])
+    else:
+        plotter.subplot(0, 0)
+
     V = u.function_space
     mesh = V.mesh
     ret = compute_topology(mesh, mesh.topology.dim)
@@ -90,16 +123,16 @@ def plot_scalar(u, plotter, subplot=None, lineproperties={}):
     else:
         topology, cell_types, _ = ret
     grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
-    plotter.subplot(0, 0)
     values = u.x.petsc_vec.array.real.reshape(
         V.dofmap.index_map.size_local, V.dofmap.index_map_bs
     )
-    grid.point_data["u"] = values
-    grid.set_active_scalars("u")
+    grid.point_data[scalars_name] = values
+    grid.set_active_scalars(scalars_name)
+
     plotter.add_mesh(grid, **lineproperties)
     plotter.view_xy()
     plotter.set_background("white")
-    return plotter, grid
+    return PlotterResult(plotter, grid)
 
 
 def plot_profile(
@@ -133,15 +166,21 @@ def plot_profile(
     if fig is None:
         fig = plt.figure()
 
+    # if subplot:
+    #     plt.subplot(subplot[0], subplot[1], subplotnumber)
+    # __import__("pdb").set_trace()
     if subplot:
-        plt.subplot(subplot[0], subplot[1], subplotnumber)
+        plotter.subplot(subplot[0], subplot[1])
+    else:
+        plotter.subplot(0, 0)
 
     if ax is not None:
         ax.plot(points_on_proc[:, 0], u_values, **lineproperties)
-        ax.legend()
     else:
         plt.plot(points_on_proc[:, 0], u_values, **lineproperties)
-    plt.legend()
+    handles, labels = plt.gca().get_legend_handles_labels()
+    if labels:
+        plt.legend()
     return plt, (points_on_proc[:, 0], u_values)
 
 
