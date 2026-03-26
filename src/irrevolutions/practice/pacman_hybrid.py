@@ -24,7 +24,7 @@ import pyvista
 import yaml
 from dolfinx.fem import (
     Function,
-    FunctionSpace,
+    functionspace,
     dirichletbc,
     locate_dofs_topological,
     set_bc,
@@ -151,10 +151,10 @@ def pacman_hybrid(nest):
 
     # Function spaces
     element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
-    V_u = FunctionSpace(mesh, element_u)
+    V_u = functionspace(mesh, element_u)
 
     element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
-    V_alpha = FunctionSpace(mesh, element_alpha)
+    V_alpha = functionspace(mesh, element_alpha)
 
     # Define the state
     u = Function(V_u, name="Displacement")

@@ -17,7 +17,7 @@ import ufl
 import yaml
 from dolfinx.fem import (
     Function,
-    FunctionSpace,
+    functionspace,
     assemble_scalar,
     dirichletbc,
     form,
@@ -28,7 +28,6 @@ from dolfinx.io import XDMFFile, gmshio
 from dolfinx.mesh import locate_entities_boundary
 from mpi4py import MPI
 from petsc4py import PETSc
-from pyvista.plotting.utilities import xvfb
 from irrevolutions.algorithms.am import HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.meshes.pacman import mesh_pacman
@@ -41,7 +40,13 @@ from irrevolutions.utils import (
     set_vector_to_constant,
 )
 from irrevolutions.utils.lib import _local_notch_asymptotic
-from irrevolutions.utils.viz import plot_mesh, plot_scalar, plot_vector
+from irrevolutions.utils.viz import (
+    plot_mesh,
+    plot_scalar,
+    plot_vector,
+    safe_screenshot,
+    setup_pyvista_offscreen,
+)
 import basix.ufl
 
 description = """We solve here a basic 2d of a notched specimen.
@@ -98,10 +103,10 @@ def run_computation(parameters, storage):
 
     # Function spaces
     element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(2,))
-    V_u = FunctionSpace(mesh, element_u)
+    V_u = functionspace(mesh, element_u)
 
     element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
-    V_alpha = FunctionSpace(mesh, element_alpha)
+    V_alpha = functionspace(mesh, element_alpha)
 
     # Define the state
     u = Function(V_u, name="Displacement")
@@ -263,19 +268,18 @@ def run_computation(parameters, storage):
                 json.dump(history_data, a_file)
                 a_file.close()
 
-            xvfb.start_xvfb(wait=0.05)
-            pyvista.OFF_SCREEN = True
+            setup_pyvista_offscreen()
             plotter = pyvista.Plotter(
                 title="State of the System",
                 window_size=[1600, 600],
                 shape=(1, 2),
             )
-            _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
-            _plt = plot_vector(u, plotter, subplot=(0, 1))
+            plotter, _ = plot_scalar(alpha, plotter, subplot=(0, 0))
+            plotter, _ = plot_vector(u, plotter, subplot=(0, 1))
             if comm.rank == 0:
                 Path("output").mkdir(parents=True, exist_ok=True)
-            _plt.screenshot(f"{prefix}/{_nameExp}-{comm.size}-{i_t}.png")
-            _plt.close()
+            safe_screenshot(plotter, f"{prefix}/{_nameExp}-{comm.size}-{i_t}.png")
+            plotter.close()
 
     from utils.plots import plot_energies
 

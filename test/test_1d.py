@@ -504,7 +504,7 @@ def run_computation(parameters, storage=None):
                         β,
                         points,
                         plotter,
-                        subplot=(1, 2),
+                        subplot=(0, 0),
                         lineproperties={"c": "k", "label": "$\\beta$"},
                         subplotnumber=1,
                     )
@@ -531,7 +531,7 @@ def run_computation(parameters, storage=None):
                         stability.perturbation["β"],
                         points,
                         plotter,
-                        subplot=(1, 2),
+                        subplot=(0, 1),
                         lineproperties={"c": "k", "label": "$\\beta$"},
                         subplotnumber=2,
                         ax=ax,

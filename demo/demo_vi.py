@@ -12,13 +12,17 @@ import petsc4py
 import pyvista
 import ufl
 import yaml
-from dolfinx.fem import Function, FunctionSpace, dirichletbc
+from dolfinx.fem import Function, dirichletbc, functionspace
 from dolfinx.fem.assemble import assemble_scalar
 from dolfinx.mesh import CellType
 from mpi4py import MPI
-from pyvista.plotting.utilities import xvfb
 from irrevolutions.solvers import SNESSolver
-from irrevolutions.utils.viz import plot_profile, plot_scalar
+from irrevolutions.utils.viz import (
+    plot_profile,
+    plot_scalar,
+    safe_screenshot,
+    setup_pyvista_offscreen,
+)
 
 petsc4py.init(sys.argv)
 
@@ -36,7 +40,7 @@ ell = parameters.get("model").get("ell")
 mesh = dolfinx.mesh.create_rectangle(
     MPI.COMM_WORLD, [[0.0, 0.0], [Lx, Ly]], [100, 10], cell_type=CellType.triangle
 )
-V = FunctionSpace(mesh, ("CG", 1))
+V = functionspace(mesh, ("CG", 1))
 
 zero = Function(V)
 with zero.x.petsc_vec.localForm() as loc:
@@ -107,8 +111,7 @@ with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "output/u.xdmf", "w") as f:
     f.write_mesh(mesh)
     f.write_function(u)
 
-xvfb.start_xvfb(wait=0.05)
-pyvista.OFF_SCREEN = True
+setup_pyvista_offscreen()
 
 plotter = pyvista.Plotter(
     title="Test VI",
@@ -116,11 +119,11 @@ plotter = pyvista.Plotter(
     shape=(1, 1),
 )
 _props = {"show_edges": True, "show_scalar_bar": True, "clim": [0, 1]}
-_plt = plot_scalar(u, plotter, subplot=(0, 0), lineproperties=_props)
+plotter, _ = plot_scalar(u, plotter, subplot=(0, 0), lineproperties=_props)
 
 # _plt = plot_vector(u, plotter, subplot=(0, 1))
 
-_plt.screenshot(f"{prefix}/test_vi_MPI{MPI.COMM_WORLD.size}.png")
+safe_screenshot(plotter, f"{prefix}/test_vi_MPI{MPI.COMM_WORLD.size}.png")
 
 if not pyvista.OFF_SCREEN:
     plotter.show()

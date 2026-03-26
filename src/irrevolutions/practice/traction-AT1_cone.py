@@ -28,7 +28,7 @@ from dolfinx.common import list_timings
 from dolfinx.fem import (
     Constant,
     Function,
-    FunctionSpace,
+    functionspace,
     assemble_scalar,
     dirichletbc,
     form,
@@ -128,10 +128,10 @@ with XDMFFile(
 
 # Function spaces
 element_u = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1, shape=(tdim,))
-V_u = FunctionSpace(mesh, element_u)
+V_u = functionspace(mesh, element_u)
 
 element_alpha = basix.ufl.element("Lagrange", mesh.basix_cell(), degree=1)
-V_alpha = FunctionSpace(mesh, element_alpha)
+V_alpha = functionspace(mesh, element_alpha)
 
 # Define the state
 u = Function(V_u, name="Displacement")

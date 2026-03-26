@@ -321,6 +321,7 @@ def set_vector_to_constant(x, value):
 def table_timing_data(tasks=None):
     import pandas as pd
     from dolfinx.common import timing
+    import numpy as np
 
     timing_data = []
     if tasks is None:
@@ -337,7 +338,11 @@ def table_timing_data(tasks=None):
         ]
 
     for task in tasks:
-        timing_data.append(timing(task))
+        try:
+            timing_data.append(timing(task))
+        except RuntimeError:
+            # Some scripts only exercise a subset of the registered timers.
+            timing_data.append((0, np.nan, np.nan, np.nan))
 
     df = pd.DataFrame(
         timing_data, columns=["reps", "wall tot", "usr", "sys"], index=tasks
