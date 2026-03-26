@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
+import hashlib
 import os
 
 import basix.ufl
 import dolfinx
 import dolfinx.mesh
 import numpy as np
+import pandas as pd
 import ufl
+import yaml
 from dolfinx.common import list_timings
 from dolfinx.fem import (
     Function,
@@ -18,7 +21,7 @@ from dolfinx.fem import (
 from mpi4py import MPI
 from petsc4py import PETSc
 
-from irrevolutions.algorithms.am import HybridSolver
+from irrevolutions.algorithms.am import AlternateMinimisation1D, HybridSolver
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.contracts import (
     EquilibriumResult,
@@ -31,10 +34,43 @@ from irrevolutions.contracts import (
     make_field_bounds,
     normalise_bcs,
 )
-from test.test_1d import _AlternateMinimisation1D, load_parameters
 
 
 comm = MPI.COMM_WORLD
+
+
+def load_parameters(file_path, ndofs, model="at1"):
+    with open(file_path) as stream:
+        parameters = yaml.load(stream, Loader=yaml.FullLoader)
+
+    parameters["model"]["model_dimension"] = 1
+    parameters["model"]["model_type"] = "1D"
+    parameters["model"]["w1"] = 1
+
+    if model == "at2":
+        parameters["loading"]["min"] = 0.9
+        parameters["loading"]["max"] = 0.9
+        parameters["loading"]["steps"] = 1
+    elif model == "at1":
+        parameters["loading"]["min"] = 0.0
+        parameters["loading"]["max"] = 1.5
+        parameters["loading"]["steps"] = 20
+
+    parameters["geometry"]["geom_type"] = "traction-bar"
+    parameters["geometry"]["mesh_size_factor"] = 4
+    parameters["geometry"]["N"] = ndofs
+
+    parameters["stability"]["cone"]["cone_max_it"] = 400000
+    parameters["stability"]["cone"]["cone_atol"] = 1e-6
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
+    parameters["stability"]["cone"]["scaling"] = 1e-2
+
+    parameters["model"]["w1"] = 1
+    parameters["model"]["ell"] = 0.2
+    parameters["model"]["k_res"] = 0.0
+
+    signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
+    return parameters, signature
 
 
 def build_1d_setup(parameters):
@@ -147,6 +183,15 @@ def _float_or_none(value):
 
 
 def test_1d():
+    columns = run_contract_1d()
+
+    neg_eigs = [entry[0] for entry in columns["inertia"]]
+    np.testing.assert_array_equal(neg_eigs, [0, 0, 0, 1, 2])
+    np.testing.assert_array_equal(columns["stable"], [True, True, True, False, False])
+    np.testing.assert_array_equal(columns["unique"], [True, True, True, False, False])
+
+
+def run_contract_1d():
     parameters, signature = load_parameters(
         os.path.join(os.path.dirname(os.path.dirname(__file__)), "parameters.yml"),
         ndofs=30,
@@ -156,7 +201,7 @@ def test_1d():
     solver_bcs = legacy_bcs_from_contract(setup.bcs)
     alpha_bounds = get_bounds_pair(setup.bounds, "alpha")
 
-    equilibrium = _AlternateMinimisation1D(
+    equilibrium = AlternateMinimisation1D(
         setup.energy,
         setup.state,
         solver_bcs,
@@ -301,9 +346,12 @@ def test_1d():
     assert set(setup.bcs.keys()) == {"u", "alpha"}
     assert set(setup.bounds.keys()) == {"alpha"}
 
-    neg_eigs = [entry[0] for entry in columns["inertia"]]
-    np.testing.assert_array_equal(neg_eigs, [0, 0, 0, 1, 2])
-    np.testing.assert_array_equal(columns["stable"], [True, True, True, False, False])
-    np.testing.assert_array_equal(columns["unique"], [True, True, True, False, False])
-
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
+    return columns
+
+
+if __name__ == "__main__":
+    columns = run_contract_1d()
+    if comm.rank == 0:
+        df = pd.DataFrame(columns)
+        print(df[["step", "load", "total_energy", "stable", "unique"]])
