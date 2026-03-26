@@ -207,6 +207,9 @@ class DamageElasticityModel(ElasticityModel):
     def _w_dd(self, alpha):
         return ufl.diff(self._w_prime(alpha), alpha)
 
+    def _s_dd(self, alpha):
+        return ufl.diff(self._s(alpha), alpha, 2)
+
     def rayleigh_coeffs(self, state, perturbation):
         """
         Compute the Rayleigh coefficients for the given state and perturbation.
@@ -238,10 +241,44 @@ class DamageElasticityModel(ElasticityModel):
         """
         Compute the Rayleigh terms for the given state and perturbation.
         """
-        # Get the elastic energy density
-        elastic_energy = self.elastic_energy_density(state)
+        dx = ufl.Measure("dx", state["alpha"].function_space.mesh)
+
+        E = self.model_parameters["E"]
+        ell = self.model_parameters["ell"]
+        w1 = self.model_parameters["w1"]
+
+        a = self.a(state["alpha"])
+        u = state["u"]
+        a_p = self._a_prime(state["alpha"])
+        s_dd = self._s_dd(state["alpha"])
+        w_dd = self._w_dd(state["alpha"])
+
+        sigma = self.stress(state["u"], state["alpha"])
+
+        v = perturbation["v"]
+        beta = perturbation["β"]
+
+        # ------------------------------------------------------------------
+        # Rayleigh numerator N(yε)(z)^2
+        # ------------------------------------------------------------------
+        # Term (∇v + (a'/a) ∇u β)
+        inner_term = self.eps(v) + (a_p / a) * self.eps(u) * beta
+        N_form = (
+            a * ufl.inner(inner_term, inner_term) * dx
+            + ell**2 * ufl.inner(ufl.grad(beta), ufl.grad(beta)) * dx
+        )
+
+        # ------------------------------------------------------------------
+        # Rayleigh denominator D(yε)(z)^2
+        # ------------------------------------------------------------------
+        D_pref = 1 / 2 * s_dd * ufl.inner(sigma, sigma) - w_dd
+        D_form = D_pref * beta**2 * dx
+
+        rayleigh_terms = {
+            "N": dolfinx.fem.assemble_scalar(dolfinx.fem.form(N_form)),
+            "D": dolfinx.fem.assemble_scalar(dolfinx.fem.form(D_form)),
+        }
         # Compute the Rayleigh terms
-        rayleigh_terms = ufl.inner(elastic_energy, perturbation)
 
         return rayleigh_terms
 

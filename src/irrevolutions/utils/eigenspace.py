@@ -17,7 +17,7 @@ def solve_minimum(parameters):
     c = parameters["c"]
     A, C = sp.symbols("A C")
     _condition = b * c**2 < np.pi**2 * a
-    print(f"bc**2 = {np.around(b*c**2, 2)}, π**2 * a = {np.around(np.pi**2 * a, 2)}")
+    print(f"bc**2 = {np.around(b * c**2, 2)}, π**2 * a = {np.around(np.pi**2 * a, 2)}")
 
     if _condition:
         print("case 1")
@@ -152,6 +152,10 @@ def solve_eigenspace_cone(parameters, idx=0):
     elif depends_on_D:
         print("depends_on_D")
 
+    β_avg = sp.integrate(β, (x, 0, 1))
+    v_prime_expr = parameters["c"] * (β - β_avg)
+    v_expr = sp.integrate(v_prime_expr, x)
+    __import__("pdb").set_trace()
     return {"v": 0, "β": β.subs(_normalise[idx]), "D": D}, _normalise[idx]
 
 
@@ -213,6 +217,6 @@ def l2_norm(components):
         norms.append(component_norm)
 
     # Compute the vector norm by summing the squared norms and taking the square root
-    vector_norm = np.sqrt(np.sum(np.array(norms)**2))
+    vector_norm = np.sqrt(np.sum(np.array(norms) ** 2))
 
     return vector_norm

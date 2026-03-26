@@ -289,6 +289,28 @@ def parallel_assemble_scalar(ufl_form):
     return comm.allreduce(local_scalar, op=MPI.SUM)
 
 
+def local_beta_view(xk, V_beta):
+    """
+    Return a numpy array that views the local portion of β inside xk.
+    No copy – zero-cost.
+    """
+    # global block-layout:   xk = [u ; β]
+    # find the global offset of the β block -------------------------
+    beta_size_local = V_beta.dofmap.index_map.size_local
+    beta_size_global = V_beta.dofmap.index_map.size_global
+    # number of u dofs on *this* rank  (needed for shift)
+    u_size_local = (
+        xk.getSize() // comm.allreduce(beta_size_global, op=MPI.SUM) * beta_size_local
+    )  # or store elsewhere
+    offset = u_size_local  # shift of β block on this rank
+
+    # indices of β dofs for *this* rank
+    local_idx = V_beta.dofmap.list
+    global_idx = offset + local_idx
+
+    return xk.getValues(global_idx)
+
+
 def run_computation(parameters, storage=None):
     Lx = parameters["geometry"]["Lx"]
     _nameExp = parameters["geometry"]["geom_type"]
@@ -374,9 +396,10 @@ def run_computation(parameters, storage=None):
     # Measures
     dx = ufl.Measure("dx", domain=mesh)
     # model = ThinFilm(parameters["model"])
+    model = Bar(parameters["model"], eps_0=dolfinx.fem.Constant(mesh, 0.0))
 
     total_energy = (
-        model.elastic_energy_density(state, u_zero) + model.damage_energy_density(state)
+        model.elastic_energy_density(state) + model.damage_energy_density(state)
     ) * dx
 
     load_par = parameters["loading"]
@@ -407,6 +430,7 @@ def run_computation(parameters, storage=None):
 
     arclength = []
     history_data["Rayleigh"] = []
+    history_data["Ritz"] = []
     signature = hashlib.md5(str(parameters).encode("utf-8")).hexdigest()
 
     if MPI.COMM_WORLD.rank == 0:
@@ -414,6 +438,9 @@ def run_computation(parameters, storage=None):
             yaml.dump(parameters, file)
         with open(f"{prefix}/signature.md5", "w") as f:
             f.write(signature)
+
+    Rayleigh_R_cone = np.nan
+    Rayleigh_R_ball = np.nan
 
     while True:
         try:
@@ -446,17 +473,96 @@ def run_computation(parameters, storage=None):
         inertia = bifurcation.get_inertia()
         logger.info(f"State inertia: {inertia}")
 
-        is_unique = bifurcation.solve(alpha_lb, inertia=inertia)
+        # is_unique = bifurcation.solve(alpha_lb, inertia=inertia)
+        is_unique = bifurcation.solve(alpha_lb)
         # is_elastic = not bifurcation._is_critical(alpha_lb)
 
+        # initialising with the smallest, may be positive
+
         z0 = (
-            bifurcation._spectrum[0]["xk"]
-            if bifurcation._spectrum and "xk" in bifurcation._spectrum[0]
+            bifurcation.spectrum[0]["xk"]
+            if bifurcation.spectrum and "xk" in bifurcation.spectrum[0]
             else None
         )
 
-        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
+        if z0 is not None:
+            V_beta = bifurcation.spectrum[0]["beta"].function_space
+            beta_vec = bifurcation.spectrum[0]["beta"].x  # dolfinx.la.Vector
 
+            beta_local = beta_vec.array  # read-only numpy view of local entries
+
+            # ---------------------------------------------------------------------
+            # Decide globally if β is strictly negative everywhere
+            # ---------------------------------------------------------------------
+            all_neg_local = np.all(beta_local < 0.0)
+            any_pos_local = np.any(beta_local > 0.0)
+
+            all_neg_global = comm.allreduce(all_neg_local, op=MPI.LAND)
+            any_pos_global = comm.allreduce(any_pos_local, op=MPI.LOR)
+
+            flip = all_neg_global and (not any_pos_global)
+            if flip:
+                logger.info(
+                    f"Flipping β to ensure it is strictly positive everywhere at load {t:.2f}."
+                )
+                z0.scale(-1)
+
+        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
+        if bifurcation.spectrum is not None:
+            if len(bifurcation._spectrum) > 0:
+                perturbation = {
+                    "v": bifurcation._spectrum[0]["v"],
+                    "β": bifurcation._spectrum[0]["beta"],
+                }
+            elif len(bifurcation.spectrum) > 0:
+                perturbation = {
+                    "v": bifurcation.spectrum[0]["v"],
+                    "β": bifurcation.spectrum[0]["beta"],
+                }
+                logger.info(
+                    f"Computing Rayleigh ratio for ball perturbation with eigenvalue {bifurcation.spectrum[0]['lambda']}."
+                )
+            else:
+                perturbation = None
+                logger.warning(
+                    f"No perturbation found in bifurcation spectrum at load {t:.2f}."
+                )
+            Rayleigh_terms = model.rayleigh_ratio(state, perturbation=perturbation)
+            R_N = Rayleigh_terms.get("N", np.nan)
+            R_D = Rayleigh_terms.get("D", np.nan)
+
+            if R_D == 0:
+                logger.warning(
+                    f"Rayleigh denominator is zero at load {t:.2f}, skipping Rayleigh ratio."
+                )
+                Rayleigh_R_ball = np.nan
+            else:
+                Rayleigh_R_ball = R_N / R_D
+
+            logger.info(
+                f"Rayleigh ratio at load {t:.2f}: R_ball = {Rayleigh_R_ball:.4f}"
+            )
+            if len(stability.spectrum) or len(stability._spectrum) > 0:
+                perturbation = stability.perturbation
+
+                logger.info(
+                    f"Computing Rayleigh ratio for cone perturbation with eigenvalue {perturbation['λ']}."
+                )
+                Rayleigh_terms = model.rayleigh_ratio(state, perturbation=perturbation)
+                R_N = Rayleigh_terms.get("N", np.nan)
+                R_D = Rayleigh_terms.get("D", np.nan)
+
+                if R_D == 0:
+                    logger.warning(
+                        f"Rayleigh denominator is zero at load {t:.2f}, skipping Rayleigh ratio."
+                    )
+                    Rayleigh_R_cone = np.nan
+                else:
+                    Rayleigh_R_cone = R_N / R_D
+
+                logger.info(
+                    f"Rayleigh ratio at load {t:.2f}: R_cone = {Rayleigh_R_cone:.4f}"
+                )
         # stable = True
 
         logger.info(f"Stability of state at load {t:.2f}: {stable}")
@@ -468,7 +574,6 @@ def run_computation(parameters, storage=None):
         bifurcation.log()
         stability.log()
         ColorPrint.print_bold(f"===================- {prefix} -=================")
-
         # if not stable:
         #     iterator.pause_time()
         #     logger.info(f"Time paused at {t:.2f}")
@@ -485,10 +590,22 @@ def run_computation(parameters, storage=None):
         # add coefficients to history data and log Rayleigh quotients
 
         compute_coefficients_from_state(state, model, parameters)
+        if bifurcation.perturbation == {}:
+            logging.warning(
+                "Bifurcation perturbation is None, skipping Rayleigh ratio for ball."
+            )
+            R_ball = np.nan
+            D_theory = np.nan
+            a, b, c = np.nan, np.nan, np.nan
+            Rayleigh_R_ball = np.nan
 
-        R_ball, (a, b, c) = rayleigh_ratio(
-            (bifurcation.perturbation["v"], bifurcation.perturbation["β"]), state, model
-        )
+        else:
+            R_ball, (a, b, c) = rayleigh_ratio(
+                (bifurcation.perturbation["v"], bifurcation.perturbation["β"]),
+                state,
+                model,
+            )
+            D_theory = (np.pi**2 * a / (b * c**2)) ** (1 / 3)
 
         if stability.solution["xt"] is None:
             logging.warning(
@@ -510,7 +627,6 @@ def run_computation(parameters, storage=None):
                 (stability.perturbation["v"], stability.perturbation["β"]), state, model
             )
 
-            D_theory = (np.pi**2 * a / (b * c**2)) ** (1 / 3)
             save_mode_shapes_to_npz(
                 t,
                 i_t,
@@ -529,7 +645,17 @@ def run_computation(parameters, storage=None):
         logging.info(f"Rayleigh quotients: R_ball={R_ball:.4f}, R_cone={R_cone:.4f}")
         # history_data["Rayleigh"].append(
         # )
-        rayleigh = {"R_ball": R_ball, "R_cone": R_cone, "a": a, "b": b, "c": c}
+        rayleigh = {
+            "R_ball": R_ball,
+            "R_cone": R_cone,
+            "Rayleigh_R_ball": Rayleigh_R_ball,
+            "Rayleigh_R_cone": Rayleigh_R_cone,
+            "D_theory": D_theory,
+            "D_support": D_support,
+            "a": a,
+            "b": b,
+            "c": c,
+        }
 
         plot_bifurcation_spectrum(bifurcation.spectrum, Lx, i_t, prefix, inertia)
 
@@ -568,7 +694,6 @@ def run_computation(parameters, storage=None):
 
     logger.info(f"Arclengths: {arclength}")
 
-    print(pd.DataFrame(history_data).drop(columns=["equilibrium_data"]))
     return history_data, stability.data, state
 
 
@@ -587,6 +712,7 @@ def dump_output(
     elastic_energy,
 ):
     logger.info(f"Dumping output at {t:.2f}")
+    ritz = []
 
     with dolfinx.common.Timer(f"~Output and Storage") as timer:
         with XDMFFile(
@@ -606,6 +732,7 @@ def dump_output(
             energies=[elastic_energy, fracture_energy],
         )
         history_data["Rayleigh"].append(rayleigh)
+        history_data["Ritz"].append(bifurcation.data.get("Ritz_history"))
 
         if comm.rank == 0:
             a_file = open(f"{prefix}/time_data.json", "w")
@@ -613,7 +740,7 @@ def dump_output(
             a_file.close()
 
 
-from matplotlib.cm import get_cmap
+from matplotlib.pyplot import get_cmap
 
 
 def plot_bifurcation_spectrum(spectrum, Lx, i_t, prefix, inertia=None, n_points=101):
@@ -626,9 +753,9 @@ def plot_bifurcation_spectrum(spectrum, Lx, i_t, prefix, inertia=None, n_points=
     ax_beta, ax_v = axes
 
     # Colormaps for progression
-    stable_cmap = get_cmap("Blues")
-    unstable_cmap = get_cmap("Reds")
-    max_n = max(mode["n"] for mode in spectrum)
+    stable_cmap = get_cmap("Blues_r")  # _r = reversed → dark colours first
+    unstable_cmap = get_cmap("Reds_r")
+    max_n = max(mode["n"] for mode in spectrum) + 1
     neg_count = 0
 
     for mode in spectrum:
@@ -693,6 +820,7 @@ def plot_bifurcation_spectrum(spectrum, Lx, i_t, prefix, inertia=None, n_points=
     fig.savefig(f"{prefix}/perturbation-spectrum-{i_t}.png")
     # close fig
     plt.close(fig)
+    plt.close()
 
 
 from irrevolutions.utils.viz import get_datapoints
@@ -725,18 +853,18 @@ def postprocess(
             op=MPI.SUM,
         )
         elastic_energy = comm.allreduce(
-            assemble_scalar(form(model.elastic_energy_density(state, u_zero) * dx)),
+            assemble_scalar(form(model.elastic_energy_density(state) * dx)),
             op=MPI.SUM,
         )
 
         fig_state, ax1 = matplotlib.pyplot.subplots()
 
-        if comm.rank == 0:
-            plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
-            plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
-            # plot_force_displacement(
-            #     history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
-            # )
+        # if comm.rank == 0:
+        #     plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+        #     plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
+        # plot_force_displacement(
+        #     history_data, file=f"{prefix}/{_nameExp}_stress-load.pdf"
+        # )
 
         # xvfb.start_xvfb(wait=0.05)
         pyvista.OFF_SCREEN = True
@@ -878,31 +1006,33 @@ def load_parameters(file_path, ndofs, model="at1"):
         parameters["model"]["at_number"] = 1
         parameters["loading"]["min"] = 0.99
         parameters["loading"]["max"] = 3
-        parameters["loading"]["steps"] = 30
+        parameters["loading"]["steps"] = 50
 
     parameters["geometry"]["geom_type"] = "1d-traction"
     parameters["geometry"]["Lx"] = L
     # parameters["geometry"]["mesh_size_factor"] = 10
 
-    parameters["stability"]["maxmodes"] = 3
-    parameters["stability"]["eigen"]["shift"] = -5e-1
+    parameters["stability"]["maxmodes"] = 5
+    parameters["stability"]["eigen"]["shift"] = -1e-1
     parameters["stability"]["eigen"]["eps_tol"] = 1e-8
 
     parameters["stability"]["cone"]["cone_max_it"] = 1000000
-    parameters["stability"]["cone"]["cone_atol"] = 1e-6
-    parameters["stability"]["cone"]["cone_rtol"] = 1e-6
+    parameters["stability"]["cone"]["cone_atol"] = 1e-8
+    parameters["stability"]["cone"]["cone_rtol"] = 1e-8
     parameters["stability"]["cone"]["scaling"] = 1e-3
     parameters["stability"]["mode"] = "always"
 
     parameters["model"]["w1"] = 1
-    parameters["model"]["ell"] = 0.3 / L
+    parameters["model"]["ell"] = 0.8 / L
     parameters["model"]["k_res"] = 0.0
     parameters["model"]["mu"] = 1
-    parameters["model"]["kappa"] = (1 / L) ** (-2)
+    # parameters["model"]["kappa"] = (1 / L) ** (-2)
 
     parameters["solvers"]["damage_elasticity"]["alpha_rtol"] = 1e-5
     parameters["solvers"]["newton"]["snes_atol"] = 1e-8
     parameters["solvers"]["newton"]["snes_rtol"] = 1e-8
+
+    parameters["stability"]["strategy"] = "always"
 
     jump_parameters = {
         "tau": 1,
@@ -925,7 +1055,7 @@ if __name__ == "__main__":
     # Load parameters
     parameters, signature = load_parameters(
         os.path.join(os.path.dirname(__file__), "parameters.yaml"),
-        ndofs=100,
+        ndofs=200,
         model="at1",
     )
 

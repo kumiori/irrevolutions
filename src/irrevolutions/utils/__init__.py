@@ -448,7 +448,8 @@ history_data = {
     "elastic_energy": [],
     "fracture_energy": [],
     "total_energy": [],
-    "equilibrium_data": [],
+    # "equilibrium_data": [],
+    # "bifurcation_data": [],
     "cone_data": [],
     "eigs_ball": [],
     "eigs_cone": [],
@@ -476,7 +477,8 @@ def _write_history_data(
     history_data["fracture_energy"].append(fracture_energy)
     history_data["elastic_energy"].append(elastic_energy)
     history_data["total_energy"].append(elastic_energy + fracture_energy)
-    history_data["equilibrium_data"].append(equilibrium.data)
+    # history_data["equilibrium_data"].append(equilibrium.data)
+    # history_data["bifurcation_data"].append(bifurcation.data)
     history_data["inertia"].append(inertia)
     history_data["unique"].append(unique)
     history_data["stable"].append(stable)

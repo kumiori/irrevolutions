@@ -72,6 +72,44 @@ def info_dofmap(space, name=None):
     )
 
 
+def attach_ritz_history(eps: SLEPc.EPS):
+    """Attach a blank list to store monitor data."""
+    ritz_history = []  # Will hold tuples (it, nconv, eig, errest)
+
+    # --- Define the monitor ---------------------------
+
+    def _monitor(eps, it, nconv, eig, errest):
+        """
+        SLEPc monitor: store a snapshot of the Ritz spectrum.
+
+        Parameters
+        ----------
+        it      : PETSc iteration counter (int)
+        nconv   : number of converged Ritz pairs (int)
+        eig     : tuple/list of (possibly complex) eigenvalues
+        errest  : tuple/list of error estimates
+        """
+
+        # --- force everything to plain Python scalars -----------------
+        eig_re = [float(ev.real) for ev in eig]  # real parts
+        eig_im = [float(ev.imag) for ev in eig]  # imag. parts
+        err_vals = [float(e) for e in errest]  # estimates
+
+        ritz_history.append(
+            {
+                "iter": int(it),
+                "nconv": int(nconv),
+                "eig_re": eig_re,  # list[float]
+                "eig_im": eig_im,  # list[float]
+                "err": err_vals,  # list[float]
+            }
+        )
+
+    # Register the monitor
+    eps.setMonitor(_monitor)
+    return ritz_history
+
+
 class SecondOrderSolver:
     """Base class for stability analysis of a unilaterally constrained
     local minimisation problem of a given energy. Instantiates the
@@ -110,6 +148,9 @@ class SecondOrderSolver:
         # Initialize L as a DG(0) function
         L = dolfinx.fem.functionspace(self.mesh, ("DG", 0))
         self.lmbda0 = dolfinx.fem.Function(L)
+
+        self.spectrum = []
+        self._spectrum = []
 
         # Define the forms associated with the second derivative of the energy
         self.F_ = [
@@ -209,6 +250,8 @@ class SecondOrderSolver:
         eigen.eps.setProblemType(SLEPc.EPS.ProblemType.HEP)
 
         eigen.eps.setWhichEigenpairs(eigen.eps.Which.TARGET_REAL)
+        # eigen.eps.setWhichEigenpairs(eigen.eps.Which.SMALLEST_REAL)
+        # eigen.eps.setWhichEigenpairs(eigen.eps.Which.LARGEST_REAL)
 
         st = eigen.eps.getST()
         st.setType("sinvert")
@@ -217,8 +260,10 @@ class SecondOrderSolver:
         eigen.eps.setTolerances(
             self.parameters["eigen"]["eig_rtol"], self.parameters["eigen"]["eps_max_it"]
         )
+        ncv = self.parameters["eigen"].get("ncv", 3 * self.parameters["maxmodes"])
 
-        eigen.eps.setDimensions(self.parameters["maxmodes"], PETSc.DECIDE)
+        # eigen.eps.setDimensions(self.parameters["maxmodes"], PETSc.DECIDE)
+        eigen.eps.setDimensions(self.parameters["maxmodes"], ncv)
         eigen.eps.setFromOptions()
         # eigen.eps.view()
 
@@ -359,15 +404,6 @@ class SecondOrderSolver:
 
         return coeff_glob
 
-    def postproc_eigs(self, eigs, eigen):
-        """
-        Postprocess the computed eigenvalues.
-
-        Args:
-            eigs: List of computed eigenvalues.
-            eigen: Eigenvalue problem instance.
-        """
-
     def solve(self, alpha_old: dolfinx.fem.function.Function):
         """
         Solve the stability analysis problem.
@@ -391,6 +427,11 @@ class SecondOrderSolver:
         # Check if the system is damage-critical and log it
         self.log_critical_state()
 
+        def my_eps_monitor(eps, it, nconv, eig, errest):
+            logger.critical(
+                f"[it={it:3d}] nconv={nconv:2d}  Ritz={eig}  errest={errest}"
+            )
+
         with dolfinx.common.Timer("~Second Order: Bifurcation"):
             # Set up constraints
             constraints = self.setup_constraints(alpha_old)
@@ -398,10 +439,28 @@ class SecondOrderSolver:
 
             # Set up and solve the eigenvalue problem
             eigen = self.setup_eigenvalue_problem(constraints)
+
+            # eigen.eps.setMonitor(my_eps_monitor)
+            ritz_hist = attach_ritz_history(eigen.eps)  # <- add before eigen.solve()
+            # __import__("pdb").set_trace()
+
+            # init_vec = create_vector_block(self.F)
+            # one_beta = self.state[1].copy()
+            # zero_v = self.state[1].copy()
+            # # with one_beta.localForm() as beta_local:
+            # one_beta.x.array[:] = 1.0
+            # zero_v.x.array[:] = 0.0
+            # functions_to_vec([zero_v, one_beta], init_vec)
+            # init_vec.assemble()
+
+            # if len(constraints.bglobal_dofs_vec_stacked) == len(init_vec.array):
+            #     eigen.eps.setInitialSpace(init_vec)  # one vector only
+
             eigen.solve()
 
-            # Process and analyze the eigenmodes
             self.eigen = eigen
+
+            # Process and analyze the eigenmodes
             spectrum = self.process_eigenmodes(eigen)
 
             # Sort eigenmodes by eigenvalues
@@ -409,7 +468,8 @@ class SecondOrderSolver:
             # unstable_spectrum = list(filter(lambda item: item.get("lambda") <= 0, spectrum))
 
             # Store the results
-            stable = self.store_results(eigen, spectrum)
+            # stable = self.store_results(eigen, spectrum)
+            stable = self.store_results(eigen, spectrum, ritz_hist)
 
         return stable
 
@@ -524,7 +584,7 @@ class SecondOrderSolver:
 
         return v_n, β_n, eigval, _u
 
-    def store_results(self, eigen, spectrum):
+    def store_results(self, eigen, spectrum, ritz_hist=None):
         """Store eigenmodes and results."""
 
         if not spectrum:
@@ -569,6 +629,7 @@ class SecondOrderSolver:
             "perturbations_beta": perturbations_beta,
             "perturbations_v": perturbations_v,
             "stable": bool(stable),
+            "Ritz_history": ritz_hist,
         }
         # store the first perturbation mode
         self.perturbation = {
@@ -650,6 +711,9 @@ class BifurcationSolver(SecondOrderSolver):
         if not self._spectrum:
             logger.info("No negative spectrum.")
 
+        if len(self.spectrum) == 0:
+            logger.info("No eigenvalues computed.")
+            return
         # Find the minimum eigenvalue
         min_eigenvalue = min(
             entry["lambda"] for entry in self.spectrum if "lambda" in entry
@@ -749,7 +813,6 @@ class StabilitySolver(SecondOrderSolver):
         if stab_mode == "always":
             logger.info("Forcing full second-order stability analysis (mode='always')")
             _perform_stability_analysis = self._is_critical(alpha_old)
-
         elif stab_mode == "only_if_damaging":
             if self._is_damaging(alpha_old):
                 logger.info(
@@ -812,6 +875,7 @@ class StabilitySolver(SecondOrderSolver):
             # x0 = eig0[0].get("xk")
             x0 = eig0 if eig0 else _x.copy()
             x0.copy(result=_x).normalize()
+
             _x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             logger.debug(f"initial guess x0: {x0.array}")
@@ -875,6 +939,9 @@ class StabilitySolver(SecondOrderSolver):
         """
 
         _s = float(self.parameters.get("cone").get("scaling"))
+        _y = _xk.duplicate()  # same size as _xk
+        _y.set(0)  # default: zero vector
+        _lmbda_k = float("nan")  # ‘undefined’ eigenvalue marker
 
         while self.iterate(_xk, errors):
             _lmbda_k, _y = self.update_lambda_and_y(_xk, _Ar)
@@ -1214,6 +1281,20 @@ class StabilitySolver(SecondOrderSolver):
     def store_results(self, lmbda_t, xt, yt):
         # Store SPA results and log convergence information
         perturbation = self.finalise_eigenmode(xt, yt, lmbda_t)
+
+        inf_spectrum = {
+            "n": 0,
+            "lambda": lmbda_t,
+            "xk": xt,
+            "v": perturbation["v"],
+            "β": perturbation["β"],
+        }
+
+        if lmbda_t > 0:
+            self.spectrum = [inf_spectrum]
+        else:
+            self._spectrum = [inf_spectrum]
+
         # self.data["lambda_0"] = lmbda_t
         self.solution = {"lambda_t": lmbda_t, "xt": xt, "yt": yt}
         self.perturbation = perturbation

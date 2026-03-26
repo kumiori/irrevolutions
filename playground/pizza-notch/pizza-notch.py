@@ -347,7 +347,7 @@ def test_2d():
     # parser.add_argument("-N", help="The number of dofs.", type=int, default=10)
     # args = parser.parse_args()
     N = 1000
-    parameters, signature = load_parameters("data/pacman/parameters.yaml", ndofs=N)
+    parameters, signature = load_parameters("parameters.yaml", ndofs=N)
     pretty_parameters = json.dumps(parameters, indent=2)
     print(pretty_parameters)
 
