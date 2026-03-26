@@ -58,3 +58,5 @@ TODO/**
 **env/**
 dist/**
 wheelhouse/**
+.coverage
+coverage.json
