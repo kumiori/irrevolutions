@@ -109,10 +109,10 @@ def test_linsearch(parameters, storage):
 
     # Function spaces
     element_u = ufl.VectorElement("Lagrange", mesh.ufl_cell(), degree=1, dim=tdim)
-    V_u = dolfinx.fem.FunctionSpace(mesh, element_u)
+    V_u = dolfinx.fem.functionspace(mesh, element_u)
 
     element_alpha = ufl.FiniteElement("Lagrange", mesh.ufl_cell(), degree=1)
-    V_alpha = dolfinx.fem.FunctionSpace(mesh, element_alpha)
+    V_alpha = dolfinx.fem.functionspace(mesh, element_alpha)
 
     # Define the state
     u = Function(V_u, name="Displacement")

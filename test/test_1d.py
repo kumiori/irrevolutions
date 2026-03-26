@@ -46,7 +46,7 @@ from irrevolutions.utils import (
 from irrevolutions.utils.plots import plot_AMit_load, plot_energies
 
 #
-from irrevolutions.utils.viz import plot_profile
+from irrevolutions.utils.viz import plot_profile, setup_pyvista_offscreen
 
 """The fundamental problem of a 1d bar in traction.
 0|(WWWWWWWWWWWWWWWWWWWWWW)|========> t
@@ -160,7 +160,9 @@ class _AlternateMinimisation1D:
             residual_F.ghostUpdate(
                 addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
             )
-            set_bc(residual_F, self.elasticity.bcs, self.u.x.petsc_vec)
+            with residual_F.localForm() as residual_local:
+                for bc in self.elasticity.bcs:
+                    bc.set(residual_local.array_w, self.u.x.array, -1.0)
             error_residual_F = ufl.sqrt(residual_F.dot(residual_F))
 
             self.alpha.x.petsc_vec.copy(self.alpha_old.x.petsc_vec)
@@ -495,6 +497,7 @@ def run_computation(parameters, storage=None):
                     points = np.zeros((3, 101))
                     points[0] = xs
 
+                    setup_pyvista_offscreen()
                     plotter = pyvista.Plotter(
                         title="Perturbation profile",
                         window_size=[800, 600],
@@ -512,7 +515,9 @@ def run_computation(parameters, storage=None):
                     ax.set_xlabel("x")
                     ax.set_yticks([-1, 0, 1])
                     ax.set_ylabel("$\\beta$")
-                    _plt.legend()
+                    handles, labels = ax.get_legend_handles_labels()
+                    if labels:
+                        _plt.legend()
                     _plt.fill_between(
                         data_bifurcation[0],
                         data_bifurcation[1].reshape(len(data_bifurcation[1])),
@@ -546,7 +551,9 @@ def run_computation(parameters, storage=None):
                     ax.set_xlabel("x")
                     ax.set_yticks([0, 1])
                     ax.set_ylabel("$\\beta$")
-                    _plt.legend()
+                    handles, labels = ax.get_legend_handles_labels()
+                    if labels:
+                        _plt.legend()
                     _plt.fill_between(
                         data_stability[0],
                         data_stability[1].reshape(len(data_stability[1])),

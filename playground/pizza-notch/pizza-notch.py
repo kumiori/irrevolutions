@@ -39,6 +39,7 @@ from irrevolutions.utils import (
     history_data,
     set_vector_to_constant,
 )
+from irrevolutions.utils.compat import initial_mode_from_spectrum
 from irrevolutions.utils.lib import _local_notch_asymptotic
 from irrevolutions.utils.viz import (
     plot_mesh,
@@ -234,7 +235,8 @@ def run_computation(parameters, storage):
 
         inertia = bifurcation.get_inertia()
 
-        stable = stability.solve(alpha_lb, eig0=bifurcation._spectrum, inertia=inertia)
+        z0 = initial_mode_from_spectrum(bifurcation._spectrum)
+        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
         with dolfinx.common.Timer("~Postprocessing and Vis"):
             fracture_energy = comm.allreduce(

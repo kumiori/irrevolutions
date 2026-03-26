@@ -160,7 +160,8 @@ def test_linsearch():
     ]
     bcs_alpha = []
 
-    set_bc(alpha_ub.x.petsc_vec, bcs_alpha)
+    for bc in bcs_alpha:
+        bc.set(alpha_ub.x.array)
     alpha_ub.x.petsc_vec.ghostUpdate(
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )

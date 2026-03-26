@@ -350,7 +350,7 @@ def main(parameters, model="at2", storage=None):
         ColorPrint.print_bold("===================-=================")
 
         z0 = initial_mode_from_spectrum(bifurcation._spectrum)
-        stable = stability.my_solve(alpha_lb, eig0=z0, inertia=inertia)
+        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
         if bifurcation._spectrum:
             plot_perturbations(comm, Lx, prefix, β, v, bifurcation, stability, i_t)

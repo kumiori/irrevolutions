@@ -484,7 +484,7 @@ def discrete_atk(arg_N=2):
         ColorPrint.print_bold(f"State's inertia: {inertia}")
         ColorPrint.print_bold(f"State is stable: {is_stable}")
 
-        stable = cone._solve(alpha_lb)
+        stable = cone.solve(alpha_lb, inertia=(0, 0, 0))
 
         fracture_energy = comm.allreduce(
             assemble_scalar(form(damage_energy_density(state) * dx)),

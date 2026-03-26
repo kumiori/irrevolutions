@@ -335,7 +335,11 @@ def pacman_cone(resolution=2, slug="pacman"):
         ColorPrint.print_bold("   Solving second order: Cone Pb.    ")
         ColorPrint.print_bold("===================-=================")
 
-        stable = cone.my_solve(alpha_lb, eig0=bifurcation._spectrum)
+        stable = cone.solve(
+            alpha_lb,
+            eig0=(bifurcation._spectrum[0]["xk"] if bifurcation._spectrum else None),
+            inertia=inertia,
+        )
 
         logging.critical(f"State is elastic: {is_elastic}")
         logging.critical(f"State's inertia: {inertia}")

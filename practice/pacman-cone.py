@@ -335,7 +335,7 @@ def pacman_cone(resolution=2, slug="pacman"):
         ColorPrint.print_bold("===================-=================")
 
         z0 = initial_mode_from_spectrum(bifurcation._spectrum)
-        stable = cone.my_solve(alpha_lb, eig0=z0)
+        stable = cone.solve(alpha_lb, eig0=z0, inertia=inertia)
 
         logging.critical(f"State is elastic: {is_elastic}")
         logging.critical(f"State's inertia: {inertia}")

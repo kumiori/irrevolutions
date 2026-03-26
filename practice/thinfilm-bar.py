@@ -301,7 +301,7 @@ def main(parameters, storage=None):
         ColorPrint.print_bold("===================-=================")
 
         z0 = initial_mode_from_spectrum(bifurcation._spectrum)
-        stable = stability.my_solve(alpha_lb, eig0=z0, inertia=inertia)
+        stable = stability.solve(alpha_lb, eig0=z0, inertia=inertia)
 
         if bifurcation._spectrum:
             vec_to_functions(bifurcation._spectrum[0]["xk"], [v, β])

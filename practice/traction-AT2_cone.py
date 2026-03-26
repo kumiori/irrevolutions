@@ -268,7 +268,7 @@ for i_t, t in enumerate(loads):
     ColorPrint.print_bold("===================-=================")
 
     z0 = initial_mode_from_spectrum(bifurcation._spectrum)
-    stable = cone.my_solve(alpha_lb, eig0=z0)
+    stable = cone.solve(alpha_lb, eig0=z0, inertia=inertia)
 
     fracture_energy = comm.allreduce(
         assemble_scalar(form(model.damage_energy_density(state) * dx)),

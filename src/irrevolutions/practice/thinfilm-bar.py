@@ -299,8 +299,10 @@ def main(parameters, storage=None):
         ColorPrint.print_bold("   Solving second order: Stability Pb.    ")
         ColorPrint.print_bold("===================-=================")
 
-        stable = stability.my_solve(
-            alpha_lb, eig0=bifurcation._spectrum, inertia=inertia
+        stable = stability.solve(
+            alpha_lb,
+            eig0=(bifurcation._spectrum[0]["xk"] if bifurcation._spectrum else None),
+            inertia=inertia,
         )
 
         if bifurcation._spectrum:
