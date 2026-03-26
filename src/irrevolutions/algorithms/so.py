@@ -183,6 +183,18 @@ class SecondOrderSolver:
         else:
             raise NotImplementedError("Stability check not implemented")
 
+    def is_elastic(self) -> bool:
+        """
+        Legacy compatibility helper.
+
+        Older scripts use "elastic" to mean the damage constraint is
+        subcritical, i.e. there is no inactive damage set to analyze.
+        """
+        alpha_old = getattr(self, "alpha_old", None)
+        if alpha_old is None:
+            return False
+        return not self._is_critical(alpha_old)
+
     def get_inactive_dofset(self, a_old) -> set:
         """Computes the set of dofs where damage constraints are inactive
         based on the energy gradient, the upper bound, and the lower bound
@@ -255,7 +267,7 @@ class SecondOrderSolver:
 
         st = eigen.eps.getST()
         st.setType("sinvert")
-        st.setShift(self.parameters["eigen"]["shift"])
+        st.setShift(self.parameters["eigen"].get("shift", -1.0e-3))
 
         eigen.eps.setTolerances(
             self.parameters["eigen"]["eig_rtol"], self.parameters["eigen"]["eps_max_it"]
@@ -687,6 +699,7 @@ class BifurcationSolver(SecondOrderSolver):
         bcs: list,
         nullspace=None,
         bifurcation_parameters=None,
+        stability_parameters=None,
     ):
         """
         Initialize the BifurcationSolver.
@@ -703,7 +716,11 @@ class BifurcationSolver(SecondOrderSolver):
             state,
             bcs,
             nullspace,
-            stability_parameters=bifurcation_parameters,
+            stability_parameters=(
+                bifurcation_parameters
+                if bifurcation_parameters is not None
+                else stability_parameters
+            ),
         )
 
     def log(self, logger=logger):
