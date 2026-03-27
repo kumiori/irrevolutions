@@ -12,11 +12,12 @@ CURRENT_DAMAGE_FIELD_KEYS = frozenset({"u", "alpha"})
 
 def validate_state(
     state: Mapping[str, fem.Function],
-    required_keys: frozenset[str] = CURRENT_DAMAGE_FIELD_KEYS,
+    required_keys: frozenset[str] | None = CURRENT_DAMAGE_FIELD_KEYS,
 ) -> Mapping[str, fem.Function]:
-    missing = required_keys.difference(state.keys())
-    if missing:
-        raise ValueError(f"State is missing required fields: {sorted(missing)}")
+    if required_keys is not None:
+        missing = required_keys.difference(state.keys())
+        if missing:
+            raise ValueError(f"State is missing required fields: {sorted(missing)}")
 
     for name, value in state.items():
         if not isinstance(value, fem.Function):
@@ -27,7 +28,7 @@ def validate_state(
 
 def normalise_bcs(
     bcs: Mapping[str, Any],
-    required_keys: frozenset[str] = CURRENT_DAMAGE_FIELD_KEYS,
+    required_keys: frozenset[str] | None = CURRENT_DAMAGE_FIELD_KEYS,
 ) -> dict[str, dict[str, Any]]:
     normalised: dict[str, dict[str, Any]] = {}
 
@@ -51,9 +52,12 @@ def normalise_bcs(
             f"Boundary conditions for '{key}' must be a mapping or a list of DirichletBCs"
         )
 
-    missing = required_keys.difference(normalised.keys())
-    if missing:
-        raise ValueError(f"Boundary conditions are missing required fields: {sorted(missing)}")
+    if required_keys is not None:
+        missing = required_keys.difference(normalised.keys())
+        if missing:
+            raise ValueError(
+                f"Boundary conditions are missing required fields: {sorted(missing)}"
+            )
 
     return normalised
 
@@ -102,13 +106,14 @@ class ExperimentSetup:
     bounds: Mapping[str, Mapping[str, Any]]
     parameters: Mapping[str, Any]
     energy: Any
+    required_fields: frozenset[str] | None = CURRENT_DAMAGE_FIELD_KEYS
     mesh: Any | None = None
     spaces: Mapping[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        validate_state(self.state)
-        self.bcs = normalise_bcs(self.bcs)
+        validate_state(self.state, self.required_fields)
+        self.bcs = normalise_bcs(self.bcs, self.required_fields)
         validate_bounds(self.bounds)
 
 
@@ -121,13 +126,14 @@ class EquilibriumResult:
     bounds: Mapping[str, Mapping[str, Any]]
     converged: bool
     solver_name: str
+    required_fields: frozenset[str] | None = CURRENT_DAMAGE_FIELD_KEYS
     iterations: int | None = None
     residual_norm: float | None = None
     total_energy: float | None = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        validate_state(self.state)
+        validate_state(self.state, self.required_fields)
         validate_bounds(self.bounds)
 
 

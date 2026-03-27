@@ -1,10 +1,22 @@
 #!/usr/bin/env python3
+from dataclasses import asdict
 from irrevolutions.utils import ColorPrint
 from irrevolutions.utils.compat import initial_mode_from_spectrum
 from irrevolutions.models import DamageElasticityModel as Brittle
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.algorithms.am import HybridSolver
+from irrevolutions.contracts import (
+    EquilibriumResult,
+    ExperimentSetup,
+    History,
+    Manifest,
+    StepRecord,
+    get_bounds_pair,
+    legacy_bcs_from_contract,
+    make_field_bounds,
+    normalise_bcs,
+)
 import json
 import logging
 import os
@@ -57,6 +69,14 @@ comm = MPI.COMM_WORLD
 
 # Mesh on node model_rank and then distribute
 model_rank = 0
+
+
+def _float_or_none(value):
+    if value is None:
+        return None
+    if np.isscalar(value) and np.isnan(value):
+        return None
+    return float(value)
 
 
 def traction_with_parameters(parameters, slug=""):
@@ -177,7 +197,20 @@ def traction_with_parameters(parameters, slug=""):
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
-    bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
+    bcs = normalise_bcs(
+        {
+            "u": {
+                "dirichlet": bcs_u,
+                "loading": {
+                    "type": "displacement_control",
+                    "parameter": None,
+                    "component": 0,
+                    "region": "right",
+                },
+            },
+            "alpha": {"dirichlet": bcs_alpha, "loading": None},
+        }
+    )
     # Define the model
 
     model = Brittle(parameters["model"])
@@ -198,45 +231,46 @@ def traction_with_parameters(parameters, slug=""):
         parameters["loading"]["steps"],
     )
 
-    # solver = AlternateMinimisation(
-    #     total_energy, state, bcs, parameters.get("solvers"),
-    #     bounds=(alpha_lb, alpha_ub)
-    # )
+    bounds = {"alpha": make_field_bounds(alpha_lb, alpha_ub)}
+    setup = ExperimentSetup(
+        state=state,
+        bcs=bcs,
+        bounds=bounds,
+        parameters=parameters,
+        energy=total_energy,
+        mesh=mesh,
+        spaces={"u": V_u, "alpha": V_alpha},
+        metadata={"geom_type": _nameExp},
+    )
+    solver_bcs = legacy_bcs_from_contract(setup.bcs)
+    alpha_bounds = get_bounds_pair(setup.bounds, "alpha")
+    history = History()
+    manifest = Manifest(
+        parameters=parameters,
+        run_id=signature,
+        solver_options={
+            "solvers": parameters.get("solvers"),
+            "stability": parameters.get("stability"),
+        },
+        mesh={"cell_name": mesh.topology.cell_name(), "tdim": mesh.topology.dim},
+        spaces={"u": str(V_u.element), "alpha": str(V_alpha.element)},
+    )
 
     hybrid = HybridSolver(
         total_energy,
         state,
-        bcs,
-        bounds=(alpha_lb, alpha_ub),
+        solver_bcs,
+        bounds=alpha_bounds,
         solver_parameters=parameters.get("solvers"),
     )
 
     bifurcation = BifurcationSolver(
-        total_energy, state, bcs, stability_parameters=parameters.get("stability")
+        total_energy, state, solver_bcs, stability_parameters=parameters.get("stability")
     )
 
     cone = StabilitySolver(
-        total_energy, state, bcs, cone_parameters=parameters.get("stability")
+        total_energy, state, solver_bcs, cone_parameters=parameters.get("stability")
     )
-
-    history_data = {
-        "load": [],
-        "elastic_energy": [],
-        "fracture_energy": [],
-        "total_energy": [],
-        "solver_data": [],
-        "solver_HY_data": [],
-        "solver_KS_data": [],
-        "cone-eig": [],
-        "eigs": [],
-        "uniqueness": [],
-        "inertia": [],
-        "F": [],
-        "alphadot_norm": [],
-        "rate_12_norm": [],
-        "unscaled_rate_12_norm": [],
-        "cone-stable": [],
-    }
 
     check_stability = []
 
@@ -330,22 +364,64 @@ def traction_with_parameters(parameters, slug=""):
 
         _unique = True if inertia[0] == 0 and inertia[1] == 0 else False
 
-        history_data["load"].append(t)
-        history_data["fracture_energy"].append(fracture_energy)
-        history_data["elastic_energy"].append(elastic_energy)
-        history_data["total_energy"].append(elastic_energy + fracture_energy)
-        history_data["solver_data"].append(hybrid.data)
-        history_data["solver_HY_data"].append(hybrid.newton_data)
-        history_data["solver_KS_data"].append(cone.data)
-        history_data["eigs"].append(bifurcation.data["eigs"])
-        history_data["F"].append(stress)
-        history_data["alphadot_norm"].append(alphadot.x.petsc_vec.norm())
-        history_data["rate_12_norm"].append(rate_12_norm)
-        history_data["unscaled_rate_12_norm"].append(urate_12_norm)
-        history_data["cone-stable"].append(stable)
-        history_data["cone-eig"].append(cone.data.get("lambda_0", np.nan))
-        history_data["uniqueness"].append(_unique)
-        history_data["inertia"].append(inertia)
+        equilibrium_result = EquilibriumResult(
+            step=i_t,
+            load=float(t),
+            time=float(t),
+            state=setup.state,
+            bounds=setup.bounds,
+            converged=True,
+            solver_name="hybrid",
+            iterations=(
+                hybrid.data["iteration"][-1] if hybrid.data["iteration"] else None
+            ),
+            residual_norm=(
+                float(hybrid.data["error_residual_F"][-1])
+                if hybrid.data["error_residual_F"]
+                else None
+            ),
+            total_energy=elastic_energy + fracture_energy,
+        )
+        history.append(
+            StepRecord(
+                step=equilibrium_result.step,
+                load=equilibrium_result.load,
+                time=equilibrium_result.time,
+                elastic_energy=elastic_energy,
+                fracture_energy=fracture_energy,
+                total_energy=equilibrium_result.total_energy,
+                solver_converged=equilibrium_result.converged,
+                n_iterations=equilibrium_result.iterations,
+                inertia=inertia,
+                stability_attempted=True,
+                stability_converged=stable is not None,
+                stable=stable,
+                lambda_stab_min=_float_or_none(cone.data.get("lambda_0")),
+                bifurcation_attempted=True,
+                bifurcation_converged=True,
+                unique=_unique,
+                lambda_bif_min=(
+                    min(float(np.real(value)) for value in bifurcation.data.get("eigs", []))
+                    if bifurcation.data.get("eigs")
+                    else None
+                ),
+                extra={
+                    "solver_data": hybrid.data,
+                    "equilibrium_data": hybrid.data,
+                    "solver_HY_data": hybrid.newton_data,
+                    "solver_KS_data": cone.data,
+                    "cone-eig": cone.data.get("lambda_0", np.nan),
+                    "eigs": bifurcation.data.get("eigs", []),
+                    "F": stress,
+                    "alphadot_norm": alphadot.x.petsc_vec.norm(),
+                    "rate_12_norm": rate_12_norm,
+                    "unscaled_rate_12_norm": urate_12_norm,
+                    "cone-stable": stable,
+                    "uniqueness": _unique,
+                },
+            )
+        )
+        history_data = history.to_columns()
 
         with XDMFFile(
             comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
@@ -355,7 +431,7 @@ def traction_with_parameters(parameters, slug=""):
 
         if comm.rank == 0:
             a_file = open(f"{prefix}/time_data.json", "w")
-            json.dump(history_data, a_file)
+            json.dump(history_data, a_file, default=str)
             a_file.close()
 
         ColorPrint.print_bold("   Written timely data.    ")
@@ -392,6 +468,11 @@ def traction_with_parameters(parameters, slug=""):
     _plt = plot_scalar(alpha, plotter, subplot=(0, 0))
     _plt = plot_vector(u, plotter, subplot=(0, 1))
     _plt.screenshot(f"{prefix}/traction-state.png")
+
+    history_data = history.to_columns()
+    if comm.rank == 0:
+        with open(f"{prefix}/manifest.json", "w") as file:
+            json.dump(asdict(manifest), file, default=str)
 
     return history_data, _timings
 

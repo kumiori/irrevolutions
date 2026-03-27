@@ -18,6 +18,13 @@ from dolfinx.io import XDMFFile, gmshio
 from mpi4py import MPI
 from petsc4py import PETSc
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
+from irrevolutions.contracts import (
+    ExperimentSetup,
+    History,
+    Manifest,
+    StepRecord,
+    normalise_bcs,
+)
 from irrevolutions.models import ElasticityModel
 from irrevolutions.solvers import SNESSolver as ElasticitySolver
 from irrevolutions.utils.viz import plot_vector, safe_screenshot, setup_pyvista_offscreen
@@ -112,7 +119,20 @@ bcs_u = [
     # dolfinx.fem.dirichletbc(ux_, dofs_ux_right, V_u.sub(0)),
 ]
 
-bcs = {"bcs_u": bcs_u}
+bcs = normalise_bcs(
+    {
+        "u": {
+            "dirichlet": bcs_u,
+            "loading": {
+                "type": "displacement_control",
+                "parameter": None,
+                "component": 0,
+                "region": "right",
+            },
+        }
+    },
+    required_keys=frozenset({"u"}),
+)
 # Define the model
 model = ElasticityModel(parameters["model"])
 
@@ -134,10 +154,24 @@ solver = ElasticitySolver(
     prefix=parameters.get("solvers").get("elasticity").get("prefix"),
 )
 
-history_data = {
-    "load": [],
-    "elastic_energy": [],
-}
+setup = ExperimentSetup(
+    state=state,
+    bcs=bcs,
+    bounds={},
+    parameters=parameters,
+    energy=total_energy,
+    required_fields=frozenset({"u"}),
+    mesh=mesh,
+    spaces={"u": V_u},
+    metadata={"geom_type": geom_type},
+)
+history = History()
+manifest = Manifest(
+    parameters=parameters,
+    solver_options={"solvers": parameters.get("solvers")},
+    mesh={"cell_name": mesh.topology.cell_name(), "tdim": mesh.topology.dim},
+    spaces={"u": str(V_u.element)},
+)
 
 for i_t, t in enumerate(loads):
     u_.interpolate(lambda x: (t * np.ones_like(x[0]), 0 * np.ones_like(x[1])))
@@ -151,13 +185,24 @@ for i_t, t in enumerate(loads):
 
     elastic_energy = comm.allreduce(
         dolfinx.fem.assemble_scalar(
-            dolfinx.fem.form(model.elastic_energy_density(state) * dx)
+            dolfinx.fem.form(model.elastic_energy_density(setup.state) * dx)
         ),
         op=MPI.SUM,
     )
 
-    history_data["load"].append(t)
-    history_data["elastic_energy"].append(elastic_energy)
+    history.append(
+        StepRecord(
+            step=i_t,
+            load=float(t),
+            time=float(t),
+            elastic_energy=elastic_energy,
+            fracture_energy=None,
+            total_energy=elastic_energy,
+            solver_converged=True,
+            extra={"manifest": manifest.run_id},
+        )
+    )
+    history_data = history.to_columns()
 
     with XDMFFile(comm, f"{prefix}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)
@@ -166,6 +211,10 @@ for i_t, t in enumerate(loads):
         a_file = open(f"{prefix}_data.json", "w")
         json.dump(history_data, a_file)
         a_file.close()
+
+if comm.rank == 0:
+    with open(f"{prefix}_manifest.json", "w") as file:
+        json.dump({"parameters": manifest.parameters}, file, default=str)
 
 setup_pyvista_offscreen()
 

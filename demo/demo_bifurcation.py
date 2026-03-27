@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from dataclasses import asdict
 import json
 import logging
 import os
@@ -25,6 +26,17 @@ from petsc4py import PETSc
 
 from irrevolutions.algorithms.am import AlternateMinimisation
 from irrevolutions.algorithms.so import BifurcationSolver
+from irrevolutions.contracts import (
+    EquilibriumResult,
+    ExperimentSetup,
+    History,
+    Manifest,
+    StepRecord,
+    get_bounds_pair,
+    legacy_bcs_from_contract,
+    make_field_bounds,
+    normalise_bcs,
+)
 from irrevolutions.meshes.primitives import mesh_bar_gmshapi
 from irrevolutions.models import DamageElasticityModel as Brittle
 from irrevolutions.utils import ColorPrint
@@ -41,6 +53,14 @@ comm = MPI.COMM_WORLD
 
 # Mesh on node model_rank and then distribute
 model_rank = 0
+
+
+def _float_or_none(value):
+    if value is None:
+        return None
+    if np.isscalar(value) and np.isnan(value):
+        return None
+    return float(value)
 
 
 with open(os.path.join(os.path.dirname(__file__), "parameters.yml")) as f:
@@ -136,7 +156,20 @@ alpha_ub.x.petsc_vec.ghostUpdate(
 )
 
 
-bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
+bcs = normalise_bcs(
+    {
+        "u": {
+            "dirichlet": bcs_u,
+            "loading": {
+                "type": "displacement_control",
+                "parameter": None,
+                "component": 0,
+                "region": "right",
+            },
+        },
+        "alpha": {"dirichlet": bcs_alpha, "loading": None},
+    }
+)
 # Define the model
 
 model = Brittle(parameters["model"])
@@ -149,24 +182,34 @@ total_energy = model.total_energy_density(state) * dx - external_work
 load_par = parameters["loading"]
 loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
 
+bounds = {"alpha": make_field_bounds(alpha_lb, alpha_ub)}
+setup = ExperimentSetup(
+    state=state,
+    bcs=bcs,
+    bounds=bounds,
+    parameters=parameters,
+    energy=total_energy,
+    mesh=mesh,
+    spaces={"u": V_u, "alpha": V_alpha},
+    metadata={"geom_type": _nameExp},
+)
+solver_bcs = legacy_bcs_from_contract(setup.bcs)
+alpha_bounds = get_bounds_pair(setup.bounds, "alpha")
+history = History()
+manifest = Manifest(
+    parameters=parameters,
+    mesh={"cell_name": mesh.topology.cell_name(), "tdim": mesh.topology.dim},
+    spaces={"u": str(V_u.element), "alpha": str(V_alpha.element)},
+)
+
 solver = AlternateMinimisation(
-    total_energy, state, bcs, parameters.get("solvers"), bounds=(alpha_lb, alpha_ub)
+    total_energy, state, solver_bcs, parameters.get("solvers"), bounds=alpha_bounds
 )
 
 
 bifurcation = BifurcationSolver(
-    total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
+    total_energy, state, solver_bcs, bifurcation_parameters=parameters.get("stability")
 )
-
-history_data = {
-    "load": [],
-    "elastic_energy": [],
-    "fracture_energy": [],
-    "total_energy": [],
-    "solver_data": [],
-    "eigs-ball": [],
-    "unique": [],
-}
 
 check_stability = []
 
@@ -204,13 +247,51 @@ for i_t, t in enumerate(loads):
         op=MPI.SUM,
     )
 
-    history_data["load"].append(t)
-    history_data["fracture_energy"].append(fracture_energy)
-    history_data["elastic_energy"].append(elastic_energy)
-    history_data["total_energy"].append(elastic_energy + fracture_energy)
-    history_data["solver_data"].append(solver.data)
-    history_data["eigs-ball"].append(bifurcation.data["eigs"])
-    history_data["unique"].append(is_unique)
+    equilibrium_result = EquilibriumResult(
+        step=i_t,
+        load=float(t),
+        time=float(t),
+        state=setup.state,
+        bounds=setup.bounds,
+        converged=True,
+        solver_name="alternate_minimisation",
+        iterations=(
+            solver.data["iteration"][-1] if solver.data["iteration"] else None
+        ),
+        residual_norm=(
+            float(solver.data["error_residual_F"][-1])
+            if solver.data["error_residual_F"]
+            else None
+        ),
+        total_energy=elastic_energy + fracture_energy,
+    )
+    history.append(
+        StepRecord(
+            step=equilibrium_result.step,
+            load=equilibrium_result.load,
+            time=equilibrium_result.time,
+            elastic_energy=elastic_energy,
+            fracture_energy=fracture_energy,
+            total_energy=equilibrium_result.total_energy,
+            solver_converged=True,
+            n_iterations=equilibrium_result.iterations,
+            inertia=inertia,
+            bifurcation_attempted=True,
+            bifurcation_converged=True,
+            unique=is_unique,
+            lambda_bif_min=(
+                min(float(np.real(value)) for value in bifurcation.data.get("eigs", []))
+                if bifurcation.data.get("eigs")
+                else None
+            ),
+            extra={
+                "solver_data": solver.data,
+                "equilibrium_data": solver.data,
+                "eigs-ball": bifurcation.data.get("eigs", []),
+            },
+        )
+    )
+    history_data = history.to_columns()
 
     with XDMFFile(
         comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
@@ -220,7 +301,7 @@ for i_t, t in enumerate(loads):
 
     if comm.rank == 0:
         a_file = open(f"{prefix}/{_nameExp}-data.json", "w")
-        json.dump(history_data, a_file)
+        json.dump(history_data, a_file, default=str)
         a_file.close()
 
     list_timings(MPI.COMM_WORLD, [dolfinx.common.TimingType.wall])
@@ -230,5 +311,7 @@ print(df)
 
 if comm.rank == 0:
     plot_energies(history_data, file=f"{prefix}_energies.pdf")
+    with open(f"{prefix}/{_nameExp}-manifest.json", "w") as file:
+        json.dump(asdict(manifest), file, default=str)
 
 # Viz
