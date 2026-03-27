@@ -3,6 +3,7 @@
 *.h5
 *.png
 *.pyc
+*.pyo
 .vscode/launch.json
 .vscode/settings.json
 .vscode/tasks.json
@@ -41,6 +42,9 @@
 **/*.npz*
 **/*.mat*
 **/.DS_Store
+**/__pycache__/
+**/.ipynb_checkpoints/
+**/evolution.log
 
 build/
 
@@ -52,9 +56,16 @@ test_*/
 src/irrevolutions/test/output/*
 **/output/**
 **egg-info**
-.venv/**
+.venv/
 TODO/**
 .clean_env/**
 **env/**
 dist/**
 wheelhouse/**
+.coverage
+**/.coverage
+coverage.json
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+coverage_report/
