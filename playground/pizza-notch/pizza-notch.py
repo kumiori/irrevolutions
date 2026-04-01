@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from dataclasses import asdict
 import hashlib
 import json
 import logging
@@ -35,9 +36,18 @@ from irrevolutions.models import DamageElasticityModel as Brittle
 from irrevolutions.utils import (
     ColorPrint,
     _logger,
-    _write_history_data,
-    history_data,
     set_vector_to_constant,
+)
+from irrevolutions.contracts import (
+    EquilibriumResult,
+    ExperimentSetup,
+    History,
+    Manifest,
+    StepRecord,
+    get_bounds_pair,
+    legacy_bcs_from_contract,
+    make_field_bounds,
+    normalise_bcs,
 )
 from irrevolutions.utils.compat import initial_mode_from_spectrum
 from irrevolutions.utils.lib import _local_notch_asymptotic
@@ -62,6 +72,14 @@ comm = MPI.COMM_WORLD
 
 # Mesh on node model_rank and then distribute
 model_rank = 0
+
+
+def _float_or_none(value):
+    if value is None:
+        return None
+    if np.isscalar(value) and np.isnan(value):
+        return None
+    return float(value)
 
 
 def run_computation(parameters, storage):
@@ -172,7 +190,19 @@ def run_computation(parameters, storage):
         addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
     )
 
-    bcs = {"bcs_u": bcs_u, "bcs_alpha": bcs_alpha}
+    bcs = normalise_bcs(
+        {
+            "u": {
+                "dirichlet": bcs_u,
+                "loading": {
+                    "type": "asymptotic_notch_control",
+                    "parameter": None,
+                    "region": "external_boundary",
+                },
+            },
+            "alpha": {"dirichlet": bcs_alpha, "loading": None},
+        }
+    )
 
     # Bounds for Newton solver
 
@@ -196,20 +226,44 @@ def run_computation(parameters, storage):
     loads = np.linspace(load_par["min"], load_par["max"], load_par["steps"])
     # loads = [0., 0.5, 1.01, 1.3, 2.]
 
+    bounds = {"alpha": make_field_bounds(alpha_lb, alpha_ub)}
+    setup = ExperimentSetup(
+        state=state,
+        bcs=bcs,
+        bounds=bounds,
+        parameters=parameters,
+        energy=total_energy,
+        mesh=mesh,
+        spaces={"u": V_u, "alpha": V_alpha},
+        metadata={"geom_type": _nameExp},
+    )
+    solver_bcs = legacy_bcs_from_contract(setup.bcs)
+    alpha_bounds = get_bounds_pair(setup.bounds, "alpha")
+    history = History()
+    manifest = Manifest(
+        parameters=parameters,
+        mesh={"cell_name": mesh.topology.cell_name(), "tdim": mesh.topology.dim},
+        spaces={"u": str(V_u.element), "alpha": str(V_alpha.element)},
+        metadata={"geom_type": _nameExp},
+    )
+
     equilibrium = HybridSolver(
         total_energy,
         state,
-        bcs,
-        bounds=(alpha_lb, alpha_ub),
+        solver_bcs,
+        bounds=alpha_bounds,
         solver_parameters=parameters.get("solvers"),
     )
 
     bifurcation = BifurcationSolver(
-        total_energy, state, bcs, bifurcation_parameters=parameters.get("stability")
+        total_energy,
+        state,
+        solver_bcs,
+        bifurcation_parameters=parameters.get("stability"),
     )
 
     stability = StabilitySolver(
-        total_energy, state, bcs, cone_parameters=parameters.get("stability")
+        total_energy, state, solver_bcs, cone_parameters=parameters.get("stability")
     )
 
     _logger.setLevel(level=logging.CRITICAL)
@@ -248,16 +302,47 @@ def run_computation(parameters, storage):
                 op=MPI.SUM,
             )
 
-            _write_history_data(
-                equilibrium,
-                bifurcation,
-                stability,
-                history_data,
-                t,
-                inertia,
-                stable,
-                [fracture_energy, elastic_energy],
+            equilibrium_result = EquilibriumResult(
+                step=i_t,
+                load=float(t),
+                time=float(t),
+                state=state,
+                bounds=bounds,
+                converged=True,
+                solver_name="HybridSolver",
+                iterations=equilibrium.data.get("iteration"),
+                total_energy=elastic_energy + fracture_energy,
+                meta={"solver_data": equilibrium.data},
             )
+            history.append(
+                StepRecord(
+                    step=i_t,
+                    load=float(t),
+                    time=float(t),
+                    elastic_energy=elastic_energy,
+                    fracture_energy=fracture_energy,
+                    total_energy=elastic_energy + fracture_energy,
+                    solver_converged=True,
+                    n_iterations=equilibrium.data.get("iteration"),
+                    equilibrium=equilibrium_result,
+                    stability_attempted=True,
+                    stability_converged=stable is not None,
+                    stable=None if stable is None else bool(stable),
+                    lambda_stan_min=_float_or_none(stability.data.get("lambda_0")),
+                    bifurcation_attempted=True,
+                    bifurcation_converged=True,
+                    unique=bool(not bifurcation._is_critical(alpha_lb)),
+                    lambda_bif_min=_float_or_none(bifurcation.data.get("lambda_0")),
+                    extra={
+                        "solver_data": equilibrium.data,
+                        "equilibrium_data": equilibrium.data,
+                        "cone_data": stability.data,
+                        "eigs-ball": bifurcation.data.get("eigs"),
+                        "eigs-cone": stability.data.get("eigs"),
+                    },
+                )
+            )
+            history_data = history.to_columns()
 
             with XDMFFile(
                 comm, f"{prefix}/{_nameExp}.xdmf", "a", encoding=XDMFFile.Encoding.HDF5
@@ -267,7 +352,7 @@ def run_computation(parameters, storage):
 
             if comm.rank == 0:
                 a_file = open(f"{prefix}/time_data.json", "w")
-                json.dump(history_data, a_file)
+                json.dump(history_data, a_file, default=str)
                 a_file.close()
 
             setup_pyvista_offscreen()
@@ -285,8 +370,11 @@ def run_computation(parameters, storage):
 
     from utils.plots import plot_energies
 
+    history_data = history.to_columns()
     if comm.rank == 0:
         plot_energies(history_data, file=f"{prefix}/{_nameExp}_energies.pdf")
+        with open(f"{prefix}/manifest.json", "w") as file:
+            json.dump(asdict(manifest), file, indent=2, default=str)
         # plot_AMit_load(history_data, file=f"{prefix}/{_nameExp}_it_load.pdf")
 
     return history_data, stability.data, state

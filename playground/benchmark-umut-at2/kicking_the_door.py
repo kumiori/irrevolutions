@@ -33,7 +33,7 @@ from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
 from irrevolutions.algorithms.ls import LineSearch
 from irrevolutions.solvers import SNESSolver
 from irrevolutions.solvers.function import vec_to_functions
-from irrevolutions.test.test_1d import _AlternateMinimisation1D as am1d
+from irrevolutions.algorithms.am import AlternateMinimisation1D as am1d
 from irrevolutions.utils import (
     ColorPrint,
     ResultsStorage,

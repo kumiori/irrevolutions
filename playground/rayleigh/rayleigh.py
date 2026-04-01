@@ -1,4 +1,5 @@
 import argparse
+from dataclasses import asdict
 import hashlib
 import json
 import logging
@@ -17,6 +18,15 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 from irrevolutions.algorithms.so import BifurcationSolver, StabilitySolver
+from irrevolutions.contracts import (
+    ExperimentSetup,
+    History,
+    Manifest,
+    StepRecord,
+    legacy_bcs_from_contract,
+    make_field_bounds,
+    normalise_bcs,
+)
 from irrevolutions.solvers.function import vec_to_functions
 from irrevolutions.utils import ColorPrint, _logger, indicator_function
 from irrevolutions.utils.viz import get_datapoints, plot_profile
@@ -114,8 +124,8 @@ def test_rayleigh(parameters=None, storage=None):
     alpha = dolfinx.fem.Function(V_alpha, name="Damage")
 
     zero_u = dolfinx.fem.Function(V_u, name="Boundary condition")
-    zero_alpha = dolfinx.fem.Function(V_u, name="Lower bound")
-    one_alpha = dolfinx.fem.Function(V_u, name="Upper bound")
+    zero_alpha = dolfinx.fem.Function(V_alpha, name="Lower bound")
+    one_alpha = dolfinx.fem.Function(V_alpha, name="Upper bound")
 
     alpha.interpolate(lambda x: 1e-4 * np.ones_like(x[0]))
 
@@ -152,11 +162,18 @@ def test_rayleigh(parameters=None, storage=None):
 
     bc_u_left = dirichletbc(np.array(0, dtype=PETSc.ScalarType), dofs_u_left, V_u)
 
-    bc_u_right = dirichletbc(zero, dofs_u_right)
+    bc_u_right = dirichletbc(zero_u, dofs_u_right)
 
     bcs_u = [bc_u_left, bc_u_right]
-
-    bcs = {"bcs_u": bcs_u, "bcs_alpha": []}
+    bcs = normalise_bcs(
+        {
+            "u": {
+                "dirichlet": bcs_u,
+                "loading": {"type": "fixed_endpoints", "parameter": None},
+            },
+            "alpha": {"dirichlet": [], "loading": None},
+        }
+    )
 
     # Perturbations
     β = dolfinx.fem.Function(V_alpha, name="DamagePerturbation")
@@ -164,6 +181,25 @@ def test_rayleigh(parameters=None, storage=None):
 
     # Pack state
     state = {"u": u, "alpha": alpha}
+    bounds = {"alpha": make_field_bounds(zero_alpha, one_alpha)}
+    setup = ExperimentSetup(
+        state=state,
+        bcs=bcs,
+        bounds=bounds,
+        parameters=parameters,
+        energy=G,
+        mesh=mesh,
+        spaces={"u": V_u, "alpha": V_alpha},
+        metadata={"geom_type": parameters["geometry"]["geom_type"]},
+    )
+    solver_bcs = legacy_bcs_from_contract(setup.bcs)
+    history = History()
+    manifest = Manifest(
+        parameters=parameters,
+        run_id=signature,
+        mesh={"cell_name": mesh.topology.cell_name(), "tdim": mesh.topology.dim},
+        spaces={"u": str(V_u.element), "alpha": str(V_alpha.element)},
+    )
 
     mode_shapes_data = {
         "time_steps": [],
@@ -183,13 +219,13 @@ def test_rayleigh(parameters=None, storage=None):
     _logger.setLevel(level=logging.INFO)
 
     bifurcation = BifurcationSolver(
-        G, state, bcs, bifurcation_parameters=parameters.get("stability")
+        G, state, solver_bcs, bifurcation_parameters=parameters.get("stability")
     )
     stability = StabilitySolver(
-        G, state, bcs, cone_parameters=parameters.get("stability")
+        G, state, solver_bcs, cone_parameters=parameters.get("stability")
     )
     bifurcation.solve(zero_alpha)
-    bifurcation.get_inertia()
+    inertia = bifurcation.get_inertia()
     stability.solve(zero_alpha, eig0=bifurcation.spectrum[0]["xk"], inertia=(1, 0, 10))
 
     _logger.setLevel(level=logging.INFO)
@@ -388,6 +424,39 @@ def test_rayleigh(parameters=None, storage=None):
         mode_shapes_data["global_values"]["D_theory"] = _D
         mode_shapes_data["global_values"]["D_support"] = D_support
 
+    history.append(
+        StepRecord(
+            step=0,
+            load=0.0,
+            time=0.0,
+            total_energy=None,
+            solver_converged=True,
+            stability_attempted=True,
+            stability_converged=True,
+            stable=True,
+            lambda_stan_min=float(stability.data.get("lambda_0"))
+            if stability.data.get("lambda_0") is not None
+            else None,
+            bifurcation_attempted=True,
+            bifurcation_converged=True,
+            unique=bool(bifurcation.data.get("stable", True)),
+            lambda_bif_min=float(bifurcation.data.get("lambda_0"))
+            if bifurcation.data.get("lambda_0") is not None
+            else None,
+            extra={
+                "cone_data": stability.data,
+                "eigs-ball": bifurcation.data.get("eigs"),
+                "eigs-cone": stability.data.get("eigs"),
+                "rayleigh_vector": mode_shapes_data["global_values"]["R_vector"],
+                "rayleigh_cone": mode_shapes_data["global_values"]["R_cone"],
+                "inertia": inertia,
+            },
+        )
+    )
+    with open(f"{prefix}/manifest.json", "w") as file:
+        json.dump(asdict(manifest), file, indent=2, default=str)
+    with open(f"{prefix}/history_data.json", "w") as file:
+        json.dump(history.to_columns(), file, indent=2, default=str)
     print(mode_shapes_data["global_values"])
     np.savez(f"{prefix}/mode_shapes_data.npz", **mode_shapes_data)
 
@@ -439,7 +508,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process evolution.")
     parser.add_argument("-N", help="The number of dofs.", type=int, default=50)
     args = parser.parse_args()
-    parameters, signature = load_parameters("parameters.yml", ndofs=args.N)
+    parameters, signature = load_parameters(
+        os.path.join(os.path.dirname(__file__), "parameters.yml"), ndofs=args.N
+    )
     pretty_parameters = json.dumps(parameters, indent=2)
 
     _storage = f"output/rayleigh-benchmark/MPI-{MPI.COMM_WORLD.Get_size()}/{signature}"
