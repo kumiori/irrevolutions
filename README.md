@@ -95,7 +95,7 @@ docker run --rm -ti -v "C:/...":/home/numerix" -w /home/numerix kumiori3\numerix
 Clone this repository:
 
 ```bash
-git clone https://github.com/kumiori/irrevolutions.gt
+git clone https://github.com/kumiori/irrevolutions.git
 cd irrevolutions
 ```
 
